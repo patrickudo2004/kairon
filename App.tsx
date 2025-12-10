@@ -874,6 +874,7 @@ const AppContent: React.FC = () => {
               {!isReadOnly && <Route path="/editor" element={
                 <ProgramEditor
                   program={program}
+                  isCoEditor={isCoEditor}
                   onUpdate={(p) => {
                     setProgram(p);
                     if (p.slots.length === 0) {
