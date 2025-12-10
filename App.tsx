@@ -335,6 +335,7 @@ const AppContent: React.FC = () => {
   const mode = searchParams.get('mode') || 'editor';
   const importData = searchParams.get('import');
   const isReadOnly = mode === 'viewer';
+  const queryClient = useQueryClient();
 
   // Main State
   const [program, setProgram] = useState<Program>(INITIAL_PROGRAM);
@@ -452,13 +453,15 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (mutation.isSuccess) {
       setSaveStatus('saved');
+      // Invalidate programs cache to refresh home view
+      queryClient.invalidateQueries({ queryKey: ['programs'] });
       // Reset to unsaved after 2 seconds to show it's ready for next change
       setTimeout(() => setSaveStatus('saved'), 2000);
     }
     if (mutation.isError) {
       setSaveStatus('unsaved');
     }
-  }, [mutation.isSuccess, mutation.isError]);
+  }, [mutation.isSuccess, mutation.isError, queryClient]);
 
   // Supabase Realtime Connection & Sync
   useEffect(() => {
@@ -715,9 +718,24 @@ const AppContent: React.FC = () => {
 
   const HomeWrapper = () => {
     const navigate = useNavigate();
+
+    // Fetch all programs from Supabase
+    const { data: allPrograms = [], isLoading } = useQuery({
+      queryKey: ['programs'],
+      queryFn: getPrograms,
+    });
+
+    if (isLoading) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-slate-500">Loading programs...</div>
+        </div>
+      );
+    }
+
     return (
       <HomeDashboard
-        programs={savedPrograms}
+        programs={allPrograms}
         activeProgramId={program.id}
         onSelectProgram={(p) => { loadProgram(p); navigate(`/live?mode=${mode}`); }}
         onCreateNew={() => { createProgram(new Date().toISOString().split('T')[0]); navigate(`/editor?mode=${mode}`); }}
