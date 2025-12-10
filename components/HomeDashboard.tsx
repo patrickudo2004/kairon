@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Program } from '../types';
-import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy } from 'lucide-react';
+import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy, AlertTriangle, X } from 'lucide-react';
 
 interface HomeDashboardProps {
   programs: Program[];
@@ -21,12 +21,22 @@ interface ProgramCardProps {
 }
 
 const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, onSelect, onDelete, onDuplicate }) => {
-  
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm(`Are you sure you want to delete "${program.title}"? This action cannot be undone.`)) {
-      onDelete(program.id);
-    }
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete(program.id);
+    setShowDeleteConfirm(false);
+  };
+
+  const cancelDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDeleteConfirm(false);
   };
 
   const handleDuplicate = (e: React.MouseEvent) => {
@@ -35,12 +45,12 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
   };
 
   return (
-    <div 
+    <div
       onClick={() => onSelect(program)}
       className={`
         group relative overflow-hidden p-5 rounded-xl border transition-all cursor-pointer
-        ${isActive 
-          ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500/50 ring-1 ring-indigo-500/30' 
+        ${isActive
+          ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500/50 ring-1 ring-indigo-500/30'
           : isPast
             ? 'bg-slate-100 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800'
             : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-600 shadow-lg dark:shadow-none hover:shadow-xl'
@@ -54,7 +64,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
           </h3>
           <p className="text-sm text-slate-500 dark:text-slate-500 line-clamp-1">{program.subtitle}</p>
         </div>
-        
+
         {isActive && (
           <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide">
             Active
@@ -77,24 +87,72 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
       </div>
 
       <div className={`absolute right-4 bottom-4 flex gap-2 transition-opacity ${isPast ? 'opacity-0 group-hover:opacity-100' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100'}`}>
-         <button 
-           onClick={handleDuplicate}
-           className="bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-slate-400 hover:text-indigo-600 p-2 rounded-full shadow-lg transition-colors"
-           title="Duplicate Program"
-         >
-           <Copy size={16} />
-         </button>
-         <button 
-           onClick={handleDelete}
-           className="bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-slate-400 hover:text-rose-600 p-2 rounded-full shadow-lg transition-colors"
-           title="Delete Program"
-         >
-           <Trash2 size={16} />
-         </button>
-         <div className={`bg-indigo-600 p-2 rounded-full text-white shadow-lg ${isPast ? 'hidden' : 'block'}`}>
-           <Play size={16} fill="currentColor" />
-         </div>
+        <button
+          onClick={handleDuplicate}
+          className="bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-slate-400 hover:text-indigo-600 p-2 rounded-full shadow-lg transition-colors"
+          title="Duplicate Program"
+        >
+          <Copy size={16} />
+        </button>
+        <button
+          onClick={handleDelete}
+          className="bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-slate-400 hover:text-rose-600 p-2 rounded-full shadow-lg transition-colors"
+          title="Delete Program"
+        >
+          <Trash2 size={16} />
+        </button>
+        <div className={`bg-indigo-600 p-2 rounded-full text-white shadow-lg ${isPast ? 'hidden' : 'block'}`}>
+          <Play size={16} fill="currentColor" />
+        </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={cancelDelete}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-4 mb-4">
+              <div className="p-3 bg-rose-100 dark:bg-rose-900/30 rounded-full">
+                <AlertTriangle size={24} className="text-rose-600 dark:text-rose-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                  Delete Program?
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Are you sure you want to delete <span className="font-semibold">"{program.title}"</span>? This action cannot be undone.
+                </p>
+              </div>
+              <button
+                onClick={cancelDelete}
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <X size={20} className="text-slate-400" />
+              </button>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={cancelDelete}
+                className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-medium shadow-lg shadow-rose-500/20 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -109,14 +167,14 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
 }) => {
   // Sort programs: Newest date first
   const sortedPrograms = [...programs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  
+
   const today = new Date().toISOString().split('T')[0];
   const upcoming = sortedPrograms.filter(p => p.date >= today);
   const past = sortedPrograms.filter(p => p.date < today);
 
   return (
     <div className="max-w-4xl mx-auto p-6 pb-24">
-      
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
@@ -125,7 +183,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">Manage your conference schedules</p>
         </div>
-        <button 
+        <button
           onClick={onCreateNew}
           className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl font-medium shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
         >
@@ -139,13 +197,13 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
         <h2 className="text-sm font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
           <Clock size={16} /> Upcoming & Active
         </h2>
-        
+
         {upcoming.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {upcoming.map(program => (
-              <ProgramCard 
-                key={program.id} 
-                program={program} 
+              <ProgramCard
+                key={program.id}
+                program={program}
                 isActive={program.id === activeProgramId}
                 onSelect={onSelectProgram}
                 onDelete={onDelete}
@@ -169,10 +227,10 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
         {past.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {past.map(program => (
-              <ProgramCard 
-                key={program.id} 
-                program={program} 
-                isPast={true} 
+              <ProgramCard
+                key={program.id}
+                program={program}
+                isPast={true}
                 isActive={program.id === activeProgramId}
                 onSelect={onSelectProgram}
                 onDelete={onDelete}

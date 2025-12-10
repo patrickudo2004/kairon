@@ -543,24 +543,32 @@ const AppContent: React.FC = () => {
     loadProgram(newProgram);
   };
 
-  const deleteProgram = (id: string) => {
-    setSavedPrograms(prev => {
-      const updated = prev.filter(p => p.id !== id);
+  const deleteProgram = async (id: string) => {
+    if (isReadOnly) return;
 
-      // If we deleted the current program, switch to another one or create new
+    try {
+      // Delete from Supabase
+      await deleteProgramService(id);
+
+      // Invalidate cache to refresh home view
+      queryClient.invalidateQueries({ queryKey: ['programs'] });
+
+      // If we deleted the current program, load another one
       if (program.id === id) {
-        if (updated.length > 0) {
-          // Switch to first available
-          loadProgram(updated[0]);
+        // Fetch programs to find another one
+        const allPrograms = await getPrograms();
+        if (allPrograms.length > 0) {
+          loadProgram(allPrograms[0]);
         } else {
           // Reset to initial if all deleted
-          const reset = { ...INITIAL_PROGRAM, id: crypto.randomUUID() }; // New ID to avoid state conflicts
+          const reset = { ...INITIAL_PROGRAM, id: crypto.randomUUID() };
           loadProgram(reset);
-          return [reset];
         }
       }
-      return updated;
-    });
+    } catch (error) {
+      console.error('Failed to delete program:', error);
+      alert('Failed to delete program. Please try again.');
+    }
   };
 
   const duplicateProgram = (id: string) => {
