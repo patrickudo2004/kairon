@@ -335,6 +335,7 @@ const AppContent: React.FC = () => {
   const mode = searchParams.get('mode') || 'editor';
   const importData = searchParams.get('import');
   const isReadOnly = mode === 'viewer';
+  const isCoEditor = mode === 'coeditor';
   const queryClient = useQueryClient();
 
   // Main State
@@ -848,7 +849,7 @@ const AppContent: React.FC = () => {
         <main className="flex-1 overflow-y-auto custom-scrollbar relative">
           <div className="max-w-7xl mx-auto w-full h-full">
             <Routes>
-              {!isReadOnly && <Route path="/" element={<HomeWrapper />} />}
+              {!isReadOnly && !isCoEditor && <Route path="/" element={<HomeWrapper />} />}
               <Route path="/live" element={
                 <LiveTimer
                   program={program}
@@ -883,7 +884,7 @@ const AppContent: React.FC = () => {
                   }}
                 />
               } />}
-              {!isReadOnly && <Route path="/calendar" element={<CalendarWrapper />} />}
+              {!isReadOnly && !isCoEditor && <Route path="/calendar" element={<CalendarWrapper />} />}
             </Routes>
           </div>
         </main>
@@ -891,7 +892,7 @@ const AppContent: React.FC = () => {
         {/* Bottom Dock */}
         <nav className="sticky bottom-6 mx-auto z-50 flex justify-center w-full px-4">
           <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 px-2 md:px-4 py-2 rounded-2xl shadow-2xl shadow-slate-200/50 dark:shadow-slate-950/50 flex items-center gap-1 md:gap-3 overflow-x-auto no-scrollbar max-w-full">
-            {!isReadOnly && (
+            {!isReadOnly && !isCoEditor && (
               <NavLink to={`/?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
                 <Home size={20} className="mb-1" />
                 <span className="text-[10px] font-semibold uppercase">Home</span>
@@ -911,10 +912,12 @@ const AppContent: React.FC = () => {
                   <Edit3 size={20} className="mb-1" />
                   <span className="text-[10px] font-semibold uppercase">Edit</span>
                 </NavLink>
-                <NavLink to={`/calendar?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                  <CalendarIcon size={20} className="mb-1" />
-                  <span className="text-[10px] font-semibold uppercase">Cal</span>
-                </NavLink>
+                {!isCoEditor && (
+                  <NavLink to={`/calendar?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                    <CalendarIcon size={20} className="mb-1" />
+                    <span className="text-[10px] font-semibold uppercase">Cal</span>
+                  </NavLink>
+                )}
               </>
             )}
           </div>
