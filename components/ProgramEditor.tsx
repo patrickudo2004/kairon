@@ -7,6 +7,7 @@ import { generateProgramDraft } from '../services/geminiService';
 interface ProgramEditorProps {
   program: Program;
   onUpdate: (program: Program) => void;
+  isCoEditor?: boolean;
 }
 
 // Time Helper Functions
@@ -24,7 +25,7 @@ const minutesToTime = (minutes: number): string => {
   return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
 };
 
-const ProgramEditor: React.FC<ProgramEditorProps> = ({ program, onUpdate }) => {
+const ProgramEditor: React.FC<ProgramEditorProps> = ({ program, onUpdate, isCoEditor = false }) => {
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
   const [aiInput, setAiInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -153,13 +154,15 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({ program, onUpdate }) => {
           </h2>
           <p className="text-slate-500 dark:text-slate-400">Configure schedule timeline and slots.</p>
         </div>
-        <button
-          onClick={() => setIsAIDialogOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg font-medium shadow-lg transition-all"
-        >
-          <Sparkles size={18} />
-          AI Draft
-        </button>
+        {!isCoEditor && (
+          <button
+            onClick={() => setIsAIDialogOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg font-medium shadow-lg transition-all"
+          >
+            <Sparkles size={18} />
+            AI Draft
+          </button>
+        )}
       </div>
 
       {/* Main Config Panel */}
