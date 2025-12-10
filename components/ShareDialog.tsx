@@ -12,7 +12,6 @@ interface ShareDialogProps {
 const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program }) => {
     const [copiedType, setCopiedType] = useState<'view' | 'edit' | null>(null);
     const [qrType, setQrType] = useState<'view' | 'edit' | null>(null);
-    const [includeDetails, setIncludeDetails] = useState(true);
 
     useEffect(() => {
         if (!isOpen) {
@@ -72,26 +71,6 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program }) =
                 </div>
 
                 <div className="p-6 space-y-6">
-                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 p-3 rounded-lg flex gap-3 items-start">
-                        <AlertTriangle className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" size={18} />
-                        <p className="text-xs text-amber-700 dark:text-amber-300">
-                            Note: This app is client-side only. The link generated contains the entire schedule data.
-                        </p>
-                    </div>
-
-                    {/* Link Options */}
-                    <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                        <input
-                            type="checkbox"
-                            checked={includeDetails}
-                            onChange={(e) => setIncludeDetails(e.target.checked)}
-                            className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
-                        />
-                        <div className="text-sm">
-                            <span className="font-semibold text-slate-900 dark:text-white block">Include Details</span>
-                            <span className="text-slate-500 dark:text-slate-400 text-xs">Uncheck to significant shorten the link (removes text descriptions).</span>
-                        </div>
-                    </div>
 
                     {/* Viewer Option */}
                     <div>
