@@ -342,6 +342,7 @@ const AppContent: React.FC = () => {
 
   const [currentSlotIndex, setCurrentSlotIndex] = useState<number>(0);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
 
   // Export State
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -428,20 +429,36 @@ const AppContent: React.FC = () => {
     }
   });
 
-  // Debounced Auto-Save
+  // Debounced Auto-Save with Visual Feedback
   useEffect(() => {
     if (isReadOnly) return;
     if (program.id === INITIAL_PROGRAM.id || program.id === PAST_PROGRAM.id) {
       // Auto-save the demo programs to DB so they exist for Viewers
     }
 
+    // Mark as unsaved when program changes
+    setSaveStatus('unsaved');
+
     const timer = setTimeout(() => {
       console.log("Auto-saving to Supabase...", program.id);
+      setSaveStatus('saving');
       mutation.mutate(program);
     }, 2000); // 2s debounce
 
     return () => clearTimeout(timer);
   }, [program, isReadOnly]);
+
+  // Update save status when mutation completes
+  useEffect(() => {
+    if (mutation.isSuccess) {
+      setSaveStatus('saved');
+      // Reset to unsaved after 2 seconds to show it's ready for next change
+      setTimeout(() => setSaveStatus('saved'), 2000);
+    }
+    if (mutation.isError) {
+      setSaveStatus('unsaved');
+    }
+  }, [mutation.isSuccess, mutation.isError]);
 
   // Supabase Realtime Connection & Sync
   useEffect(() => {
@@ -765,6 +782,30 @@ const AppContent: React.FC = () => {
               >
                 <Share2 size={20} />
               </button>
+
+              {/* Save Status Indicator */}
+              {!isReadOnly && (
+                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-medium">
+                  {saveStatus === 'saving' && (
+                    <>
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                      <span className="text-yellow-600 dark:text-yellow-400">Saving...</span>
+                    </>
+                  )}
+                  {saveStatus === 'saved' && (
+                    <>
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                      <span className="text-emerald-600 dark:text-emerald-400">Saved</span>
+                    </>
+                  )}
+                  {saveStatus === 'unsaved' && (
+                    <>
+                      <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
+                      <span className="text-slate-500 dark:text-slate-400">Unsaved</span>
+                    </>
+                  )}
+                </div>
+              )}
 
               <button
                 onClick={toggleTheme}
