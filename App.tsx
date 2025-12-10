@@ -595,15 +595,19 @@ const AppContent: React.FC = () => {
       handleSlotComplete(currentSlot.id, currentSlot.durationMinutes);
 
       if (currentSlotIndex < program.slots.length - 1) {
+        // Auto-advance to next slot
+        const nextIndex = currentSlotIndex + 1;
+        setCurrentSlotIndex(nextIndex);
         setSecondsElapsed(0);
 
-        // Broadcast Auto-Advance (Simulating a "next" action)
+        // Broadcast Auto-Advance
         broadcastState({
-          currentSlotIndex: currentSlotIndex + 1,
+          currentSlotIndex: nextIndex,
           isTimerActive: true,
-          accumulatedElapsed: 0
+          secondsElapsed: 0
         });
       } else {
+        // Last slot finished - stop timer
         setCurrentSlotIndex(prev => prev + 1);
         setIsTimerActive(false);
         setSecondsElapsed(0);
@@ -611,11 +615,11 @@ const AppContent: React.FC = () => {
         broadcastState({
           currentSlotIndex: currentSlotIndex + 1,
           isTimerActive: false,
-          accumulatedElapsed: 0
+          secondsElapsed: 0
         });
       }
     }
-  }, [secondsElapsed, isTimerActive, currentSlotIndex, program]);
+  }, [secondsElapsed, isTimerActive, currentSlotIndex, program.slots.length]);
 
   // Fix: Toggle Timer with Broadcast
   const handleToggleTimer = () => {
@@ -641,7 +645,7 @@ const AppContent: React.FC = () => {
         broadcastState({
           currentSlotIndex: currentSlotIndex + 1,
           isTimerActive: false,
-          accumulatedElapsed: 0
+          secondsElapsed: 0
         });
       } else {
         setCurrentSlotIndex(prev => prev + 1);
@@ -650,7 +654,7 @@ const AppContent: React.FC = () => {
         broadcastState({
           currentSlotIndex: currentSlotIndex + 1,
           isTimerActive: false,
-          accumulatedElapsed: Math.round(secondsElapsed) // Preserve time? usually next resets time. kept 0 in previous block.
+          secondsElapsed: Math.round(secondsElapsed)
         });
       }
     }
