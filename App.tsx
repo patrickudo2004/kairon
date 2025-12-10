@@ -471,7 +471,7 @@ const AppContent: React.FC = () => {
     const unsubscribe = realtimeService.subscribe(
       program.id,
       (remoteState: TimerState) => {
-        console.log('Received realtime update:', remoteState);
+        console.log('Received realtime timer update:', remoteState);
 
         // Ignore updates for other programs
         if (remoteState.programId !== program.id) return;
@@ -492,6 +492,14 @@ const AppContent: React.FC = () => {
           setSecondsElapsed(elapsed);
         } else {
           setSecondsElapsed(remoteState.secondsElapsed);
+        }
+      },
+      // Program content update handler
+      (updatedProgram: Program) => {
+        console.log('Received realtime program update:', updatedProgram);
+        // Only update if it's for the current program
+        if (updatedProgram.id === program.id) {
+          setProgram(updatedProgram);
         }
       }
     );
@@ -892,6 +900,8 @@ const AppContent: React.FC = () => {
                   isCoEditor={isCoEditor}
                   onUpdate={(p) => {
                     setProgram(p);
+                    // Broadcast program changes to all viewers in real-time
+                    realtimeService.broadcastProgram(p);
                     if (p.slots.length === 0) {
                       setCurrentSlotIndex(0);
                       setSecondsElapsed(0);
