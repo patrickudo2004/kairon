@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { Program } from '../types';
 
 export interface TimerState {
     programId: string;
@@ -18,7 +19,8 @@ export class RealtimeService {
      */
     subscribe(
         programId: string,
-        onUpdate: (state: TimerState) => void
+        onTimerUpdate: (state: TimerState) => void,
+        onProgramUpdate?: (program: Program) => void
     ): () => void {
         // Unsubscribe from previous channel if exists
         if (this.channel) {
@@ -40,9 +42,21 @@ export class RealtimeService {
             { event: 'timer_update' },
             (payload) => {
                 console.log('Received timer update:', payload);
-                onUpdate(payload.payload as TimerState);
+                onTimerUpdate(payload.payload as TimerState);
             }
         );
+
+        // Listen for program content updates
+        if (onProgramUpdate) {
+            this.channel.on(
+                'broadcast',
+                { event: 'program_update' },
+                (payload) => {
+                    console.log('Received program update:', payload);
+                    onProgramUpdate(payload.payload as Program);
+                }
+            );
+        }
 
         // Subscribe to the channel
         this.channel.subscribe((status) => {
@@ -68,6 +82,24 @@ export class RealtimeService {
             type: 'broadcast',
             event: 'timer_update',
             payload: state,
+        });
+    }
+
+    /**
+     * Broadcast program content updates to all subscribers
+     */
+    broadcastProgram(program: Program): void {
+        if (!this.channel) {
+            console.warn('Cannot broadcast program: No active channel');
+            return;
+        }
+
+        console.log('Broadcasting program update:', program);
+
+        this.channel.send({
+            type: 'broadcast',
+            event: 'program_update',
+            payload: program,
         });
     }
 
