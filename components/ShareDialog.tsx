@@ -32,7 +32,8 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program }) =
         if (type === 'view') {
             params = `#/live?mode=viewer&id=${shareId}`;
         } else {
-            params = `#/?mode=editor&id=${shareId}`;
+            // Co-editor link: only shows Live, List, and Editor for this specific program
+            params = `#/live?mode=coeditor&id=${shareId}`;
         }
         return `${baseUrl}/${params}`;
     };
@@ -144,11 +145,11 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program }) =
                         <div className="flex justify-between items-center mb-2">
                             <div className="font-semibold text-slate-900 dark:text-white">Co-Editor Link</div>
                             <span className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-2 py-1 rounded-full font-bold uppercase tracking-wider">
-                                Full Access
+                                Edit Access
                             </span>
                         </div>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
-                            Share with other coordinators to manage the schedule.
+                            Share with coordinators to edit this program (Live, List, Editor views only).
                         </p>
                         <div className="flex gap-2">
                             <button
