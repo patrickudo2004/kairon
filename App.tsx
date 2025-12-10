@@ -1,0 +1,885 @@
+import React, { useState, useEffect } from 'react';
+import { HashRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { Mic, Edit3, Play, List, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, AlignLeft, QrCode, Clipboard, Wifi, WifiOff } from 'lucide-react';
+import QRCode from 'react-qr-code';
+import { realtimeService, TimerState } from './services/realtimeService';
+import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
+import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService } from './services/programService';
+import { useUIStore } from './store/uiStore';
+import LiveTimer from './components/LiveTimer';
+import ScheduleList from './components/ScheduleList';
+import ProgramEditor from './components/ProgramEditor';
+import CalendarView from './components/CalendarView';
+import HomeDashboard from './components/HomeDashboard';
+import PrintableSchedule from './components/PrintableSchedule';
+import ShareDialog from './components/ShareDialog';
+import { Program, SlotType, Slot } from './types';
+
+// --- Helpers for URL State Encoding (Minification Strategy) ---
+
+// Minified Structure types for reference
+// ProgramArr: [version, id, title, subtitle, date, startTime, endTime, slots[]]
+// SlotArr: [id, title, speaker, duration, type, details, actualDuration]
+
+const MINIFY_VERSION = 1;
+
+const minifyProgram = (p: Program): any[] => {
+  return [
+    MINIFY_VERSION,
+    p.id,
+    p.title,
+    p.subtitle,
+    p.date,
+    p.startTime,
+    p.endTime || null,
+    p.slots.map(s => [
+      s.id,
+      s.title,
+      s.speaker,
+      s.durationMinutes,
+      s.type,
+      s.details || "",
+      s.actualDuration || 0
+    ])
+  ];
+};
+
+const expandProgram = (data: any[]): Program | null => {
+  try {
+    const [version, id, title, subtitle, date, startTime, endTime, slotsArr] = data;
+
+    // Basic validation
+    if (version !== MINIFY_VERSION) console.warn("Version mismatch in shared link");
+
+    const slots: Slot[] = Array.isArray(slotsArr) ? slotsArr.map((s: any[]) => ({
+      id: s[0],
+      title: s[1],
+      speaker: s[2],
+      durationMinutes: s[3],
+      type: s[4] as SlotType,
+      details: s[5] || undefined,
+      actualDuration: s[6] || undefined
+    })) : [];
+
+    return {
+      id,
+      title,
+      subtitle,
+      date,
+      startTime,
+      endTime: endTime || undefined,
+      slots
+    };
+  } catch (e) {
+    console.error("Failed to expand program data", e);
+    return null;
+  }
+};
+
+const encodeData = (data: Program): string => {
+  try {
+    const minified = minifyProgram(data);
+    const jsonStr = JSON.stringify(minified);
+    // Use LZString for URL-safe compression (Base64-like)
+    return compressToEncodedURIComponent(jsonStr);
+  } catch (e) {
+    console.error("Encoding failed", e);
+    return '';
+  }
+};
+
+const decodeData = (str: string): Program | null => {
+  try {
+    // 1. Try decompressing with LZString first (New Format)
+    let jsonStr = decompressFromEncodedURIComponent(str);
+
+    // 2. Fallback: If null, it might be the old format (Base64)
+    if (!jsonStr) {
+      try {
+        jsonStr = decodeURIComponent(escape(atob(str)));
+      } catch (innerE) {
+        // Not Base64 either
+        console.warn("Legacy decoding failed", innerE);
+        return null;
+      }
+    }
+
+    const parsed = JSON.parse(jsonStr);
+
+    // Check if it's the new minified array format
+    if (Array.isArray(parsed)) {
+      return expandProgram(parsed);
+    }
+
+    // Fallback for legacy object format
+    return parsed as Program;
+  } catch (e) {
+    console.error("Decoding failed", e);
+    return null;
+  }
+};
+
+// --- Time Helpers (Duplicated here to avoid deep prop drilling or module issues) ---
+const timeToMinutes = (time: string): number => {
+  if (!time) return 0;
+  const [h, m] = time.split(':').map(Number);
+  return (h * 60) + m;
+};
+
+const minutesToTime = (minutes: number): string => {
+  const h = Math.floor(minutes / 60) % 24;
+  const m = minutes % 60;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
+};
+
+// Initial Dummy Data
+const INITIAL_PROGRAM: Program = {
+  id: '550e8400-e29b-41d4-a716-446655440000', // Valid UUID for Demo
+  title: 'FutureTech Conference 2025',
+  subtitle: 'Innovating for Tomorrow',
+  date: new Date().toISOString().split('T')[0],
+  startTime: '09:00',
+  endTime: '09:30',
+  slots: [
+    {
+      id: '550e8400-e29b-41d4-a716-446655440001',
+      title: 'Opening Remarks',
+      speaker: 'Alice Johnson',
+      durationMinutes: 1,
+      type: SlotType.KEYNOTE,
+      details: "Welcome address covering the conference theme 'Innovating for Tomorrow'. We will review the day's schedule, logistics, safety protocols, and introduce our key sponsors."
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440002',
+      title: 'AI in Healthcare',
+      speaker: 'Dr. Bob Smith',
+      durationMinutes: 1,
+      type: SlotType.TALK,
+      details: "A deep dive into how large language models are transforming diagnostic processes. Includes case studies from recent deployments in major urban hospitals and a look at the ethical considerations of AI in patient care."
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440003',
+      title: 'Coffee Break',
+      speaker: '',
+      durationMinutes: 1,
+      type: SlotType.BREAK,
+      details: "Networking opportunity in the main foyer. Refreshments and light snacks provided by our gold sponsor, TechCorp. Please take this time to visit the exhibitor booths."
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440004',
+      title: 'Quantum Computing Panel',
+      speaker: 'Panelists',
+      durationMinutes: 1,
+      type: SlotType.PANEL,
+      details: "Expert panel discussion on the current state of quantum supremacy. Featuring guests from leading research labs and universities. Topics include error correction, qubit scalability, and post-quantum cryptography."
+    },
+  ]
+};
+
+// Past Data for Demo
+const PAST_PROGRAM: Program = {
+  id: '550e8400-e29b-41d4-a716-446655440005',
+  title: 'Tech Summit 2024',
+  subtitle: 'Legacy Systems Review',
+  date: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0],
+  startTime: '10:00',
+  slots: [
+    {
+      id: '550e8400-e29b-41d4-a716-446655440006',
+      title: 'Legacy Migration Strategies',
+      speaker: 'Sarah Oldman',
+      durationMinutes: 1,
+      type: SlotType.TALK,
+      details: "Strategies for moving monolithic architectures to microservices without downtime. Lessons learned from the 2023 migration project."
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440007',
+      title: 'Closing Ceremony',
+      speaker: 'CEO',
+      durationMinutes: 1,
+      type: SlotType.KEYNOTE,
+      details: "Wrap up of the 2024 summit, awards for best hackathon projects, and announcement of the 2025 venue."
+    },
+  ]
+};
+
+// Export Dialog Component
+interface ExportOptions {
+  includeDetails: boolean;
+  includeSpeakers: boolean;
+}
+
+const ExportDialog: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  program: Program;
+  options: ExportOptions;
+  setOptions: React.Dispatch<React.SetStateAction<ExportOptions>>;
+  onPrint: () => void;
+}> = ({ isOpen, onClose, program, options, setOptions, onPrint }) => {
+  const [copied, setCopied] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleCopyText = () => {
+    let text = `${program.title}\n`;
+    if (program.subtitle) text += `${program.subtitle}\n`;
+    text += `Date: ${program.date} | Start: ${program.startTime}\n`;
+    text += `----------------------------------------\n\n`;
+
+    let runningMinutes = timeToMinutes(program.startTime);
+
+    program.slots.forEach(slot => {
+      const startStr = minutesToTime(runningMinutes);
+      runningMinutes += slot.durationMinutes;
+
+      text += `${startStr} - ${slot.title}`;
+      if (slot.type === SlotType.BREAK) text += ` (Break)`;
+      text += `\n`;
+
+      if (options.includeSpeakers && slot.speaker) {
+        text += `Speaker: ${slot.speaker}\n`;
+      }
+
+      text += `Duration: ${slot.durationMinutes} mins\n`;
+
+      if (options.includeDetails && slot.details) {
+        text += `Details: ${slot.details}\n`;
+      }
+      text += `\n`;
+    });
+
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 no-print">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-800">
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Download className="text-rose-600 dark:text-rose-400" size={24} />
+            Export Schedule
+          </h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+            <X size={24} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Choose options for your export.
+          </p>
+
+          <div className="space-y-4">
+            <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+              <input
+                type="checkbox"
+                checked={options.includeSpeakers}
+                onChange={(e) => setOptions(prev => ({ ...prev, includeSpeakers: e.target.checked }))}
+                className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
+              />
+              <div className="flex items-center gap-3 text-slate-700 dark:text-slate-200">
+                <User size={18} className="text-slate-400" />
+                <span className="font-medium">Include Speakers</span>
+              </div>
+            </label>
+
+            <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+              <input
+                type="checkbox"
+                checked={options.includeDetails}
+                onChange={(e) => setOptions(prev => ({ ...prev, includeDetails: e.target.checked }))}
+                className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
+              />
+              <div className="flex items-center gap-3 text-slate-700 dark:text-slate-200">
+                <AlignLeft size={18} className="text-slate-400" />
+                <span className="font-medium">Include Details</span>
+              </div>
+            </label>
+          </div>
+
+          <div className="flex flex-col gap-3 mt-4">
+            <button
+              onClick={handleCopyText}
+              className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700"
+            >
+              {copied ? <Check size={20} className="text-emerald-500" /> : <Clipboard size={20} />}
+              {copied ? "Copied to Clipboard" : "Copy Schedule Text"}
+            </button>
+
+            <button
+              onClick={() => {
+                onClose();
+                window.print();
+              }}
+              className="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-rose-500/20 transition-all flex items-center justify-center gap-2"
+            >
+              <FileText size={20} />
+              Generate PDF
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AppContent: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mode = searchParams.get('mode') || 'editor';
+  const importData = searchParams.get('import');
+  const isReadOnly = mode === 'viewer';
+
+  // Main State
+  const [program, setProgram] = useState<Program>(INITIAL_PROGRAM);
+  const [savedPrograms, setSavedPrograms] = useState<Program[]>([INITIAL_PROGRAM, PAST_PROGRAM]);
+
+  const [currentSlotIndex, setCurrentSlotIndex] = useState<number>(0);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+
+  // Export State
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [printOptions, setPrintOptions] = useState<ExportOptions>({ includeDetails: true, includeSpeakers: true });
+
+  // Lifted Timer State
+  const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
+  const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
+
+  // Theme State
+  // Theme State (Zustand)
+  const isDarkMode = useUIStore((state) => state.isDarkMode);
+  const toggleTheme = useUIStore((state) => state.toggleTheme);
+  // We use the effect inside the store or just here just to apply classes if store doesn't handle side effects 
+  // (Our store handles side effects, so we just read value)
+
+  // Actually, I put the side-effect logic in the setter actions in the store.
+  // But initial load side effect needs to happen somewhere if not in store init.
+  // My store init used localStorage, but didn't apply class.
+  // Let's keep a simple effect to sync class on mount/change to be safe, or trust store.
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (isDarkMode) root.classList.add('dark');
+    else root.classList.remove('dark');
+  }, [isDarkMode]);
+
+  // Hydrate from URL Import or ID
+  const urlId = searchParams.get('id');
+
+  // Fetch program if ID is present
+  const { data: fetchedProgram } = useQuery({
+    queryKey: ['program', urlId],
+    queryFn: () => getProgramById(urlId!),
+    enabled: !!urlId,
+  });
+
+  useEffect(() => {
+    if (fetchedProgram && fetchedProgram.id !== program.id) {
+      console.log("Hydrating program from ID:", fetchedProgram.title);
+      setProgram(fetchedProgram);
+      setSavedPrograms(prev => {
+        if (prev.some(p => p.id === fetchedProgram.id)) {
+          return prev.map(p => p.id === fetchedProgram.id ? fetchedProgram : p);
+        }
+        return [...prev, fetchedProgram];
+      });
+    } else if (importData) {
+      const importedProgram = decodeData(importData);
+      if (importedProgram && importedProgram.id !== program.id) {
+        console.log("Hydrating program from URL Data:", importedProgram.title);
+        setProgram(importedProgram);
+        // Update saved list logic to avoid duplicates
+        setSavedPrograms(prev => {
+          if (prev.some(p => p.id === importedProgram.id)) {
+            return prev.map(p => p.id === importedProgram.id ? importedProgram : p);
+          }
+          return [...prev, importedProgram];
+        });
+      }
+    }
+  }, [importData, fetchedProgram]);
+
+  // Persistence (Supabase)
+  const mutation = useMutation({
+    mutationFn: (p: Program) => {
+      // Check if it exists? For now, we assume if we have an ID we "upsert" or "update".
+      // Let's try update first. If DB empty, this fails. 
+      // Actually we should perform an UPSERT logic or Try Create if Update fails
+      // But updateProgramService attempts to update.
+      // Let's use createProgramService but maybe modifying it to Upsert? 
+      // Supabase insert with upsert: true is cleaner. 
+      // Our createProgram uses insert(). 
+
+      // Keep it simple: Try Update, if error (or row count 0?), Create.
+      // But our service abstractions are separate.
+      // Let's rely on Create for "Initial" valid UUIDs?
+      // Or just try create. If ID exists, it throws...
+
+      // Strategy: Since I just generated a new UUID, it definitely DOESN'T exist in DB.
+      // So first save should be CREATE. Subsequent are UPDATE.
+
+      // Hack for Prototype: Try Create, if conflict (23505), try Update.
+      return createProgramService(p).catch(() => updateProgramService(p));
+    }
+  });
+
+  // Debounced Auto-Save
+  useEffect(() => {
+    if (isReadOnly) return;
+    if (program.id === INITIAL_PROGRAM.id || program.id === PAST_PROGRAM.id) {
+      // Auto-save the demo programs to DB so they exist for Viewers
+    }
+
+    const timer = setTimeout(() => {
+      console.log("Auto-saving to Supabase...", program.id);
+      mutation.mutate(program);
+    }, 2000); // 2s debounce
+
+    return () => clearTimeout(timer);
+  }, [program, isReadOnly]);
+
+  // Supabase Realtime Connection & Sync
+  useEffect(() => {
+    console.log('Subscribing to realtime updates for program:', program.id);
+
+    const unsubscribe = realtimeService.subscribe(
+      program.id,
+      (remoteState: TimerState) => {
+        console.log('Received realtime update:', remoteState);
+
+        // Ignore updates for other programs
+        if (remoteState.programId !== program.id) return;
+
+        // Update Slot Index
+        setCurrentSlotIndex(prev => {
+          if (prev !== remoteState.currentSlotIndex) return remoteState.currentSlotIndex;
+          return prev;
+        });
+
+        // Update Timer Status
+        setIsTimerActive(remoteState.isTimerActive);
+
+        // Sync Time
+        if (remoteState.isTimerActive && remoteState.timerStartTimestamp) {
+          const now = Date.now();
+          const elapsed = Math.floor((now - remoteState.timerStartTimestamp) / 1000);
+          setSecondsElapsed(elapsed);
+        } else {
+          setSecondsElapsed(remoteState.secondsElapsed);
+        }
+      }
+    );
+
+    return () => {
+      console.log('Unsubscribing from realtime updates');
+      unsubscribe();
+    };
+  }, [program.id]);
+
+  // Broadcast Helper (Supabase Realtime)
+  const broadcastState = (overrides: Partial<TimerState> = {}) => {
+    const now = Date.now();
+    const state: TimerState = {
+      programId: program.id,
+      isTimerActive: overrides.hasOwnProperty('isTimerActive') ? overrides.isTimerActive! : isTimerActive,
+      currentSlotIndex: overrides.hasOwnProperty('currentSlotIndex') ? overrides.currentSlotIndex! : currentSlotIndex,
+      secondsElapsed: overrides.hasOwnProperty('secondsElapsed') ? overrides.secondsElapsed! : secondsElapsed,
+      timerStartTimestamp: overrides.isTimerActive ? now : null,
+    };
+
+    realtimeService.broadcast(state);
+  };
+
+  const loadProgram = (newProgram: Program) => {
+    setProgram(newProgram);
+    setCurrentSlotIndex(0);
+    setSecondsElapsed(0);
+    setIsTimerActive(false);
+    // Broadcast Reset
+    broadcastState({
+      isTimerActive: false,
+      currentSlotIndex: 0,
+      secondsElapsed: 0,
+      timerStartTimestamp: null
+    });
+  };
+
+  const createProgram = (date: string) => {
+    if (isReadOnly) return;
+    const newProgram: Program = {
+      id: crypto.randomUUID(),
+      title: 'New Event',
+      subtitle: 'Add subtitle',
+      date: date,
+      startTime: '09:00',
+      slots: []
+    };
+    setSavedPrograms(prev => [...prev, newProgram]);
+    loadProgram(newProgram);
+  };
+
+  const deleteProgram = (id: string) => {
+    setSavedPrograms(prev => {
+      const updated = prev.filter(p => p.id !== id);
+
+      // If we deleted the current program, switch to another one or create new
+      if (program.id === id) {
+        if (updated.length > 0) {
+          // Switch to first available
+          loadProgram(updated[0]);
+        } else {
+          // Reset to initial if all deleted
+          const reset = { ...INITIAL_PROGRAM, id: crypto.randomUUID() }; // New ID to avoid state conflicts
+          loadProgram(reset);
+          return [reset];
+        }
+      }
+      return updated;
+    });
+  };
+
+  const duplicateProgram = (id: string) => {
+    if (isReadOnly) return;
+    const original = savedPrograms.find(p => p.id === id);
+    if (!original) return;
+
+    // Deep copy with new IDs for program and slots
+    const newProgram: Program = {
+      ...original,
+      id: crypto.randomUUID(),
+      title: `${original.title} (Copy)`,
+      slots: original.slots.map(s => ({
+        ...s,
+        id: crypto.randomUUID()
+      }))
+    };
+
+    setSavedPrograms(prev => [...prev, newProgram]);
+  };
+
+  // Timer Tick Logic
+  useEffect(() => {
+    let interval: number | undefined;
+    if (isTimerActive) {
+      interval = window.setInterval(() => {
+        setSecondsElapsed(prev => prev + 1);
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerActive]);
+
+  const handleSlotComplete = (slotId: string, actualDuration: number) => {
+    setProgram(prev => ({
+      ...prev,
+      slots: prev.slots.map(s => s.id === slotId ? { ...s, actualDuration } : s)
+    }));
+  };
+
+  // Auto-Advance Logic
+  useEffect(() => {
+    if (!isTimerActive) return;
+
+    const currentSlot = program.slots[currentSlotIndex];
+    if (!currentSlot) return;
+
+    const durationSeconds = currentSlot.durationMinutes * 60;
+
+    if (secondsElapsed >= durationSeconds) {
+      handleSlotComplete(currentSlot.id, currentSlot.durationMinutes);
+
+      if (currentSlotIndex < program.slots.length - 1) {
+        setSecondsElapsed(0);
+
+        // Broadcast Auto-Advance (Simulating a "next" action)
+        broadcastState({
+          currentSlotIndex: currentSlotIndex + 1,
+          isTimerActive: true,
+          accumulatedElapsed: 0
+        });
+      } else {
+        setCurrentSlotIndex(prev => prev + 1);
+        setIsTimerActive(false);
+        setSecondsElapsed(0);
+
+        broadcastState({
+          currentSlotIndex: currentSlotIndex + 1,
+          isTimerActive: false,
+          accumulatedElapsed: 0
+        });
+      }
+    }
+  }, [secondsElapsed, isTimerActive, currentSlotIndex, program]);
+
+  // Fix: Toggle Timer with Broadcast
+  const handleToggleTimer = () => {
+    const newState = !isTimerActive;
+    setIsTimerActive(newState);
+
+    // Broadcast immediately so Viewers know
+    broadcastState({ isTimerActive: newState });
+  };
+
+
+  const handleNext = () => {
+    if (isReadOnly) return;
+    if (currentSlotIndex < program.slots.length) {
+      const currentSlot = program.slots[currentSlotIndex];
+      handleSlotComplete(currentSlot.id, Math.round(secondsElapsed / 60));
+
+      if (currentSlotIndex < program.slots.length - 1) {
+        setCurrentSlotIndex(prev => prev + 1);
+        setSecondsElapsed(0);
+        setIsTimerActive(false);
+
+        broadcastState({
+          currentSlotIndex: currentSlotIndex + 1,
+          isTimerActive: false,
+          accumulatedElapsed: 0
+        });
+      } else {
+        setCurrentSlotIndex(prev => prev + 1);
+        setIsTimerActive(false);
+
+        broadcastState({
+          currentSlotIndex: currentSlotIndex + 1,
+          isTimerActive: false,
+          accumulatedElapsed: Math.round(secondsElapsed) // Preserve time? usually next resets time. kept 0 in previous block.
+        });
+      }
+    }
+  };
+
+  const handlePrev = () => {
+    if (isReadOnly) return;
+    if (currentSlotIndex > 0) {
+      setCurrentSlotIndex(prev => prev - 1);
+      setSecondsElapsed(0);
+      setSecondsElapsed(0);
+      setIsTimerActive(false);
+      broadcastState({
+        currentSlotIndex: currentSlotIndex - 1,
+        isTimerActive: false,
+        accumulatedElapsed: 0
+      });
+    }
+  };
+
+  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `flex flex-col items-center justify-center w-14 md:w-20 h-16 rounded-xl transition-all ${isActive
+      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 translate-y-[-4px]'
+      : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200'
+    }`;
+
+  // Wrappers
+  const CalendarWrapper = () => {
+    const navigate = useNavigate();
+    return (
+      <CalendarView
+        programs={savedPrograms}
+        activeProgramId={program.id}
+        onSelectProgram={(p) => { loadProgram(p); navigate(`/live?mode=${mode}`); }}
+        onCreateProgram={(date) => { createProgram(date); navigate(`/editor?mode=${mode}`); }}
+        onDelete={deleteProgram}
+        onDuplicate={duplicateProgram}
+      />
+    );
+  }
+
+  const HomeWrapper = () => {
+    const navigate = useNavigate();
+    return (
+      <HomeDashboard
+        programs={savedPrograms}
+        activeProgramId={program.id}
+        onSelectProgram={(p) => { loadProgram(p); navigate(`/live?mode=${mode}`); }}
+        onCreateNew={() => { createProgram(new Date().toISOString().split('T')[0]); navigate(`/editor?mode=${mode}`); }}
+        onDelete={deleteProgram}
+        onDuplicate={duplicateProgram}
+      />
+    )
+  }
+
+  // Redirect if ReadOnly user tries to access restricted routes
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (isReadOnly) {
+      const restrictedPaths = ['/', '/editor', '/calendar'];
+      if (restrictedPaths.includes(location.pathname)) {
+        // Preserve import data if redirecting
+        const importParam = importData ? `&import=${importData}` : '';
+        navigate(`/live?mode=viewer${importParam}`, { replace: true });
+      }
+    }
+  }, [isReadOnly, location.pathname, navigate, importData]);
+
+  return (
+    <>
+      <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 no-print">
+
+        {/* Header */}
+        <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md transition-colors">
+          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-gradient-to-tr from-indigo-500 to-violet-500 rounded-lg flex items-center justify-center shadow-md">
+                <Mic className="text-white" size={18} />
+              </div>
+              <div>
+                <h1 className="font-bold text-lg tracking-tight leading-tight text-slate-900 dark:text-white flex items-center gap-2">
+                  Kairon
+                  {isReadOnly && <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500">VIEWER</span>}
+                </h1>
+                <div className="text-[10px] text-slate-500 dark:text-slate-500 font-medium uppercase tracking-widest">Event Manager</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 md:gap-4">
+              <div className="hidden md:block text-sm text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 truncate max-w-[200px]">
+                {program.title}
+              </div>
+
+              <button
+                onClick={() => setIsExportOpen(true)}
+                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-rose-600 dark:text-rose-400 transition-colors"
+                title="Export to PDF"
+              >
+                <Download size={20} />
+              </button>
+
+              <button
+                onClick={() => setIsShareOpen(true)}
+                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition-colors"
+                title="Share"
+              >
+                <Share2 size={20} />
+              </button>
+
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+                title="Toggle Theme"
+              >
+                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main */}
+        <main className="flex-1 overflow-y-auto custom-scrollbar relative">
+          <div className="max-w-7xl mx-auto w-full h-full">
+            <Routes>
+              {!isReadOnly && <Route path="/" element={<HomeWrapper />} />}
+              <Route path="/live" element={
+                <LiveTimer
+                  program={program}
+                  currentSlotIndex={currentSlotIndex}
+                  isTimerActive={isTimerActive}
+                  secondsElapsed={secondsElapsed}
+                  onToggleTimer={handleToggleTimer}
+                  onNext={handleNext}
+                  onPrev={handlePrev}
+                  readOnly={isReadOnly}
+                />
+              } />
+              <Route path="/list" element={
+                <ScheduleList
+                  program={program}
+                  currentSlotIndex={currentSlotIndex}
+                  secondsElapsed={secondsElapsed}
+                  isTimerActive={isTimerActive}
+                  readOnly={isReadOnly}
+                />
+              } />
+              {!isReadOnly && <Route path="/editor" element={
+                <ProgramEditor
+                  program={program}
+                  onUpdate={(p) => {
+                    setProgram(p);
+                    if (p.slots.length === 0) {
+                      setCurrentSlotIndex(0);
+                      setSecondsElapsed(0);
+                      setIsTimerActive(false);
+                    }
+                  }}
+                />
+              } />}
+              {!isReadOnly && <Route path="/calendar" element={<CalendarWrapper />} />}
+            </Routes>
+          </div>
+        </main>
+
+        {/* Bottom Dock */}
+        <nav className="sticky bottom-6 mx-auto z-50 flex justify-center w-full px-4">
+          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 px-2 md:px-4 py-2 rounded-2xl shadow-2xl shadow-slate-200/50 dark:shadow-slate-950/50 flex items-center gap-1 md:gap-3 overflow-x-auto no-scrollbar max-w-full">
+            {!isReadOnly && (
+              <NavLink to={`/?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                <Home size={20} className="mb-1" />
+                <span className="text-[10px] font-semibold uppercase">Home</span>
+              </NavLink>
+            )}
+            <NavLink to={`/live?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+              <Play size={20} className="mb-1" />
+              <span className="text-[10px] font-semibold uppercase">Live</span>
+            </NavLink>
+            <NavLink to={`/list?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+              <List size={20} className="mb-1" />
+              <span className="text-[10px] font-semibold uppercase">List</span>
+            </NavLink>
+            {!isReadOnly && (
+              <>
+                <NavLink to={`/editor?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                  <Edit3 size={20} className="mb-1" />
+                  <span className="text-[10px] font-semibold uppercase">Edit</span>
+                </NavLink>
+                <NavLink to={`/calendar?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                  <CalendarIcon size={20} className="mb-1" />
+                  <span className="text-[10px] font-semibold uppercase">Cal</span>
+                </NavLink>
+              </>
+            )}
+          </div>
+        </nav>
+
+        <ShareDialog isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} program={program} />
+        <ExportDialog
+          isOpen={isExportOpen}
+          onClose={() => setIsExportOpen(false)}
+          program={program}
+          options={printOptions}
+          setOptions={setPrintOptions}
+          onPrint={() => window.print()}
+        />
+      </div>
+
+      {/* Hidden Printable Area */}
+      <PrintableSchedule
+        program={program}
+        includeDetails={printOptions.includeDetails}
+        includeSpeakers={printOptions.includeSpeakers}
+      />
+    </>
+  );
+};
+
+const queryClient = new QueryClient();
+
+const App: React.FC = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <HashRouter>
+        <AppContent />
+      </HashRouter>
+    </QueryClientProvider>
+  );
+}
+
+export default App;

@@ -1,0 +1,7 @@
+{
+  "name": "SynchroConf",
+  "description": "A real-time conference time management application for coordinators and speakers, featuring AI-powered schedule drafting and live timing analytics.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
