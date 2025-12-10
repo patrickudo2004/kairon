@@ -713,9 +713,24 @@ const AppContent: React.FC = () => {
   // Wrappers
   const CalendarWrapper = () => {
     const navigate = useNavigate();
+
+    // Fetch all programs from Supabase
+    const { data: allPrograms = [], isLoading } = useQuery({
+      queryKey: ['programs'],
+      queryFn: getPrograms,
+    });
+
+    if (isLoading) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-slate-500">Loading programs...</div>
+        </div>
+      );
+    }
+
     return (
       <CalendarView
-        programs={savedPrograms}
+        programs={allPrograms}
         activeProgramId={program.id}
         onSelectProgram={(p) => { loadProgram(p); navigate(`/live?mode=${mode}`); }}
         onCreateProgram={(date) => { createProgram(date); navigate(`/editor?mode=${mode}`); }}
