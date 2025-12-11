@@ -135,75 +135,14 @@ const minutesToTime = (minutes: number): string => {
   return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
 };
 
-// Initial Dummy Data
+// Minimal initial program (will be replaced by database data)
 const INITIAL_PROGRAM: Program = {
-  id: '550e8400-e29b-41d4-a716-446655440000', // Valid UUID for Demo
-  title: 'FutureTech Conference 2025',
-  subtitle: 'Innovating for Tomorrow',
+  id: crypto.randomUUID(),
+  title: 'New Event',
+  subtitle: '',
   date: new Date().toISOString().split('T')[0],
   startTime: '09:00',
-  endTime: '09:30',
-  slots: [
-    {
-      id: '550e8400-e29b-41d4-a716-446655440001',
-      title: 'Opening Remarks',
-      speaker: 'Alice Johnson',
-      durationMinutes: 1,
-      type: SlotType.KEYNOTE,
-      details: "Welcome address covering the conference theme 'Innovating for Tomorrow'. We will review the day's schedule, logistics, safety protocols, and introduce our key sponsors."
-    },
-    {
-      id: '550e8400-e29b-41d4-a716-446655440002',
-      title: 'AI in Healthcare',
-      speaker: 'Dr. Bob Smith',
-      durationMinutes: 1,
-      type: SlotType.TALK,
-      details: "A deep dive into how large language models are transforming diagnostic processes. Includes case studies from recent deployments in major urban hospitals and a look at the ethical considerations of AI in patient care."
-    },
-    {
-      id: '550e8400-e29b-41d4-a716-446655440003',
-      title: 'Coffee Break',
-      speaker: '',
-      durationMinutes: 1,
-      type: SlotType.BREAK,
-      details: "Networking opportunity in the main foyer. Refreshments and light snacks provided by our gold sponsor, TechCorp. Please take this time to visit the exhibitor booths."
-    },
-    {
-      id: '550e8400-e29b-41d4-a716-446655440004',
-      title: 'Quantum Computing Panel',
-      speaker: 'Panelists',
-      durationMinutes: 1,
-      type: SlotType.PANEL,
-      details: "Expert panel discussion on the current state of quantum supremacy. Featuring guests from leading research labs and universities. Topics include error correction, qubit scalability, and post-quantum cryptography."
-    },
-  ]
-};
-
-// Past Data for Demo
-const PAST_PROGRAM: Program = {
-  id: '550e8400-e29b-41d4-a716-446655440005',
-  title: 'Tech Summit 2024',
-  subtitle: 'Legacy Systems Review',
-  date: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0],
-  startTime: '10:00',
-  slots: [
-    {
-      id: '550e8400-e29b-41d4-a716-446655440006',
-      title: 'Legacy Migration Strategies',
-      speaker: 'Sarah Oldman',
-      durationMinutes: 1,
-      type: SlotType.TALK,
-      details: "Strategies for moving monolithic architectures to microservices without downtime. Lessons learned from the 2023 migration project."
-    },
-    {
-      id: '550e8400-e29b-41d4-a716-446655440007',
-      title: 'Closing Ceremony',
-      speaker: 'CEO',
-      durationMinutes: 1,
-      type: SlotType.KEYNOTE,
-      details: "Wrap up of the 2024 summit, awards for best hackathon projects, and announcement of the 2025 venue."
-    },
-  ]
+  slots: []
 };
 
 // Export Dialog Component
@@ -340,7 +279,6 @@ const AppContent: React.FC = () => {
 
   // Main State
   const [program, setProgram] = useState<Program>(INITIAL_PROGRAM);
-  const [savedPrograms, setSavedPrograms] = useState<Program[]>([INITIAL_PROGRAM, PAST_PROGRAM]);
 
   const [currentSlotIndex, setCurrentSlotIndex] = useState<number>(0);
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -385,24 +323,11 @@ const AppContent: React.FC = () => {
     if (fetchedProgram && fetchedProgram.id !== program.id) {
       console.log("Hydrating program from ID:", fetchedProgram.title);
       setProgram(fetchedProgram);
-      setSavedPrograms(prev => {
-        if (prev.some(p => p.id === fetchedProgram.id)) {
-          return prev.map(p => p.id === fetchedProgram.id ? fetchedProgram : p);
-        }
-        return [...prev, fetchedProgram];
-      });
     } else if (importData) {
       const importedProgram = decodeData(importData);
       if (importedProgram && importedProgram.id !== program.id) {
         console.log("Hydrating program from URL Data:", importedProgram.title);
         setProgram(importedProgram);
-        // Update saved list logic to avoid duplicates
-        setSavedPrograms(prev => {
-          if (prev.some(p => p.id === importedProgram.id)) {
-            return prev.map(p => p.id === importedProgram.id ? importedProgram : p);
-          }
-          return [...prev, importedProgram];
-        });
       }
     }
   }, [importData, fetchedProgram]);
