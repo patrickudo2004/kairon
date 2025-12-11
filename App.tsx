@@ -359,8 +359,10 @@ const AppContent: React.FC = () => {
   // Debounced Auto-Save with Visual Feedback
   useEffect(() => {
     if (isReadOnly) return;
-    if (program.id === INITIAL_PROGRAM.id || program.id === PAST_PROGRAM.id) {
-      // Auto-save the demo programs to DB so they exist for Viewers
+
+    // Don't auto-save empty placeholder programs
+    if (program.slots.length === 0 || program.title === 'New Event') {
+      return;
     }
 
     // Mark as unsaved when program changes
