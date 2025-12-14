@@ -10,8 +10,8 @@ interface ShareDialogProps {
 }
 
 const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program }) => {
-    const [copiedType, setCopiedType] = useState<'view' | 'edit' | null>(null);
-    const [qrType, setQrType] = useState<'view' | 'edit' | null>(null);
+    const [copiedType, setCopiedType] = useState<'view' | 'edit' | 'tv' | null>(null);
+    const [qrType, setQrType] = useState<'view' | 'edit' | 'tv' | null>(null);
 
     useEffect(() => {
         if (!isOpen) {
@@ -24,12 +24,14 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program }) =
     // Strip trailing slash to avoid //#/
     const baseUrl = (window.location.origin + window.location.pathname).replace(/\/$/, '');
 
-    const getShareUrl = (type: 'view' | 'edit') => {
+    const getShareUrl = (type: 'view' | 'edit' | 'tv') => {
         const shareId = program.id;
         let params = '';
 
         if (type === 'view') {
             params = `#/live?mode=viewer&id=${shareId}`;
+        } else if (type === 'tv') {
+            params = `#/tv?mode=viewer&id=${shareId}`;
         } else {
             // Co-editor link: only shows Live, List, and Editor for this specific program
             params = `#/live?mode=coeditor&id=${shareId}`;
@@ -37,7 +39,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program }) =
         return `${baseUrl}/${params}`;
     };
 
-    const copyToClipboard = (type: 'view' | 'edit') => {
+    const copyToClipboard = (type: 'view' | 'edit' | 'tv') => {
         const url = getShareUrl(type);
 
         navigator.clipboard.writeText(url).then(() => {
@@ -49,7 +51,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program }) =
         });
     };
 
-    const toggleQr = (type: 'view' | 'edit') => {
+    const toggleQr = (type: 'view' | 'edit' | 'tv') => {
         if (qrType === type) {
             setQrType(null);
         } else {
@@ -162,6 +164,53 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program }) =
                                     <QRCode value={getShareUrl('edit')} size={180} />
                                 </div>
                                 <p className="mt-2 text-xs text-slate-500 font-medium text-center">Scan to open Editor Mode</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* TV Mode Option */}
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <div className="font-semibold text-slate-900 dark:text-white">TV / Monitor Link</div>
+                            <span className="text-xs bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 px-2 py-1 rounded-full font-bold uppercase tracking-wider">
+                                Display Only
+                            </span>
+                        </div>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
+                            Open simplified high-contrast view for large screens.
+                        </p>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => copyToClipboard('tv')}
+                                className="flex-1 flex items-center justify-between bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 transition-all group"
+                            >
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                    <div className="bg-white dark:bg-slate-900 p-1.5 rounded shadow-sm">
+                                        <Share2 size={16} className="text-rose-500" />
+                                    </div>
+                                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
+                                        Copy Link
+                                    </span>
+                                </div>
+                                {copiedType === 'tv' ? <Check size={18} className="text-emerald-500" /> : <Copy size={18} className="text-slate-400 group-hover:text-rose-500" />}
+                            </button>
+                            <button
+                                onClick={() => toggleQr('tv')}
+                                className={`px-4 py-3 rounded-xl border transition-all flex items-center justify-center ${qrType === 'tv'
+                                    ? 'bg-rose-600 text-white border-rose-600'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-rose-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-rose-500'
+                                    }`}
+                                title="Toggle QR Code"
+                            >
+                                <QrCode size={20} />
+                            </button>
+                        </div>
+                        {qrType === 'tv' && (
+                            <div className="mt-4 p-4 bg-white rounded-xl border border-slate-200 shadow-inner flex flex-col items-center animate-in fade-in slide-in-from-top-2">
+                                <div className="bg-white p-2 rounded">
+                                    <QRCode value={getShareUrl('tv')} size={180} />
+                                </div>
+                                <p className="mt-2 text-xs text-slate-500 font-medium text-center">Scan to open TV Mode</p>
                             </div>
                         )}
                     </div>
