@@ -14,6 +14,7 @@ import CalendarView from './components/CalendarView';
 import HomeDashboard from './components/HomeDashboard';
 import PrintableSchedule from './components/PrintableSchedule';
 import ShareDialog from './components/ShareDialog';
+import TVView from './components/TVView';
 import { Program, SlotType, Slot } from './types';
 
 // --- Helpers for URL State Encoding (Minification Strategy) ---
@@ -668,6 +669,48 @@ const AppContent: React.FC = () => {
     }
   }, [secondsElapsed, isTimerActive, currentSlotIndex, program.slots.length]);
 
+  // Auto-Start Watcher (New Feature)
+  useEffect(() => {
+    // Only run if timer is NOT active and we are NOT in read-only mode
+    if (isTimerActive || isReadOnly) return;
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      // 1. Check Date (Compare YYYY-MM-DD)
+      const todayStr = now.toISOString().split('T')[0];
+      if (program.date !== todayStr) return;
+
+      // 2. Check Time (Compare HH:MM:00)
+      const [schedH, schedM] = program.startTime.split(':').map(Number);
+
+      const currentH = now.getHours();
+      const currentM = now.getMinutes();
+      const currentS = now.getSeconds();
+
+      // Trigger strictly at the 0th second of the scheduled minute
+      if (currentH === schedH && currentM === schedM && currentS === 0) {
+        console.log("Auto-starting event at:", program.startTime);
+
+        // Start Timer Logic (Inline version of handleToggleTimer for precision)
+        // We force-start it.
+        const startTs = Date.now();
+
+        setIsTimerActive(true);
+        setTimerStartTimestamp(startTs);
+        setSecondsElapsed(0); // Ensure fresh start
+
+        // Broadcast
+        broadcastState({
+          isTimerActive: true,
+          timerStartTimestamp: startTs,
+          secondsElapsed: 0
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isTimerActive, isReadOnly, program.date, program.startTime, program.id]);
+
   // Fix: Toggle Timer with Broadcast
   const handleToggleTimer = () => {
     const newState = !isTimerActive;
@@ -807,6 +850,21 @@ const AppContent: React.FC = () => {
       }
     }
   }, [isReadOnly, location.pathname, navigate, importData]);
+
+  // Special Route Handling: TV Mode
+  // We render this exclusively, bypassing the main application shell (header, footer, etc.)
+  if (location.pathname === '/tv') {
+    return (
+      <TVView
+        program={program}
+        currentSlotIndex={currentSlotIndex}
+        isTimerActive={isTimerActive}
+        secondsElapsed={secondsElapsed}
+        isDarkMode={isDarkMode}
+        toggleTheme={toggleTheme}
+      />
+    );
+  }
 
   return (
     <>
