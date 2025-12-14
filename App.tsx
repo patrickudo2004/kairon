@@ -361,7 +361,7 @@ const AppContent: React.FC = () => {
     if (isReadOnly) return;
 
     // Don't auto-save empty placeholder programs
-    if (program.slots.length === 0 || program.title === 'New Event') {
+    if (program.slots.length === 0 && program.title === 'New Event' && program.subtitle === '') {
       return;
     }
 
@@ -475,7 +475,6 @@ const AppContent: React.FC = () => {
       startTime: '09:00',
       slots: []
     };
-    setSavedPrograms(prev => [...prev, newProgram]);
     loadProgram(newProgram);
   };
 
@@ -509,21 +508,29 @@ const AppContent: React.FC = () => {
 
   const duplicateProgram = (id: string) => {
     if (isReadOnly) return;
-    const original = savedPrograms.find(p => p.id === id);
-    if (!original) return;
+    void (async () => {
+      try {
+        const original = await getProgramById(id);
+        if (!original) return;
 
-    // Deep copy with new IDs for program and slots
-    const newProgram: Program = {
-      ...original,
-      id: crypto.randomUUID(),
-      title: `${original.title} (Copy)`,
-      slots: original.slots.map(s => ({
-        ...s,
-        id: crypto.randomUUID()
-      }))
-    };
+        const newProgram: Program = {
+          ...original,
+          id: crypto.randomUUID(),
+          title: `${original.title} (Copy)`,
+          slots: original.slots.map(s => ({
+            ...s,
+            id: crypto.randomUUID()
+          }))
+        };
 
-    setSavedPrograms(prev => [...prev, newProgram]);
+        await createProgramService(newProgram);
+
+        queryClient.invalidateQueries({ queryKey: ['programs'] });
+      } catch (error) {
+        console.error('Failed to duplicate program:', error);
+        alert('Failed to duplicate program. Please try again.');
+      }
+    })();
   };
 
   // Timer Tick Logic
