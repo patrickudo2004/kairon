@@ -288,6 +288,10 @@ const AppContent: React.FC = () => {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [printOptions, setPrintOptions] = useState<ExportOptions>({ includeDetails: true, includeSpeakers: true });
 
+  useEffect(() => {
+    if (isReadOnly) setIsShareOpen(false);
+  }, [isReadOnly]);
+
   // Lifted Timer State
   const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
   const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
@@ -759,13 +763,15 @@ const AppContent: React.FC = () => {
                 <Download size={20} />
               </button>
 
-              <button
-                onClick={() => setIsShareOpen(true)}
-                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition-colors"
-                title="Share"
-              >
-                <Share2 size={20} />
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={() => setIsShareOpen(true)}
+                  className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition-colors"
+                  title="Share"
+                >
+                  <Share2 size={20} />
+                </button>
+              )}
 
               {/* Save Status Indicator */}
               {!isReadOnly && (
@@ -883,7 +889,9 @@ const AppContent: React.FC = () => {
           </div>
         </nav>
 
-        <ShareDialog isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} program={program} />
+        {!isReadOnly && (
+          <ShareDialog isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} program={program} />
+        )}
         <ExportDialog
           isOpen={isExportOpen}
           onClose={() => setIsExportOpen(false)}
