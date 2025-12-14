@@ -277,6 +277,11 @@ const AppContent: React.FC = () => {
   const isCoEditor = mode === 'coeditor';
   const queryClient = useQueryClient();
 
+  const isReadOnlyRef = React.useRef(isReadOnly);
+  useEffect(() => {
+    isReadOnlyRef.current = isReadOnly;
+  }, [isReadOnly]);
+
   // Main State
   const [program, setProgram] = useState<Program>(INITIAL_PROGRAM);
 
@@ -295,6 +300,25 @@ const AppContent: React.FC = () => {
   // Lifted Timer State
   const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
   const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
+  const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
+
+  const timerStateRef = React.useRef({
+    programId: INITIAL_PROGRAM.id,
+    isTimerActive: false,
+    currentSlotIndex: 0,
+    secondsElapsed: 0,
+    timerStartTimestamp: null as number | null,
+  });
+
+  useEffect(() => {
+    timerStateRef.current = {
+      programId: program.id,
+      isTimerActive,
+      currentSlotIndex,
+      secondsElapsed,
+      timerStartTimestamp,
+    };
+  }, [program.id, isTimerActive, currentSlotIndex, secondsElapsed, timerStartTimestamp]);
 
   // Theme State
   // Theme State (Zustand)
@@ -416,6 +440,9 @@ const AppContent: React.FC = () => {
         // Update Timer Status
         setIsTimerActive(remoteState.isTimerActive);
 
+        // Persist timer start timestamp so we can answer sync requests accurately
+        setTimerStartTimestamp(remoteState.timerStartTimestamp);
+
         // Sync Time
         if (remoteState.isTimerActive && remoteState.timerStartTimestamp) {
           const now = Date.now();
@@ -432,6 +459,42 @@ const AppContent: React.FC = () => {
         if (updatedProgram.id === program.id) {
           setProgram(updatedProgram);
         }
+      },
+      // Sync request handler (for late-joining viewers)
+      () => {
+        // Only an editor/co-editor should respond with the current state.
+        if (isReadOnlyRef.current) return;
+
+        const now = Date.now();
+        const snapshot = timerStateRef.current;
+        const resolvedStart = snapshot.isTimerActive
+          ? (snapshot.timerStartTimestamp ?? (now - (snapshot.secondsElapsed * 1000)))
+          : null;
+
+        realtimeService.sendSyncResponse({
+          programId: snapshot.programId,
+          isTimerActive: snapshot.isTimerActive,
+          currentSlotIndex: snapshot.currentSlotIndex,
+          secondsElapsed: snapshot.secondsElapsed,
+          timerStartTimestamp: resolvedStart,
+        });
+      },
+      // Sync response handler (apply to late-joining viewers)
+      (payload) => {
+        const state = payload.state;
+        if (state.programId !== program.id) return;
+
+        setCurrentSlotIndex(state.currentSlotIndex);
+        setIsTimerActive(state.isTimerActive);
+        setTimerStartTimestamp(state.timerStartTimestamp);
+
+        if (state.isTimerActive && state.timerStartTimestamp) {
+          const now = Date.now();
+          const elapsed = Math.floor((now - state.timerStartTimestamp) / 1000);
+          setSecondsElapsed(elapsed);
+        } else {
+          setSecondsElapsed(state.secondsElapsed);
+        }
       }
     );
 
@@ -444,12 +507,15 @@ const AppContent: React.FC = () => {
   // Broadcast Helper (Supabase Realtime)
   const broadcastState = (overrides: Partial<TimerState> = {}) => {
     const now = Date.now();
+    const hasStartOverride = Object.prototype.hasOwnProperty.call(overrides, 'timerStartTimestamp');
     const state: TimerState = {
       programId: program.id,
       isTimerActive: overrides.hasOwnProperty('isTimerActive') ? overrides.isTimerActive! : isTimerActive,
       currentSlotIndex: overrides.hasOwnProperty('currentSlotIndex') ? overrides.currentSlotIndex! : currentSlotIndex,
       secondsElapsed: overrides.hasOwnProperty('secondsElapsed') ? overrides.secondsElapsed! : secondsElapsed,
-      timerStartTimestamp: overrides.isTimerActive ? now : null,
+      timerStartTimestamp: hasStartOverride
+        ? (overrides.timerStartTimestamp ?? null)
+        : (overrides.isTimerActive ? now : timerStartTimestamp),
     };
 
     realtimeService.broadcast(state);
@@ -460,6 +526,7 @@ const AppContent: React.FC = () => {
     setCurrentSlotIndex(0);
     setSecondsElapsed(0);
     setIsTimerActive(false);
+    setTimerStartTimestamp(null);
     // Broadcast Reset
     broadcastState({
       isTimerActive: false,
@@ -575,17 +642,22 @@ const AppContent: React.FC = () => {
         setCurrentSlotIndex(nextIndex);
         setSecondsElapsed(0);
 
+        const nextStartTs = Date.now();
+        setTimerStartTimestamp(nextStartTs);
+
         // Broadcast Auto-Advance
         broadcastState({
           currentSlotIndex: nextIndex,
           isTimerActive: true,
-          secondsElapsed: 0
+          secondsElapsed: 0,
+          timerStartTimestamp: nextStartTs
         });
       } else {
         // Last slot finished - stop timer
         setCurrentSlotIndex(prev => prev + 1);
         setIsTimerActive(false);
         setSecondsElapsed(0);
+        setTimerStartTimestamp(null);
 
         broadcastState({
           currentSlotIndex: currentSlotIndex + 1,
@@ -601,8 +673,11 @@ const AppContent: React.FC = () => {
     const newState = !isTimerActive;
     setIsTimerActive(newState);
 
+    const startTs = newState ? (Date.now() - (secondsElapsed * 1000)) : null;
+    setTimerStartTimestamp(startTs);
+
     // Broadcast immediately so Viewers know
-    broadcastState({ isTimerActive: newState });
+    broadcastState({ isTimerActive: newState, timerStartTimestamp: startTs });
   };
 
 
@@ -616,6 +691,7 @@ const AppContent: React.FC = () => {
         setCurrentSlotIndex(prev => prev + 1);
         setSecondsElapsed(0);
         setIsTimerActive(false);
+        setTimerStartTimestamp(null);
 
         broadcastState({
           currentSlotIndex: currentSlotIndex + 1,
@@ -625,6 +701,7 @@ const AppContent: React.FC = () => {
       } else {
         setCurrentSlotIndex(prev => prev + 1);
         setIsTimerActive(false);
+        setTimerStartTimestamp(null);
 
         broadcastState({
           currentSlotIndex: currentSlotIndex + 1,
@@ -640,12 +717,13 @@ const AppContent: React.FC = () => {
     if (currentSlotIndex > 0) {
       setCurrentSlotIndex(prev => prev - 1);
       setSecondsElapsed(0);
-      setSecondsElapsed(0);
       setIsTimerActive(false);
+      setTimerStartTimestamp(null);
       broadcastState({
         currentSlotIndex: currentSlotIndex - 1,
         isTimerActive: false,
-        accumulatedElapsed: 0
+        secondsElapsed: 0,
+        timerStartTimestamp: null
       });
     }
   };

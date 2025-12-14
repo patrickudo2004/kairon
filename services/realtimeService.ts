@@ -10,6 +10,15 @@ export interface TimerState {
     timerStartTimestamp: number | null;
 }
 
+export interface SyncRequestPayload {
+    requestedAt: number;
+}
+
+export interface SyncResponsePayload {
+    respondedAt: number;
+    state: TimerState;
+}
+
 export class RealtimeService {
     private channel: RealtimeChannel | null = null;
     private programId: string | null = null;
@@ -20,7 +29,9 @@ export class RealtimeService {
     subscribe(
         programId: string,
         onTimerUpdate: (state: TimerState) => void,
-        onProgramUpdate?: (program: Program) => void
+        onProgramUpdate?: (program: Program) => void,
+        onSyncRequest?: (payload: SyncRequestPayload) => void,
+        onSyncResponse?: (payload: SyncResponsePayload) => void
     ): () => void {
         // Unsubscribe from previous channel if exists
         if (this.channel) {
@@ -46,6 +57,29 @@ export class RealtimeService {
             }
         );
 
+        // Late-join sync handshake
+        if (onSyncRequest) {
+            this.channel.on(
+                'broadcast',
+                { event: 'sync_request' },
+                (payload) => {
+                    console.log('Received sync request:', payload);
+                    onSyncRequest(payload.payload as SyncRequestPayload);
+                }
+            );
+        }
+
+        if (onSyncResponse) {
+            this.channel.on(
+                'broadcast',
+                { event: 'sync_response' },
+                (payload) => {
+                    console.log('Received sync response:', payload);
+                    onSyncResponse(payload.payload as SyncResponsePayload);
+                }
+            );
+        }
+
         // Listen for program content updates
         if (onProgramUpdate) {
             this.channel.on(
@@ -61,6 +95,11 @@ export class RealtimeService {
         // Subscribe to the channel
         this.channel.subscribe((status) => {
             console.log(`Realtime subscription status: ${status}`);
+
+            // New subscribers won't receive past broadcasts; request a state sync on join.
+            if (status === 'SUBSCRIBED') {
+                this.requestSync();
+            }
         });
 
         // Return unsubscribe function
@@ -100,6 +139,31 @@ export class RealtimeService {
             type: 'broadcast',
             event: 'program_update',
             payload: program,
+        });
+    }
+
+    requestSync(): void {
+        if (!this.channel || !this.programId) return;
+
+        this.channel.send({
+            type: 'broadcast',
+            event: 'sync_request',
+            payload: {
+                requestedAt: Date.now(),
+            } satisfies SyncRequestPayload,
+        });
+    }
+
+    sendSyncResponse(state: TimerState): void {
+        if (!this.channel || !this.programId) return;
+
+        this.channel.send({
+            type: 'broadcast',
+            event: 'sync_response',
+            payload: {
+                respondedAt: Date.now(),
+                state,
+            } satisfies SyncResponsePayload,
         });
     }
 
