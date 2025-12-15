@@ -1,4 +1,4 @@
-import { Program, SlotType } from "../types";
+import { Program } from "../types";
 
 // NOTE: This now calls our local proxy, not Google directly.
 export const generateProgramDraft = async (rawText: string): Promise<Program | null> => {
@@ -33,7 +33,7 @@ export const generateProgramDraft = async (rawText: string): Promise<Program | n
         title: s.title,
         speaker: s.speaker || "TBA",
         durationMinutes: s.durationMinutes,
-        type: s.type as SlotType,
+        type: s.type,
         details: s.details || ""
       }))
     };

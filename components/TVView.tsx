@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Program, SlotType } from '../types';
+import { Program } from '../types';
 import { Maximize, Minimize, Sun, Moon } from 'lucide-react';
 
 interface TVViewProps {
@@ -190,9 +190,11 @@ const TVView: React.FC<TVViewProps> = ({
                 {/* Progress Bar - Thicker */}
                 <div className="w-full h-4 sm:h-6 bg-slate-200 dark:bg-slate-800 rounded-full mb-8 sm:mb-12 overflow-hidden shadow-xl ring-1 ring-slate-300 dark:ring-slate-700">
                     <div
-                        className={`h-full transition-all duration-1000 ease-linear ${currentSlot.type === SlotType.BREAK
+                        className={`h-full transition-all duration-1000 ease-linear ${currentSlot.type === 'Break'
                             ? 'bg-emerald-500'
-                            : 'bg-indigo-600'
+                            : ['Worship', 'Sermon', 'Music'].includes(currentSlot.type)
+                                ? 'bg-purple-600'
+                                : 'bg-indigo-600'
                             }`}
                         style={{ width: `${progressPercent}%` }}
                     />
