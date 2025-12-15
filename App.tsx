@@ -16,6 +16,8 @@ import PrintableSchedule from './components/PrintableSchedule';
 import ShareDialog from './components/ShareDialog';
 import TVView from './components/TVView';
 import { Program, Slot, SlotType } from './types';
+import { useLocalSync } from './hooks/useLocalSync';
+import { Monitor } from 'lucide-react';
 
 // --- Helpers for URL State Encoding (Minification Strategy) ---
 
@@ -505,6 +507,51 @@ const AppContent: React.FC = () => {
     };
   }, [program.id]);
 
+  // --- Local Sync Integration ---
+  const onRequestSyncRef = React.useRef<() => void>(() => { });
+
+  const { broadcastTimerState, broadcastProgramUpdate, requestSync: requestLocalSync } = useLocalSync(
+    'kairon_local_sync',
+    // onTimerState (Receive update from Controller)
+    (state) => {
+      // Only accept if program ID matches
+      if (state.programId !== program.id) return;
+
+      console.log('Local Sync: Timer:', state);
+      // Update local state
+      setCurrentSlotIndex(state.currentSlotIndex);
+      setIsTimerActive(state.isTimerActive);
+      setTimerStartTimestamp(state.timerStartTimestamp);
+
+      if (state.isTimerActive && state.timerStartTimestamp) {
+        const now = Date.now();
+        const elapsed = Math.floor((now - state.timerStartTimestamp) / 1000);
+        setSecondsElapsed(elapsed);
+      } else {
+        setSecondsElapsed(state.secondsElapsed);
+      }
+    },
+    // onProgramUpdate (Receive edit from Controller)
+    (updatedProgram) => {
+      if (updatedProgram.id === program.id) {
+        console.log('Local Sync: Program Update');
+        setProgram(updatedProgram);
+      }
+    },
+    // onRequestSync (Controller receives request from new Projector)
+    () => {
+      onRequestSyncRef.current();
+    }
+  );
+
+  // Request sync on mount if we are a viewer (Projector)
+  useEffect(() => {
+    if (isReadOnly) {
+      console.log("Projector: Requesting Local Sync...");
+      requestLocalSync();
+    }
+  }, [isReadOnly, requestLocalSync]);
+
   // Broadcast Helper (Supabase Realtime)
   const broadcastState = (overrides: Partial<TimerState> = {}) => {
     const now = Date.now();
@@ -520,7 +567,20 @@ const AppContent: React.FC = () => {
     };
 
     realtimeService.broadcast(state);
+    // Also broadcast locally
+    broadcastTimerState(state);
   };
+
+  // Wire up the sync request handler
+  useEffect(() => {
+    onRequestSyncRef.current = () => {
+      if (!isReadOnlyRef.current) {
+        console.log("Controller: Sending Local Sync Response");
+        // Force a broadcast of current state
+        broadcastState();
+      }
+    };
+  }, [program.id, isTimerActive, currentSlotIndex, secondsElapsed]);
 
   const loadProgram = (newProgram: Program) => {
     setProgram(newProgram);
@@ -891,6 +951,21 @@ const AppContent: React.FC = () => {
                 {program.title}
               </div>
 
+              {/* Projector Button */}
+              {!isReadOnly && (
+                <button
+                  onClick={() => {
+                    // Open TV Route in new window
+                    const url = `/#/tv?id=${program.id}&mode=viewer`;
+                    window.open(url, 'KaironProjector', 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no');
+                  }}
+                  className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition-colors hidden sm:block"
+                  title="Launch Projector (TV Mode)"
+                >
+                  <Monitor size={20} />
+                </button>
+              )}
+
               <button
                 onClick={() => setIsExportOpen(true)}
                 className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-rose-600 dark:text-rose-400 transition-colors"
@@ -978,6 +1053,7 @@ const AppContent: React.FC = () => {
                     setProgram(p);
                     // Broadcast program changes to all viewers in real-time
                     realtimeService.broadcastProgram(p);
+                    broadcastProgramUpdate(p);
                     if (p.slots.length === 0) {
                       setCurrentSlotIndex(0);
                       setSecondsElapsed(0);
