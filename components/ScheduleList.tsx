@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Program, SlotType } from '../types';
+import { Program } from '../types';
 import { Clock, ChevronRight, Play, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ScheduleListProps {
@@ -10,10 +10,10 @@ interface ScheduleListProps {
   readOnly?: boolean;
 }
 
-const ScheduleList: React.FC<ScheduleListProps> = ({ 
-  program, 
-  currentSlotIndex, 
-  secondsElapsed, 
+const ScheduleList: React.FC<ScheduleListProps> = ({
+  program,
+  currentSlotIndex,
+  secondsElapsed,
   isTimerActive,
   readOnly = false
 }) => {
@@ -73,14 +73,14 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
     <div className="max-w-3xl mx-auto p-4 pb-24">
       <div className="flex items-center justify-between mb-6 sticky top-0 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur py-4 z-10 border-b border-slate-200 dark:border-slate-800 transition-colors">
         <div>
-           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Full Schedule</h2>
-           <p className="text-slate-500 dark:text-slate-400 text-sm">{program.date} &bull; Starts {minutesToTime(startMinutes)}</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Full Schedule</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">{program.date} &bull; Starts {minutesToTime(startMinutes)}</p>
         </div>
         <div className="text-right">
-           <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Current Time</div>
-           <div className="text-xl font-mono text-indigo-600 dark:text-indigo-400">
-             {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-           </div>
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Current Time</div>
+          <div className="text-xl font-mono text-indigo-600 dark:text-indigo-400">
+            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </div>
         </div>
       </div>
 
@@ -88,35 +88,34 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
         {program.slots.map((slot, index) => {
           const slotStart = runningMinutes;
           runningMinutes += slot.durationMinutes;
-          
+
           const isCurrent = index === currentSlotIndex;
           const isPast = index < currentSlotIndex;
           const isExpanded = expandedSlots.has(slot.id);
-          
+
           const durationSeconds = slot.durationMinutes * 60;
           const remainingSeconds = Math.max(0, durationSeconds - secondsElapsed);
 
           return (
-            <div 
+            <div
               key={slot.id}
               ref={isCurrent ? activeItemRef : null}
-              className={`relative rounded-xl border transition-all duration-300 overflow-hidden ${
-                isCurrent 
-                  ? 'bg-white dark:bg-slate-800 border-indigo-500/50 ring-1 ring-indigo-500/20 shadow-lg shadow-indigo-500/10' 
-                  : isPast
-                    ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800/50 opacity-60'
-                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
-              }`}
+              className={`relative rounded-xl border transition-all duration-300 overflow-hidden ${isCurrent
+                ? 'bg-white dark:bg-slate-800 border-indigo-500/50 ring-1 ring-indigo-500/20 shadow-lg shadow-indigo-500/10'
+                : isPast
+                  ? 'bg-slate-100 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800/50 opacity-60'
+                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+                }`}
             >
               {/* Progress Background for Current Slot */}
               {isCurrent && (
-                <div 
+                <div
                   className="absolute left-0 top-0 bottom-0 opacity-10 transition-all duration-1000 bg-indigo-500"
                   style={{ width: `${Math.min(100, (secondsElapsed / durationSeconds) * 100)}%` }}
                 />
               )}
 
-              <div 
+              <div
                 className="p-4 flex items-start gap-4 relative z-10 cursor-pointer"
                 onClick={(e) => toggleDetails(slot.id, e)}
               >
@@ -126,9 +125,9 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
                     {minutesToTime(slotStart)}
                   </span>
                   {isCurrent && (
-                     <span className="mt-2 text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-500/10 px-1.5 py-0.5 rounded animate-pulse">
-                        Now
-                     </span>
+                    <span className="mt-2 text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-500/10 px-1.5 py-0.5 rounded animate-pulse">
+                      Now
+                    </span>
                   )}
                 </div>
 
@@ -136,16 +135,16 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
-                       {/* Dropdown Toggle */}
-                       <button 
-                         className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800"
-                       >
-                         {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                       </button>
+                      {/* Dropdown Toggle */}
+                      <button
+                        className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </button>
 
-                       <h3 className={`font-semibold truncate pr-2 ${isCurrent ? 'text-slate-900 dark:text-white text-lg' : 'text-slate-700 dark:text-slate-300'}`}>
+                      <h3 className={`font-semibold truncate pr-2 ${isCurrent ? 'text-slate-900 dark:text-white text-lg' : 'text-slate-700 dark:text-slate-300'}`}>
                         {slot.title}
-                       </h3>
+                      </h3>
                     </div>
 
                     {isCurrent && (
@@ -154,22 +153,21 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="flex items-center justify-between pl-7">
                     <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-500">
                       <span className={`${isCurrent ? 'text-indigo-700 dark:text-indigo-200' : ''}`}>{slot.speaker || slot.type}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
-                         slot.type === SlotType.BREAK 
-                           ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20' 
-                           : 'bg-slate-100 dark:bg-slate-700/30 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                       }`}>
-                         {slot.type}
-                       </span>
-                       <span className="text-xs text-slate-400 dark:text-slate-500 font-mono">
-                         {slot.durationMinutes}m
-                       </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${slot.type === 'Break'
+                        ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'
+                        : 'bg-slate-100 dark:bg-slate-700/30 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                        }`}>
+                        {slot.type}
+                      </span>
+                      <span className="text-xs text-slate-400 dark:text-slate-500 font-mono">
+                        {slot.durationMinutes}m
+                      </span>
                     </div>
                   </div>
 
@@ -179,7 +177,7 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
                       {slot.details}
                     </div>
                   )}
-                   {isExpanded && !slot.details && (
+                  {isExpanded && !slot.details && (
                     <div className="mt-3 ml-7 p-2 text-xs text-slate-400 italic">
                       No details available for this slot.
                     </div>
@@ -188,14 +186,14 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
 
                 {/* Action Arrow - Only show if not read only or just show icon without action? */}
                 {isCurrent && !readOnly && (
-                   <div className="text-indigo-500 pl-2 pt-1">
-                      {isTimerActive ? <Clock className="animate-pulse" size={20} /> : <Play size={20} className="opacity-50" />}
-                   </div>
+                  <div className="text-indigo-500 pl-2 pt-1">
+                    {isTimerActive ? <Clock className="animate-pulse" size={20} /> : <Play size={20} className="opacity-50" />}
+                  </div>
                 )}
                 {isCurrent && readOnly && (
-                   <div className="text-indigo-500 pl-2 pt-1">
-                      <Clock className={isTimerActive ? "animate-pulse" : ""} size={20} />
-                   </div>
+                  <div className="text-indigo-500 pl-2 pt-1">
+                    <Clock className={isTimerActive ? "animate-pulse" : ""} size={20} />
+                  </div>
                 )}
               </div>
             </div>

@@ -15,7 +15,7 @@ import HomeDashboard from './components/HomeDashboard';
 import PrintableSchedule from './components/PrintableSchedule';
 import ShareDialog from './components/ShareDialog';
 import TVView from './components/TVView';
-import { Program, SlotType, Slot } from './types';
+import { Program, Slot, SlotType } from './types';
 
 // --- Helpers for URL State Encoding (Minification Strategy) ---
 
@@ -177,7 +177,7 @@ const ExportDialog: React.FC<{
       runningMinutes += slot.durationMinutes;
 
       text += `${startStr} - ${slot.title}`;
-      if (slot.type === SlotType.BREAK) text += ` (Break)`;
+      if (slot.type === 'Break') text += ` (Break)`;
       text += `\n`;
 
       if (options.includeSpeakers && slot.speaker) {
