@@ -1,5 +1,5 @@
 import React from 'react';
-import { Program, SlotType } from '../types';
+import { Program } from '../types';
 import { Play, Pause, SkipForward, SkipBack, Eye, CheckCircle } from 'lucide-react';
 
 interface LiveTimerProps {
@@ -13,12 +13,12 @@ interface LiveTimerProps {
   readOnly?: boolean;
 }
 
-const LiveTimer: React.FC<LiveTimerProps> = ({ 
-  program, 
-  currentSlotIndex, 
-  isTimerActive, 
-  secondsElapsed, 
-  onToggleTimer, 
+const LiveTimer: React.FC<LiveTimerProps> = ({
+  program,
+  currentSlotIndex,
+  isTimerActive,
+  secondsElapsed,
+  onToggleTimer,
   onNext,
   onPrev,
   readOnly = false
@@ -36,8 +36,8 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
 
   // Calculations
   const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
-  const timeLeft = Math.max(0, durationSeconds - secondsElapsed); 
-  
+  const timeLeft = Math.max(0, durationSeconds - secondsElapsed);
+
   const progressPercent = durationSeconds > 0
     ? Math.min(100, Math.max(0, (timeLeft / durationSeconds) * 100))
     : 0;
@@ -46,24 +46,24 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
     return (
       <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto p-8 animate-in fade-in zoom-in-95 duration-500">
         <div className="mb-8 p-6 bg-emerald-100 dark:bg-emerald-500/10 rounded-full shadow-xl shadow-emerald-500/20 ring-1 ring-emerald-500/20">
-            <CheckCircle size={80} className="text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
+          <CheckCircle size={80} className="text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
         </div>
-        
+
         <h2 className="text-4xl md:text-6xl font-bold text-slate-900 dark:text-white text-center mb-4 tracking-tight">
           All Done!
         </h2>
         <p className="text-xl text-slate-500 dark:text-slate-400 text-center mb-12">
-            The program has concluded successfully.
+          The program has concluded successfully.
         </p>
 
         {!readOnly && (
-            <button 
-                onClick={onPrev} 
-                className="flex items-center gap-3 px-8 py-4 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-lg hover:shadow-xl transition-all group"
-            >
-                <SkipBack size={24} className="group-hover:-translate-x-1 transition-transform" /> 
-                <span className="font-semibold text-lg">Return to Previous</span>
-            </button>
+          <button
+            onClick={onPrev}
+            className="flex items-center gap-3 px-8 py-4 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-lg hover:shadow-xl transition-all group"
+          >
+            <SkipBack size={24} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="font-semibold text-lg">Return to Previous</span>
+          </button>
         )}
       </div>
     );
@@ -74,11 +74,12 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
       {/* Status Bar */}
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-3">
-          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-            currentSlot.type === SlotType.BREAK 
-              ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' 
+          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${currentSlot.type === 'Break'
+            ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+            : ['Worship', 'Sermon', 'Music'].includes(currentSlot.type)
+              ? 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400'
               : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400'
-          }`}>
+            }`}>
             {currentSlot.type}
           </span>
           <span className="text-slate-500 dark:text-slate-400 text-sm">Current Session</span>
@@ -89,7 +90,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
           )}
         </div>
         <div className="flex items-center gap-2 text-slate-500 text-sm">
-            Next: <span className="text-slate-700 dark:text-slate-300 font-medium">{nextSlot ? `${nextSlot.title}` : "End of Day"}</span>
+          Next: <span className="text-slate-700 dark:text-slate-300 font-medium">{nextSlot ? `${nextSlot.title}` : "End of Day"}</span>
         </div>
       </div>
 
@@ -106,7 +107,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
         <div className="text-[100px] md:text-[180px] font-mono font-bold leading-none tracking-tighter tabular-nums text-slate-900 dark:text-white select-none transition-colors">
           {formatTime(timeLeft)}
         </div>
-        
+
         {readOnly && isTimerActive && (
           <div className="mt-4 text-emerald-500 animate-pulse text-sm font-semibold tracking-widest uppercase">
             Live - Session In Progress
@@ -121,7 +122,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
 
       {/* Progress Bar */}
       <div className="w-full h-3 bg-slate-200 dark:bg-slate-800 rounded-full mb-12 overflow-hidden shadow-inner">
-        <div 
+        <div
           className="h-full bg-indigo-600 dark:bg-indigo-500 transition-all duration-1000 ease-linear"
           style={{ width: `${progressPercent}%` }}
         />
@@ -130,39 +131,38 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
       {/* Controls - Hidden if readOnly */}
       {!readOnly && (
         <div className="flex justify-center gap-6 mb-8">
-          <button 
+          <button
             onClick={onPrev}
             disabled={currentSlotIndex === 0}
             className="flex items-center gap-3 px-6 py-5 rounded-2xl font-semibold text-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <SkipBack size={28} /> 
+            <SkipBack size={28} />
           </button>
 
-          <button 
+          <button
             onClick={onToggleTimer}
-            className={`flex items-center gap-3 px-8 md:px-12 py-5 rounded-2xl font-semibold text-xl transition-all transform hover:scale-105 active:scale-95 shadow-xl ${
-              isTimerActive 
-                ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700' 
-                : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-500/30'
-            }`}
+            className={`flex items-center gap-3 px-8 md:px-12 py-5 rounded-2xl font-semibold text-xl transition-all transform hover:scale-105 active:scale-95 shadow-xl ${isTimerActive
+              ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+              : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-500/30'
+              }`}
           >
             {isTimerActive ? <><Pause size={28} /> Pause</> : <><Play size={28} fill="currentColor" /> Start</>}
           </button>
 
-          <button 
+          <button
             onClick={onNext}
             className="flex items-center gap-3 px-8 md:px-10 py-5 rounded-2xl font-semibold text-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 transition-all shadow-xl"
           >
-            <SkipForward size={28} /> 
+            <SkipForward size={28} />
             Next
           </button>
         </div>
       )}
-      
+
       {readOnly && (
-         <div className="text-center text-slate-400 text-sm mb-8">
-            Controls disabled in viewer mode.
-         </div>
+        <div className="text-center text-slate-400 text-sm mb-8">
+          Controls disabled in viewer mode.
+        </div>
       )}
     </div>
   );

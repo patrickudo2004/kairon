@@ -1,9 +1,16 @@
-export enum SlotType {
-  TALK = 'TALK',
-  BREAK = 'BREAK',
-  KEYNOTE = 'KEYNOTE',
-  PANEL = 'PANEL'
-}
+// Common presets for the UI, but user can type anything
+export const SLOT_PRESETS = [
+  'Talk',
+  'Break',
+  'Keynote',
+  'Panel',
+  'Worship',
+  'Sermon',
+  'Music'
+] as const;
+
+export type SlotType = string;
+
 
 export interface Slot {
   id: string;

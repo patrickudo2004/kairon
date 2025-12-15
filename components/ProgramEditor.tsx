@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Program, Slot, SlotType } from '../types';
+import { Program, Slot, SLOT_PRESETS } from '../types';
 import { Trash2, Plus, GripVertical, Sparkles, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, Users } from 'lucide-react';
 import { generateProgramDraft } from '../services/geminiService';
 
@@ -66,7 +66,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({ program, onUpdate, isCoEd
       title: 'New Session',
       speaker: '',
       durationMinutes: 30,
-      type: SlotType.TALK
+      type: 'Talk'
     };
     const newSlots = [...program.slots, newSlot];
     onUpdate({ ...program, slots: newSlots });
@@ -301,13 +301,14 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({ program, onUpdate, isCoEd
                   />
                 </div>
                 <div className="col-span-6 md:col-span-2">
-                  <select
+                  <input
+                    list="slot-types"
+                    type="text"
                     value={slot.type}
                     onChange={(e) => handleSlotChange(slot.id, 'type', e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 text-xs rounded px-2 py-1 border border-slate-200 dark:border-slate-700 outline-none"
-                  >
-                    {Object.values(SlotType).map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                    placeholder="Type..."
+                  />
                 </div>
                 <div className="col-span-6 md:col-span-2 flex items-center gap-2 justify-end">
                   <input
@@ -411,6 +412,12 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({ program, onUpdate, isCoEd
           </div>
         </div>
       )}
+
+      <datalist id="slot-types">
+        {SLOT_PRESETS.map(preset => (
+          <option key={preset} value={preset} />
+        ))}
+      </datalist>
     </div>
   );
 };
