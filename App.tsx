@@ -5,7 +5,7 @@ import QRCode from 'react-qr-code';
 import { realtimeService, TimerState } from './services/realtimeService';
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService } from './services/programService';
+import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService } from './services/programService';
 import { useUIStore } from './store/uiStore';
 import LiveTimer from './components/LiveTimer';
 import ScheduleList from './components/ScheduleList';
@@ -305,6 +305,52 @@ const AppContent: React.FC = () => {
   const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
   const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
 
+  // Persistence Key
+  const TIMER_STORAGE_KEY = 'kairon_timer_state';
+
+  // Restore state on program load
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(TIMER_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.programId === program.id) {
+          console.log("Restoring timer state from localStorage", parsed);
+          setCurrentSlotIndex(parsed.currentSlotIndex);
+          setIsTimerActive(parsed.isTimerActive);
+
+          // Recalculate elapsed if active to catch up time lost during refresh
+          if (parsed.isTimerActive && parsed.timerStartTimestamp) {
+            const now = Date.now();
+            const elapsed = Math.floor((now - parsed.timerStartTimestamp) / 1000);
+            setSecondsElapsed(elapsed);
+            setTimerStartTimestamp(parsed.timerStartTimestamp);
+          } else {
+            setSecondsElapsed(parsed.secondsElapsed);
+            setTimerStartTimestamp(parsed.timerStartTimestamp);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to restore timer state", e);
+    }
+  }, [program.id]);
+
+  // Save state on change
+  useEffect(() => {
+    // Only save if we have a valid program and state
+    if (program.id === INITIAL_PROGRAM.id) return;
+
+    const state = {
+      programId: program.id,
+      currentSlotIndex,
+      isTimerActive,
+      secondsElapsed,
+      timerStartTimestamp
+    };
+    localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(state));
+  }, [program.id, currentSlotIndex, isTimerActive, secondsElapsed, timerStartTimestamp]);
+
   const timerStateRef = React.useRef({
     programId: INITIAL_PROGRAM.id,
     isTimerActive: false,
@@ -354,6 +400,22 @@ const AppContent: React.FC = () => {
     if (fetchedProgram && fetchedProgram.id !== program.id) {
       console.log("Hydrating program from ID:", fetchedProgram.title);
       setProgram(fetchedProgram);
+
+      // Hydrate Timer State from DB if available
+      if (fetchedProgram.isTimerActive !== undefined) {
+        console.log("Hydrating timer state from DB:", fetchedProgram.isTimerActive);
+        setCurrentSlotIndex(fetchedProgram.currentSlotIndex ?? 0);
+        setIsTimerActive(fetchedProgram.isTimerActive ?? false);
+        setTimerStartTimestamp(fetchedProgram.timerStartTimestamp ?? null);
+
+        if (fetchedProgram.isTimerActive && fetchedProgram.timerStartTimestamp) {
+          const now = Date.now();
+          const elapsed = Math.floor((now - fetchedProgram.timerStartTimestamp) / 1000);
+          setSecondsElapsed(elapsed);
+        } else {
+          setSecondsElapsed(fetchedProgram.secondsElapsed ?? 0);
+        }
+      }
     } else if (importData) {
       const importedProgram = decodeData(importData);
       if (importedProgram && importedProgram.id !== program.id) {
@@ -387,6 +449,15 @@ const AppContent: React.FC = () => {
     }
   });
 
+  const timerSaveMutation = useMutation({
+    mutationFn: (state: {
+      currentSlotIndex: number;
+      isTimerActive: boolean;
+      secondsElapsed: number;
+      timerStartTimestamp: number | null;
+    }) => updateTimerStateService(program.id, state)
+  });
+
   // Debounced Auto-Save with Visual Feedback
   useEffect(() => {
     if (isReadOnly) return;
@@ -407,6 +478,23 @@ const AppContent: React.FC = () => {
 
     return () => clearTimeout(timer);
   }, [program, isReadOnly]);
+
+  // Debounced Timer State Save to Supabase
+  useEffect(() => {
+    if (isReadOnly || program.id === INITIAL_PROGRAM.id) return;
+
+    const timer = setTimeout(() => {
+      console.log("Saving timer state to Supabase...", program.id);
+      timerSaveMutation.mutate({
+        currentSlotIndex,
+        isTimerActive,
+        secondsElapsed: isTimerActive ? 0 : secondsElapsed, // If active, the start timestamp is the source of truth
+        timerStartTimestamp
+      });
+    }, 5000); // 5s debounce for timer state to avoid spamming DB during ticks
+
+    return () => clearTimeout(timer);
+  }, [currentSlotIndex, isTimerActive, secondsElapsed, timerStartTimestamp, isReadOnly, program.id]);
 
   // Update save status when mutation completes
   useEffect(() => {
@@ -595,6 +683,8 @@ const AppContent: React.FC = () => {
       secondsElapsed: 0,
       timerStartTimestamp: null
     });
+    // Clear persisted state for safety when explicitly switching/loading
+    localStorage.removeItem(TIMER_STORAGE_KEY);
   };
 
   const createProgram = (date: string) => {
@@ -665,18 +755,20 @@ const AppContent: React.FC = () => {
     })();
   };
 
-  // Timer Tick Logic
+  // Timer Tick Logic (Drift-Proof)
   useEffect(() => {
     let interval: number | undefined;
-    if (isTimerActive) {
+    if (isTimerActive && timerStartTimestamp) {
       interval = window.setInterval(() => {
-        setSecondsElapsed(prev => prev + 1);
-      }, 1000);
+        const now = Date.now();
+        const exactElapsed = Math.floor((now - timerStartTimestamp) / 1000);
+        setSecondsElapsed(exactElapsed);
+      }, 200); // Update 5 times a second to catch the second flip immediately
     } else {
       clearInterval(interval);
     }
     return () => clearInterval(interval);
-  }, [isTimerActive]);
+  }, [isTimerActive, timerStartTimestamp]);
 
   const handleSlotComplete = (slotId: string, actualDuration: number) => {
     setProgram(prev => ({
@@ -859,7 +951,7 @@ const AppContent: React.FC = () => {
       <CalendarView
         programs={allPrograms}
         activeProgramId={program.id}
-        onSelectProgram={(p) => { loadProgram(p); navigate(`/live?mode=${mode}`); }}
+        onSelectProgram={(p) => { loadProgram(p); navigate(`/live?id=${p.id}&mode=${mode}`); }}
         onCreateProgram={(date) => { createProgram(date); navigate(`/editor?mode=${mode}`); }}
         onDelete={deleteProgram}
         onDuplicate={duplicateProgram}
@@ -888,7 +980,7 @@ const AppContent: React.FC = () => {
       <HomeDashboard
         programs={allPrograms}
         activeProgramId={program.id}
-        onSelectProgram={(p) => { loadProgram(p); navigate(`/live?mode=${mode}`); }}
+        onSelectProgram={(p) => { loadProgram(p); navigate(`/live?id=${p.id}&mode=${mode}`); }}
         onCreateNew={() => { createProgram(new Date().toISOString().split('T')[0]); navigate(`/editor?mode=${mode}`); }}
         onDelete={deleteProgram}
         onDuplicate={duplicateProgram}
@@ -1022,48 +1114,55 @@ const AppContent: React.FC = () => {
         {/* Main */}
         <main className="flex-1 overflow-y-auto custom-scrollbar relative">
           <div className="max-w-7xl mx-auto w-full h-full">
-            <Routes>
-              {!isReadOnly && !isCoEditor && <Route path="/" element={<HomeWrapper />} />}
-              <Route path="/live" element={
-                <LiveTimer
-                  program={program}
-                  currentSlotIndex={currentSlotIndex}
-                  isTimerActive={isTimerActive}
-                  secondsElapsed={secondsElapsed}
-                  onToggleTimer={handleToggleTimer}
-                  onNext={handleNext}
-                  onPrev={handlePrev}
-                  readOnly={isReadOnly}
-                />
-              } />
-              <Route path="/list" element={
-                <ScheduleList
-                  program={program}
-                  currentSlotIndex={currentSlotIndex}
-                  secondsElapsed={secondsElapsed}
-                  isTimerActive={isTimerActive}
-                  readOnly={isReadOnly}
-                />
-              } />
-              {!isReadOnly && <Route path="/editor" element={
-                <ProgramEditor
-                  program={program}
-                  isCoEditor={isCoEditor}
-                  onUpdate={(p) => {
-                    setProgram(p);
-                    // Broadcast program changes to all viewers in real-time
-                    realtimeService.broadcastProgram(p);
-                    broadcastProgramUpdate(p);
-                    if (p.slots.length === 0) {
-                      setCurrentSlotIndex(0);
-                      setSecondsElapsed(0);
-                      setIsTimerActive(false);
-                    }
-                  }}
-                />
-              } />}
-              {!isReadOnly && !isCoEditor && <Route path="/calendar" element={<CalendarWrapper />} />}
-            </Routes>
+            {urlId && !fetchedProgram ? (
+              <div className="flex flex-col items-center justify-center h-full gap-4">
+                <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="text-slate-500 font-medium animate-pulse">Loading Live Event...</div>
+              </div>
+            ) : (
+              <Routes>
+                {!isReadOnly && !isCoEditor && <Route path="/" element={<HomeWrapper />} />}
+                <Route path="/live" element={
+                  <LiveTimer
+                    program={program}
+                    currentSlotIndex={currentSlotIndex}
+                    isTimerActive={isTimerActive}
+                    secondsElapsed={secondsElapsed}
+                    onToggleTimer={handleToggleTimer}
+                    onNext={handleNext}
+                    onPrev={handlePrev}
+                    readOnly={isReadOnly}
+                  />
+                } />
+                <Route path="/list" element={
+                  <ScheduleList
+                    program={program}
+                    currentSlotIndex={currentSlotIndex}
+                    secondsElapsed={secondsElapsed}
+                    isTimerActive={isTimerActive}
+                    readOnly={isReadOnly}
+                  />
+                } />
+                {!isReadOnly && <Route path="/editor" element={
+                  <ProgramEditor
+                    program={program}
+                    isCoEditor={isCoEditor}
+                    onUpdate={(p) => {
+                      setProgram(p);
+                      // Broadcast program changes to all viewers in real-time
+                      realtimeService.broadcastProgram(p);
+                      broadcastProgramUpdate(p);
+                      if (p.slots.length === 0) {
+                        setCurrentSlotIndex(0);
+                        setSecondsElapsed(0);
+                        setIsTimerActive(false);
+                      }
+                    }}
+                  />
+                } />}
+                {!isReadOnly && !isCoEditor && <Route path="/calendar" element={<CalendarWrapper />} />}
+              </Routes>
+            )}
           </div>
         </main>
 
@@ -1071,27 +1170,27 @@ const AppContent: React.FC = () => {
         <nav className="sticky bottom-6 mx-auto z-50 flex justify-center w-full px-4">
           <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 px-2 md:px-4 py-2 rounded-2xl shadow-2xl shadow-slate-200/50 dark:shadow-slate-950/50 flex items-center gap-1 md:gap-3 overflow-x-auto no-scrollbar max-w-full">
             {!isReadOnly && !isCoEditor && (
-              <NavLink to={`/?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+              <NavLink to={`/?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
                 <Home size={20} className="mb-1" />
                 <span className="text-[10px] font-semibold uppercase">Home</span>
               </NavLink>
             )}
-            <NavLink to={`/live?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+            <NavLink to={`/live?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
               <Play size={20} className="mb-1" />
               <span className="text-[10px] font-semibold uppercase">Live</span>
             </NavLink>
-            <NavLink to={`/list?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+            <NavLink to={`/list?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
               <List size={20} className="mb-1" />
               <span className="text-[10px] font-semibold uppercase">List</span>
             </NavLink>
             {!isReadOnly && (
               <>
-                <NavLink to={`/editor?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                <NavLink to={`/editor?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
                   <Edit3 size={20} className="mb-1" />
                   <span className="text-[10px] font-semibold uppercase">Edit</span>
                 </NavLink>
                 {!isCoEditor && (
-                  <NavLink to={`/calendar?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                  <NavLink to={`/calendar?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
                     <CalendarIcon size={20} className="mb-1" />
                     <span className="text-[10px] font-semibold uppercase">Cal</span>
                   </NavLink>

@@ -24,6 +24,10 @@ export const getPrograms = async (): Promise<Program[]> => {
         date: p.date,
         startTime: p.start_time,
         endTime: p.end_time,
+        currentSlotIndex: p.current_slot_index,
+        isTimerActive: p.is_timer_active,
+        timerStartTimestamp: p.timer_start_timestamp,
+        secondsElapsed: p.seconds_elapsed,
         slots: (p.slots || []).map((s: any) => ({
             id: s.id,
             title: s.title,
@@ -61,6 +65,10 @@ export const getProgramById = async (id: string): Promise<Program | null> => {
         date: p.date,
         startTime: p.start_time,
         endTime: p.end_time,
+        currentSlotIndex: p.current_slot_index,
+        isTimerActive: p.is_timer_active,
+        timerStartTimestamp: p.timer_start_timestamp,
+        secondsElapsed: p.seconds_elapsed,
         slots: (p.slots || []).map((s: any) => ({
             id: s.id,
             title: s.title,
@@ -167,6 +175,26 @@ export const deleteProgram = async (id: string): Promise<void> => {
         .from('programs')
         .delete()
         .eq('id', id);
+
+    if (error) throw error;
+};
+
+export const updateTimerState = async (programId: string, state: {
+    currentSlotIndex: number;
+    isTimerActive: boolean;
+    secondsElapsed: number;
+    timerStartTimestamp: number | null;
+}): Promise<void> => {
+    const { error } = await supabase
+        .from('programs')
+        .update({
+            current_slot_index: state.currentSlotIndex,
+            is_timer_active: state.isTimerActive,
+            seconds_elapsed: state.secondsElapsed,
+            timer_start_timestamp: state.timerStartTimestamp,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', programId);
 
     if (error) throw error;
 };

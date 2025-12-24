@@ -30,6 +30,11 @@ export interface Program {
   startTime: string; // "HH:mm" 24h format
   endTime?: string; // "HH:mm" 24h format (Target end time)
   slots: Slot[];
+  // Timer State (Persisted in DB)
+  currentSlotIndex?: number;
+  isTimerActive?: boolean;
+  timerStartTimestamp?: number | null;
+  secondsElapsed?: number;
 }
 
 export interface AnalyticsData {
