@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Mic, Edit3, Play, List, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, AlignLeft, QrCode, Clipboard, Wifi, WifiOff } from 'lucide-react';
+import { Mic, Edit3, Play, List, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { realtimeService, TimerState } from './services/realtimeService';
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
@@ -17,10 +17,12 @@ import ShareDialog from './components/ShareDialog';
 import TVView from './components/TVView';
 import { Program, Slot, SlotType, Profile, Organization } from './types';
 import { useLocalSync } from './hooks/useLocalSync';
-import { Monitor, User as UserIcon, Building, MessageSquare, Bell } from 'lucide-react';
+import { Monitor, User as UserIcon, Building, MessageSquare, Bell, Clock, Crown } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { OrganizationManager } from './components/OrganizationManager';
+import StageDisplay from './components/StageDisplay';
 import { getProfile, signOut as signOutService } from './services/authService';
+import { rebalanceSchedule } from './services/geminiService';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from './services/supabaseClient';
 
@@ -150,7 +152,7 @@ const INITIAL_PROGRAM: Program = {
   subtitle: '',
   date: new Date().toISOString().split('T')[0],
   startTime: '09:00',
-  organizationId: undefined,
+  isManualMode: false,
   slots: []
 };
 
@@ -302,12 +304,15 @@ const AppContent: React.FC = () => {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
+  const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   // --- Stage Messaging State ---
   const [promptMessage, setPromptMessage] = useState<{ text: string, type: string } | null>(null);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [messageInput, setMessageInput] = useState('');
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   // Handle Auth Session
   useEffect(() => {
@@ -336,6 +341,7 @@ const AppContent: React.FC = () => {
     setProfile(null);
     setUser(null);
     setActiveOrgId(null);
+    setActiveOrg(null);
   };
 
   // Stage Messaging Subscription
@@ -426,6 +432,22 @@ const AppContent: React.FC = () => {
     localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(state));
   }, [program.id, currentSlotIndex, isTimerActive, secondsElapsed, timerStartTimestamp]);
 
+  const handleAiRebalance = async (currentProgram: Program) => {
+    setIsAiLoading(true);
+    try {
+      // Calculate how far off we are
+      const totalPlanned = currentProgram.slots.reduce((acc, s) => acc + s.durationMinutes, 0);
+      const currentTimeInMinutes = timeToMinutes(currentProgram.startTime) + (secondsElapsed / 60);
+      // For simplicity, we just pass the remaining time needed to be shaved or added
+      const suggestion = await rebalanceSchedule(currentProgram, totalPlanned);
+      setAiSuggestion(suggestion);
+    } catch (err) {
+      console.error("AI Rebalance failed:", err);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   const timerStateRef = React.useRef({
     programId: INITIAL_PROGRAM.id,
     isTimerActive: false,
@@ -465,11 +487,45 @@ const AppContent: React.FC = () => {
   const urlId = searchParams.get('id');
 
   // Fetch program if ID is present
-  const { data: fetchedProgram } = useQuery({
+  const { data: fetchedProgram } = useQuery<Program>({
     queryKey: ['program', urlId],
     queryFn: () => getProgramById(urlId!),
     enabled: !!urlId,
   });
+
+  // Fetch active organization details for branding
+  useEffect(() => {
+    if (activeOrgId) {
+      supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', activeOrgId)
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            setActiveOrg({
+              id: data.id,
+              name: data.name,
+              slug: data.slug,
+              logoUrl: data.logo_url,
+              brandColor: data.brand_color,
+              subscriptionStatus: data.subscription_status,
+              createdBy: data.created_by,
+              createdAt: data.created_at
+            });
+          }
+        });
+    } else {
+      setActiveOrg(null);
+    }
+  }, [activeOrgId]);
+
+  // If program has an orgId but activeOrgId is null, sync them
+  useEffect(() => {
+    if (program.organizationId && !activeOrgId) {
+      setActiveOrgId(program.organizationId);
+    }
+  }, [program.organizationId]);
 
   useEffect(() => {
     if (fetchedProgram && fetchedProgram.id !== program.id) {
@@ -863,6 +919,9 @@ const AppContent: React.FC = () => {
 
     const durationSeconds = currentSlot.durationMinutes * 60;
 
+    // Manual Mode Override: Don't auto-advance if manual mode is on
+    if (program.isManualMode) return;
+
     if (secondsElapsed >= durationSeconds) {
       handleSlotComplete(currentSlot.id, currentSlot.durationMinutes);
 
@@ -1091,6 +1150,19 @@ const AppContent: React.FC = () => {
         secondsElapsed={secondsElapsed}
         isDarkMode={isDarkMode}
         toggleTheme={toggleTheme}
+        activeOrg={activeOrg}
+      />
+    );
+  }
+
+  if (location.pathname === '/stage') {
+    return (
+      <StageDisplay
+        program={program}
+        currentSlotIndex={currentSlotIndex}
+        isTimerActive={isTimerActive}
+        secondsElapsed={secondsElapsed}
+        activeOrg={activeOrg}
       />
     );
   }
@@ -1103,22 +1175,44 @@ const AppContent: React.FC = () => {
         <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md transition-colors">
           <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-tr from-indigo-500 to-violet-500 rounded-lg flex items-center justify-center shadow-md">
-                <Mic className="text-white" size={18} />
-              </div>
+              {activeOrg?.logoUrl ? (
+                <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
+                  <img src={activeOrg.logoUrl} alt={activeOrg.name} className="w-full h-full object-contain bg-white" />
+                </div>
+              ) : (
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-gradient-to-tr from-indigo-500 to-violet-500" style={activeOrg?.brandColor ? { background: activeOrg.brandColor } : {}}>
+                  <Mic className="text-white" size={18} />
+                </div>
+              )}
               <div>
                 <h1 className="font-bold text-lg tracking-tight leading-tight text-slate-900 dark:text-white flex items-center gap-2">
-                  Kairon
-                  {isReadOnly && <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500">VIEWER</span>}
+                  {activeOrg ? activeOrg.name : 'Kairon'}
+                  {isReadOnly && <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-medium">VIEWER</span>}
                 </h1>
-                <div className="text-[10px] text-slate-500 dark:text-slate-500 font-medium uppercase tracking-widest">Event Manager</div>
+                <div className="text-[10px] text-slate-500 font-medium uppercase tracking-widest leading-none mt-0.5">
+                  {activeOrg ? 'Workspace' : 'Event Manager'}
+                </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2 md:gap-4">
-              <div className="hidden md:block text-sm text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 truncate max-w-[200px]">
+              <div className="hidden lg:block text-sm text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 truncate max-w-[200px]">
                 {program.title}
               </div>
+
+              {/* Upgrade Button (Pro Tier Teaser) */}
+              {!isReadOnly && activeOrg && activeOrg.subscriptionStatus !== 'pro' && (
+                <button
+                  onClick={() => {
+                    const url = `https://checkout.stripe.com/pay/simulated_session_${activeOrg.id}`;
+                    window.open(url, '_blank');
+                  }}
+                  className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-amber-500/20 transition-all active:scale-95"
+                >
+                  <Crown size={14} className="fill-white" />
+                  Upgrade
+                </button>
+              )}
 
               {/* Projector Button */}
               {!isReadOnly && (
@@ -1132,6 +1226,20 @@ const AppContent: React.FC = () => {
                   title="Launch Projector (TV Mode)"
                 >
                   <Monitor size={20} />
+                </button>
+              )}
+
+              {/* Stage/Speaker Button */}
+              {!isReadOnly && (
+                <button
+                  onClick={() => {
+                    const url = `/#/stage?id=${program.id}&mode=viewer`;
+                    window.open(url, 'KaironStage', 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no');
+                  }}
+                  className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-amber-600 dark:text-amber-400 transition-colors hidden sm:block"
+                  title="Launch Stage Display (For Speakers)"
+                >
+                  <Monitor size={20} className="stroke-[3px]" />
                 </button>
               )}
 
@@ -1175,6 +1283,23 @@ const AppContent: React.FC = () => {
                     </>
                   )}
                 </div>
+              )}
+
+              {/* Manual Mode Toggle */}
+              {!isReadOnly && (
+                <button
+                  onClick={() => setProgram(p => ({ ...p, isManualMode: !p.isManualMode }))}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${program.isManualMode
+                    ? 'bg-amber-500/10 border-amber-500 text-amber-600 dark:text-amber-400 font-bold'
+                    : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700'
+                    }`}
+                  title={program.isManualMode ? "Manual Mode (Overtime Enabled)" : "Auto Mode (Auto-Advance)"}
+                >
+                  <Clock size={16} className={program.isManualMode ? 'animate-pulse' : ''} />
+                  <span className="text-xs uppercase tracking-tight hidden lg:block">
+                    {program.isManualMode ? 'Manual' : 'Auto'}
+                  </span>
+                </button>
               )}
 
               <button
@@ -1294,6 +1419,10 @@ const AppContent: React.FC = () => {
                         program={program}
                         isCoEditor={isCoEditor}
                         onUpdate={(p) => {
+                          if ((p as any)._triggerRebalance) {
+                            handleAiRebalance(p);
+                            return;
+                          }
                           setProgram(p);
                           // Broadcast program changes to all viewers in real-time
                           realtimeService.broadcastProgram(p);
@@ -1312,6 +1441,39 @@ const AppContent: React.FC = () => {
               </>
             )}
           </div>
+
+          {/* AI Suggestion Toast */}
+          {aiSuggestion && (
+            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] w-full max-w-xl animate-in slide-in-from-bottom-8 duration-500">
+              <div className="bg-indigo-600 dark:bg-indigo-500 text-white p-6 rounded-3xl shadow-2xl flex items-start gap-4 mx-4">
+                <div className="bg-white/20 p-2 rounded-xl">
+                  <Sparkles size={24} />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-lg mb-1">AI Schedule Insight</h4>
+                  <p className="text-indigo-50 text-sm leading-relaxed">{aiSuggestion}</p>
+                </div>
+                <button
+                  onClick={() => setAiSuggestion(null)}
+                  className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isAiLoading && (
+            <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center">
+              <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4">
+                <div className="relative">
+                  <div className="w-16 h-16 border-4 border-indigo-500/20 rounded-full animate-pulse" />
+                  <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-indigo-500 animate-bounce" size={32} />
+                </div>
+                <p className="font-bold text-slate-900 dark:text-white">Consulting AI...</p>
+              </div>
+            </div>
+          )}
         </main>
 
         {/* Bottom Dock */}

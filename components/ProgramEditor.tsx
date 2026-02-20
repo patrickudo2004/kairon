@@ -154,15 +154,29 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({ program, onUpdate, isCoEd
           </h2>
           <p className="text-slate-500 dark:text-slate-400">Configure schedule timeline and slots.</p>
         </div>
-        {!isCoEditor && (
-          <button
-            onClick={() => setIsAIDialogOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg font-medium shadow-lg transition-all"
-          >
-            <Sparkles size={18} />
-            AI Draft
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {remainingMinutes !== null && Math.abs(remainingMinutes) > 0 && (
+            <button
+              onClick={() => {
+                // This will be handled by a prop or event bubble for real AI call
+                (onUpdate as any)({ ...program, _triggerRebalance: true });
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 rounded-lg font-medium transition-all hover:bg-amber-200 dark:hover:bg-amber-500/20"
+            >
+              <Sparkles size={18} />
+              Re-balance with AI
+            </button>
+          )}
+          {!isCoEditor && (
+            <button
+              onClick={() => setIsAIDialogOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg font-medium shadow-lg transition-all"
+            >
+              <Sparkles size={18} />
+              AI Draft
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Config Panel */}
@@ -192,7 +206,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({ program, onUpdate, isCoEd
           </div>
         </div>
 
-        <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-6 bg-slate-50 dark:bg-slate-900/50">
+        <div className="p-6 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-6 bg-slate-50 dark:bg-slate-900/50">
           <div className="md:col-span-1 relative">
             <label className="block text-xs font-medium text-slate-500 uppercase mb-1 flex items-center gap-2">
               <Calendar size={12} /> Date
@@ -215,20 +229,37 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({ program, onUpdate, isCoEd
               className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-colors"
             />
           </div>
-          <div className="md:col-span-1">
-            <label className="block text-xs font-medium text-slate-500 uppercase mb-1 flex items-center gap-2">
-              Target End Time
+
+          {/* Analytics Fields (Pro Tier) */}
+          <div className="md:col-span-1 border-l border-slate-200 dark:border-slate-800 pl-4">
+            <label className="block text-xs font-medium text-amber-600 dark:text-amber-400 uppercase mb-1 flex items-center gap-2">
+              <Users size={12} /> Attendees
             </label>
             <input
-              type="time"
-              value={program.endTime || ''}
-              onChange={(e) => onUpdate({ ...program, endTime: e.target.value })}
-              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm placeholder-slate-400 dark:placeholder-slate-600 transition-colors"
+              type="number"
+              value={program.estimatedAttendees || 0}
+              onChange={(e) => onUpdate({ ...program, estimatedAttendees: parseInt(e.target.value) || 0 })}
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none text-sm transition-colors"
             />
           </div>
 
+          <div className="md:col-span-1">
+            <label className="block text-xs font-medium text-amber-600 dark:text-amber-400 uppercase mb-1 flex items-center gap-2">
+              Avg. Hourly Rate
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+              <input
+                type="number"
+                value={program.averageHourlyRate || 0}
+                onChange={(e) => onUpdate({ ...program, averageHourlyRate: parseInt(e.target.value) || 0 })}
+                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md pl-7 pr-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none text-sm transition-colors"
+              />
+            </div>
+          </div>
+
           {/* Time Summary Widget */}
-          <div className="md:col-span-1 flex flex-col justify-center pl-4 border-l border-slate-200 dark:border-slate-800 gap-1">
+          <div className="md:col-span-1 lg:col-span-1 flex flex-col justify-center pl-4 border-l border-slate-200 dark:border-slate-800 gap-1">
             <div className="flex justify-between items-center">
               <span className="text-xs text-slate-500 dark:text-slate-400">Total Program</span>
               <span className="text-sm font-bold text-slate-900 dark:text-white">{Math.floor(totalDuration / 60)}h {totalDuration % 60}m</span>
@@ -237,15 +268,6 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({ program, onUpdate, isCoEd
               <span className="text-xs text-slate-500 dark:text-slate-400">Finishes At</span>
               <span className="text-sm font-mono text-indigo-600 dark:text-indigo-300">{minutesToTime(calculatedEndMinutes)}</span>
             </div>
-            {remainingMinutes !== null && (
-              <div className={`mt-1 text-xs font-bold flex items-center gap-1.5 px-2 py-1 rounded border ${remainingMinutes < 0
-                ? 'bg-rose-100 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400'
-                : 'bg-emerald-100 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                }`}>
-                {remainingMinutes < 0 ? <AlertCircle size={12} /> : <Timer size={12} />}
-                {remainingMinutes < 0 ? `${Math.abs(remainingMinutes)}m Over Budget` : `${remainingMinutes}m Remaining`}
-              </div>
-            )}
           </div>
         </div>
       </div>

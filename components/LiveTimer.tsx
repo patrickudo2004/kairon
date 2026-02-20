@@ -28,15 +28,16 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
 
   // Time Helpers
   const formatTime = (seconds: number) => {
+    const isNegative = seconds < 0;
     const absSeconds = Math.abs(seconds);
     const m = Math.floor(absSeconds / 60);
     const s = absSeconds % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${isNegative ? '-' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
   // Calculations
   const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
-  const timeLeft = Math.max(0, durationSeconds - secondsElapsed);
+  const timeLeft = durationSeconds - secondsElapsed;
 
   const progressPercent = durationSeconds > 0
     ? Math.min(100, Math.max(0, (timeLeft / durationSeconds) * 100))
@@ -104,9 +105,21 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
         </p>
 
         {/* Timer */}
-        <div className="text-[100px] md:text-[180px] font-mono font-bold leading-none tracking-tighter tabular-nums text-slate-900 dark:text-white select-none transition-colors">
+        <div className={`text-[100px] md:text-[180px] font-mono font-bold leading-none tracking-tighter tabular-nums select-none transition-colors ${timeLeft < 0 ? 'text-rose-600 dark:text-rose-500 animate-pulse' : 'text-slate-900 dark:text-white'
+          }`}>
           {formatTime(timeLeft)}
         </div>
+
+        {/* Meeting Cost Analytics (Pro Feature) */}
+        {program.estimatedAttendees && program.averageHourlyRate && (
+          <div className="mt-4 px-6 py-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-700">
+            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="text-amber-700 dark:text-amber-400 text-sm font-medium uppercase tracking-wider">Live Meeting Cost:</span>
+            <span className="text-amber-900 dark:text-amber-200 font-mono text-xl font-bold">
+              ${((program.estimatedAttendees * program.averageHourlyRate / 3600) * secondsElapsed).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        )}
 
         {readOnly && isTimerActive && (
           <div className="mt-4 text-emerald-500 animate-pulse text-sm font-semibold tracking-widest uppercase">

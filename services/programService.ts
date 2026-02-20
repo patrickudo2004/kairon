@@ -28,6 +28,7 @@ export const getPrograms = async (): Promise<Program[]> => {
         isTimerActive: p.is_timer_active,
         timerStartTimestamp: p.timer_start_timestamp,
         secondsElapsed: p.seconds_elapsed,
+        isManualMode: p.manual_mode,
         slots: (p.slots || []).map((s: any) => ({
             id: s.id,
             title: s.title,
@@ -69,6 +70,7 @@ export const getProgramById = async (id: string): Promise<Program | null> => {
         isTimerActive: p.is_timer_active,
         timerStartTimestamp: p.timer_start_timestamp,
         secondsElapsed: p.seconds_elapsed,
+        isManualMode: p.manual_mode,
         slots: (p.slots || []).map((s: any) => ({
             id: s.id,
             title: s.title,
@@ -92,7 +94,9 @@ export const createProgram = async (program: Program): Promise<Program> => {
             date: program.date,
             start_time: program.startTime,
             end_time: program.endTime,
-            organization_id: (program as any).organizationId
+            organization_id: program.organizationId,
+            estimated_attendees: program.estimatedAttendees,
+            average_hourly_rate: program.averageHourlyRate
         })
         .select()
         .single();
@@ -133,6 +137,9 @@ export const updateProgram = async (program: Program): Promise<void> => {
             date: program.date,
             start_time: program.startTime,
             end_time: program.endTime,
+            manual_mode: program.isManualMode,
+            estimated_attendees: program.estimatedAttendees,
+            average_hourly_rate: program.averageHourlyRate,
             updated_at: new Date().toISOString()
         })
         .eq('id', program.id);
