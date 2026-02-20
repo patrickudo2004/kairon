@@ -44,3 +44,16 @@ export const getProfile = async (userId: string) => {
         avatarUrl: data.avatar_url
     };
 };
+
+export const updateProfile = async (userId: string, data: { fullName: string, avatarUrl?: string }) => {
+    const { error } = await supabase
+        .from('profiles')
+        .update({
+            full_name: data.fullName,
+            avatar_url: data.avatarUrl,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+    if (error) throw error;
+};
