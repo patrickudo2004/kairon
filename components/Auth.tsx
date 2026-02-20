@@ -5,6 +5,7 @@ import { Mic, Mail, ArrowRight, Loader } from 'lucide-react';
 export const Auth: React.FC = () => {
     const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [mode, setMode] = useState<'signin' | 'signup'>('signin');
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     const handleGoogleSignIn = async () => {
@@ -24,7 +25,12 @@ export const Auth: React.FC = () => {
         try {
             setIsLoading(true);
             await signInWithMagicLink(email);
-            setMessage({ type: 'success', text: 'Check your email for the login link!' });
+            setMessage({
+                type: 'success',
+                text: mode === 'signin'
+                    ? 'Check your email for the login link!'
+                    : 'Success! Use the link sent to your email to verify your new account.'
+            });
         } catch (error: any) {
             setMessage({ type: 'error', text: error.message });
         } finally {
@@ -39,16 +45,21 @@ export const Auth: React.FC = () => {
                     <div className="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-violet-500 rounded-2xl flex items-center justify-center shadow-lg mb-4">
                         <Mic className="text-white" size={32} />
                     </div>
-                    <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Welcome to Kairon</h2>
-                    <p className="text-slate-500 dark:text-slate-400 mt-2 text-center">
-                        Sign in to manage your organizations and sync live timers across devices.
+                    <h2 className="text-3xl font-bold text-slate-900 dark:text-white">
+                        {mode === 'signin' ? 'Welcome back' : 'Create Account'}
+                    </h2>
+                    <p className="text-slate-500 dark:text-slate-400 mt-2 text-center text-sm">
+                        {mode === 'signin'
+                            ? 'Sign in to manage your organizations, events and sync live timers across devices.'
+                            : 'Sign up to start organizing professional events and workspaces today.'
+                        }
                     </p>
                 </div>
 
                 {message && (
                     <div className={`p-4 rounded-xl mb-6 text-sm flex items-center gap-3 ${message.type === 'success'
-                            ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
-                            : 'bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20'
+                        ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
+                        : 'bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20'
                         }`}>
                         <span>{message.text}</span>
                     </div>
@@ -67,7 +78,7 @@ export const Auth: React.FC = () => {
                                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
                                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                             </svg>
-                            Continue with Google
+                            {mode === 'signin' ? 'Sign in with Google' : 'Sign up with Google'}
                         </>
                     )}
                 </button>
@@ -98,9 +109,21 @@ export const Auth: React.FC = () => {
                         disabled={isLoading}
                         className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/30"
                     >
-                        Send Magic Link <ArrowRight size={18} />
+                        {mode === 'signin' ? 'Get Login Link' : 'Create Account'} <ArrowRight size={18} />
                     </button>
                 </form>
+
+                <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
+                    <p className="text-sm text-slate-500">
+                        {mode === 'signin' ? "Don't have an account?" : "Already have an account?"}
+                        <button
+                            onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setMessage(null); }}
+                            className="ml-2 text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+                        >
+                            {mode === 'signin' ? "Sign up for free" : "Sign in instead"}
+                        </button>
+                    </p>
+                </div>
             </div>
         </div>
     );

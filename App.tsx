@@ -21,6 +21,7 @@ import { Monitor, User as UserIcon, Building, MessageSquare, Bell, Clock, Crown 
 import { Auth } from './components/Auth';
 import { OrganizationManager } from './components/OrganizationManager';
 import StageDisplay from './components/StageDisplay';
+import { ProfileDropdown } from './components/ProfileDropdown';
 import { getProfile, signOut as signOutService } from './services/authService';
 import { rebalanceSchedule } from './services/geminiService';
 import { User as SupabaseUser } from '@supabase/supabase-js';
@@ -316,19 +317,35 @@ const AppContent: React.FC = () => {
 
   // Handle Auth Session
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) loadProfile(session.user.id);
-      setIsAuthLoading(false);
-    });
+    let sub: { unsubscribe: () => void } | null = null;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const setupAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
-      if (session?.user) loadProfile(session.user.id);
+      if (session?.user) {
+        const p = await getProfile(session.user.id);
+        setProfile(p);
+      }
       setIsAuthLoading(false);
-    });
 
-    return () => subscription.unsubscribe();
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          const p = await getProfile(session.user.id);
+          setProfile(p);
+        } else {
+          setProfile(null);
+        }
+        setIsAuthLoading(false);
+      });
+      sub = subscription;
+    };
+
+    setupAuth();
+
+    return () => {
+      if (sub) sub.unsubscribe();
+    };
   }, []);
 
   const loadProfile = async (userId: string) => {
@@ -1306,6 +1323,14 @@ const AppContent: React.FC = () => {
                 </>
               )}
 
+              {user && (
+                <ProfileDropdown
+                  user={user}
+                  profile={profile}
+                  onProfileUpdate={setProfile}
+                />
+              )}
+
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
@@ -1315,10 +1340,10 @@ const AppContent: React.FC = () => {
               </button>
             </div>
           </div>
-        </header>
+        </header >
 
         {/* Main */}
-        <main className="flex-1 overflow-y-auto custom-scrollbar relative">
+        < main className="flex-1 overflow-y-auto custom-scrollbar relative" >
           {promptMessage && (
             <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] w-full max-w-xl px-4 animate-in slide-in-from-top-4 duration-500">
               <div className="bg-rose-600 text-white py-4 px-8 rounded-2xl shadow-2xl flex items-center gap-4 border-2 border-white/20 backdrop-blur-xl">
@@ -1326,7 +1351,8 @@ const AppContent: React.FC = () => {
                 <span className="text-xl font-bold uppercase tracking-tight">{promptMessage.text}</span>
               </div>
             </div>
-          )}
+          )
+          }
 
           <div className="max-w-7xl mx-auto w-full h-full">
             {isAuthLoading ? (
@@ -1447,84 +1473,92 @@ const AppContent: React.FC = () => {
           </div>
 
           {/* AI Suggestion Toast */}
-          {aiSuggestion && (
-            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] w-full max-w-xl animate-in slide-in-from-bottom-8 duration-500">
-              <div className="bg-indigo-600 dark:bg-indigo-500 text-white p-6 rounded-3xl shadow-2xl flex items-start gap-4 mx-4">
-                <div className="bg-white/20 p-2 rounded-xl">
-                  <Sparkles size={24} />
+          {
+            aiSuggestion && (
+              <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] w-full max-w-xl animate-in slide-in-from-bottom-8 duration-500">
+                <div className="bg-indigo-600 dark:bg-indigo-500 text-white p-6 rounded-3xl shadow-2xl flex items-start gap-4 mx-4">
+                  <div className="bg-white/20 p-2 rounded-xl">
+                    <Sparkles size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-lg mb-1">AI Schedule Insight</h4>
+                    <p className="text-indigo-50 text-sm leading-relaxed">{aiSuggestion}</p>
+                  </div>
+                  <button
+                    onClick={() => setAiSuggestion(null)}
+                    className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
                 </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-lg mb-1">AI Schedule Insight</h4>
-                  <p className="text-indigo-50 text-sm leading-relaxed">{aiSuggestion}</p>
-                </div>
-                <button
-                  onClick={() => setAiSuggestion(null)}
-                  className="p-1 hover:bg-white/10 rounded-lg transition-colors"
-                >
-                  <X size={20} />
-                </button>
               </div>
-            </div>
-          )}
+            )
+          }
 
-          {isAiLoading && (
-            <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center">
-              <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4">
-                <div className="relative">
-                  <div className="w-16 h-16 border-4 border-indigo-500/20 rounded-full animate-pulse" />
-                  <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-indigo-500 animate-bounce" size={32} />
+          {
+            isAiLoading && (
+              <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center">
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4">
+                  <div className="relative">
+                    <div className="w-16 h-16 border-4 border-indigo-500/20 rounded-full animate-pulse" />
+                    <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-indigo-500 animate-bounce" size={32} />
+                  </div>
+                  <p className="font-bold text-slate-900 dark:text-white">Consulting AI...</p>
                 </div>
-                <p className="font-bold text-slate-900 dark:text-white">Consulting AI...</p>
               </div>
-            </div>
-          )}
-        </main>
+            )
+          }
+        </main >
 
         {/* Bottom Dock */}
-        {user && (
-          <nav className="sticky bottom-6 mx-auto z-50 flex justify-center w-full px-4">
-            <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 px-2 md:px-4 py-2 rounded-2xl shadow-2xl shadow-slate-200/50 dark:shadow-slate-950/50 flex items-center gap-1 md:gap-3 overflow-x-auto no-scrollbar max-w-full">
-              {!isReadOnly && !isCoEditor && (
-                <NavLink to={`/org?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                  <Building size={20} className="mb-1" />
-                  <span className="text-[10px] font-semibold uppercase">Orgs</span>
-                </NavLink>
-              )}
-              {!isReadOnly && !isCoEditor && (
-                <NavLink to={`/?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                  <Home size={20} className="mb-1" />
-                  <span className="text-[10px] font-semibold uppercase">Home</span>
-                </NavLink>
-              )}
-              <NavLink to={`/live?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                <Play size={20} className="mb-1" />
-                <span className="text-[10px] font-semibold uppercase">Live</span>
-              </NavLink>
-              <NavLink to={`/list?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                <List size={20} className="mb-1" />
-                <span className="text-[10px] font-semibold uppercase">List</span>
-              </NavLink>
-              {!isReadOnly && (
-                <>
-                  <NavLink to={`/editor?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                    <Edit3 size={20} className="mb-1" />
-                    <span className="text-[10px] font-semibold uppercase">Edit</span>
+        {
+          user && (
+            <nav className="sticky bottom-6 mx-auto z-50 flex justify-center w-full px-4">
+              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 px-2 md:px-4 py-2 rounded-2xl shadow-2xl shadow-slate-200/50 dark:shadow-slate-950/50 flex items-center gap-1 md:gap-3 overflow-x-auto no-scrollbar max-w-full">
+                {!isReadOnly && !isCoEditor && (
+                  <NavLink to={`/org?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                    <Building size={20} className="mb-1" />
+                    <span className="text-[10px] font-semibold uppercase">Orgs</span>
                   </NavLink>
-                  {!isCoEditor && (
-                    <NavLink to={`/calendar?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                      <CalendarIcon size={20} className="mb-1" />
-                      <span className="text-[10px] font-semibold uppercase">Cal</span>
+                )}
+                {!isReadOnly && !isCoEditor && (
+                  <NavLink to={`/?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                    <Home size={20} className="mb-1" />
+                    <span className="text-[10px] font-semibold uppercase">Home</span>
+                  </NavLink>
+                )}
+                <NavLink to={`/live?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                  <Play size={20} className="mb-1" />
+                  <span className="text-[10px] font-semibold uppercase">Live</span>
+                </NavLink>
+                <NavLink to={`/list?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                  <List size={20} className="mb-1" />
+                  <span className="text-[10px] font-semibold uppercase">List</span>
+                </NavLink>
+                {!isReadOnly && (
+                  <>
+                    <NavLink to={`/editor?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                      <Edit3 size={20} className="mb-1" />
+                      <span className="text-[10px] font-semibold uppercase">Edit</span>
                     </NavLink>
-                  )}
-                </>
-              )}
-            </div>
-          </nav>
-        )}
+                    {!isCoEditor && (
+                      <NavLink to={`/calendar?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                        <CalendarIcon size={20} className="mb-1" />
+                        <span className="text-[10px] font-semibold uppercase">Cal</span>
+                      </NavLink>
+                    )}
+                  </>
+                )}
+              </div>
+            </nav>
+          )
+        }
 
-        {!isReadOnly && (
-          <ShareDialog isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} program={program} />
-        )}
+        {
+          !isReadOnly && (
+            <ShareDialog isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} program={program} />
+          )
+        }
         <ExportDialog
           isOpen={isExportOpen}
           onClose={() => setIsExportOpen(false)}
@@ -1533,10 +1567,10 @@ const AppContent: React.FC = () => {
           setOptions={setPrintOptions}
           onPrint={() => window.print()}
         />
-      </div>
+      </div >
 
       {/* Hidden Printable Area */}
-      <PrintableSchedule
+      < PrintableSchedule
         program={program}
         includeDetails={printOptions.includeDetails}
         includeSpeakers={printOptions.includeSpeakers}
