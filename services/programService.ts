@@ -86,13 +86,13 @@ export const createProgram = async (program: Program): Promise<Program> => {
     const { data: pData, error: pError } = await supabase
         .from('programs')
         .insert({
-            id: program.id, // Use client-generated UUID or let DB generate it? 
-            // Current app generates UUIDs on client. Let's stick to that to allow optimistic updates easier later.
+            id: program.id,
             title: program.title,
             subtitle: program.subtitle,
             date: program.date,
             start_time: program.startTime,
-            end_time: program.endTime
+            end_time: program.endTime,
+            organization_id: (program as any).organizationId
         })
         .select()
         .single();

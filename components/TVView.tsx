@@ -21,6 +21,7 @@ const TVView: React.FC<TVViewProps> = ({
     toggleTheme,
 }) => {
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [promptMessage, setPromptMessage] = useState<{ text: string, type: string } | null>(null);
     const currentSlot = program.slots[currentSlotIndex];
     const nextSlot = program.slots[currentSlotIndex + 1];
 
@@ -101,6 +102,26 @@ const TVView: React.FC<TVViewProps> = ({
         };
     }, []);
 
+
+    // Stage Messaging Subscription
+    useEffect(() => {
+        if (!program.id) return;
+
+        // Dynamic import or direct import if possible. 
+        // We'll use the same pattern as App.tsx but we need to ensure supabase is available.
+        import('../services/supabaseClient').then(({ supabase }) => {
+            const channel = supabase.channel(`prompter:${program.id}`)
+                .on('broadcast', { event: 'stage_message' }, ({ payload }: any) => {
+                    setPromptMessage({ text: payload.text, type: payload.type });
+                    setTimeout(() => setPromptMessage(null), 5000);
+                })
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
+        });
+    }, [program.id]);
 
     // Time Helpers
     const formatTime = (seconds: number) => {
@@ -217,6 +238,17 @@ const TVView: React.FC<TVViewProps> = ({
                 </div>
 
             </div>
+
+            {/* Prompter Message Overlay */}
+            {promptMessage && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-8 pointer-events-none animate-in zoom-in duration-300">
+                    <div className="bg-rose-600 text-white py-12 px-20 rounded-[4rem] shadow-[0_0_100px_rgba(225,29,72,0.5)] border-8 border-white/20 backdrop-blur-3xl text-center">
+                        <h2 className="text-6xl sm:text-8xl md:text-9xl font-black uppercase tracking-tighter leading-none mb-4 animate-bounce">
+                            {promptMessage.text}
+                        </h2>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

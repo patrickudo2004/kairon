@@ -31,3 +31,25 @@ This file serves as a persistent record of architectural decisions, feature disc
 ### User Management:
 - **Auth Strategy**: Implementation of Supabase Auth (Google OAuth + Magic Links).
 - **Security**: Transitioning to Row-Level Security (RLS) so users only see/edit their own events.
+
+---
+
+## 2026-02-20: Kairon 2.0 - From Timer to Production Suite
+**Objective**: Scalability planning for Organizations, Roles, and Real-time Stage Management.
+
+### Core Strategic Pillars:
+1. **The Organization Model**:
+    - **Shift**: Move from one-off local events to persistent Organizations.
+    - **Revenue**: Organizations are free; **Branding (Logos/Themes)** and **Role-Based Access** (Operator vs Manager) are the primary paywalls.
+
+2. **The "Killer" Production Toolset**:
+    - **Prompter Messaging**: Real-time "Stage-to-Operator" messaging (Supabase Realtime) to allow AV teams to send discrete cues to speakers (flashing red text under the timer).
+    - **Speaker Dashboard**: Lightweight, read-only dashboards for guests with their specific notes/scripts and personal countdown.
+    - **Actual vs Planned Analysis**: Advanced reporting on schedule adherence, categorized by slot types (e.g., Worship vs Sermon).
+
+3. **Strategic Roadmap**:
+    - **Phase 1**: Identity (Supabase Auth - Google/Email).
+    - **Phase 2**: Ownership (Organization structure & Branding).
+    - **Phase 3**: Production (Prompter Messaging & Speaker Views).
+    - **Phase 4**: Market Expansion (Reports, Ticketing investigation).
+
