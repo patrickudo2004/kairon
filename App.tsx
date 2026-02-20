@@ -1196,110 +1196,114 @@ const AppContent: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 md:gap-4">
-              <div className="hidden lg:block text-sm text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 truncate max-w-[200px]">
-                {program.title}
-              </div>
+              {user && (
+                <>
+                  <div className="hidden lg:block text-sm text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 truncate max-w-[200px]">
+                    {program.title}
+                  </div>
 
-              {/* Upgrade Button (Pro Tier Teaser) */}
-              {!isReadOnly && activeOrg && activeOrg.subscriptionStatus !== 'pro' && (
-                <button
-                  onClick={() => {
-                    const url = `https://checkout.stripe.com/pay/simulated_session_${activeOrg.id}`;
-                    window.open(url, '_blank');
-                  }}
-                  className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-amber-500/20 transition-all active:scale-95"
-                >
-                  <Crown size={14} className="fill-white" />
-                  Upgrade
-                </button>
-              )}
-
-              {/* Projector Button */}
-              {!isReadOnly && (
-                <button
-                  onClick={() => {
-                    // Open TV Route in new window
-                    const url = `/#/tv?id=${program.id}&mode=viewer`;
-                    window.open(url, 'KaironProjector', 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no');
-                  }}
-                  className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition-colors hidden sm:block"
-                  title="Launch Projector (TV Mode)"
-                >
-                  <Monitor size={20} />
-                </button>
-              )}
-
-              {/* Stage/Speaker Button */}
-              {!isReadOnly && (
-                <button
-                  onClick={() => {
-                    const url = `/#/stage?id=${program.id}&mode=viewer`;
-                    window.open(url, 'KaironStage', 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no');
-                  }}
-                  className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-amber-600 dark:text-amber-400 transition-colors hidden sm:block"
-                  title="Launch Stage Display (For Speakers)"
-                >
-                  <Monitor size={20} className="stroke-[3px]" />
-                </button>
-              )}
-
-              <button
-                onClick={() => setIsExportOpen(true)}
-                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-rose-600 dark:text-rose-400 transition-colors"
-                title="Export to PDF"
-              >
-                <Download size={20} />
-              </button>
-
-              {!isReadOnly && (
-                <button
-                  onClick={() => setIsShareOpen(true)}
-                  className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition-colors"
-                  title="Share"
-                >
-                  <Share2 size={20} />
-                </button>
-              )}
-
-              {/* Save Status Indicator */}
-              {!isReadOnly && (
-                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-medium">
-                  {saveStatus === 'saving' && (
-                    <>
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                      <span className="text-yellow-600 dark:text-yellow-400">Saving...</span>
-                    </>
+                  {/* Upgrade Button (Pro Tier Teaser) */}
+                  {!isReadOnly && activeOrg && activeOrg.subscriptionStatus !== 'pro' && (
+                    <button
+                      onClick={() => {
+                        const url = `https://checkout.stripe.com/pay/simulated_session_${activeOrg.id}`;
+                        window.open(url, '_blank');
+                      }}
+                      className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-amber-500/20 transition-all active:scale-95"
+                    >
+                      <Crown size={14} className="fill-white" />
+                      Upgrade
+                    </button>
                   )}
-                  {saveStatus === 'saved' && (
-                    <>
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                      <span className="text-emerald-600 dark:text-emerald-400">Saved</span>
-                    </>
-                  )}
-                  {saveStatus === 'unsaved' && (
-                    <>
-                      <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
-                      <span className="text-slate-500 dark:text-slate-400">Unsaved</span>
-                    </>
-                  )}
-                </div>
-              )}
 
-              {/* Manual Mode Toggle */}
-              {!isReadOnly && (
-                <button
-                  onClick={() => setProgram(p => ({ ...p, isManualMode: !p.isManualMode }))}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${program.isManualMode
-                    ? 'bg-amber-500/10 border-amber-500 text-amber-600 dark:text-amber-400 font-bold'
-                    : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700'
-                    }`}
-                  title={program.isManualMode ? "Manual Mode (Overtime Enabled)" : "Auto Mode (Auto-Advance)"}
-                >
-                  <Clock size={16} className={program.isManualMode ? 'animate-pulse' : ''} />
-                  <span className="text-xs uppercase tracking-tight hidden lg:block">
-                    {program.isManualMode ? 'Manual' : 'Auto'}
-                  </span>
-                </button>
+                  {/* Projector Button */}
+                  {!isReadOnly && (
+                    <button
+                      onClick={() => {
+                        // Open TV Route in new window
+                        const url = `/#/tv?id=${program.id}&mode=viewer`;
+                        window.open(url, 'KaironProjector', 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no');
+                      }}
+                      className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition-colors hidden sm:block"
+                      title="Launch Projector (TV Mode)"
+                    >
+                      <Monitor size={20} />
+                    </button>
+                  )}
+
+                  {/* Stage/Speaker Button */}
+                  {!isReadOnly && (
+                    <button
+                      onClick={() => {
+                        const url = `/#/stage?id=${program.id}&mode=viewer`;
+                        window.open(url, 'KaironStage', 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no');
+                      }}
+                      className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-amber-600 dark:text-amber-400 transition-colors hidden sm:block"
+                      title="Launch Stage Display (For Speakers)"
+                    >
+                      <Monitor size={20} className="stroke-[3px]" />
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setIsExportOpen(true)}
+                    className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-rose-600 dark:text-rose-400 transition-colors"
+                    title="Export to PDF"
+                  >
+                    <Download size={20} />
+                  </button>
+
+                  {!isReadOnly && (
+                    <button
+                      onClick={() => setIsShareOpen(true)}
+                      className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition-colors"
+                      title="Share"
+                    >
+                      <Share2 size={20} />
+                    </button>
+                  )}
+
+                  {/* Save Status Indicator */}
+                  {!isReadOnly && (
+                    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-medium">
+                      {saveStatus === 'saving' && (
+                        <>
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                          <span className="text-yellow-600 dark:text-yellow-400">Saving...</span>
+                        </>
+                      )}
+                      {saveStatus === 'saved' && (
+                        <>
+                          <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                          <span className="text-emerald-600 dark:text-emerald-400">Saved</span>
+                        </>
+                      )}
+                      {saveStatus === 'unsaved' && (
+                        <>
+                          <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
+                          <span className="text-slate-500 dark:text-slate-400">Unsaved</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Manual Mode Toggle */}
+                  {!isReadOnly && (
+                    <button
+                      onClick={() => setProgram(p => ({ ...p, isManualMode: !p.isManualMode }))}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${program.isManualMode
+                        ? 'bg-amber-500/10 border-amber-500 text-amber-600 dark:text-amber-400 font-bold'
+                        : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700'
+                        }`}
+                      title={program.isManualMode ? "Manual Mode (Overtime Enabled)" : "Auto Mode (Auto-Advance)"}
+                    >
+                      <Clock size={16} className={program.isManualMode ? 'animate-pulse' : ''} />
+                      <span className="text-xs uppercase tracking-tight hidden lg:block">
+                        {program.isManualMode ? 'Manual' : 'Auto'}
+                      </span>
+                    </button>
+                  )}
+                </>
               )}
 
               <button
@@ -1477,44 +1481,46 @@ const AppContent: React.FC = () => {
         </main>
 
         {/* Bottom Dock */}
-        <nav className="sticky bottom-6 mx-auto z-50 flex justify-center w-full px-4">
-          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 px-2 md:px-4 py-2 rounded-2xl shadow-2xl shadow-slate-200/50 dark:shadow-slate-950/50 flex items-center gap-1 md:gap-3 overflow-x-auto no-scrollbar max-w-full">
-            {!isReadOnly && !isCoEditor && (
-              <NavLink to={`/org?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                <Building size={20} className="mb-1" />
-                <span className="text-[10px] font-semibold uppercase">Orgs</span>
-              </NavLink>
-            )}
-            {!isReadOnly && !isCoEditor && (
-              <NavLink to={`/?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                <Home size={20} className="mb-1" />
-                <span className="text-[10px] font-semibold uppercase">Home</span>
-              </NavLink>
-            )}
-            <NavLink to={`/live?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-              <Play size={20} className="mb-1" />
-              <span className="text-[10px] font-semibold uppercase">Live</span>
-            </NavLink>
-            <NavLink to={`/list?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-              <List size={20} className="mb-1" />
-              <span className="text-[10px] font-semibold uppercase">List</span>
-            </NavLink>
-            {!isReadOnly && (
-              <>
-                <NavLink to={`/editor?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                  <Edit3 size={20} className="mb-1" />
-                  <span className="text-[10px] font-semibold uppercase">Edit</span>
+        {user && (
+          <nav className="sticky bottom-6 mx-auto z-50 flex justify-center w-full px-4">
+            <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 px-2 md:px-4 py-2 rounded-2xl shadow-2xl shadow-slate-200/50 dark:shadow-slate-950/50 flex items-center gap-1 md:gap-3 overflow-x-auto no-scrollbar max-w-full">
+              {!isReadOnly && !isCoEditor && (
+                <NavLink to={`/org?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                  <Building size={20} className="mb-1" />
+                  <span className="text-[10px] font-semibold uppercase">Orgs</span>
                 </NavLink>
-                {!isCoEditor && (
-                  <NavLink to={`/calendar?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                    <CalendarIcon size={20} className="mb-1" />
-                    <span className="text-[10px] font-semibold uppercase">Cal</span>
+              )}
+              {!isReadOnly && !isCoEditor && (
+                <NavLink to={`/?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                  <Home size={20} className="mb-1" />
+                  <span className="text-[10px] font-semibold uppercase">Home</span>
+                </NavLink>
+              )}
+              <NavLink to={`/live?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                <Play size={20} className="mb-1" />
+                <span className="text-[10px] font-semibold uppercase">Live</span>
+              </NavLink>
+              <NavLink to={`/list?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                <List size={20} className="mb-1" />
+                <span className="text-[10px] font-semibold uppercase">List</span>
+              </NavLink>
+              {!isReadOnly && (
+                <>
+                  <NavLink to={`/editor?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                    <Edit3 size={20} className="mb-1" />
+                    <span className="text-[10px] font-semibold uppercase">Edit</span>
                   </NavLink>
-                )}
-              </>
-            )}
-          </div>
-        </nav>
+                  {!isCoEditor && (
+                    <NavLink to={`/calendar?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                      <CalendarIcon size={20} className="mb-1" />
+                      <span className="text-[10px] font-semibold uppercase">Cal</span>
+                    </NavLink>
+                  )}
+                </>
+              )}
+            </div>
+          </nav>
+        )}
 
         {!isReadOnly && (
           <ShareDialog isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} program={program} />
