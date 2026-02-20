@@ -15,9 +15,14 @@ import HomeDashboard from './components/HomeDashboard';
 import PrintableSchedule from './components/PrintableSchedule';
 import ShareDialog from './components/ShareDialog';
 import TVView from './components/TVView';
-import { Program, Slot, SlotType } from './types';
+import { Program, Slot, SlotType, Profile, Organization } from './types';
 import { useLocalSync } from './hooks/useLocalSync';
-import { Monitor } from 'lucide-react';
+import { Monitor, User as UserIcon, Building, MessageSquare, Bell } from 'lucide-react';
+import { Auth } from './components/Auth';
+import { OrganizationManager } from './components/OrganizationManager';
+import { getProfile, signOut as signOutService } from './services/authService';
+import { User as SupabaseUser } from '@supabase/supabase-js';
+import { supabase } from './services/supabaseClient';
 
 // --- Helpers for URL State Encoding (Minification Strategy) ---
 
@@ -145,6 +150,7 @@ const INITIAL_PROGRAM: Program = {
   subtitle: '',
   date: new Date().toISOString().split('T')[0],
   startTime: '09:00',
+  organizationId: undefined,
   slots: []
 };
 
@@ -291,6 +297,75 @@ const AppContent: React.FC = () => {
   const [currentSlotIndex, setCurrentSlotIndex] = useState<number>(0);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+
+  // --- Auth & Org State ---
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  // --- Stage Messaging State ---
+  const [promptMessage, setPromptMessage] = useState<{ text: string, type: string } | null>(null);
+  const [isPromptOpen, setIsPromptOpen] = useState(false);
+  const [messageInput, setMessageInput] = useState('');
+
+  // Handle Auth Session
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) loadProfile(session.user.id);
+      setIsAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) loadProfile(session.user.id);
+      setIsAuthLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const loadProfile = async (userId: string) => {
+    const p = await getProfile(userId);
+    setProfile(p);
+  };
+
+  const handleSignOut = async () => {
+    await signOutService();
+    setProfile(null);
+    setUser(null);
+    setActiveOrgId(null);
+  };
+
+  // Stage Messaging Subscription
+  useEffect(() => {
+    if (!program.id || program.id === INITIAL_PROGRAM.id) return;
+
+    const channel = supabase.channel(`prompter:${program.id}`)
+      .on('broadcast', { event: 'stage_message' }, ({ payload }) => {
+        setPromptMessage({ text: payload.text, type: payload.type });
+        // Auto-clear message after 5 seconds
+        setTimeout(() => setPromptMessage(null), 5000);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [program.id]);
+
+  const sendStageMessage = (text: string) => {
+    supabase.channel(`prompter:${program.id}`).send({
+      type: 'broadcast',
+      event: 'stage_message',
+      payload: { text, type: 'alert' }
+    });
+    setPromptMessage({ text, type: 'alert' });
+    setTimeout(() => setPromptMessage(null), 5000);
+    setIsPromptOpen(false);
+    setMessageInput('');
+  };
 
   // Export State
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -690,11 +765,13 @@ const AppContent: React.FC = () => {
   const createProgram = (date: string) => {
     if (isReadOnly) return;
     const newProgram: Program = {
+      ...INITIAL_PROGRAM,
       id: crypto.randomUUID(),
       title: 'New Event',
       subtitle: 'Add subtitle',
       date: date,
       startTime: '09:00',
+      organizationId: activeOrgId || undefined,
       slots: []
     };
     loadProgram(newProgram);
@@ -1113,55 +1190,126 @@ const AppContent: React.FC = () => {
 
         {/* Main */}
         <main className="flex-1 overflow-y-auto custom-scrollbar relative">
-          <div className="max-w-7xl mx-auto w-full h-full">
-            {urlId && !fetchedProgram ? (
-              <div className="flex flex-col items-center justify-center h-full gap-4">
-                <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                <div className="text-slate-500 font-medium animate-pulse">Loading Live Event...</div>
+          {promptMessage && (
+            <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] w-full max-w-xl px-4 animate-in slide-in-from-top-4 duration-500">
+              <div className="bg-rose-600 text-white py-4 px-8 rounded-2xl shadow-2xl flex items-center gap-4 border-2 border-white/20 backdrop-blur-xl">
+                <Bell className="animate-bounce" size={24} />
+                <span className="text-xl font-bold uppercase tracking-tight">{promptMessage.text}</span>
               </div>
+            </div>
+          )}
+
+          <div className="max-w-7xl mx-auto w-full h-full">
+            {isAuthLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : !user ? (
+              <Auth />
             ) : (
-              <Routes>
-                {!isReadOnly && !isCoEditor && <Route path="/" element={<HomeWrapper />} />}
-                <Route path="/live" element={
-                  <LiveTimer
-                    program={program}
-                    currentSlotIndex={currentSlotIndex}
-                    isTimerActive={isTimerActive}
-                    secondsElapsed={secondsElapsed}
-                    onToggleTimer={handleToggleTimer}
-                    onNext={handleNext}
-                    onPrev={handlePrev}
-                    readOnly={isReadOnly}
-                  />
-                } />
-                <Route path="/list" element={
-                  <ScheduleList
-                    program={program}
-                    currentSlotIndex={currentSlotIndex}
-                    secondsElapsed={secondsElapsed}
-                    isTimerActive={isTimerActive}
-                    readOnly={isReadOnly}
-                  />
-                } />
-                {!isReadOnly && <Route path="/editor" element={
-                  <ProgramEditor
-                    program={program}
-                    isCoEditor={isCoEditor}
-                    onUpdate={(p) => {
-                      setProgram(p);
-                      // Broadcast program changes to all viewers in real-time
-                      realtimeService.broadcastProgram(p);
-                      broadcastProgramUpdate(p);
-                      if (p.slots.length === 0) {
-                        setCurrentSlotIndex(0);
-                        setSecondsElapsed(0);
-                        setIsTimerActive(false);
-                      }
-                    }}
-                  />
-                } />}
-                {!isReadOnly && !isCoEditor && <Route path="/calendar" element={<CalendarWrapper />} />}
-              </Routes>
+              <>
+                {urlId && !fetchedProgram ? (
+                  <div className="flex flex-col items-center justify-center h-full gap-4">
+                    <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="text-slate-500 font-medium animate-pulse">Loading Live Event...</div>
+                  </div>
+                ) : (
+                  <Routes>
+                    <Route path="/org" element={
+                      <OrganizationManager
+                        activeOrgId={activeOrgId ?? undefined}
+                        onSelect={setActiveOrgId}
+                      />
+                    } />
+                    {!isReadOnly && !isCoEditor && <Route path="/" element={<HomeWrapper />} />}
+                    <Route path="/live" element={
+                      <div className="relative h-full">
+                        <LiveTimer
+                          program={program}
+                          currentSlotIndex={currentSlotIndex}
+                          isTimerActive={isTimerActive}
+                          secondsElapsed={secondsElapsed}
+                          onToggleTimer={handleToggleTimer}
+                          onNext={handleNext}
+                          onPrev={handlePrev}
+                          readOnly={isReadOnly}
+                        />
+                        {!isReadOnly && (
+                          <div className="absolute top-4 right-4">
+                            <button
+                              onClick={() => setIsPromptOpen(true)}
+                              className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg hover:text-indigo-600 transition-all text-slate-500"
+                              title="Send Stage Message"
+                            >
+                              <MessageSquare size={20} />
+                            </button>
+                          </div>
+                        )}
+
+                        {isPromptOpen && (
+                          <div className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Message Stage</h3>
+                              <p className="text-sm text-slate-500 mb-6">Send a quick cue that will flash on the speaker's prompter for 5 seconds.</p>
+                              <input
+                                type="text"
+                                value={messageInput}
+                                onChange={(e) => setMessageInput(e.target.value)}
+                                placeholder="e.g. Move Mic Closer / Wrap Up"
+                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white mb-6 focus:ring-2 focus:ring-rose-500 outline-none"
+                                autoFocus
+                                onKeyDown={(e) => e.key === 'Enter' && sendStageMessage(messageInput)}
+                              />
+                              <div className="flex gap-3">
+                                <button
+                                  onClick={() => sendStageMessage(messageInput)}
+                                  disabled={!messageInput.trim()}
+                                  className="flex-1 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white py-3 rounded-xl font-bold transition-all"
+                                >
+                                  Send Message
+                                </button>
+                                <button
+                                  onClick={() => setIsPromptOpen(false)}
+                                  className="px-6 py-3 text-slate-500 hover:text-slate-700 font-medium"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    } />
+                    <Route path="/list" element={
+                      <ScheduleList
+                        program={program}
+                        currentSlotIndex={currentSlotIndex}
+                        secondsElapsed={secondsElapsed}
+                        isTimerActive={isTimerActive}
+                        readOnly={isReadOnly}
+                      />
+                    } />
+                    {!isReadOnly && <Route path="/editor" element={
+                      <ProgramEditor
+                        program={program}
+                        isCoEditor={isCoEditor}
+                        onUpdate={(p) => {
+                          setProgram(p);
+                          // Broadcast program changes to all viewers in real-time
+                          realtimeService.broadcastProgram(p);
+                          broadcastProgramUpdate(p);
+                          if (p.slots.length === 0) {
+                            setCurrentSlotIndex(0);
+                            setSecondsElapsed(0);
+                            setIsTimerActive(false);
+                          }
+                        }}
+                      />
+                    } />}
+                    {!isReadOnly && !isCoEditor && <Route path="/calendar" element={<CalendarWrapper />} />}
+                  </Routes>
+                )}
+              </>
             )}
           </div>
         </main>
@@ -1169,6 +1317,12 @@ const AppContent: React.FC = () => {
         {/* Bottom Dock */}
         <nav className="sticky bottom-6 mx-auto z-50 flex justify-center w-full px-4">
           <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 px-2 md:px-4 py-2 rounded-2xl shadow-2xl shadow-slate-200/50 dark:shadow-slate-950/50 flex items-center gap-1 md:gap-3 overflow-x-auto no-scrollbar max-w-full">
+            {!isReadOnly && !isCoEditor && (
+              <NavLink to={`/org?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
+                <Building size={20} className="mb-1" />
+                <span className="text-[10px] font-semibold uppercase">Orgs</span>
+              </NavLink>
+            )}
             {!isReadOnly && !isCoEditor && (
               <NavLink to={`/?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
                 <Home size={20} className="mb-1" />
