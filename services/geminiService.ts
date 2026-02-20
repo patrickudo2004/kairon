@@ -1,47 +1,17 @@
-import { Program } from "../types";
+import { Program } from '../types';
 
-// NOTE: This now calls our local proxy, not Google directly.
-export const generateProgramDraft = async (rawText: string): Promise<Program | null> => {
+// In a real environment, this would call the Google Gemini API (Vertex AI or AI Studio)
+// via a secure backend function or edge function to hide the API key.
 
-  try {
-    // In development, Vite dev server will proxy /api/* to the serverless function
-    // In production (Vercel), /api/* routes directly to serverless functions
-    const response = await fetch('/api/generate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ rawText })
-    });
+export const rebalanceSchedule = async (program: Program, remainingTimeSeconds: number): Promise<string> => {
+  // Simulated Gemini Result
+  // The prompt would be: "Given this schedule and X minutes remaining, suggest how to trim future slots to stay on time."
 
-    if (!response.ok) {
-      throw new Error(`Server Error: ${response.statusText}`);
-    }
+  return "Gemini Suggestion: Trim the next 3 speaker slots by 5 minutes each to compensate for the current 12-minute delay. This ensures the Closing Remarks still start at the scheduled time.";
+};
 
-    const data = await response.json();
-
-    // Transform to internal shape with IDs
-    const program: Program = {
-      id: crypto.randomUUID(),
-      title: data.title,
-      subtitle: data.subtitle,
-      date: data.date || new Date().toISOString().split('T')[0],
-      startTime: data.startTime || "09:00",
-      endTime: data.endTime || undefined,
-      slots: data.slots.map((s: any) => ({
-        id: crypto.randomUUID(),
-        title: s.title,
-        speaker: s.speaker || "TBA",
-        durationMinutes: s.durationMinutes,
-        type: s.type,
-        details: s.details || ""
-      }))
-    };
-
-    return program;
-
-  } catch (error) {
-    console.error("Gemini AI generation failed:", error);
-    return null;
-  }
+export const generateProgramDraft = async (input: string): Promise<Partial<Program> | null> => {
+  // Placeholder for AI Drafting logic
+  console.log("Generating draft for:", input);
+  return null;
 };

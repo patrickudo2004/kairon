@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getMyOrganizations, createOrganization } from '../services/orgService';
-import { Plus, Settings, Users, Building, ChevronRight, Loader } from 'lucide-react';
+import { Organization } from '../types';
+import { getMyOrganizations, createOrganization, updateOrganizationBranding } from '../services/orgService';
+import { Plus, Settings, Building, ChevronRight, Loader, Check, Image as ImageIcon, Palette, Crown } from 'lucide-react';
+import { createCheckoutSession } from '../services/stripeService';
 
 interface OrganizationManagerProps {
     onSelect: (orgId: string) => void;
@@ -11,9 +13,12 @@ interface OrganizationManagerProps {
 export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ onSelect, activeOrgId }) => {
     const [isCreating, setIsCreating] = useState(false);
     const [newOrgName, setNewOrgName] = useState('');
+    const [isSettingsOpen, setIsSettingsOpen] = useState<string | null>(null);
+    const [logoUrl, setLogoUrl] = useState('');
+    const [brandColor, setBrandColor] = useState('#4f46e5');
     const queryClient = useQueryClient();
 
-    const { data: organizations, isLoading } = useQuery({
+    const { data: organizations, isLoading } = useQuery<Organization[]>({
         queryKey: ['my-organizations'],
         queryFn: getMyOrganizations
     });
@@ -29,6 +34,25 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ onSele
             setNewOrgName('');
         }
     });
+
+    const brandingMutation = useMutation({
+        mutationFn: ({ id, logo, color }: { id: string, logo: string, color: string }) => updateOrganizationBranding(id, logo, color),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-organizations'] });
+            setIsSettingsOpen(null);
+            setLogoUrl('');
+            setBrandColor('#4f46e5');
+        }
+    });
+
+    const handleUpgrade = async (orgId: string) => {
+        try {
+            const { url } = await createCheckoutSession(orgId, 'price_pro_monthly');
+            window.location.href = url;
+        } catch (error) {
+            console.error("Upgrade failed:", error);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -88,36 +112,46 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ onSele
                         key={org.id}
                         onClick={() => onSelect(org.id)}
                         className={`flex items-center justify-between p-5 rounded-2xl border transition-all cursor-pointer group ${activeOrgId === org.id
-                                ? 'bg-indigo-500/10 border-indigo-500 shadow-lg shadow-indigo-500/10'
-                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-indigo-500/50'
+                            ? 'bg-indigo-500/10 border-indigo-500 shadow-lg shadow-indigo-500/10'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-indigo-500/50'
                             }`}
                     >
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center overflow-hidden">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${activeOrgId === org.id ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600'}`}>
                                 {org.logoUrl ? (
-                                    <img src={org.logoUrl} alt={org.name} className="w-full h-full object-cover" />
+                                    <img src={org.logoUrl} alt={org.name} className="w-full h-full object-contain rounded-xl" />
                                 ) : (
-                                    <Building className="text-slate-400" size={24} />
+                                    <Building size={24} />
                                 )}
                             </div>
-                            <div>
-                                <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                    {org.name}
-                                    {activeOrgId === org.id && (
-                                        <span className="text-[10px] bg-indigo-500 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">Active</span>
+                            <div className="text-left">
+                                <div className="flex items-center gap-2">
+                                    <h3 className={`font-bold transition-colors ${activeOrgId === org.id ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                                        {org.name}
+                                    </h3>
+                                    {org.subscriptionStatus === 'pro' && (
+                                        <Crown size={14} className="text-amber-500 fill-amber-500" />
                                     )}
-                                </h4>
-                                <p className="text-xs text-slate-500">/{org.slug}</p>
+                                </div>
+                                <p className={`text-xs transition-colors ${activeOrgId === org.id ? 'text-indigo-100' : 'text-slate-500'}`}>
+                                    {org.subscriptionStatus === 'pro' ? 'Pro Plan' : 'Free Workspace'}
+                                </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
-                                <Users size={18} />
-                            </button>
-                            <button className="p-2 text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+                        <div className="flex items-center gap-2">
+                            {activeOrgId === org.id && <Check size={20} className="text-white" />}
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsSettingsOpen(org.id);
+                                    setLogoUrl(org.logoUrl || '');
+                                    setBrandColor(org.brandColor || '#4f46e5');
+                                }}
+                                className={`p-2 rounded-lg transition-colors ${activeOrgId === org.id ? 'text-white/70 hover:bg-white/10' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600'}`}
+                            >
                                 <Settings size={18} />
                             </button>
-                            <ChevronRight className="text-slate-300 ml-2" />
+                            <ChevronRight size={18} className={activeOrgId === org.id ? 'text-white/40' : 'text-slate-300'} />
                         </div>
                     </div>
                 ))}
@@ -136,6 +170,86 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ onSele
                     </div>
                 )}
             </div>
+
+            {isSettingsOpen && (
+                <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 w-full max-w-lg shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-start mb-6">
+                            <div>
+                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Workspace Settings</h3>
+                                <p className="text-slate-500 text-sm">Customize your organization identity</p>
+                            </div>
+                            <button onClick={() => setIsSettingsOpen(null)} className="p-2 text-slate-400 hover:text-slate-600">
+                                <Plus size={24} className="rotate-45" />
+                            </button>
+                        </div>
+
+                        {organizations?.find(o => o.id === isSettingsOpen)?.subscriptionStatus !== 'pro' ? (
+                            <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-6 mb-8">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <Crown className="text-indigo-600 dark:text-indigo-400" size={24} />
+                                    <h4 className="font-bold text-indigo-900 dark:text-indigo-100">Unlock Pro Features</h4>
+                                </div>
+                                <p className="text-sm text-indigo-700 dark:text-indigo-300 mb-4">
+                                    Custom branding, logos, and AI-powered scheduling are only available for Pro teams.
+                                </p>
+                                <button
+                                    onClick={() => handleUpgrade(isSettingsOpen!)}
+                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-500/25 transition-all active:scale-95"
+                                >
+                                    Upgrade Workspace
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                                        <ImageIcon size={16} /> Logo URL
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={logoUrl}
+                                        onChange={(e) => setLogoUrl(e.target.value)}
+                                        placeholder="https://example.com/logo.png"
+                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                                        <Palette size={16} /> Brand Color
+                                    </label>
+                                    <div className="flex items-center gap-4">
+                                        <input
+                                            type="color"
+                                            value={brandColor}
+                                            onChange={(e) => setBrandColor(e.target.value)}
+                                            className="w-12 h-12 rounded-xl cursor-pointer border-none bg-transparent"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={brandColor}
+                                            onChange={(e) => setBrandColor(e.target.value)}
+                                            placeholder="#4f46e5"
+                                            className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white font-mono uppercase outline-none focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="pt-4">
+                                    <button
+                                        onClick={() => brandingMutation.mutate({ id: isSettingsOpen!, logo: logoUrl, color: brandColor })}
+                                        disabled={brandingMutation.isPending}
+                                        className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-xl font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+                                    >
+                                        {brandingMutation.isPending ? 'Saving...' : 'Save Branding Changes'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

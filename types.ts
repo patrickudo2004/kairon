@@ -30,8 +30,11 @@ export interface Program {
   startTime: string; // "HH:mm" 24h format
   endTime?: string; // "HH:mm" 24h format (Target end time)
   organizationId?: string;
+  estimatedAttendees?: number; // Phase 3
+  averageHourlyRate?: number; // Phase 3
   slots: Slot[];
   // Timer State (Persisted in DB)
+  isManualMode?: boolean;
   currentSlotIndex?: number;
   isTimerActive?: boolean;
   timerStartTimestamp?: number | null;
@@ -58,11 +61,11 @@ export interface Organization {
   name: string;
   slug: string;
   logoUrl?: string;
-  themeColors?: {
-    primary: string;
-    secondary: string;
-  };
+  brandColor?: string;
+  subscriptionStatus?: 'free' | 'pro' | 'enterprise';
+  stripeCustomerId?: string;
   createdBy: string;
+  createdAt: string;
 }
 
 export interface OrganizationMember {

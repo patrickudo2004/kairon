@@ -12,8 +12,11 @@ export const getMyOrganizations = async (): Promise<Organization[]> => {
         name: org.name,
         slug: org.slug,
         logoUrl: org.logo_url,
-        themeColors: org.theme_colors,
-        createdBy: org.created_by
+        brandColor: org.brand_color,
+        subscriptionStatus: org.subscription_status,
+        stripeCustomerId: org.stripe_customer_id,
+        createdBy: org.created_by,
+        createdAt: org.created_at
     }));
 };
 
@@ -50,17 +53,20 @@ export const createOrganization = async (name: string, slug: string): Promise<Or
         name: orgData.name,
         slug: orgData.slug,
         logoUrl: orgData.logo_url,
-        themeColors: orgData.theme_colors,
-        createdBy: orgData.created_by
+        brandColor: orgData.brand_color,
+        subscriptionStatus: orgData.subscription_status,
+        stripeCustomerId: orgData.stripe_customer_id,
+        createdBy: orgData.created_by,
+        createdAt: orgData.created_at
     };
 };
 
-export const updateOrganizationBranding = async (orgId: string, logoUrl: string, colors: { primary: string, secondary: string }) => {
+export const updateOrganizationBranding = async (orgId: string, logoUrl: string, brandColor: string) => {
     const { error } = await supabase
         .from('organizations')
         .update({
             logo_url: logoUrl,
-            theme_colors: colors
+            brand_color: brandColor
         })
         .eq('id', orgId);
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Program } from '../types';
+import { Program, Organization } from '../types';
 import { Maximize, Minimize, Sun, Moon } from 'lucide-react';
 
 interface TVViewProps {
@@ -10,6 +10,7 @@ interface TVViewProps {
     onToggleTimer?: () => void; // Optional, maybe for testing
     isDarkMode?: boolean;
     toggleTheme?: () => void;
+    activeOrg?: Organization | null;
 }
 
 const TVView: React.FC<TVViewProps> = ({
@@ -19,6 +20,7 @@ const TVView: React.FC<TVViewProps> = ({
     secondsElapsed,
     isDarkMode = true, // Default to dark if not provided
     toggleTheme,
+    activeOrg
 }) => {
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [promptMessage, setPromptMessage] = useState<{ text: string, type: string } | null>(null);
@@ -125,15 +127,16 @@ const TVView: React.FC<TVViewProps> = ({
 
     // Time Helpers
     const formatTime = (seconds: number) => {
+        const isNegative = seconds < 0;
         const absSeconds = Math.abs(seconds);
         const m = Math.floor(absSeconds / 60);
         const s = absSeconds % 60;
-        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        return `${isNegative ? '-' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     };
 
     // Calculations
     const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
-    const timeLeft = Math.max(0, durationSeconds - secondsElapsed);
+    const timeLeft = durationSeconds - secondsElapsed;
 
     const progressPercent = durationSeconds > 0
         ? Math.min(100, Math.max(0, (timeLeft / durationSeconds) * 100))
@@ -175,8 +178,15 @@ const TVView: React.FC<TVViewProps> = ({
             <div className="flex-1 flex flex-col items-center justify-center px-8 sm:px-16 w-full max-w-[95vw] mx-auto">
 
                 {/* Top Meta: Event Title & Slot Title */}
-                <div className="text-center mb-4 sm:mb-8 w-full">
-                    <h2 className="text-2xl sm:text-3xl font-medium text-slate-500 dark:text-indigo-400 tracking-widest uppercase mb-2">
+                <div className="text-center mb-4 sm:mb-8 w-full flex flex-col items-center">
+                    {activeOrg?.logoUrl && (
+                        <img
+                            src={activeOrg.logoUrl}
+                            alt={activeOrg.name}
+                            className="h-16 sm:h-24 mb-8 object-contain animate-in fade-in duration-1000"
+                        />
+                    )}
+                    <h2 className="text-2xl sm:text-3xl font-medium text-slate-500 dark:text-indigo-400 tracking-widest uppercase mb-2" style={activeOrg?.brandColor ? { color: activeOrg.brandColor } : {}}>
                         {program.title}
                     </h2>
                     {program.subtitle && (
@@ -198,9 +208,11 @@ const TVView: React.FC<TVViewProps> = ({
                 <div className="flex-1 flex items-center justify-center w-full my-4 sm:my-8">
                     <div
                         className={`font-mono font-bold leading-none tracking-tighter tabular-nums select-none transition-colors
-                    ${timeLeft < 60 && isTimerActive
+                    ${timeLeft < 0
                                 ? 'text-rose-600 dark:text-rose-500 animate-pulse'
-                                : 'text-slate-900 dark:text-white'}
+                                : timeLeft < 60 && isTimerActive
+                                    ? 'text-rose-500 dark:text-rose-400'
+                                    : 'text-slate-900 dark:text-white'}
                 `}
                         style={{ fontSize: 'min(35vw, 500px)' }} // Responsive massive text
                     >
@@ -217,7 +229,10 @@ const TVView: React.FC<TVViewProps> = ({
                                 ? 'bg-purple-600'
                                 : 'bg-indigo-600'
                             }`}
-                        style={{ width: `${progressPercent}%` }}
+                        style={{
+                            width: `${progressPercent}%`,
+                            background: activeOrg?.brandColor && currentSlot.type !== 'Break' ? activeOrg.brandColor : undefined
+                        }}
                     />
                 </div>
 
