@@ -3,6 +3,7 @@ import { User as SupabaseUser } from '@supabase/supabase-js';
 import { User, LogOut, Settings, Check, UserCircle } from 'lucide-react';
 import { Profile } from '../types';
 import { signOut, updateProfile } from '../services/authService';
+import { Link } from 'react-router-dom';
 
 interface ProfileDropdownProps {
     user: SupabaseUser;
@@ -122,12 +123,14 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile,
                             </form>
                         )}
 
-                        <button
+                        <Link
+                            to="/admin"
+                            onClick={() => setIsOpen(false)}
                             className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors group"
                         >
                             <Settings size={18} className="text-slate-400 group-hover:text-amber-500" />
                             <span>Workspace Settings</span>
-                        </button>
+                        </Link>
 
                         <div className="my-2 border-t border-slate-100 dark:border-slate-800" />
 

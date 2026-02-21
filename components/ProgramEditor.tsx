@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Program, Slot, SLOT_PRESETS } from '../types';
-import { Trash2, Plus, GripVertical, Sparkles, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, Users } from 'lucide-react';
+import { Trash2, Plus, GripVertical, Sparkles, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, Users, Globe, Link as LinkIcon, Share2 } from 'lucide-react';
 import { generateProgramDraft } from '../services/geminiService';
+import { EmbedSnippet } from './EmbedSnippet';
 
 
 interface ProgramEditorProps {
@@ -257,6 +258,71 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({ program, onUpdate, isCoEd
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Public Access Panel */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden mb-8 shadow-xl transition-all duration-500">
+        <div className="p-4 bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg">
+              <Globe size={18} />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Public Access</h3>
+              <p className="text-xs text-slate-500 font-medium">Allow attendees to view the schedule via a public link.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => onUpdate({ ...program, isPublic: !program.isPublic })}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ring-2 ring-offset-2 ring-transparent ${program.isPublic ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+              }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${program.isPublic ? 'translate-x-[26px]' : 'translate-x-[4px]'
+                }`}
+            />
+          </button>
+        </div>
+
+        {program.isPublic && (
+          <div className="p-6 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 uppercase mb-2 flex items-center gap-2">
+                  <LinkIcon size={12} /> Custom Event Slug
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 text-sm font-mono whitespace-nowrap">kairon.app/p/</span>
+                  <input
+                    type="text"
+                    value={program.slug || ''}
+                    placeholder="my-great-event"
+                    onChange={(e) => {
+                      const sanitized = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+                      onUpdate({ ...program, slug: sanitized });
+                    }}
+                    className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm transition-colors"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <a
+                  href={`/#/p/${program.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition-all shadow-sm group"
+                >
+                  <Share2 size={16} className="group-hover:text-indigo-600" />
+                  Preview Portal
+                </a>
+              </div>
+            </div>
+
+            {program.slug && (
+              <EmbedSnippet slug={program.slug} />
+            )}
+          </div>
+        )}
       </div>
 
       {/* Slots List */}

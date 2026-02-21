@@ -29,6 +29,10 @@ export const getPrograms = async (): Promise<Program[]> => {
         timerStartTimestamp: p.timer_start_timestamp,
         secondsElapsed: p.seconds_elapsed,
         isManualMode: p.manual_mode,
+        isOnHold: p.is_on_hold,
+        holdMessage: p.hold_message,
+        slug: p.slug,
+        isPublic: p.is_public,
         slots: (p.slots || []).map((s: any) => ({
             id: s.id,
             title: s.title,
@@ -71,6 +75,10 @@ export const getProgramById = async (id: string): Promise<Program | null> => {
         timerStartTimestamp: p.timer_start_timestamp,
         secondsElapsed: p.seconds_elapsed,
         isManualMode: p.manual_mode,
+        isOnHold: p.is_on_hold,
+        holdMessage: p.hold_message,
+        slug: p.slug,
+        isPublic: p.is_public,
         slots: (p.slots || []).map((s: any) => ({
             id: s.id,
             title: s.title,
@@ -96,7 +104,9 @@ export const createProgram = async (program: Program): Promise<Program> => {
             end_time: program.endTime,
             organization_id: program.organizationId,
             estimated_attendees: program.estimatedAttendees,
-            average_hourly_rate: program.averageHourlyRate
+            average_hourly_rate: program.averageHourlyRate,
+            slug: program.slug,
+            is_public: program.isPublic
         })
         .select()
         .single();
@@ -138,6 +148,10 @@ export const updateProgram = async (program: Program): Promise<void> => {
             start_time: program.startTime,
             end_time: program.endTime,
             manual_mode: program.isManualMode,
+            is_on_hold: program.isOnHold,
+            hold_message: program.holdMessage,
+            slug: program.slug,
+            is_public: program.isPublic,
             estimated_attendees: program.estimatedAttendees,
             average_hourly_rate: program.averageHourlyRate,
             updated_at: new Date().toISOString()
@@ -191,6 +205,8 @@ export const updateTimerState = async (programId: string, state: {
     isTimerActive: boolean;
     secondsElapsed: number;
     timerStartTimestamp: number | null;
+    isOnHold?: boolean;
+    holdMessage?: string;
 }): Promise<void> => {
     const { error } = await supabase
         .from('programs')
@@ -199,9 +215,58 @@ export const updateTimerState = async (programId: string, state: {
             is_timer_active: state.isTimerActive,
             seconds_elapsed: state.secondsElapsed,
             timer_start_timestamp: state.timerStartTimestamp,
+            is_on_hold: state.isOnHold,
+            hold_message: state.holdMessage,
             updated_at: new Date().toISOString()
         })
         .eq('id', programId);
 
     if (error) throw error;
+};
+
+export const getProgramBySlug = async (slug: string): Promise<Program | null> => {
+    const { data, error } = await supabase
+        .from('programs')
+        .select(`
+      *,
+      slots (*)
+    `)
+        .eq('slug', slug)
+        .eq('is_public', true)
+        .single();
+
+    if (error) {
+        console.error("Error fetching public program:", error);
+        return null;
+    }
+
+    if (!data) return null;
+
+    const p = data;
+    return {
+        id: p.id,
+        title: p.title,
+        subtitle: p.subtitle,
+        date: p.date,
+        startTime: p.start_time,
+        endTime: p.end_time,
+        currentSlotIndex: p.current_slot_index,
+        isTimerActive: p.is_timer_active,
+        timerStartTimestamp: p.timer_start_timestamp,
+        secondsElapsed: p.seconds_elapsed,
+        isManualMode: p.manual_mode,
+        isOnHold: p.is_on_hold,
+        holdMessage: p.hold_message,
+        slug: p.slug,
+        isPublic: p.is_public,
+        slots: (p.slots || []).map((s: any) => ({
+            id: s.id,
+            title: s.title,
+            speaker: s.speaker,
+            durationMinutes: s.duration_minutes,
+            type: s.type,
+            details: s.details,
+            actualDuration: s.actual_duration
+        })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+    };
 };

@@ -8,6 +8,8 @@ export interface TimerState {
     currentSlotIndex: number;
     secondsElapsed: number;
     timerStartTimestamp: number | null;
+    isOnHold?: boolean;
+    holdMessage?: string;
 }
 
 export interface SyncRequestPayload {

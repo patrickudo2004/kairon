@@ -90,6 +90,18 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                     <span className="text-4xl font-black">{program.title}</span>
                 </div>
             </div>
+
+            {/* Hold Overlay */}
+            {program.isOnHold && (
+                <div className="fixed inset-0 z-[110] bg-amber-500 flex flex-col items-center justify-center p-12 animate-in fade-in duration-300">
+                    <h2 className="text-[12vw] font-black uppercase text-center text-white italic tracking-tighter leading-tight drop-shadow-2xl mb-8">
+                        {program.holdMessage || 'WAITING FOR CUE'}
+                    </h2>
+                    <div className="text-6xl font-bold uppercase tracking-[0.5em] text-white animate-pulse">
+                        Stand By
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
