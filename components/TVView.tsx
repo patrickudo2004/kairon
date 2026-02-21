@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Program, Organization } from '../types';
 import { Maximize, Minimize, Sun, Moon } from 'lucide-react';
+import { formatDuration } from '../utils/time';
+import { useStageMessages } from '../hooks/useStageMessages';
 
 interface TVViewProps {
     program: Program;
@@ -23,7 +25,7 @@ const TVView: React.FC<TVViewProps> = ({
     activeOrg
 }) => {
     const [isFullscreen, setIsFullscreen] = useState(false);
-    const [promptMessage, setPromptMessage] = useState<{ text: string, type: string } | null>(null);
+    const { promptMessage } = useStageMessages(program.id);
     const currentSlot = program.slots[currentSlotIndex];
     const nextSlot = program.slots[currentSlotIndex + 1];
 
@@ -105,34 +107,7 @@ const TVView: React.FC<TVViewProps> = ({
     }, []);
 
 
-    // Stage Messaging Subscription
-    useEffect(() => {
-        if (!program.id) return;
-
-        // Dynamic import or direct import if possible. 
-        // We'll use the same pattern as App.tsx but we need to ensure supabase is available.
-        import('../services/supabaseClient').then(({ supabase }) => {
-            const channel = supabase.channel(`prompter:${program.id}`)
-                .on('broadcast', { event: 'stage_message' }, ({ payload }: any) => {
-                    setPromptMessage({ text: payload.text, type: payload.type });
-                    setTimeout(() => setPromptMessage(null), 5000);
-                })
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(channel);
-            };
-        });
-    }, [program.id]);
-
-    // Time Helpers
-    const formatTime = (seconds: number) => {
-        const isNegative = seconds < 0;
-        const absSeconds = Math.abs(seconds);
-        const m = Math.floor(absSeconds / 60);
-        const s = absSeconds % 60;
-        return `${isNegative ? '-' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    };
+    // Stage Messaging Subscription (Consolidated)
 
     // Calculations
     const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
@@ -204,20 +179,17 @@ const TVView: React.FC<TVViewProps> = ({
                     )}
                 </div>
 
-                {/* Hero Timer */}
-                <div className="flex-1 flex items-center justify-center w-full my-4 sm:my-8">
-                    <div
-                        className={`font-mono font-bold leading-none tracking-tighter tabular-nums select-none transition-colors
+                <div
+                    className={`font-mono font-bold leading-none tracking-tighter tabular-nums select-none transition-colors
                     ${timeLeft < 0
-                                ? 'text-rose-600 dark:text-rose-500 animate-pulse'
-                                : timeLeft < 60 && isTimerActive
-                                    ? 'text-rose-500 dark:text-rose-400'
-                                    : 'text-slate-900 dark:text-white'}
+                            ? 'text-rose-600 dark:text-rose-500 animate-pulse'
+                            : timeLeft < 60 && isTimerActive
+                                ? 'text-rose-500 dark:text-rose-400'
+                                : 'text-slate-900 dark:text-white'}
                 `}
-                        style={{ fontSize: 'min(35vw, 500px)' }} // Responsive massive text
-                    >
-                        {formatTime(timeLeft)}
-                    </div>
+                    style={{ fontSize: 'min(35vw, 500px)' }} // Responsive massive text
+                >
+                    {formatDuration(timeLeft)}
                 </div>
 
                 {/* Progress Bar - Thicker */}

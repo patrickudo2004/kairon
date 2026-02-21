@@ -13,6 +13,8 @@ interface LiveTimerProps {
   readOnly?: boolean;
 }
 
+import { formatDuration } from '../utils/time';
+
 const LiveTimer: React.FC<LiveTimerProps> = ({
   program,
   currentSlotIndex,
@@ -26,14 +28,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
   const currentSlot = program.slots[currentSlotIndex];
   const nextSlot = program.slots[currentSlotIndex + 1];
 
-  // Time Helpers
-  const formatTime = (seconds: number) => {
-    const isNegative = seconds < 0;
-    const absSeconds = Math.abs(seconds);
-    const m = Math.floor(absSeconds / 60);
-    const s = absSeconds % 60;
-    return `${isNegative ? '-' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
+  // Time Helpers (Consolidated)
 
   // Calculations
   const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
@@ -104,10 +99,9 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
           {currentSlot.speaker}
         </p>
 
-        {/* Timer */}
         <div className={`text-[100px] md:text-[180px] font-mono font-bold leading-none tracking-tighter tabular-nums select-none transition-colors ${timeLeft < 0 ? 'text-rose-600 dark:text-rose-500 animate-pulse' : 'text-slate-900 dark:text-white'
           }`}>
-          {formatTime(timeLeft)}
+          {formatDuration(timeLeft)}
         </div>
 
         {/* Meeting Cost Analytics (Pro Feature) */}

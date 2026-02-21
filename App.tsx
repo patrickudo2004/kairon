@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Mic, Edit3, Play, List, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles } from 'lucide-react';
-import QRCode from 'react-qr-code';
-import { realtimeService, TimerState } from './services/realtimeService';
-import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// Services
+import { realtimeService, TimerState } from './services/realtimeService';
 import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService } from './services/programService';
+import { getProfile, signOut as signOutService } from './services/authService';
+import { rebalanceSchedule } from './services/geminiService';
+import { supabase } from './services/supabaseClient';
+
+// Store & Hooks
 import { useUIStore } from './store/uiStore';
+import { useLocalSync } from './hooks/useLocalSync';
+import { useTimer } from './hooks/useTimer';
+import { useStageMessages } from './hooks/useStageMessages';
+
+// Components
 import LiveTimer from './components/LiveTimer';
 import ScheduleList from './components/ScheduleList';
 import ProgramEditor from './components/ProgramEditor';
@@ -15,277 +25,29 @@ import HomeDashboard from './components/HomeDashboard';
 import PrintableSchedule from './components/PrintableSchedule';
 import ShareDialog from './components/ShareDialog';
 import TVView from './components/TVView';
-import { Program, Slot, SlotType, Profile, Organization } from './types';
-import { useLocalSync } from './hooks/useLocalSync';
-import { Monitor, User as UserIcon, Building, MessageSquare, Bell, Clock, Crown } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { OrganizationManager } from './components/OrganizationManager';
 import StageDisplay from './components/StageDisplay';
 import { ProfileDropdown } from './components/ProfileDropdown';
-import { getProfile, signOut as signOutService } from './services/authService';
-import { rebalanceSchedule } from './services/geminiService';
+import { ExportDialog, ExportOptions } from './components/ExportDialog';
+import HomeWrapper from './components/wrappers/HomeWrapper';
+import CalendarWrapper from './components/wrappers/CalendarWrapper';
+
+// Utils & Types
+import { Program, Slot, SlotType, Profile, Organization } from './types';
+import { timeToMinutes, minutesToTime } from './utils/time';
+import { encodeProgramData, decodeProgramData } from './utils/encoding';
+import { INITIAL_PROGRAM } from './utils/constants';
+
+import { Monitor, User as UserIcon, Building, MessageSquare, Bell, Clock, Crown } from 'lucide-react';
 import { User as SupabaseUser } from '@supabase/supabase-js';
-import { supabase } from './services/supabaseClient';
 
-// --- Helpers for URL State Encoding (Minification Strategy) ---
-
-// Minified Structure types for reference
-// ProgramArr: [version, id, title, subtitle, date, startTime, endTime, slots[]]
-// SlotArr: [id, title, speaker, duration, type, details, actualDuration]
-
-const MINIFY_VERSION = 1;
-
-const minifyProgram = (p: Program): any[] => {
-  return [
-    MINIFY_VERSION,
-    p.id,
-    p.title,
-    p.subtitle,
-    p.date,
-    p.startTime,
-    p.endTime || null,
-    p.slots.map(s => [
-      s.id,
-      s.title,
-      s.speaker,
-      s.durationMinutes,
-      s.type,
-      s.details || "",
-      s.actualDuration || 0
-    ])
-  ];
-};
-
-const expandProgram = (data: any[]): Program | null => {
-  try {
-    const [version, id, title, subtitle, date, startTime, endTime, slotsArr] = data;
-
-    // Basic validation
-    if (version !== MINIFY_VERSION) console.warn("Version mismatch in shared link");
-
-    const slots: Slot[] = Array.isArray(slotsArr) ? slotsArr.map((s: any[]) => ({
-      id: s[0],
-      title: s[1],
-      speaker: s[2],
-      durationMinutes: s[3],
-      type: s[4] as SlotType,
-      details: s[5] || undefined,
-      actualDuration: s[6] || undefined
-    })) : [];
-
-    return {
-      id,
-      title,
-      subtitle,
-      date,
-      startTime,
-      endTime: endTime || undefined,
-      slots
-    };
-  } catch (e) {
-    console.error("Failed to expand program data", e);
-    return null;
-  }
-};
-
-const encodeData = (data: Program): string => {
-  try {
-    const minified = minifyProgram(data);
-    const jsonStr = JSON.stringify(minified);
-    // Use LZString for URL-safe compression (Base64-like)
-    return compressToEncodedURIComponent(jsonStr);
-  } catch (e) {
-    console.error("Encoding failed", e);
-    return '';
-  }
-};
-
-const decodeData = (str: string): Program | null => {
-  try {
-    // 1. Try decompressing with LZString first (New Format)
-    let jsonStr = decompressFromEncodedURIComponent(str);
-
-    // 2. Fallback: If null, it might be the old format (Base64)
-    if (!jsonStr) {
-      try {
-        jsonStr = decodeURIComponent(escape(atob(str)));
-      } catch (innerE) {
-        // Not Base64 either
-        console.warn("Legacy decoding failed", innerE);
-        return null;
-      }
-    }
-
-    const parsed = JSON.parse(jsonStr);
-
-    // Check if it's the new minified array format
-    if (Array.isArray(parsed)) {
-      return expandProgram(parsed);
-    }
-
-    // Fallback for legacy object format
-    return parsed as Program;
-  } catch (e) {
-    console.error("Decoding failed", e);
-    return null;
-  }
-};
-
-// --- Time Helpers (Duplicated here to avoid deep prop drilling or module issues) ---
-const timeToMinutes = (time: string): number => {
-  if (!time) return 0;
-  const [h, m] = time.split(':').map(Number);
-  return (h * 60) + m;
-};
-
-const minutesToTime = (minutes: number): string => {
-  const h = Math.floor(minutes / 60) % 24;
-  const m = minutes % 60;
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 || 12;
-  return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
-};
-
-// Minimal initial program (will be replaced by database data)
-const INITIAL_PROGRAM: Program = {
-  id: crypto.randomUUID(),
-  title: 'New Event',
-  subtitle: '',
-  date: new Date().toISOString().split('T')[0],
-  startTime: '09:00',
-  isManualMode: false,
-  slots: []
-};
-
-// Export Dialog Component
-interface ExportOptions {
-  includeDetails: boolean;
-  includeSpeakers: boolean;
-}
-
-const ExportDialog: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  program: Program;
-  options: ExportOptions;
-  setOptions: React.Dispatch<React.SetStateAction<ExportOptions>>;
-  onPrint: () => void;
-}> = ({ isOpen, onClose, program, options, setOptions, onPrint }) => {
-  const [copied, setCopied] = useState(false);
-
-  if (!isOpen) return null;
-
-  const handleCopyText = () => {
-    let text = `${program.title}\n`;
-    if (program.subtitle) text += `${program.subtitle}\n`;
-    text += `Date: ${program.date} | Start: ${program.startTime}\n`;
-    text += `----------------------------------------\n\n`;
-
-    let runningMinutes = timeToMinutes(program.startTime);
-
-    program.slots.forEach(slot => {
-      const startStr = minutesToTime(runningMinutes);
-      runningMinutes += slot.durationMinutes;
-
-      text += `${startStr} - ${slot.title}`;
-      if (slot.type === 'Break') text += ` (Break)`;
-      text += `\n`;
-
-      if (options.includeSpeakers && slot.speaker) {
-        text += `Speaker: ${slot.speaker}\n`;
-      }
-
-      text += `Duration: ${slot.durationMinutes} mins\n`;
-
-      if (options.includeDetails && slot.details) {
-        text += `Details: ${slot.details}\n`;
-      }
-      text += `\n`;
-    });
-
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 no-print">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-800">
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Download className="text-rose-600 dark:text-rose-400" size={24} />
-            Export Schedule
-          </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-6">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Choose options for your export.
-          </p>
-
-          <div className="space-y-4">
-            <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-              <input
-                type="checkbox"
-                checked={options.includeSpeakers}
-                onChange={(e) => setOptions(prev => ({ ...prev, includeSpeakers: e.target.checked }))}
-                className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
-              />
-              <div className="flex items-center gap-3 text-slate-700 dark:text-slate-200">
-                <User size={18} className="text-slate-400" />
-                <span className="font-medium">Include Speakers</span>
-              </div>
-            </label>
-
-            <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-              <input
-                type="checkbox"
-                checked={options.includeDetails}
-                onChange={(e) => setOptions(prev => ({ ...prev, includeDetails: e.target.checked }))}
-                className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
-              />
-              <div className="flex items-center gap-3 text-slate-700 dark:text-slate-200">
-                <AlignLeft size={18} className="text-slate-400" />
-                <span className="font-medium">Include Details</span>
-              </div>
-            </label>
-          </div>
-
-          <div className="flex flex-col gap-3 mt-4">
-            <button
-              onClick={handleCopyText}
-              className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700"
-            >
-              {copied ? <Check size={20} className="text-emerald-500" /> : <Clipboard size={20} />}
-              {copied ? "Copied to Clipboard" : "Copy Schedule Text"}
-            </button>
-
-            <button
-              onClick={() => {
-                onClose();
-                window.print();
-              }}
-              className="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-rose-500/20 transition-all flex items-center justify-center gap-2"
-            >
-              <FileText size={20} />
-              Generate PDF
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
+// --- App Content Component ---
 const AppContent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const mode = searchParams.get('mode') || 'editor';
+  const [mode, setMode] = useState(searchParams.get('mode') || 'editor');
   const importData = searchParams.get('import');
-  const isReadOnly = mode === 'viewer';
+  const isReadOnly = mode === 'viewer' || mode === 'ReadOnly';
   const isCoEditor = mode === 'coeditor';
   const queryClient = useQueryClient();
 
@@ -307,13 +69,6 @@ const AppContent: React.FC = () => {
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-
-  // --- Stage Messaging State ---
-  const [promptMessage, setPromptMessage] = useState<{ text: string, type: string } | null>(null);
-  const [isPromptOpen, setIsPromptOpen] = useState(false);
-  const [messageInput, setMessageInput] = useState('');
-  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
 
   // Handle Auth Session
   useEffect(() => {
@@ -361,47 +116,43 @@ const AppContent: React.FC = () => {
     setActiveOrg(null);
   };
 
-  // Stage Messaging Subscription
+  // Lifted Timer State
+  const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
+  const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
+  const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
+
+  // useTimer Hook (Consolidated logic)
+  const initialSeconds = program.slots[currentSlotIndex] ? timeToMinutes(program.startTime) * 60 + secondsElapsed : 0;
+  const secondsElapsedDerived = useTimer({
+    isActive: isTimerActive,
+    isManualMode: program.isManualMode,
+    startTimestamp: timerStartTimestamp,
+    initialSeconds
+  });
+
+  // Keep internal state in sync with hook for legacy compatibility in this component
+  // We'll gradually move everything to use the hook's value directly
   useEffect(() => {
-    if (!program.id || program.id === INITIAL_PROGRAM.id) return;
+    setSecondsElapsed(secondsElapsedDerived);
+  }, [secondsElapsedDerived]);
 
-    const channel = supabase.channel(`prompter:${program.id}`)
-      .on('broadcast', { event: 'stage_message' }, ({ payload }) => {
-        setPromptMessage({ text: payload.text, type: payload.type });
-        // Auto-clear message after 5 seconds
-        setTimeout(() => setPromptMessage(null), 5000);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [program.id]);
-
-  const sendStageMessage = (text: string) => {
-    supabase.channel(`prompter:${program.id}`).send({
-      type: 'broadcast',
-      event: 'stage_message',
-      payload: { text, type: 'alert' }
-    });
-    setPromptMessage({ text, type: 'alert' });
-    setTimeout(() => setPromptMessage(null), 5000);
+  // useStageMessages Hook (Consolidated logic)
+  const { promptMessage, sendStageMessage } = useStageMessages(program.id);
+  const [isPromptOpen, setIsPromptOpen] = useState(false);
+  const [messageInput, setMessageInput] = useState('');
+  const handleSendMessage = (text: string) => {
+    sendStageMessage(text);
     setIsPromptOpen(false);
     setMessageInput('');
   };
 
   // Export State
   const [isExportOpen, setIsExportOpen] = useState(false);
-  const [printOptions, setPrintOptions] = useState<ExportOptions>({ includeDetails: true, includeSpeakers: true });
+  const [exportOptions, setExportOptions] = useState<ExportOptions>({ includeDetails: true, includeSpeakers: true });
 
   useEffect(() => {
     if (isReadOnly) setIsShareOpen(false);
   }, [isReadOnly]);
-
-  // Lifted Timer State
-  const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
-  const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
-  const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
 
   // Persistence Key
   const TIMER_STORAGE_KEY = 'kairon_timer_state';
@@ -448,6 +199,9 @@ const AppContent: React.FC = () => {
     };
     localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(state));
   }, [program.id, currentSlotIndex, isTimerActive, secondsElapsed, timerStartTimestamp]);
+
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   const handleAiRebalance = async (currentProgram: Program) => {
     setIsAiLoading(true);
@@ -510,6 +264,26 @@ const AppContent: React.FC = () => {
     enabled: !!urlId,
   });
 
+  // Load state from URL if present
+  useEffect(() => {
+    const data = searchParams.get('data');
+    if (data) {
+      const decoded = decodeProgramData(data);
+      if (decoded) {
+        setProgram(decoded);
+        setMode('ReadOnly');
+      }
+    }
+  }, [searchParams]);
+
+  // Persistence: Save to URL when in ReadOnly mode (Optional, for easy sharing)
+  useEffect(() => {
+    if (mode === 'ReadOnly' && program.id) {
+      const encoded = encodeProgramData(program);
+      setSearchParams({ data: encoded, id: program.id, mode: 'ReadOnly' }, { replace: true });
+    }
+  }, [program, mode]);
+
   // Fetch active organization details for branding
   useEffect(() => {
     if (activeOrgId) {
@@ -565,7 +339,7 @@ const AppContent: React.FC = () => {
         }
       }
     } else if (importData) {
-      const importedProgram = decodeData(importData);
+      const importedProgram = decodeProgramData(importData);
       if (importedProgram && importedProgram.id !== program.id) {
         console.log("Hydrating program from URL Data:", importedProgram.title);
         setProgram(importedProgram);
@@ -579,12 +353,6 @@ const AppContent: React.FC = () => {
       // Check if it exists? For now, we assume if we have an ID we "upsert" or "update".
       // Let's try update first. If DB empty, this fails. 
       // Actually we should perform an UPSERT logic or Try Create if Update fails
-      // But updateProgramService attempts to update.
-      // Let's use createProgramService but maybe modifying it to Upsert? 
-      // Supabase insert with upsert: true is cleaner. 
-      // Our createProgram uses insert(). 
-
-      // Keep it simple: Try Update, if error (or row count 0?), Create.
       // But our service abstractions are separate.
       // Let's rely on Create for "Initial" valid UUIDs?
       // Or just try create. If ID exists, it throws...
@@ -1082,64 +850,7 @@ const AppContent: React.FC = () => {
       : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200'
     }`;
 
-  // Wrappers
-  const CalendarWrapper = () => {
-    const navigate = useNavigate();
-
-    // Fetch all programs from Supabase
-    const { data: allPrograms = [], isLoading } = useQuery({
-      queryKey: ['programs'],
-      queryFn: getPrograms,
-    });
-
-    if (isLoading) {
-      return (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-slate-500">Loading programs...</div>
-        </div>
-      );
-    }
-
-    return (
-      <CalendarView
-        programs={allPrograms}
-        activeProgramId={program.id}
-        onSelectProgram={(p) => { loadProgram(p); navigate(`/live?id=${p.id}&mode=${mode}`); }}
-        onCreateProgram={(date) => { createProgram(date); navigate(`/editor?mode=${mode}`); }}
-        onDelete={deleteProgram}
-        onDuplicate={duplicateProgram}
-      />
-    );
-  }
-
-  const HomeWrapper = () => {
-    const navigate = useNavigate();
-
-    // Fetch all programs from Supabase
-    const { data: allPrograms = [], isLoading } = useQuery({
-      queryKey: ['programs'],
-      queryFn: getPrograms,
-    });
-
-    if (isLoading) {
-      return (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-slate-500">Loading programs...</div>
-        </div>
-      );
-    }
-
-    return (
-      <HomeDashboard
-        programs={allPrograms}
-        activeProgramId={program.id}
-        onSelectProgram={(p) => { loadProgram(p); navigate(`/live?id=${p.id}&mode=${mode}`); }}
-        onCreateNew={() => { createProgram(new Date().toISOString().split('T')[0]); navigate(`/editor?mode=${mode}`); }}
-        onDelete={deleteProgram}
-        onDuplicate={duplicateProgram}
-      />
-    )
-  }
+  // Wrappers (Replaced with external components)
 
   // Redirect if ReadOnly user tries to access restricted routes
   const navigate = useNavigate();
@@ -1376,7 +1087,30 @@ const AppContent: React.FC = () => {
                         onSelect={setActiveOrgId}
                       />
                     } />
-                    {!isReadOnly && !isCoEditor && <Route path="/" element={<HomeWrapper />} />}
+                    {!isReadOnly && !isCoEditor && (
+                      <>
+                        <Route path="/" element={
+                          <HomeWrapper
+                            activeProgramId={program.id}
+                            loadProgram={loadProgram}
+                            createProgram={createProgram}
+                            deleteProgram={deleteProgram}
+                            duplicateProgram={duplicateProgram}
+                            mode={mode}
+                          />
+                        } />
+                        <Route path="/calendar" element={
+                          <CalendarWrapper
+                            activeProgramId={program.id}
+                            loadProgram={loadProgram}
+                            createProgram={createProgram}
+                            deleteProgram={deleteProgram}
+                            duplicateProgram={duplicateProgram}
+                            mode={mode}
+                          />
+                        } />
+                      </>
+                    )}
                     <Route path="/live" element={
                       <div className="relative h-full">
                         <LiveTimer
@@ -1413,11 +1147,11 @@ const AppContent: React.FC = () => {
                                 placeholder="e.g. Move Mic Closer / Wrap Up"
                                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white mb-6 focus:ring-2 focus:ring-rose-500 outline-none"
                                 autoFocus
-                                onKeyDown={(e) => e.key === 'Enter' && sendStageMessage(messageInput)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(messageInput)}
                               />
                               <div className="flex gap-3">
                                 <button
-                                  onClick={() => sendStageMessage(messageInput)}
+                                  onClick={() => handleSendMessage(messageInput)}
                                   disabled={!messageInput.trim()}
                                   className="flex-1 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white py-3 rounded-xl font-bold transition-all"
                                 >
@@ -1563,17 +1297,16 @@ const AppContent: React.FC = () => {
           isOpen={isExportOpen}
           onClose={() => setIsExportOpen(false)}
           program={program}
-          options={printOptions}
-          setOptions={setPrintOptions}
-          onPrint={() => window.print()}
+          options={exportOptions}
+          setOptions={setExportOptions}
         />
       </div >
 
       {/* Hidden Printable Area */}
       < PrintableSchedule
         program={program}
-        includeDetails={printOptions.includeDetails}
-        includeSpeakers={printOptions.includeSpeakers}
+        includeDetails={exportOptions.includeDetails}
+        includeSpeakers={exportOptions.includeSpeakers}
       />
     </>
   );

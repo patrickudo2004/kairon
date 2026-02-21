@@ -1,5 +1,6 @@
 import React from 'react';
 import { Program } from '../types';
+import { timeToMinutes, minutesToTime } from '../utils/time';
 
 interface PrintableScheduleProps {
   program: Program;
@@ -12,21 +13,6 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
   includeSpeakers = true,
   includeDetails = true
 }) => {
-  // Time Helper
-  const timeToMinutes = (time: string): number => {
-    if (!time) return 0;
-    const [h, m] = time.split(':').map(Number);
-    return (h * 60) + m;
-  };
-
-  const minutesToTime = (minutes: number): string => {
-    const h = Math.floor(minutes / 60) % 24;
-    const m = minutes % 60;
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const h12 = h % 12 || 12;
-    return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
-  };
-
   const startMinutes = timeToMinutes(program.startTime || "09:00");
   let runningMinutes = startMinutes;
 
