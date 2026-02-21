@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Program, Organization } from '../types';
 import { supabase } from '../services/supabaseClient';
+import { formatDuration } from '../utils/time';
+import { useStageMessages } from '../hooks/useStageMessages';
 
 interface StageDisplayProps {
     program: Program;
@@ -17,32 +19,10 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     currentSlotIndex,
     activeOrg
 }) => {
-    const [promptMessage, setPromptMessage] = useState<{ text: string, type: string } | null>(null);
+    const { promptMessage } = useStageMessages(program.id);
     const currentSlot = program.slots[currentSlotIndex];
 
-    // Stage Messaging Subscription
-    useEffect(() => {
-        if (!program.id) return;
-
-        const channel = supabase.channel(`prompter:${program.id}`)
-            .on('broadcast', { event: 'stage_message' }, ({ payload }) => {
-                setPromptMessage({ text: payload.text, type: payload.type });
-                setTimeout(() => setPromptMessage(null), 5000);
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [program.id]);
-
-    const formatTime = (seconds: number) => {
-        const isNegative = seconds < 0;
-        const absSeconds = Math.abs(seconds);
-        const m = Math.floor(absSeconds / 60);
-        const s = absSeconds % 60;
-        return `${isNegative ? '-' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    };
+    // Stage Messaging Subscription (Consolidated)
 
     const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
     const timeLeft = durationSeconds - secondsElapsed;
@@ -85,10 +65,9 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                 </div>
             </div>
 
-            {/* Massive Clock */}
             <div className={`relative z-10 font-mono font-black tabular-nums leading-none tracking-tighter ${timeLeft < 0 ? 'text-rose-500' : timeLeft < 60 ? 'text-amber-500' : 'text-white'
                 }`} style={{ fontSize: '35vw' }}>
-                {formatTime(timeLeft)}
+                {formatDuration(timeLeft)}
             </div>
 
             {/* Prompter Overlay - Full Screen Attention */}

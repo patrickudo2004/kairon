@@ -10,20 +10,7 @@ interface ProgramEditorProps {
   isCoEditor?: boolean;
 }
 
-// Time Helper Functions
-const timeToMinutes = (time: string): number => {
-  if (!time) return 0;
-  const [h, m] = time.split(':').map(Number);
-  return (h * 60) + m;
-};
-
-const minutesToTime = (minutes: number): string => {
-  const h = Math.floor(minutes / 60) % 24;
-  const m = minutes % 60;
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 || 12;
-  return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
-};
+import { timeToMinutes, minutesToTime } from '../utils/time';
 
 const ProgramEditor: React.FC<ProgramEditorProps> = ({ program, onUpdate, isCoEditor = false }) => {
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
