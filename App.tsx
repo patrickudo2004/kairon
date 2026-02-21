@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider
 import { realtimeService, TimerState } from './services/realtimeService';
 import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService } from './services/programService';
 import { getProfile, signOut as signOutService } from './services/authService';
+import { getMyOrganizations } from './services/orgService';
 import { rebalanceSchedule } from './services/geminiService';
 import { supabase } from './services/supabaseClient';
 
@@ -29,7 +30,10 @@ import { Auth } from './components/Auth';
 import { OrganizationManager } from './components/OrganizationManager';
 import StageDisplay from './components/StageDisplay';
 import { ProfileDropdown } from './components/ProfileDropdown';
+import { WorkspaceSwitcher } from './components/WorkspaceSwitcher';
+import { AdminPanel } from './components/AdminPanel';
 import { ExportDialog, ExportOptions } from './components/ExportDialog';
+import { PublicPortal } from './components/PublicPortal';
 import HomeWrapper from './components/wrappers/HomeWrapper';
 import CalendarWrapper from './components/wrappers/CalendarWrapper';
 
@@ -68,7 +72,41 @@ const AppContent: React.FC = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
+
+  // Fetch all organizations for the user
+  const { data: userOrganizations = [] } = useQuery({
+    queryKey: ['organizations', user?.id],
+    queryFn: getMyOrganizations,
+    enabled: !!user,
+  });
+
+  // Keep activeOrg in sync with activeOrgId
+  useEffect(() => {
+    if (activeOrgId) {
+      const found = userOrganizations.find(o => o.id === activeOrgId);
+      if (found) setActiveOrg(found);
+    } else if (userOrganizations.length > 0) {
+      // Default to first org if none selected
+      setActiveOrgId(userOrganizations[0].id);
+      setActiveOrg(userOrganizations[0]);
+    }
+  }, [activeOrgId, userOrganizations]);
+
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(window.navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Handle Auth Session
   useEffect(() => {
@@ -192,13 +230,17 @@ const AppContent: React.FC = () => {
 
     const state = {
       programId: program.id,
+      program, // Include the full program for offline recovery
       currentSlotIndex,
       isTimerActive,
       secondsElapsed,
-      timerStartTimestamp
+      timerStartTimestamp,
+      lastBackup: Date.now()
     };
     localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(state));
-  }, [program.id, currentSlotIndex, isTimerActive, secondsElapsed, timerStartTimestamp]);
+    // Also save a per-program backup for easier multi-program management
+    localStorage.setItem(`kairon_backup_${program.id}`, JSON.stringify(state));
+  }, [program, currentSlotIndex, isTimerActive, secondsElapsed, timerStartTimestamp]);
 
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -319,33 +361,62 @@ const AppContent: React.FC = () => {
   }, [program.organizationId]);
 
   useEffect(() => {
-    if (fetchedProgram && fetchedProgram.id !== program.id) {
-      console.log("Hydrating program from ID:", fetchedProgram.title);
-      setProgram(fetchedProgram);
+    const hydrate = async () => {
+      // 1. Try DB Hydration
+      if (fetchedProgram && fetchedProgram.id !== program.id) {
+        console.log("Hydrating program from ID:", fetchedProgram.title);
+        setProgram(fetchedProgram);
 
-      // Hydrate Timer State from DB if available
-      if (fetchedProgram.isTimerActive !== undefined) {
-        console.log("Hydrating timer state from DB:", fetchedProgram.isTimerActive);
-        setCurrentSlotIndex(fetchedProgram.currentSlotIndex ?? 0);
-        setIsTimerActive(fetchedProgram.isTimerActive ?? false);
-        setTimerStartTimestamp(fetchedProgram.timerStartTimestamp ?? null);
+        // Hydrate Timer State from DB if available
+        if (fetchedProgram.isTimerActive !== undefined) {
+          setCurrentSlotIndex(fetchedProgram.currentSlotIndex ?? 0);
+          setIsTimerActive(fetchedProgram.isTimerActive ?? false);
+          setTimerStartTimestamp(fetchedProgram.timerStartTimestamp ?? null);
 
-        if (fetchedProgram.isTimerActive && fetchedProgram.timerStartTimestamp) {
-          const now = Date.now();
-          const elapsed = Math.floor((now - fetchedProgram.timerStartTimestamp) / 1000);
-          setSecondsElapsed(elapsed);
-        } else {
-          setSecondsElapsed(fetchedProgram.secondsElapsed ?? 0);
+          if (fetchedProgram.isTimerActive && fetchedProgram.timerStartTimestamp) {
+            const now = Date.now();
+            const elapsed = Math.floor((now - fetchedProgram.timerStartTimestamp) / 1000);
+            setSecondsElapsed(elapsed);
+          } else {
+            setSecondsElapsed(fetchedProgram.secondsElapsed ?? 0);
+          }
+        }
+        return;
+      }
+
+      // 2. Try URL Import Hydration
+      if (importData) {
+        const importedProgram = decodeProgramData(importData);
+        if (importedProgram && importedProgram.id !== program.id) {
+          console.log("Hydrating program from URL Data:", importedProgram.title);
+          setProgram(importedProgram);
+        }
+        return;
+      }
+
+      // 3. Offline Deep Recovery Fallback
+      // If we are offline or DB failed, check for the specific program backup
+      const programId = searchParams.get('id');
+      if (programId && program.id === INITIAL_PROGRAM.id) {
+        const localBackup = localStorage.getItem(`kairon_backup_${programId}`);
+        if (localBackup) {
+          try {
+            const parsed = JSON.parse(localBackup);
+            console.log("Offline Recovery: Restoring full program from local backup", parsed.program.title);
+            setProgram(parsed.program);
+            setCurrentSlotIndex(parsed.currentSlotIndex);
+            setIsTimerActive(parsed.isTimerActive);
+            setTimerStartTimestamp(parsed.timerStartTimestamp);
+            setSecondsElapsed(parsed.secondsElapsed);
+          } catch (e) {
+            console.warn("Offline recovery failed:", e);
+          }
         }
       }
-    } else if (importData) {
-      const importedProgram = decodeProgramData(importData);
-      if (importedProgram && importedProgram.id !== program.id) {
-        console.log("Hydrating program from URL Data:", importedProgram.title);
-        setProgram(importedProgram);
-      }
-    }
-  }, [importData, fetchedProgram]);
+    };
+
+    hydrate();
+  }, [importData, fetchedProgram, searchParams]);
 
   // Persistence (Supabase)
   const mutation = useMutation({
@@ -447,7 +518,12 @@ const AppContent: React.FC = () => {
         // Update Timer Status
         setIsTimerActive(remoteState.isTimerActive);
 
-        // Persist timer start timestamp so we can answer sync requests accurately
+        // Update Hold Status
+        if (remoteState.hasOwnProperty('isOnHold')) {
+          setProgram(prev => ({ ...prev, isOnHold: remoteState.isOnHold, holdMessage: remoteState.holdMessage }));
+        }
+
+        // Persist timer start timestamp
         setTimerStartTimestamp(remoteState.timerStartTimestamp);
 
         // Sync Time
@@ -495,6 +571,10 @@ const AppContent: React.FC = () => {
         setIsTimerActive(state.isTimerActive);
         setTimerStartTimestamp(state.timerStartTimestamp);
 
+        if (state.hasOwnProperty('isOnHold')) {
+          setProgram(prev => ({ ...prev, isOnHold: state.isOnHold, holdMessage: state.holdMessage }));
+        }
+
         if (state.isTimerActive && state.timerStartTimestamp) {
           const now = Date.now();
           const elapsed = Math.floor((now - state.timerStartTimestamp) / 1000);
@@ -526,6 +606,10 @@ const AppContent: React.FC = () => {
       setCurrentSlotIndex(state.currentSlotIndex);
       setIsTimerActive(state.isTimerActive);
       setTimerStartTimestamp(state.timerStartTimestamp);
+
+      if (state.hasOwnProperty('isOnHold')) {
+        setProgram(prev => ({ ...prev, isOnHold: state.isOnHold, holdMessage: state.holdMessage }));
+      }
 
       if (state.isTimerActive && state.timerStartTimestamp) {
         const now = Date.now();
@@ -568,6 +652,8 @@ const AppContent: React.FC = () => {
       timerStartTimestamp: hasStartOverride
         ? (overrides.timerStartTimestamp ?? null)
         : (overrides.isTimerActive ? now : timerStartTimestamp),
+      isOnHold: overrides.hasOwnProperty('isOnHold') ? (overrides.isOnHold as boolean) : program.isOnHold,
+      holdMessage: (overrides.holdMessage as string) || program.holdMessage,
     };
 
     realtimeService.broadcast(state);
@@ -796,6 +882,33 @@ const AppContent: React.FC = () => {
     broadcastState({ isTimerActive: newState, timerStartTimestamp: startTs });
   };
 
+  const handleToggleHold = () => {
+    if (isReadOnly) return;
+    const nextHoldState = !program.isOnHold;
+
+    // Update local state first for immediate UI feedback
+    setProgram(prev => ({ ...prev, isOnHold: nextHoldState }));
+
+    // Broadcast for TV/Projectors and sync to Supabase
+    broadcastState({ isOnHold: nextHoldState });
+
+    // Final persistence to DB
+    void (async () => {
+      try {
+        await updateTimerStateService(program.id, {
+          currentSlotIndex,
+          isTimerActive,
+          secondsElapsed,
+          timerStartTimestamp,
+          isOnHold: nextHoldState,
+          holdMessage: program.holdMessage
+        });
+      } catch (err) {
+        console.error("Failed to persist hold state:", err);
+      }
+    })();
+  };
+
 
   const handleNext = () => {
     if (isReadOnly) return;
@@ -924,6 +1037,20 @@ const AppContent: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 md:gap-4">
+              {/* Connection Status */}
+              {!isOnline && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-full text-[10px] font-bold uppercase tracking-widest animate-pulse border border-rose-200 dark:border-rose-800">
+                  <WifiOff size={12} />
+                  Offline
+                </div>
+              )}
+              {isOnline && !isReadOnly && user && (
+                <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-full text-[10px] font-bold uppercase tracking-widest border border-emerald-100 dark:border-emerald-800/50">
+                  <Wifi size={12} />
+                  Live Sync
+                </div>
+              )}
+
               {user && (
                 <>
                   <div className="hidden lg:block text-sm text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 truncate max-w-[200px]">
@@ -1035,11 +1162,22 @@ const AppContent: React.FC = () => {
               )}
 
               {user && (
-                <ProfileDropdown
-                  user={user}
-                  profile={profile}
-                  onProfileUpdate={setProfile}
-                />
+                <div className="flex items-center gap-3">
+                  <WorkspaceSwitcher
+                    organizations={userOrganizations}
+                    activeOrg={activeOrg}
+                    onSelect={setActiveOrgId}
+                    onCreateNew={() => {
+                      setActiveOrgId(null);
+                      navigate('/org');
+                    }}
+                  />
+                  <ProfileDropdown
+                    user={user}
+                    profile={profile}
+                    onProfileUpdate={setProfile}
+                  />
+                </div>
               )}
 
               <button
@@ -1111,6 +1249,17 @@ const AppContent: React.FC = () => {
                         } />
                       </>
                     )}
+
+                    <Route path="/admin" element={
+                      activeOrg ? (
+                        <AdminPanel organization={activeOrg} />
+                      ) : (
+                        <div className="flex items-center justify-center h-screen">
+                          <p className="text-slate-500">Please select an organization first.</p>
+                        </div>
+                      )
+                    } />
+                    <Route path="/p/:slug" element={<PublicPortal />} />
                     <Route path="/live" element={
                       <div className="relative h-full">
                         <LiveTimer
@@ -1119,6 +1268,7 @@ const AppContent: React.FC = () => {
                           isTimerActive={isTimerActive}
                           secondsElapsed={secondsElapsed}
                           onToggleTimer={handleToggleTimer}
+                          onToggleHold={handleToggleHold}
                           onNext={handleNext}
                           onPrev={handlePrev}
                           readOnly={isReadOnly}

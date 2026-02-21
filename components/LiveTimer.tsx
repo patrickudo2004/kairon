@@ -8,6 +8,7 @@ interface LiveTimerProps {
   isTimerActive: boolean;
   secondsElapsed: number;
   onToggleTimer: () => void;
+  onToggleHold?: () => void;
   onNext: () => void;
   onPrev: () => void;
   readOnly?: boolean;
@@ -21,6 +22,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
   isTimerActive,
   secondsElapsed,
   onToggleTimer,
+  onToggleHold,
   onNext,
   onPrev,
   readOnly = false
@@ -128,12 +130,21 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
       </div>
 
       {/* Progress Bar */}
-      <div className="w-full h-3 bg-slate-200 dark:bg-slate-800 rounded-full mb-12 overflow-hidden shadow-inner">
+      <div className="w-full h-3 bg-slate-200 dark:bg-slate-800 rounded-full mb-8 overflow-hidden shadow-inner">
         <div
-          className="h-full bg-indigo-600 dark:bg-indigo-500 transition-all duration-1000 ease-linear"
+          className={`h-full transition-all duration-1000 ease-linear ${program.isOnHold ? 'bg-amber-500 animate-pulse' : 'bg-indigo-600 dark:bg-indigo-500'}`}
           style={{ width: `${progressPercent}%` }}
         />
       </div>
+
+      {program.isOnHold && (
+        <div className="mb-8 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400 font-black uppercase tracking-[0.2em] text-xl">
+            <Pause size={24} className="animate-pulse" />
+            {program.holdMessage || 'WAITING FOR CUE'}
+          </div>
+        </div>
+      )}
 
       {/* Controls - Hidden if readOnly */}
       {!readOnly && (
@@ -162,6 +173,18 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
           >
             <SkipForward size={28} />
             Next
+          </button>
+
+          <button
+            onClick={onToggleHold}
+            className={`flex items-center gap-3 px-6 py-5 rounded-2xl font-semibold text-xl transition-all border ${program.isOnHold
+              ? 'bg-amber-500 text-white border-amber-600 shadow-amber-500/30'
+              : 'bg-white dark:bg-slate-800 text-amber-600 border-amber-200 dark:border-amber-900 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+              }`}
+            title="Hold for Cue"
+          >
+            <Pause size={24} />
+            <span className="hidden md:block">Hold</span>
           </button>
         </div>
       )}

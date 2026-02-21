@@ -3,11 +3,12 @@ import { useState, useEffect } from 'react';
 interface UseTimerProps {
     isActive: boolean;
     isManualMode: boolean;
+    isOnHold?: boolean;
     startTimestamp: number | null;
     initialSeconds: number;
 }
 
-export const useTimer = ({ isActive, isManualMode, startTimestamp, initialSeconds }: UseTimerProps) => {
+export const useTimer = ({ isActive, isManualMode, isOnHold, startTimestamp, initialSeconds }: UseTimerProps) => {
     const [secondsElapsed, setSecondsElapsed] = useState(initialSeconds);
 
     useEffect(() => {
@@ -17,7 +18,7 @@ export const useTimer = ({ isActive, isManualMode, startTimestamp, initialSecond
     useEffect(() => {
         let interval: any;
 
-        if (isActive && !isManualMode) {
+        if (isActive && !isManualMode && !isOnHold) {
             interval = setInterval(() => {
                 if (startTimestamp) {
                     const now = Date.now();
@@ -30,7 +31,7 @@ export const useTimer = ({ isActive, isManualMode, startTimestamp, initialSecond
         }
 
         return () => clearInterval(interval);
-    }, [isActive, isManualMode, startTimestamp]);
+    }, [isActive, isManualMode, isOnHold, startTimestamp]);
 
     return secondsElapsed;
 };

@@ -236,6 +236,18 @@ const TVView: React.FC<TVViewProps> = ({
                     </div>
                 </div>
             )}
+
+            {/* Hold Overlay */}
+            {program.isOnHold && (
+                <div className="fixed inset-0 z-[110] bg-amber-500 flex flex-col items-center justify-center p-8 animate-in fade-in duration-500">
+                    <h2 className="text-[15vw] font-black uppercase tracking-tighter leading-none text-white text-center mb-8 italic">
+                        {program.holdMessage || 'WAITING FOR CUE'}
+                    </h2>
+                    <div className="px-12 py-6 bg-white/20 backdrop-blur-md rounded-full border-4 border-white/30">
+                        <span className="text-5xl font-bold text-white tracking-[0.3em] uppercase animate-pulse">Stand By</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

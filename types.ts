@@ -35,10 +35,14 @@ export interface Program {
   slots: Slot[];
   // Timer State (Persisted in DB)
   isManualMode?: boolean;
+  isOnHold?: boolean;
+  holdMessage?: string;
   currentSlotIndex?: number;
   isTimerActive?: boolean;
   timerStartTimestamp?: number | null;
   secondsElapsed?: number;
+  slug?: string;
+  isPublic?: boolean;
 }
 
 export interface AnalyticsData {
