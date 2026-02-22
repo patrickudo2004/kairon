@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { signInWithGoogle, signInWithMagicLink } from '../services/authService';
-import { Mic, Mail, ArrowRight, Loader } from 'lucide-react';
+import { Mic, Mail, ArrowRight, Loader, Sun, Moon } from 'lucide-react';
+import { useUIStore } from '../store/uiStore';
 
 export const Auth: React.FC = () => {
     const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [mode, setMode] = useState<'signin' | 'signup'>('signin');
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const { isDarkMode, toggleTheme } = useUIStore();
 
     const handleGoogleSignIn = async () => {
         try {
@@ -39,7 +41,15 @@ export const Auth: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-[80vh] p-6">
+        <div className="flex flex-col items-center justify-center min-h-[80vh] p-6 relative">
+            <button
+                onClick={toggleTheme}
+                className="absolute top-8 right-8 p-3 rounded-2xl bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all shadow-xl backdrop-blur-md"
+                title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            >
+                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+
             <div className="w-full max-w-md bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-2xl">
                 <div className="flex flex-col items-center mb-8">
                     <div className="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-violet-500 rounded-2xl flex items-center justify-center shadow-lg mb-4">
