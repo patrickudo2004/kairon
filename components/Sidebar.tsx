@@ -16,7 +16,8 @@ import {
     WifiOff,
     Crown,
     Play,
-    List
+    List,
+    FileText
 } from 'lucide-react';
 import { Organization, Profile } from '../types';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
@@ -57,6 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { icon: Play, label: 'Live', path: '/live' },
         { icon: List, label: 'List', path: '/list' },
         { icon: Calendar, label: 'Calendar', path: '/calendar' },
+        { icon: FileText, label: 'User Guide', path: '/guide' },
         { icon: Settings, label: 'Workspace', path: '/admin' },
     ];
 

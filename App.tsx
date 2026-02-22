@@ -1091,6 +1091,14 @@ const AppContent: React.FC = () => {
               {!isReadOnly && (
                 <>
                   <button
+                    onClick={toggleTheme}
+                    className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                    title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                  >
+                    {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                  </button>
+
+                  <button
                     onClick={() => window.open(`${window.location.origin}/#/tv`, '_blank')}
                     className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
                     title="Launch Projector (TV View)"
