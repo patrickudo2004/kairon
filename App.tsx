@@ -14,7 +14,6 @@ import { supabase } from './services/supabaseClient';
 // Store & Hooks
 import { useUIStore } from './store/uiStore';
 import { useLocalSync } from './hooks/useLocalSync';
-import { useTimer } from './hooks/useTimer';
 import { useStageMessages } from './hooks/useStageMessages';
 
 // Components
@@ -36,14 +35,16 @@ import { ExportDialog, ExportOptions } from './components/ExportDialog';
 import { PublicPortal } from './components/PublicPortal';
 import HomeWrapper from './components/wrappers/HomeWrapper';
 import CalendarWrapper from './components/wrappers/CalendarWrapper';
+import { Sidebar } from './components/Sidebar';
+import { OnboardingOverlay } from './components/OnboardingOverlay';
 
 // Utils & Types
 import { Program, Slot, SlotType, Profile, Organization } from './types';
-import { timeToMinutes, minutesToTime } from './utils/time';
+import { timeToMinutes, minutesToTime, formatDuration } from './utils/time';
 import { encodeProgramData, decodeProgramData } from './utils/encoding';
 import { INITIAL_PROGRAM } from './utils/constants';
 
-import { Monitor, User as UserIcon, Building, MessageSquare, Bell, Clock, Crown } from 'lucide-react';
+import { Monitor, User as UserIcon, Building, MessageSquare, Bell, Clock, Crown, SkipForward, Pause } from 'lucide-react';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 
 // --- App Content Component ---
@@ -51,6 +52,8 @@ const AppContent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [mode, setMode] = useState(searchParams.get('mode') || 'editor');
   const importData = searchParams.get('import');
+
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const isReadOnly = mode === 'viewer' || mode === 'ReadOnly';
   const isCoEditor = mode === 'coeditor';
   const queryClient = useQueryClient();
@@ -94,6 +97,7 @@ const AppContent: React.FC = () => {
 
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(window.navigator.onLine);
+  const [isOnboardingManual, setIsOnboardingManual] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -159,20 +163,6 @@ const AppContent: React.FC = () => {
   const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
   const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
 
-  // useTimer Hook (Consolidated logic)
-  const initialSeconds = program.slots[currentSlotIndex] ? timeToMinutes(program.startTime) * 60 + secondsElapsed : 0;
-  const secondsElapsedDerived = useTimer({
-    isActive: isTimerActive,
-    isManualMode: program.isManualMode,
-    startTimestamp: timerStartTimestamp,
-    initialSeconds
-  });
-
-  // Keep internal state in sync with hook for legacy compatibility in this component
-  // We'll gradually move everything to use the hook's value directly
-  useEffect(() => {
-    setSecondsElapsed(secondsElapsedDerived);
-  }, [secondsElapsedDerived]);
 
   // useStageMessages Hook (Consolidated logic)
   const { promptMessage, sendStageMessage } = useStageMessages(program.id);
@@ -1009,201 +999,137 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <>
-      <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 no-print">
+    <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 no-print">
+      {user && (
+        <Sidebar
+          activeOrg={activeOrg}
+          userOrganizations={userOrganizations}
+          setActiveOrgId={setActiveOrgId}
+          profile={profile}
+          user={user}
+          onProfileUpdate={setProfile}
+          handleSignOut={signOutService}
+          isOnline={isOnline}
+          programTitle={program.title}
+          isCollapsed={isSidebarCollapsed}
+          onToggle={setIsSidebarCollapsed}
+          onCreateOrg={() => setIsOnboardingManual(true)}
+        />
+      )}
 
-        {/* Header */}
-        <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md transition-colors">
-          <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {activeOrg?.logoUrl ? (
-                <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
-                  <img src={activeOrg.logoUrl} alt={activeOrg.name} className="w-full h-full object-contain bg-white" />
-                </div>
-              ) : (
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-gradient-to-tr from-indigo-500 to-violet-500" style={activeOrg?.brandColor ? { background: activeOrg.brandColor } : {}}>
-                  <Mic className="text-white" size={18} />
-                </div>
+      {user && (userOrganizations.length === 0 || isOnboardingManual) && !isAuthLoading && (
+        <OnboardingOverlay
+          userEmail={user.email || ''}
+          onOrgCreated={(newOrg) => {
+            queryClient.invalidateQueries({ queryKey: ['organizations', user?.id] });
+            setActiveOrgId(newOrg.id);
+            setIsOnboardingManual(false);
+            navigate('/');
+          }}
+        />
+      )}
+
+      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${user ? (isSidebarCollapsed ? 'pl-20' : 'pl-64') : ''}`}>
+        {/* Header (Simplified Top Bar) */}
+        <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md transition-colors h-16 flex items-center shrink-0">
+          <div className="w-full px-6 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h2 className="font-bold text-slate-900 dark:text-white truncate max-w-[200px] lg:max-w-[400px]">
+                {program.title}
+              </h2>
+              {isReadOnly && (
+                <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-medium tracking-widest uppercase">Viewer</span>
               )}
-              <div>
-                <h1 className="font-bold text-lg tracking-tight leading-tight text-slate-900 dark:text-white flex items-center gap-2">
-                  {activeOrg ? activeOrg.name : 'Kairon'}
-                  {isReadOnly && <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-medium">VIEWER</span>}
-                </h1>
-                <div className="text-[10px] text-slate-500 font-medium uppercase tracking-widest leading-none mt-0.5">
-                  {activeOrg ? 'Workspace' : 'Event Manager'}
-                </div>
-              </div>
             </div>
 
-            <div className="flex items-center gap-2 md:gap-4">
-              {/* Connection Status */}
-              {!isOnline && (
-                <div className="flex items-center gap-2 px-3 py-1 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-full text-[10px] font-bold uppercase tracking-widest animate-pulse border border-rose-200 dark:border-rose-800">
-                  <WifiOff size={12} />
-                  Offline
+            {/* Live Control Center & Timer (THE RESTORED PIECE) */}
+            {!isReadOnly && program.slots.length > 0 && (
+              <div className="hidden md:flex items-center gap-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-1.5 rounded-2xl shadow-sm">
+                <div className={`text-xl font-mono font-bold tabular-nums min-w-[80px] text-center ${isTimerActive ? (program.slots[currentSlotIndex] ? (program.slots[currentSlotIndex].durationMinutes * 60 - secondsElapsed < 0 ? 'text-rose-500' : 'text-indigo-600 dark:text-indigo-400') : 'text-slate-400') : 'text-slate-400'}`}>
+                  {program.slots[currentSlotIndex]
+                    ? formatDuration(program.slots[currentSlotIndex].durationMinutes * 60 - secondsElapsed)
+                    : '00:00'}
                 </div>
-              )}
-              {isOnline && !isReadOnly && user && (
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-full text-[10px] font-bold uppercase tracking-widest border border-emerald-100 dark:border-emerald-800/50">
-                  <Wifi size={12} />
-                  Live Sync
-                </div>
-              )}
 
-              {user && (
+                <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleToggleTimer}
+                    className={`p-2 rounded-xl transition-all ${isTimerActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
+                    title={isTimerActive ? "Pause Timer" : "Start Event"}
+                  >
+                    {isTimerActive ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+                  </button>
+
+                  <button
+                    onClick={handleNext}
+                    className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500 transition-all"
+                    title="Next Slot"
+                  >
+                    <SkipForward size={18} />
+                  </button>
+
+                  <button
+                    onClick={handleToggleHold}
+                    className={`p-2 rounded-xl transition-all ${program.isOnHold ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-amber-500'}`}
+                    title="Toggle Hold"
+                  >
+                    <Clock size={18} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              {/* Connection & Mode Indicator */}
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                {isOnline ? <Wifi size={12} className="text-emerald-500" /> : <WifiOff size={12} className="text-rose-500" />}
+                {isOnline ? 'Synced' : 'Offline'}
+              </div>
+
+              {!isReadOnly && (
                 <>
-                  <div className="hidden lg:block text-sm text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 truncate max-w-[200px]">
-                    {program.title}
-                  </div>
-
-                  {/* Upgrade Button (Pro Tier Teaser) */}
-                  {!isReadOnly && activeOrg && activeOrg.subscriptionStatus !== 'pro' && (
-                    <button
-                      onClick={() => {
-                        const url = `https://checkout.stripe.com/pay/simulated_session_${activeOrg.id}`;
-                        window.open(url, '_blank');
-                      }}
-                      className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-amber-500/20 transition-all active:scale-95"
-                    >
-                      <Crown size={14} className="fill-white" />
-                      Upgrade
-                    </button>
-                  )}
-
-                  {/* Projector Button */}
-                  {!isReadOnly && (
-                    <button
-                      onClick={() => {
-                        // Open TV Route in new window
-                        const url = `/#/tv?id=${program.id}&mode=viewer`;
-                        window.open(url, 'KaironProjector', 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no');
-                      }}
-                      className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition-colors hidden sm:block"
-                      title="Launch Projector (TV Mode)"
-                    >
-                      <Monitor size={20} />
-                    </button>
-                  )}
-
-                  {/* Stage/Speaker Button */}
-                  {!isReadOnly && (
-                    <button
-                      onClick={() => {
-                        const url = `/#/stage?id=${program.id}&mode=viewer`;
-                        window.open(url, 'KaironStage', 'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no');
-                      }}
-                      className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-amber-600 dark:text-amber-400 transition-colors hidden sm:block"
-                      title="Launch Stage Display (For Speakers)"
-                    >
-                      <Monitor size={20} className="stroke-[3px]" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => window.open(`${window.location.origin}/#/tv`, '_blank')}
+                    className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                    title="Launch Projector (TV View)"
+                  >
+                    <Monitor size={18} />
+                  </button>
 
                   <button
                     onClick={() => setIsExportOpen(true)}
-                    className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-rose-600 dark:text-rose-400 transition-colors"
-                    title="Export to PDF"
+                    className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                    title="Export PDF"
                   >
-                    <Download size={20} />
+                    <Download size={18} />
                   </button>
 
-                  {!isReadOnly && (
-                    <button
-                      onClick={() => setIsShareOpen(true)}
-                      className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400 transition-colors"
-                      title="Share"
-                    >
-                      <Share2 size={20} />
-                    </button>
-                  )}
-
-                  {/* Save Status Indicator */}
-                  {!isReadOnly && (
-                    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-medium">
-                      {saveStatus === 'saving' && (
-                        <>
-                          <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                          <span className="text-yellow-600 dark:text-yellow-400">Saving...</span>
-                        </>
-                      )}
-                      {saveStatus === 'saved' && (
-                        <>
-                          <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                          <span className="text-emerald-600 dark:text-emerald-400">Saved</span>
-                        </>
-                      )}
-                      {saveStatus === 'unsaved' && (
-                        <>
-                          <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
-                          <span className="text-slate-500 dark:text-slate-400">Unsaved</span>
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Manual Mode Toggle */}
-                  {!isReadOnly && (
-                    <button
-                      onClick={() => setProgram(p => ({ ...p, isManualMode: !p.isManualMode }))}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${program.isManualMode
-                        ? 'bg-amber-500/10 border-amber-500 text-amber-600 dark:text-amber-400 font-bold'
-                        : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700'
-                        }`}
-                      title={program.isManualMode ? "Manual Mode (Overtime Enabled)" : "Auto Mode (Auto-Advance)"}
-                    >
-                      <Clock size={16} className={program.isManualMode ? 'animate-pulse' : ''} />
-                      <span className="text-xs uppercase tracking-tight hidden lg:block">
-                        {program.isManualMode ? 'Manual' : 'Auto'}
-                      </span>
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setIsShareOpen(true)}
+                    className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-md shadow-indigo-500/20 transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    <Share2 size={14} />
+                    Share
+                  </button>
                 </>
               )}
-
-              {user && (
-                <div className="flex items-center gap-3">
-                  <WorkspaceSwitcher
-                    organizations={userOrganizations}
-                    activeOrg={activeOrg}
-                    onSelect={setActiveOrgId}
-                    onCreateNew={() => {
-                      setActiveOrgId(null);
-                      navigate('/org');
-                    }}
-                  />
-                  <ProfileDropdown
-                    user={user}
-                    profile={profile}
-                    onProfileUpdate={setProfile}
-                  />
-                </div>
-              )}
-
-              <button
-                onClick={toggleTheme}
-                className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
-                title="Toggle Theme"
-              >
-                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-              </button>
             </div>
           </div>
-        </header >
+        </header>
 
-        {/* Main */}
-        < main className="flex-1 overflow-y-auto custom-scrollbar relative" >
-          {promptMessage && (
-            <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] w-full max-w-xl px-4 animate-in slide-in-from-top-4 duration-500">
-              <div className="bg-rose-600 text-white py-4 px-8 rounded-2xl shadow-2xl flex items-center gap-4 border-2 border-white/20 backdrop-blur-xl">
-                <Bell className="animate-bounce" size={24} />
-                <span className="text-xl font-bold uppercase tracking-tight">{promptMessage.text}</span>
-              </div>
+        {promptMessage && (
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] w-full max-w-xl px-4 animate-in slide-in-from-top-4 duration-500">
+            <div className="bg-rose-600 text-white py-4 px-8 rounded-2xl shadow-2xl flex items-center gap-4 border-2 border-white/20 backdrop-blur-xl">
+              <Bell className="animate-bounce" size={24} />
+              <span className="text-xl font-bold uppercase tracking-tight">{promptMessage.text}</span>
             </div>
-          )
-          }
+          </div>
+        )}
 
-          <div className="max-w-7xl mx-auto w-full h-full">
+        <main className="flex-1 overflow-y-auto pb-20 md:pb-0 relative custom-scrollbar">
+          <div className="max-w-7xl mx-auto p-4 md:p-8 h-full">
             {isAuthLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
@@ -1211,254 +1137,150 @@ const AppContent: React.FC = () => {
             ) : !user ? (
               <Auth />
             ) : (
-              <>
-                {urlId && !fetchedProgram ? (
-                  <div className="flex flex-col items-center justify-center h-full gap-4">
-                    <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <div className="text-slate-500 font-medium animate-pulse">Loading Live Event...</div>
-                  </div>
-                ) : (
-                  <Routes>
-                    <Route path="/org" element={
-                      <OrganizationManager
-                        activeOrgId={activeOrgId ?? undefined}
-                        onSelect={setActiveOrgId}
-                      />
-                    } />
-                    {!isReadOnly && !isCoEditor && (
-                      <>
-                        <Route path="/" element={
-                          <HomeWrapper
-                            activeProgramId={program.id}
-                            loadProgram={loadProgram}
-                            createProgram={createProgram}
-                            deleteProgram={deleteProgram}
-                            duplicateProgram={duplicateProgram}
-                            mode={mode}
-                          />
-                        } />
-                        <Route path="/calendar" element={
-                          <CalendarWrapper
-                            activeProgramId={program.id}
-                            loadProgram={loadProgram}
-                            createProgram={createProgram}
-                            deleteProgram={deleteProgram}
-                            duplicateProgram={duplicateProgram}
-                            mode={mode}
-                          />
-                        } />
-                      </>
-                    )}
+              <Routes>
+                <Route path="/org" element={
+                  <OrganizationManager
+                    activeOrgId={activeOrgId ?? undefined}
+                    onSelect={setActiveOrgId}
+                  />
+                } />
 
-                    <Route path="/admin" element={
-                      activeOrg ? (
-                        <AdminPanel organization={activeOrg} />
-                      ) : (
-                        <div className="flex items-center justify-center h-screen">
-                          <p className="text-slate-500">Please select an organization first.</p>
-                        </div>
-                      )
-                    } />
-                    <Route path="/p/:slug" element={<PublicPortal />} />
-                    <Route path="/live" element={
-                      <div className="relative h-full">
-                        <LiveTimer
-                          program={program}
-                          currentSlotIndex={currentSlotIndex}
-                          isTimerActive={isTimerActive}
-                          secondsElapsed={secondsElapsed}
-                          onToggleTimer={handleToggleTimer}
-                          onToggleHold={handleToggleHold}
-                          onNext={handleNext}
-                          onPrev={handlePrev}
-                          readOnly={isReadOnly}
-                        />
-                        {!isReadOnly && (
-                          <div className="absolute top-4 right-4">
-                            <button
-                              onClick={() => setIsPromptOpen(true)}
-                              className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg hover:text-indigo-600 transition-all text-slate-500"
-                              title="Send Stage Message"
-                            >
-                              <MessageSquare size={20} />
-                            </button>
-                          </div>
-                        )}
+                {/* Main Views */}
+                <Route path="/" element={
+                  <HomeWrapper
+                    activeProgramId={program.id}
+                    loadProgram={loadProgram}
+                    createProgram={createProgram}
+                    deleteProgram={deleteProgram}
+                    duplicateProgram={duplicateProgram}
+                    mode={mode}
+                  />
+                } />
 
-                        {isPromptOpen && (
-                          <div className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-                              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Message Stage</h3>
-                              <p className="text-sm text-slate-500 mb-6">Send a quick cue that will flash on the speaker's prompter for 5 seconds.</p>
-                              <input
-                                type="text"
-                                value={messageInput}
-                                onChange={(e) => setMessageInput(e.target.value)}
-                                placeholder="e.g. Move Mic Closer / Wrap Up"
-                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white mb-6 focus:ring-2 focus:ring-rose-500 outline-none"
-                                autoFocus
-                                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(messageInput)}
-                              />
-                              <div className="flex gap-3">
-                                <button
-                                  onClick={() => handleSendMessage(messageInput)}
-                                  disabled={!messageInput.trim()}
-                                  className="flex-1 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white py-3 rounded-xl font-bold transition-all"
-                                >
-                                  Send Message
-                                </button>
-                                <button
-                                  onClick={() => setIsPromptOpen(false)}
-                                  className="px-6 py-3 text-slate-500 hover:text-slate-700 font-medium"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    } />
-                    <Route path="/list" element={
-                      <ScheduleList
-                        program={program}
-                        currentSlotIndex={currentSlotIndex}
-                        secondsElapsed={secondsElapsed}
-                        isTimerActive={isTimerActive}
-                        readOnly={isReadOnly}
-                      />
-                    } />
-                    {!isReadOnly && <Route path="/editor" element={
-                      <ProgramEditor
-                        program={program}
-                        isCoEditor={isCoEditor}
-                        onUpdate={(p) => {
-                          if ((p as any)._triggerRebalance) {
-                            handleAiRebalance(p);
-                            return;
-                          }
-                          setProgram(p);
-                          // Broadcast program changes to all viewers in real-time
-                          realtimeService.broadcastProgram(p);
-                          broadcastProgramUpdate(p);
-                          if (p.slots.length === 0) {
-                            setCurrentSlotIndex(0);
-                            setSecondsElapsed(0);
-                            setIsTimerActive(false);
-                          }
-                        }}
-                      />
-                    } />}
-                    {!isReadOnly && !isCoEditor && <Route path="/calendar" element={<CalendarWrapper />} />}
-                  </Routes>
+                <Route path="/calendar" element={
+                  <CalendarWrapper
+                    activeProgramId={program.id}
+                    loadProgram={loadProgram}
+                    createProgram={createProgram}
+                    deleteProgram={deleteProgram}
+                    duplicateProgram={duplicateProgram}
+                    mode={mode}
+                  />
+                } />
+
+                <Route path="/admin" element={
+                  activeOrg ? (
+                    <AdminPanel organization={activeOrg} />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4">
+                      <Building size={48} className="opacity-20" />
+                      <p>Select a workspace from the sidebar to manage settings.</p>
+                    </div>
+                  )
+                } />
+
+                <Route path="/p/:slug" element={<PublicPortal />} />
+
+                <Route path="/live" element={
+                  <LiveTimer
+                    program={program}
+                    currentSlotIndex={currentSlotIndex}
+                    isTimerActive={isTimerActive}
+                    secondsElapsed={secondsElapsed}
+                    onToggleTimer={handleToggleTimer}
+                    onToggleHold={handleToggleHold}
+                    onNext={handleNext}
+                    onPrev={handlePrev}
+                    readOnly={isReadOnly}
+                  />
+                } />
+
+                <Route path="/list" element={
+                  <ScheduleList
+                    program={program}
+                    currentSlotIndex={currentSlotIndex}
+                    secondsElapsed={secondsElapsed}
+                    isTimerActive={isTimerActive}
+                    readOnly={isReadOnly}
+                  />
+                } />
+
+                {!isReadOnly && (
+                  <Route path="/editor" element={
+                    <ProgramEditor
+                      program={program}
+                      isCoEditor={isCoEditor}
+                      onUpdate={(p) => {
+                        if ((p as any)._triggerRebalance) {
+                          handleAiRebalance(p);
+                          return;
+                        }
+                        setProgram(p);
+                        realtimeService.broadcastProgram(p);
+                        broadcastProgramUpdate(p);
+                        if (p.slots.length === 0) {
+                          setCurrentSlotIndex(0);
+                          setSecondsElapsed(0);
+                          setIsTimerActive(false);
+                        }
+                      }}
+                    />
+                  } />
                 )}
-              </>
+              </Routes>
             )}
           </div>
+        </main>
 
-          {/* AI Suggestion Toast */}
-          {
-            aiSuggestion && (
-              <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] w-full max-w-xl animate-in slide-in-from-bottom-8 duration-500">
-                <div className="bg-indigo-600 dark:bg-indigo-500 text-white p-6 rounded-3xl shadow-2xl flex items-start gap-4 mx-4">
-                  <div className="bg-white/20 p-2 rounded-xl">
-                    <Sparkles size={24} />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-bold text-lg mb-1">AI Schedule Insight</h4>
-                    <p className="text-indigo-50 text-sm leading-relaxed">{aiSuggestion}</p>
-                  </div>
-                  <button
-                    onClick={() => setAiSuggestion(null)}
-                    className="p-1 hover:bg-white/10 rounded-lg transition-colors"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
+        {/* AI Suggestion Toast */}
+        {aiSuggestion && (
+          <div className="fixed bottom-10 right-10 z-[60] w-full max-w-md animate-in slide-in-from-right-8 duration-500">
+            <div className="bg-indigo-600 dark:bg-indigo-500 text-white p-6 rounded-3xl shadow-2xl flex items-start gap-4">
+              <div className="bg-white/20 p-2 rounded-xl">
+                <Sparkles size={24} />
               </div>
-            )
-          }
-
-          {
-            isAiLoading && (
-              <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center">
-                <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4">
-                  <div className="relative">
-                    <div className="w-16 h-16 border-4 border-indigo-500/20 rounded-full animate-pulse" />
-                    <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-indigo-500 animate-bounce" size={32} />
-                  </div>
-                  <p className="font-bold text-slate-900 dark:text-white">Consulting AI...</p>
-                </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-lg mb-1">AI Insight</h4>
+                <p className="text-indigo-50 text-sm leading-relaxed">{aiSuggestion}</p>
               </div>
-            )
-          }
-        </main >
+              <button
+                onClick={() => setAiSuggestion(null)}
+                className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+        )}
 
-        {/* Bottom Dock */}
-        {
-          user && (
-            <nav className="sticky bottom-6 mx-auto z-50 flex justify-center w-full px-4">
-              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700/50 px-2 md:px-4 py-2 rounded-2xl shadow-2xl shadow-slate-200/50 dark:shadow-slate-950/50 flex items-center gap-1 md:gap-3 overflow-x-auto no-scrollbar max-w-full">
-                {!isReadOnly && !isCoEditor && (
-                  <NavLink to={`/org?mode=${mode}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                    <Building size={20} className="mb-1" />
-                    <span className="text-[10px] font-semibold uppercase">Orgs</span>
-                  </NavLink>
-                )}
-                {!isReadOnly && !isCoEditor && (
-                  <NavLink to={`/?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                    <Home size={20} className="mb-1" />
-                    <span className="text-[10px] font-semibold uppercase">Home</span>
-                  </NavLink>
-                )}
-                <NavLink to={`/live?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                  <Play size={20} className="mb-1" />
-                  <span className="text-[10px] font-semibold uppercase">Live</span>
-                </NavLink>
-                <NavLink to={`/list?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                  <List size={20} className="mb-1" />
-                  <span className="text-[10px] font-semibold uppercase">List</span>
-                </NavLink>
-                {!isReadOnly && (
-                  <>
-                    <NavLink to={`/editor?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                      <Edit3 size={20} className="mb-1" />
-                      <span className="text-[10px] font-semibold uppercase">Edit</span>
-                    </NavLink>
-                    {!isCoEditor && (
-                      <NavLink to={`/calendar?mode=${mode}${program.id !== INITIAL_PROGRAM.id ? '&id=' + program.id : ''}${importData ? '&import=' + importData : ''}`} className={navLinkClass}>
-                        <CalendarIcon size={20} className="mb-1" />
-                        <span className="text-[10px] font-semibold uppercase">Cal</span>
-                      </NavLink>
-                    )}
-                  </>
-                )}
+        {isAiLoading && (
+          <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center">
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4">
+              <div className="relative">
+                <div className="w-16 h-16 border-4 border-indigo-500/20 rounded-full animate-pulse" />
+                <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-indigo-500 animate-bounce" size={32} />
               </div>
-            </nav>
-          )
-        }
+              <p className="font-bold text-slate-900 dark:text-white">Consulting AI...</p>
+            </div>
+          </div>
+        )}
+      </div>
 
-        {
-          !isReadOnly && (
-            <ShareDialog isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} program={program} />
-          )
-        }
-        <ExportDialog
-          isOpen={isExportOpen}
-          onClose={() => setIsExportOpen(false)}
-          program={program}
-          options={exportOptions}
-          setOptions={setExportOptions}
-        />
-      </div >
+      <ShareDialog isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} program={program} />
+      <ExportDialog
+        isOpen={isExportOpen}
+        onClose={() => setIsExportOpen(false)}
+        program={program}
+        options={exportOptions}
+        setOptions={setExportOptions}
+      />
 
-      {/* Hidden Printable Area */}
-      < PrintableSchedule
+      <PrintableSchedule
         program={program}
         includeDetails={exportOptions.includeDetails}
         includeSpeakers={exportOptions.includeSpeakers}
       />
-    </>
+    </div>
   );
 };
 
@@ -1472,6 +1294,6 @@ const App: React.FC = () => {
       </HashRouter>
     </QueryClientProvider>
   );
-}
+};
 
 export default App;
