@@ -57,6 +57,8 @@ Kairon is built for the "No Wi-Fi" reality of hotel ballrooms.
 
 ---
 
+*For a detailed breakdown of Free vs. Pro features and the product roadmap, please refer to the [Feature Strategy](file:///c:/Users/patri/Documents/kairon-main/FEATURES_PRICING.md) document.*
+
 ## 🎭 User Scenarios
 
 ### Scenario A: The High-Stress Tech Conference
