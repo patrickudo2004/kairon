@@ -7,13 +7,15 @@ interface WorkspaceSwitcherProps {
     activeOrg: Organization | null;
     onSelect: (orgId: string) => void;
     onCreateNew: () => void;
+    isCollapsed?: boolean;
 }
 
 export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
     organizations,
     activeOrg,
     onSelect,
-    onCreateNew
+    onCreateNew,
+    isCollapsed = false
 }) => {
     const [isOpen, setIsOpen] = React.useState(false);
     const dropdownRef = React.useRef<HTMLDivElement>(null);
@@ -32,15 +34,22 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-medium text-sm"
+                className={`flex items-center gap-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-medium text-sm
+                    ${isCollapsed ? 'w-10 h-10 justify-center p-0' : 'px-3 py-1.5 w-full'}
+                `}
+                title={isCollapsed ? (activeOrg?.name || 'Select Workspace') : ''}
             >
-                <div className="w-5 h-5 rounded-md bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
-                    <Building size={14} />
+                <div className="flex-shrink-0 w-6 h-6 rounded-md bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-rose-600 dark:text-rose-400">
+                    <Building size={16} />
                 </div>
-                <span className="truncate max-w-[120px]">
-                    {activeOrg?.name || 'Select Workspace'}
-                </span>
-                <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                {!isCollapsed && (
+                    <>
+                        <span className="truncate flex-1 text-left">
+                            {activeOrg?.name || 'Select Workspace'}
+                        </span>
+                        <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                    </>
+                )}
             </button>
 
             {isOpen && (
@@ -52,7 +61,7 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
                     </div>
 
                     <div className="max-h-[300px] overflow-y-auto p-1">
-                        {organizations.map((org) => (
+                        {organizations?.map((org) => (
                             <button
                                 key={org.id}
                                 onClick={() => {

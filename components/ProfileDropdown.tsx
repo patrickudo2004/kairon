@@ -9,9 +9,10 @@ interface ProfileDropdownProps {
     user: SupabaseUser;
     profile: Profile | null;
     onProfileUpdate: (newProfile: Profile) => void;
+    isCollapsed?: boolean;
 }
 
-export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile, onProfileUpdate }) => {
+export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile, onProfileUpdate, isCollapsed = false }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [newName, setNewName] = useState(profile?.fullName || '');
@@ -57,18 +58,31 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile,
         }
     };
 
-    const initial = profile?.fullName?.charAt(0) || user.email?.charAt(0) || '?';
+    const initial = profile?.fullName?.charAt(0) || user?.email?.charAt(0) || '?';
 
     return (
         <div className="relative" ref={dropdownRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-indigo-500 transition-all shadow-sm"
+                className={`flex items-center gap-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all group overflow-hidden ${isCollapsed ? 'w-12 h-12 justify-center p-0' : 'w-full p-2 pr-4 h-14'
+                    }`}
             >
-                {profile?.avatarUrl ? (
-                    <img src={profile.avatarUrl} alt={profile.fullName} className="w-full h-full object-cover" />
-                ) : (
-                    <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400 uppercase">{initial}</span>
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center overflow-hidden shadow-sm group-hover:ring-2 group-hover:ring-indigo-500 transition-all">
+                    {profile?.avatarUrl ? (
+                        <img src={profile.avatarUrl} alt={profile.fullName} className="w-full h-full object-cover" />
+                    ) : (
+                        <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400 uppercase">{initial}</span>
+                    )}
+                </div>
+                {!isCollapsed && (
+                    <div className="flex-1 text-left overflow-hidden">
+                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                            {profile?.fullName || 'User Profile'}
+                        </p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate tracking-tight">
+                            {user?.email}
+                        </p>
+                    </div>
                 )}
             </button>
 
@@ -85,7 +99,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile,
                                     {profile?.fullName || 'Anonymous User'}
                                 </p>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                                    {user.email}
+                                    {user?.email}
                                 </p>
                             </div>
                         </div>

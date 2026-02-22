@@ -6,7 +6,10 @@ export const getMyOrganizations = async (): Promise<Organization[]> => {
         .from('organizations')
         .select('*');
 
-    if (error) throw error;
+    if (error) {
+        console.error("Supabase Error [getMyOrganizations]:", error.message, error.details, error.hint);
+        throw error;
+    }
     return data.map(org => ({
         id: org.id,
         name: org.name,

@@ -10,9 +10,12 @@ export const getPrograms = async (): Promise<Program[]> => {
     `)
         .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+        console.error("Supabase Error [getPrograms]:", error.message, error.details, error.hint);
+        throw error;
+    }
 
-    // Transform data if necessary to match TypeScript types EXACTLY
+    // Transform data
     // (e.g. converting snake_case DB columns to camelCase if they differed, but I tried to keep them similar.
     // Wait, my SQL used snake_case for some fields (duration_minutes, start_time) but TS uses camelCase.
     // I must map them.)
@@ -92,6 +95,9 @@ export const getProgramById = async (id: string): Promise<Program | null> => {
 };
 
 export const createProgram = async (program: Program): Promise<Program> => {
+    if (!program.organizationId) {
+        throw new Error("Organization ID is mandatory for program creation.");
+    }
     // 1. Insert Program
     const { data: pData, error: pError } = await supabase
         .from('programs')
