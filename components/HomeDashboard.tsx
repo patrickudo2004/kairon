@@ -5,6 +5,7 @@ import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Tras
 interface HomeDashboardProps {
   programs: Program[];
   activeProgramId: string;
+  liveProgramId: string | null;
   onSelectProgram: (program: Program) => void;
   onCreateNew: () => void;
   onDelete: (id: string) => void;
@@ -15,12 +16,13 @@ interface ProgramCardProps {
   program: Program;
   isPast?: boolean;
   isActive: boolean;
+  isLive: boolean;
   onSelect: (program: Program) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
 }
 
-const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, onSelect, onDelete, onDuplicate }) => {
+const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, isLive, onSelect, onDelete, onDuplicate }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -49,11 +51,13 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
       onClick={() => onSelect(program)}
       className={`
         group relative overflow-hidden p-5 rounded-xl border transition-all cursor-pointer
-        ${isActive
-          ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500/50 ring-1 ring-indigo-500/30'
-          : isPast
-            ? 'bg-slate-100 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800'
-            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-600 shadow-lg dark:shadow-none hover:shadow-xl'
+        ${isLive
+          ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-500/50 ring-1 ring-emerald-500/30'
+          : isActive
+            ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500/50 ring-1 ring-indigo-500/30 shadow-md'
+            : isPast
+              ? 'bg-slate-100 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-600 shadow-lg dark:shadow-none hover:shadow-xl'
         }
       `}
     >
@@ -65,11 +69,16 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
           <p className="text-sm text-slate-500 dark:text-slate-500 line-clamp-1">{program.subtitle}</p>
         </div>
 
-        {isActive && (
-          <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide">
-            Active
+        {isLive ? (
+          <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+            Live Now
           </span>
-        )}
+        ) : isActive ? (
+          <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide">
+            Selected
+          </span>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-500 mt-4">
@@ -160,6 +169,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
 const HomeDashboard: React.FC<HomeDashboardProps> = ({
   programs,
   activeProgramId,
+  liveProgramId,
   onSelectProgram,
   onCreateNew,
   onDelete,
@@ -205,6 +215,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 key={program.id}
                 program={program}
                 isActive={program.id === activeProgramId}
+                isLive={program.id === liveProgramId}
                 onSelect={onSelectProgram}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
@@ -232,6 +243,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 program={program}
                 isPast={true}
                 isActive={program.id === activeProgramId}
+                isLive={program.id === liveProgramId}
                 onSelect={onSelectProgram}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}

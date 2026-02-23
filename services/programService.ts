@@ -1,3 +1,4 @@
+// Program Service for Kairon
 import { supabase } from './supabaseClient';
 import { Program, Slot } from '../types';
 
@@ -34,6 +35,7 @@ export const getPrograms = async (): Promise<Program[]> => {
         isManualMode: p.manual_mode,
         isOnHold: p.is_on_hold,
         holdMessage: p.hold_message,
+        status: p.status,
         slug: p.slug,
         isPublic: p.is_public,
         slots: (p.slots || []).map((s: any) => ({
@@ -80,6 +82,7 @@ export const getProgramById = async (id: string): Promise<Program | null> => {
         isManualMode: p.manual_mode,
         isOnHold: p.is_on_hold,
         holdMessage: p.hold_message,
+        status: p.status,
         slug: p.slug,
         isPublic: p.is_public,
         slots: (p.slots || []).map((s: any) => ({
@@ -112,7 +115,8 @@ export const createProgram = async (program: Program): Promise<Program> => {
             estimated_attendees: program.estimatedAttendees,
             average_hourly_rate: program.averageHourlyRate,
             slug: program.slug,
-            is_public: program.isPublic
+            is_public: program.isPublic,
+            status: program.status
         })
         .select()
         .single();
@@ -158,6 +162,7 @@ export const updateProgram = async (program: Program): Promise<void> => {
             hold_message: program.holdMessage,
             slug: program.slug,
             is_public: program.isPublic,
+            status: program.status,
             estimated_attendees: program.estimatedAttendees,
             average_hourly_rate: program.averageHourlyRate,
             updated_at: new Date().toISOString()
@@ -287,6 +292,7 @@ const transformProgram = (p: any): Program => ({
     isManualMode: p.manual_mode,
     isOnHold: p.is_on_hold,
     holdMessage: p.hold_message,
+    status: p.status,
     slug: p.slug,
     isPublic: p.is_public,
     slots: (p.slots || []).map((s: any) => ({

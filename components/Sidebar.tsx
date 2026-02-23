@@ -34,6 +34,7 @@ interface SidebarProps {
     handleSignOut: () => void;
     isOnline: boolean;
     programTitle: string;
+    liveProgramTitle?: string;
     isCollapsed: boolean;
     onToggle: (collapsed: boolean) => void;
     onCreateOrg: () => void;
@@ -49,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     handleSignOut,
     isOnline,
     programTitle,
+    liveProgramTitle,
     isCollapsed,
     onToggle,
     onCreateOrg
@@ -146,6 +148,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </span>
                     )}
                 </div>
+
+                {/* Live Event Indicator */}
+                {liveProgramTitle && (
+                    <div className={`p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-amber-900/20 group relative animate-in fade-in slide-in-from-bottom-2 ${isCollapsed ? 'flex justify-center' : ''}`}>
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                            {!isCollapsed && (
+                                <div className="flex flex-col min-w-0">
+                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Live Now</span>
+                                    <span className="text-[10px] text-emerald-700/70 dark:text-emerald-400/50 truncate font-semibold">{liveProgramTitle}</span>
+                                </div>
+                            )}
+                        </div>
+                        {isCollapsed && (
+                            <div className="absolute left-full ml-2 px-2 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-[100] shadow-lg">
+                                Live: {liveProgramTitle}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Pro Teaser */}
                 {!isCollapsed && activeOrg?.subscriptionStatus !== 'pro' && (
