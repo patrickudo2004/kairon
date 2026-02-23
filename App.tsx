@@ -39,6 +39,7 @@ import { Sidebar } from './components/Sidebar';
 import { OnboardingOverlay } from './components/OnboardingOverlay';
 import { UserGuide } from './components/UserGuide';
 import { ProductionHUD } from './components/ProductionHUD';
+import { InterlockModal } from './components/InterlockModal';
 
 // Utils & Types
 import { Program, Slot, SlotType, Profile, Organization } from './types';
@@ -165,6 +166,9 @@ const AppContent: React.FC = () => {
   const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
   const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
   const [isAdminOnline, setIsAdminOnline] = useState(true);
+  const [liveProgramId, setLiveProgramId] = useState<string | null>(null);
+  const [liveProgram, setLiveProgram] = useState<Program | null>(null);
+  const [isInterlockOpen, setIsInterlockOpen] = useState(false);
 
 
   // useStageMessages Hook (Consolidated logic)
@@ -440,23 +444,44 @@ const AppContent: React.FC = () => {
 
   const handleNudge = (minutes: number) => {
     if (isReadOnly) return;
-    const newSlots = [...program.slots];
+    const targetProgram = liveProgram || program;
+    const newSlots = [...targetProgram.slots];
     const currentSlot = newSlots[currentSlotIndex];
     if (currentSlot) {
       currentSlot.durationMinutes = Math.max(1, currentSlot.durationMinutes + minutes);
-      setProgram({ ...program, slots: newSlots });
-      realtimeService.broadcastProgram({ ...program, slots: newSlots });
+      const updated = { ...targetProgram, slots: newSlots };
+
+      // If we are nudging the live program, update liveProgram state
+      if (liveProgram && targetProgram.id === liveProgram.id) {
+        setLiveProgram(updated);
+      }
+
+      // If the viewed program is the target, update it too
+      if (targetProgram.id === program.id) {
+        setProgram(updated);
+      }
+
+      realtimeService.broadcastProgram(updated);
     }
   };
 
   const handleEndEvent = () => {
     if (isReadOnly) return;
-    const updatedProgram = { ...program, status: 'concluded' as const, isTimerActive: false };
-    setProgram(updatedProgram);
+    const targetProgram = liveProgram || program;
+    const updatedProgram = { ...targetProgram, status: 'concluded' as const, isTimerActive: false };
+
+    // If the viewed program is the target, update it
+    if (targetProgram.id === program.id) {
+      setProgram(updatedProgram);
+    }
+
     setIsTimerActive(false);
+    setLiveProgramId(null);
+    setLiveProgram(null);
+
     realtimeService.broadcastProgram(updatedProgram);
     realtimeService.broadcast({
-      programId: program.id,
+      programId: targetProgram.id,
       isTimerActive: false,
       currentSlotIndex,
       secondsElapsed,
@@ -705,17 +730,17 @@ const AppContent: React.FC = () => {
 
   const loadProgram = (newProgram: Program) => {
     setProgram(newProgram);
-    setCurrentSlotIndex(0);
-    setSecondsElapsed(0);
-    setIsTimerActive(false);
-    setTimerStartTimestamp(null);
-    // Broadcast Reset
-    broadcastState({
-      isTimerActive: false,
-      currentSlotIndex: 0,
-      secondsElapsed: 0,
-      timerStartTimestamp: null
-    });
+
+    // If no program is live, or we are loading the live program, sync local viewer state
+    if (!liveProgramId || liveProgramId === newProgram.id) {
+      setCurrentSlotIndex(0);
+      setSecondsElapsed(0);
+      // Be careful NOT to stop a live timer just by loading it
+      if (!isTimerActive) {
+        setTimerStartTimestamp(null);
+      }
+    }
+
     // Clear persisted state for safety when explicitly switching/loading
     localStorage.removeItem(TIMER_STORAGE_KEY);
 
@@ -906,14 +931,39 @@ const AppContent: React.FC = () => {
 
   // Fix: Toggle Timer with Broadcast
   const handleToggleTimer = () => {
+    // Safety Interlock Check
+    if (!isTimerActive && liveProgramId && liveProgramId !== program.id) {
+      setIsInterlockOpen(true);
+      return;
+    }
+
     const newState = !isTimerActive;
     setIsTimerActive(newState);
+
+    if (newState) {
+      setLiveProgramId(program.id);
+      setLiveProgram(program);
+    } else {
+      setLiveProgramId(null);
+      setLiveProgram(null);
+    }
 
     const startTs = newState ? (Date.now() - (secondsElapsed * 1000)) : null;
     setTimerStartTimestamp(startTs);
 
     // Broadcast immediately so Viewers know
     broadcastState({ isTimerActive: newState, timerStartTimestamp: startTs });
+  };
+
+  const handleConfirmSwitch = () => {
+    // 1. End old event
+    handleEndEvent();
+
+    // 2. Start new event
+    setIsInterlockOpen(false);
+    setTimeout(() => {
+      handleToggleTimer();
+    }, 100);
   };
 
   const handleToggleHold = () => {
@@ -1099,6 +1149,7 @@ const AppContent: React.FC = () => {
           handleSignOut={signOutService}
           isOnline={isOnline}
           programTitle={program.title}
+          liveProgramTitle={liveProgram?.title}
           isCollapsed={isSidebarCollapsed}
           onToggle={setIsSidebarCollapsed}
           onCreateOrg={() => setIsOnboardingManual(true)}
@@ -1260,6 +1311,7 @@ const AppContent: React.FC = () => {
                 <Route path="/" element={
                   <HomeWrapper
                     activeProgramId={program.id}
+                    liveProgramId={liveProgramId}
                     loadProgram={loadProgram}
                     createProgram={createProgram}
                     deleteProgram={deleteProgram}
@@ -1271,6 +1323,7 @@ const AppContent: React.FC = () => {
                 <Route path="/calendar" element={
                   <CalendarWrapper
                     activeProgramId={program.id}
+                    liveProgramId={liveProgramId}
                     loadProgram={loadProgram}
                     createProgram={createProgram}
                     deleteProgram={deleteProgram}
@@ -1389,15 +1442,23 @@ const AppContent: React.FC = () => {
         setOptions={setExportOptions}
       />
 
-      {!isReadOnly && (
+      {!isReadOnly && isTimerActive && (
         <ProductionHUD
           isTimerActive={isTimerActive}
           isAdminOnline={isAdminOnline}
           onEndEvent={handleEndEvent}
           onNudge={handleNudge}
-          currentSlotTitle={program.slots[currentSlotIndex]?.title}
+          currentSlotTitle={liveProgram?.slots[currentSlotIndex]?.title}
         />
       )}
+
+      <InterlockModal
+        isOpen={isInterlockOpen}
+        onClose={() => setIsInterlockOpen(false)}
+        onConfirm={handleConfirmSwitch}
+        currentLiveEventTitle={liveProgram?.title || 'Unknown'}
+        newTargetEventTitle={program.title}
+      />
 
       <PrintableSchedule
         program={program}
