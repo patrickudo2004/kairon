@@ -25,18 +25,18 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program }) =
     const baseUrl = (window.location.origin + window.location.pathname).replace(/\/$/, '');
 
     const getShareUrl = (type: 'view' | 'edit' | 'tv') => {
-        const shareId = program.id;
-        let params = '';
+        const shareId = program.slug || program.id;
+        let path = '';
 
         if (type === 'view') {
-            params = `#/live?mode=viewer&id=${shareId}`;
+            path = `p/${shareId}`;
         } else if (type === 'tv') {
-            params = `#/tv?mode=viewer&id=${shareId}`;
+            path = `tv?mode=viewer&id=${program.id}`;
         } else {
             // Co-editor link: only shows Live, List, and Editor for this specific program
-            params = `#/live?mode=coeditor&id=${shareId}`;
+            path = `live?mode=coeditor&id=${program.id}`;
         }
-        return `${baseUrl}/${params}`;
+        return `${baseUrl}/${path}`;
     };
 
     const copyToClipboard = (type: 'view' | 'edit' | 'tv') => {
