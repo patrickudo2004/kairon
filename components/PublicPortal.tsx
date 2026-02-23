@@ -18,6 +18,7 @@ export const PublicPortal: React.FC = () => {
     const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
     const [isOnHold, setIsOnHold] = useState(false);
     const [holdMessage, setHoldMessage] = useState('');
+    const [isAdminOnline, setIsAdminOnline] = useState(true);
 
     const [isScrolled, setIsScrolled] = useState(false);
 
@@ -90,6 +91,11 @@ export const PublicPortal: React.FC = () => {
                 } else {
                     setSecondsElapsed(state.secondsElapsed);
                 }
+            },
+            (presence) => {
+                // Check if any admin is present
+                const onlineAdmins = Object.values(presence).flat().filter((p: any) => p.role === 'admin');
+                setIsAdminOnline(onlineAdmins.length > 0);
             }
         );
 
@@ -99,7 +105,8 @@ export const PublicPortal: React.FC = () => {
     // Local Timer Logic
     useEffect(() => {
         let interval: number;
-        if (isTimerActive && timerStartTimestamp) {
+        // Only run timer if admin is online to prevent phantom counts
+        if (isTimerActive && timerStartTimestamp && isAdminOnline) {
             interval = window.setInterval(() => {
                 const now = Date.now();
                 const exactElapsed = Math.floor((now - timerStartTimestamp) / 1000);
@@ -107,7 +114,7 @@ export const PublicPortal: React.FC = () => {
             }, 1000);
         }
         return () => clearInterval(interval);
-    }, [isTimerActive, timerStartTimestamp]);
+    }, [isTimerActive, timerStartTimestamp, isAdminOnline]);
 
     // Scroll Observer for Floating Bar
     useEffect(() => {
@@ -157,10 +164,31 @@ export const PublicPortal: React.FC = () => {
         );
     }
 
+    if (program.status === 'concluded') {
+        return (
+            <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-24 h-24 bg-indigo-600/20 text-indigo-500 rounded-full flex items-center justify-center mb-8">
+                    <Calendar size={48} />
+                </div>
+                <h1 className="text-4xl font-black text-white mb-4 tracking-tight">Event Concluded</h1>
+                <p className="text-slate-400 text-xl font-medium max-w-md mb-12">
+                    Thank you for attending **{program.title}**. This session is now over.
+                </p>
+                <Link to="/" className="text-indigo-400 font-bold hover:underline">
+                    Back to Kairon
+                </Link>
+            </div>
+        );
+    }
+
     const currentSlot = program.slots[currentSlotIndex];
     const nextSlots = program.slots.slice(currentSlotIndex + 1, currentSlotIndex + 3);
 
     const formatCountdown = (totalSeconds: number) => {
+        // Overrun Cap: If more than 30 mins over, hide the clock
+        if (totalSeconds < -1800) {
+            return '--:--';
+        }
         const abs = Math.abs(totalSeconds);
         const mins = Math.floor(abs / 60);
         const secs = abs % 60;
@@ -179,9 +207,11 @@ export const PublicPortal: React.FC = () => {
                         <span className="font-bold text-slate-900 dark:text-white tracking-tight">Kairon</span>
                     </div>
                     {isTimerActive && (
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-full border border-indigo-100 dark:border-indigo-800/50">
-                            <span className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse" />
-                            Live Sync Active
+                        <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border transition-colors ${isAdminOnline
+                            ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 border-indigo-100 dark:border-indigo-800/50'
+                            : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border-amber-100 dark:border-amber-800/50'}`}>
+                            <span className={`w-2 h-2 rounded-full ${isAdminOnline ? 'bg-indigo-600 animate-pulse' : 'bg-amber-500'}`} />
+                            {isAdminOnline ? 'Live Sync Active' : 'Sync Paused (Admin Offline)'}
                         </div>
                     )}
                 </div>
