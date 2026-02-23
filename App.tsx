@@ -678,6 +678,9 @@ const AppContent: React.FC = () => {
     });
     // Clear persisted state for safety when explicitly switching/loading
     localStorage.removeItem(TIMER_STORAGE_KEY);
+
+    // Navigate to editor screen
+    navigate('/editor');
   };
 
   const createProgram = (date: string) => {
