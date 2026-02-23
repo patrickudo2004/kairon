@@ -16,6 +16,7 @@ interface ProgramEditorProps {
   onEndEvent?: () => void;
   onNudge?: (minutes: number) => void;
   currentSlotIndex?: number;
+  isTimerActive?: boolean;
 }
 
 const ProgramEditor: React.FC<ProgramEditorProps> = ({
@@ -25,7 +26,8 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   isAdminOnline = true,
   onEndEvent,
   onNudge,
-  currentSlotIndex = 0
+  currentSlotIndex = 0,
+  isTimerActive = false
 }) => {
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
   const [aiInput, setAiInput] = useState('');
@@ -509,7 +511,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
 
       {/* Production Control HUD */}
       <ProductionHUD
-        isTimerActive={program.isTimerActive ?? false}
+        isTimerActive={isTimerActive}
         isAdminOnline={isAdminOnline}
         onEndEvent={onEndEvent || (() => { })}
         onNudge={onNudge || (() => { })}
