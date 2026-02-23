@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Program } from '../types';
-import { getProgramBySlug } from '../services/programService';
+import { getPublicProgram } from '../services/programService';
 import { formatDuration } from '../utils/time';
 import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight } from 'lucide-react';
 
@@ -15,7 +15,7 @@ export const PublicPortal: React.FC = () => {
 
         const loadPublicProgram = async () => {
             try {
-                const data = await getProgramBySlug(slug);
+                const data = await getPublicProgram(slug);
                 setProgram(data);
             } catch (err) {
                 console.error("Failed to load public program:", err);
@@ -89,8 +89,8 @@ export const PublicPortal: React.FC = () => {
                         <div
                             key={slot.id}
                             className={`group p-6 rounded-3xl border border-slate-200 dark:border-slate-800 transition-all ${index === program.currentSlotIndex && program.isTimerActive
-                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 scale-[1.02] shadow-xl'
-                                    : 'bg-white dark:bg-slate-950 hover:border-slate-300 dark:hover:border-slate-700'
+                                ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 scale-[1.02] shadow-xl'
+                                : 'bg-white dark:bg-slate-950 hover:border-slate-300 dark:hover:border-slate-700'
                                 }`}
                         >
                             <div className="flex justify-between items-start mb-4">
