@@ -45,7 +45,8 @@ export const getPrograms = async (): Promise<Program[]> => {
             durationMinutes: s.duration_minutes,
             type: s.type,
             details: s.details,
-            actualDuration: s.actual_duration
+            actualDuration: s.actual_duration,
+            order: s.order
         })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
     }));
 };
@@ -92,7 +93,8 @@ export const getProgramById = async (id: string): Promise<Program | null> => {
             durationMinutes: s.duration_minutes,
             type: s.type,
             details: s.details,
-            actualDuration: s.actual_duration
+            actualDuration: s.actual_duration,
+            order: s.order
         })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
     };
 };

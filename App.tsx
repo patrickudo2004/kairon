@@ -4,7 +4,7 @@ import { Mic, Edit3, Play, List, Calendar as CalendarIcon, Home, Sun, Moon, Shar
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Services
-import { realtimeService, TimerState } from './services/realtimeService';
+import { realtimeService, RealtimeService, TimerState } from './services/realtimeService';
 import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService } from './services/programService';
 import { getProfile, signOut as signOutService } from './services/authService';
 import { getMyOrganizations } from './services/orgService';
@@ -168,7 +168,12 @@ const AppContent: React.FC = () => {
   const [isAdminOnline, setIsAdminOnline] = useState(true);
   const [liveProgramId, setLiveProgramId] = useState<string | null>(null);
   const [liveProgram, setLiveProgram] = useState<Program | null>(null);
+  const [liveCurrentSlotIndex, setLiveCurrentSlotIndex] = useState<number>(0);
+  const [liveSecondsElapsed, setLiveSecondsElapsed] = useState<number>(0);
   const [isInterlockOpen, setIsInterlockOpen] = useState(false);
+
+  // Background Live Realtime Instance
+  const liveRealtimeRef = React.useRef(new RealtimeService());
 
 
   // useStageMessages Hook (Consolidated logic)
@@ -444,49 +449,67 @@ const AppContent: React.FC = () => {
 
   const handleNudge = (minutes: number) => {
     if (isReadOnly) return;
-    const targetProgram = liveProgram || program;
+    const isPeeking = liveProgramId && liveProgramId !== program.id;
+    const targetProgram = isPeeking ? liveProgram : program;
+    if (!targetProgram) return;
+
     const newSlots = [...targetProgram.slots];
-    const currentSlot = newSlots[currentSlotIndex];
+    const targetIndex = isPeeking ? liveCurrentSlotIndex : currentSlotIndex;
+    const currentSlot = newSlots[targetIndex];
+
     if (currentSlot) {
       currentSlot.durationMinutes = Math.max(1, currentSlot.durationMinutes + minutes);
       const updated = { ...targetProgram, slots: newSlots };
 
-      // If we are nudging the live program, update liveProgram state
-      if (liveProgram && targetProgram.id === liveProgram.id) {
+      if (isPeeking) {
         setLiveProgram(updated);
-      }
-
-      // If the viewed program is the target, update it too
-      if (targetProgram.id === program.id) {
+        liveRealtimeRef.current.broadcastProgram(updated);
+      } else {
         setProgram(updated);
+        realtimeService.broadcastProgram(updated);
       }
-
-      realtimeService.broadcastProgram(updated);
     }
   };
 
   const handleEndEvent = () => {
     if (isReadOnly) return;
-    const targetProgram = liveProgram || program;
+    const isPeeking = liveProgramId && liveProgramId !== program.id;
+    const targetProgram = isPeeking ? liveProgram : program;
+    if (!targetProgram) return;
+
     const updatedProgram = { ...targetProgram, status: 'concluded' as const, isTimerActive: false };
 
-    // If the viewed program is the target, update it
-    if (targetProgram.id === program.id) {
+    if (isPeeking) {
+      setLiveProgram(null);
+      setLiveProgramId(null);
+      setLiveCurrentSlotIndex(0);
+      setLiveSecondsElapsed(0);
+      liveRealtimeRef.current.broadcastProgram(updatedProgram);
+      liveRealtimeRef.current.broadcast({
+        programId: targetProgram.id,
+        isTimerActive: false,
+        currentSlotIndex: liveCurrentSlotIndex,
+        secondsElapsed: 0,
+        timerStartTimestamp: null
+      });
+      liveRealtimeRef.current.unsubscribe();
+    } else {
       setProgram(updatedProgram);
+      setIsTimerActive(false);
+      setLiveProgramId(null);
+      setLiveProgram(null);
+      setLiveCurrentSlotIndex(0);
+      setLiveSecondsElapsed(0);
+      realtimeService.broadcastProgram(updatedProgram);
+      realtimeService.broadcast({
+        programId: targetProgram.id,
+        isTimerActive: false,
+        currentSlotIndex,
+        secondsElapsed,
+        timerStartTimestamp: null
+      });
     }
 
-    setIsTimerActive(false);
-    setLiveProgramId(null);
-    setLiveProgram(null);
-
-    realtimeService.broadcastProgram(updatedProgram);
-    realtimeService.broadcast({
-      programId: targetProgram.id,
-      isTimerActive: false,
-      currentSlotIndex,
-      secondsElapsed,
-      timerStartTimestamp: null
-    });
     // Final save to DB
     updateProgramService(updatedProgram);
   };
@@ -543,7 +566,7 @@ const AppContent: React.FC = () => {
     }
   }, [mutation.isSuccess, mutation.isError, queryClient]);
 
-  // Supabase Realtime Connection & Sync
+  // Main Supabase Realtime Connection & Sync
   useEffect(() => {
     console.log('Subscribing to realtime updates for program:', program.id);
 
@@ -551,28 +574,21 @@ const AppContent: React.FC = () => {
       program.id,
       (remoteState: TimerState) => {
         console.log('Received realtime timer update:', remoteState);
-
-        // Ignore updates for other programs
         if (remoteState.programId !== program.id) return;
 
-        // Update Slot Index
         setCurrentSlotIndex(prev => {
           if (prev !== remoteState.currentSlotIndex) return remoteState.currentSlotIndex;
           return prev;
         });
 
-        // Update Timer Status
         setIsTimerActive(remoteState.isTimerActive);
 
-        // Update Hold Status
         if (remoteState.hasOwnProperty('isOnHold')) {
           setProgram(prev => ({ ...prev, isOnHold: remoteState.isOnHold, holdMessage: remoteState.holdMessage }));
         }
 
-        // Persist timer start timestamp
         setTimerStartTimestamp(remoteState.timerStartTimestamp);
 
-        // Sync Time
         if (remoteState.isTimerActive && remoteState.timerStartTimestamp) {
           const now = Date.now();
           const elapsed = Math.floor((now - remoteState.timerStartTimestamp) / 1000);
@@ -581,19 +597,13 @@ const AppContent: React.FC = () => {
           setSecondsElapsed(remoteState.secondsElapsed);
         }
       },
-      // Program content update handler
       (updatedProgram: Program) => {
-        console.log('Received realtime program update:', updatedProgram);
-        // Only update if it's for the current program
         if (updatedProgram.id === program.id) {
           setProgram(updatedProgram);
         }
       },
-      // Sync request handler (for late-joining viewers)
       () => {
-        // Only an editor/co-editor should respond with the current state.
         if (isReadOnlyRef.current) return;
-
         const now = Date.now();
         const snapshot = timerStateRef.current;
         const resolvedStart = snapshot.isTimerActive
@@ -608,19 +618,15 @@ const AppContent: React.FC = () => {
           timerStartTimestamp: resolvedStart,
         });
       },
-      // Sync response handler (apply to late-joining viewers)
       (payload) => {
         const state = payload.state;
         if (state.programId !== program.id) return;
-
         setCurrentSlotIndex(state.currentSlotIndex);
         setIsTimerActive(state.isTimerActive);
         setTimerStartTimestamp(state.timerStartTimestamp);
-
         if (state.hasOwnProperty('isOnHold')) {
           setProgram(prev => ({ ...prev, isOnHold: state.isOnHold, holdMessage: state.holdMessage }));
         }
-
         if (state.isTimerActive && state.timerStartTimestamp) {
           const now = Date.now();
           const elapsed = Math.floor((now - state.timerStartTimestamp) / 1000);
@@ -630,13 +636,11 @@ const AppContent: React.FC = () => {
         }
       },
       (presence) => {
-        // Check if any admin is present
         const onlineAdmins = Object.values(presence).flat().filter((p: any) => p.role === 'admin');
         setIsAdminOnline(onlineAdmins.length > 0);
       }
     );
 
-    // Track presence if not read-only
     if (!isReadOnly) {
       realtimeService.trackPresence('admin');
     }
@@ -646,6 +650,37 @@ const AppContent: React.FC = () => {
       unsubscribe();
     };
   }, [program.id, isReadOnly]);
+
+  // Dedicated Admin Heartbeat for Background Live Program (Public Portal fix)
+  useEffect(() => {
+    if (!liveProgramId || isReadOnly) return;
+    if (liveProgramId === program.id) return;
+
+    console.log('Background Live Heartbeat starting for:', liveProgramId);
+    liveRealtimeRef.current.subscribe(
+      liveProgramId,
+      () => { }, // Background heartbeat doesn't apply incoming remote state
+      () => { },
+      () => {
+        // Sync Request Handler for Background Live Session
+        if (isReadOnlyRef.current) return;
+        liveRealtimeRef.current.sendSyncResponse({
+          programId: liveProgramId,
+          isTimerActive: true,
+          currentSlotIndex: liveCurrentSlotIndex,
+          secondsElapsed: 0, // Tick logic source of truth is timestamp
+          timerStartTimestamp: timerStartTimestamp // If A is live, timerStartTimestamp refers to A
+        });
+      },
+      () => { },
+      () => { }
+    );
+    liveRealtimeRef.current.trackPresence('admin');
+
+    return () => {
+      liveRealtimeRef.current.unsubscribe();
+    };
+  }, [liveProgramId, program.id, isReadOnly, liveCurrentSlotIndex, timerStartTimestamp]);
 
   // --- Local Sync Integration ---
   const onRequestSyncRef = React.useRef<() => void>(() => { });
@@ -727,15 +762,14 @@ const AppContent: React.FC = () => {
       }
     };
   }, [program.id, isTimerActive, currentSlotIndex, secondsElapsed]);
-
   const loadProgram = (newProgram: Program) => {
     setProgram(newProgram);
 
-    // If no program is live, or we are loading the live program, sync local viewer state
-    if (!liveProgramId || liveProgramId === newProgram.id) {
+    // Safety: Only reset local viewer state if we are NOT loading the live program.
+    // If loading the live program, we want to keep the current running pointers.
+    if (liveProgramId !== newProgram.id) {
       setCurrentSlotIndex(0);
       setSecondsElapsed(0);
-      // Be careful NOT to stop a live timer just by loading it
       if (!isTimerActive) {
         setTimerStartTimestamp(null);
       }
@@ -821,17 +855,28 @@ const AppContent: React.FC = () => {
   // Timer Tick Logic (Drift-Proof)
   useEffect(() => {
     let interval: number | undefined;
-    if (isTimerActive && timerStartTimestamp) {
+
+    // We tick if the viewed program is active OR if any program is live (for HUD)
+    const activeTs = isTimerActive ? timerStartTimestamp : (liveProgramId ? timerStartTimestamp : null);
+
+    if (activeTs) {
       interval = window.setInterval(() => {
         const now = Date.now();
-        const exactElapsed = Math.floor((now - timerStartTimestamp) / 1000);
-        setSecondsElapsed(exactElapsed);
-      }, 200); // Update 5 times a second to catch the second flip immediately
+        const exactElapsed = Math.floor((now - activeTs) / 1000);
+
+        if (isTimerActive) {
+          setSecondsElapsed(exactElapsed);
+        }
+
+        if (liveProgramId) {
+          setLiveSecondsElapsed(exactElapsed);
+        }
+      }, 200);
     } else {
       clearInterval(interval);
     }
     return () => clearInterval(interval);
-  }, [isTimerActive, timerStartTimestamp]);
+  }, [isTimerActive, liveProgramId, timerStartTimestamp]);
 
   const handleSlotComplete = (slotId: string, actualDuration: number) => {
     setProgram(prev => ({
@@ -840,52 +885,56 @@ const AppContent: React.FC = () => {
     }));
   };
 
-  // Auto-Advance Logic
+  // Universal Auto-Advance Watcher
   useEffect(() => {
-    if (!isTimerActive) return;
+    const isLiveTarget = liveProgramId === program.id;
+    const targetProgram = isLiveTarget ? program : liveProgram;
+    if (!targetProgram || !liveProgramId) return;
 
-    const currentSlot = program.slots[currentSlotIndex];
+    // Use live pointers for internal logic
+    const currentIdx = isLiveTarget ? currentSlotIndex : liveCurrentSlotIndex;
+    const elapsed = isLiveTarget ? secondsElapsed : liveSecondsElapsed;
+
+    const currentSlot = targetProgram.slots[currentIdx];
     if (!currentSlot) return;
 
     const durationSeconds = currentSlot.durationMinutes * 60;
+    if (targetProgram.isManualMode) return;
 
-    // Manual Mode Override: Don't auto-advance if manual mode is on
-    if (program.isManualMode) return;
-
-    if (secondsElapsed >= durationSeconds) {
+    if (elapsed >= durationSeconds) {
+      console.log('AUTO-ADVANCE TRIGGERED FOR:', targetProgram.title);
       handleSlotComplete(currentSlot.id, currentSlot.durationMinutes);
 
-      if (currentSlotIndex < program.slots.length - 1) {
-        // Auto-advance to next slot
-        const nextIndex = currentSlotIndex + 1;
-        setCurrentSlotIndex(nextIndex);
-        setSecondsElapsed(0);
-
+      if (currentIdx < targetProgram.slots.length - 1) {
+        const nextIndex = currentIdx + 1;
         const nextStartTs = Date.now();
+
+        // Update Live State (HUD)
+        setLiveCurrentSlotIndex(nextIndex);
+        setLiveSecondsElapsed(0);
         setTimerStartTimestamp(nextStartTs);
 
-        // Broadcast Auto-Advance
-        broadcastState({
-          currentSlotIndex: nextIndex,
+        // Update Viewed State if on Live Program
+        if (isLiveTarget) {
+          setCurrentSlotIndex(nextIndex);
+          setSecondsElapsed(0);
+        }
+
+        // Broadcast to all viewers
+        const broadcaster = isLiveTarget ? realtimeService : liveRealtimeRef.current;
+        broadcaster.broadcast({
+          programId: liveProgramId,
           isTimerActive: true,
+          currentSlotIndex: nextIndex,
           secondsElapsed: 0,
           timerStartTimestamp: nextStartTs
         });
       } else {
-        // Last slot finished - stop timer
-        setCurrentSlotIndex(prev => prev + 1);
-        setIsTimerActive(false);
-        setSecondsElapsed(0);
-        setTimerStartTimestamp(null);
-
-        broadcastState({
-          currentSlotIndex: currentSlotIndex + 1,
-          isTimerActive: false,
-          secondsElapsed: 0
-        });
+        // End of event
+        handleEndEvent();
       }
     }
-  }, [secondsElapsed, isTimerActive, currentSlotIndex, program.slots.length]);
+  }, [secondsElapsed, liveSecondsElapsed, isTimerActive, liveProgramId, program.id]);
 
   // Auto-Start Watcher (New Feature)
   useEffect(() => {
@@ -943,9 +992,11 @@ const AppContent: React.FC = () => {
     if (newState) {
       setLiveProgramId(program.id);
       setLiveProgram(program);
+      setLiveCurrentSlotIndex(currentSlotIndex);
     } else {
       setLiveProgramId(null);
       setLiveProgram(null);
+      setLiveCurrentSlotIndex(0);
     }
 
     const startTs = newState ? (Date.now() - (secondsElapsed * 1000)) : null;
@@ -1442,13 +1493,13 @@ const AppContent: React.FC = () => {
         setOptions={setExportOptions}
       />
 
-      {!isReadOnly && isTimerActive && (
+      {!isReadOnly && liveProgramId && (
         <ProductionHUD
-          isTimerActive={isTimerActive}
+          isTimerActive={true}
           isAdminOnline={isAdminOnline}
           onEndEvent={handleEndEvent}
           onNudge={handleNudge}
-          currentSlotTitle={liveProgram?.slots[currentSlotIndex]?.title}
+          currentSlotTitle={liveProgram?.slots[liveCurrentSlotIndex]?.title}
         />
       )}
 

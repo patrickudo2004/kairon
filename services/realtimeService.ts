@@ -215,5 +215,5 @@ export class RealtimeService {
     }
 }
 
-// Export a singleton instance
+// Export a singleton instance for backward compatibility in simple views
 export const realtimeService = new RealtimeService();
