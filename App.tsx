@@ -1319,6 +1319,7 @@ const AppContent: React.FC = () => {
                       program={program}
                       isCoEditor={isCoEditor}
                       isAdminOnline={isAdminOnline}
+                      isTimerActive={isTimerActive}
                       currentSlotIndex={currentSlotIndex}
                       onEndEvent={handleEndEvent}
                       onNudge={handleNudge}
