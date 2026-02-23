@@ -307,7 +307,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({ program, onUpdate, isCoEd
               </div>
               <div className="flex items-center gap-3">
                 <a
-                  href={`/#/p/${program.slug}`}
+                  href={`/p/${program.slug || program.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition-all shadow-sm group"

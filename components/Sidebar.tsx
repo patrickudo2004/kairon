@@ -17,7 +17,8 @@ import {
     Crown,
     Play,
     List,
-    FileText
+    FileText,
+    Edit3
 } from 'lucide-react';
 import { Organization, Profile } from '../types';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
@@ -55,6 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const navItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+        { icon: Edit3, label: 'Editor', path: '/editor' },
         { icon: Play, label: 'Live', path: '/live' },
         { icon: List, label: 'List', path: '/list' },
         { icon: Calendar, label: 'Calendar', path: '/calendar' },
