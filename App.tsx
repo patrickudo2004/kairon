@@ -38,6 +38,7 @@ import CalendarWrapper from './components/wrappers/CalendarWrapper';
 import { Sidebar } from './components/Sidebar';
 import { OnboardingOverlay } from './components/OnboardingOverlay';
 import { UserGuide } from './components/UserGuide';
+import { ProductionHUD } from './components/ProductionHUD';
 
 // Utils & Types
 import { Program, Slot, SlotType, Profile, Organization } from './types';
@@ -1387,6 +1388,16 @@ const AppContent: React.FC = () => {
         options={exportOptions}
         setOptions={setExportOptions}
       />
+
+      {!isReadOnly && (
+        <ProductionHUD
+          isTimerActive={isTimerActive}
+          isAdminOnline={isAdminOnline}
+          onEndEvent={handleEndEvent}
+          onNudge={handleNudge}
+          currentSlotTitle={program.slots[currentSlotIndex]?.title}
+        />
+      )}
 
       <PrintableSchedule
         program={program}

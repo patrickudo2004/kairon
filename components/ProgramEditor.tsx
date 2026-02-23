@@ -6,28 +6,17 @@ import { EmbedSnippet } from './EmbedSnippet';
 
 
 import { timeToMinutes, minutesToTime } from '../utils/time';
-import { ProductionHUD } from './ProductionHUD';
 
 interface ProgramEditorProps {
   program: Program;
   onUpdate: (program: Program) => void;
   isCoEditor?: boolean;
-  isAdminOnline?: boolean;
-  onEndEvent?: () => void;
-  onNudge?: (minutes: number) => void;
-  currentSlotIndex?: number;
-  isTimerActive?: boolean;
 }
 
 const ProgramEditor: React.FC<ProgramEditorProps> = ({
   program,
   onUpdate,
-  isCoEditor = false,
-  isAdminOnline = true,
-  onEndEvent,
-  onNudge,
-  currentSlotIndex = 0,
-  isTimerActive = false
+  isCoEditor = false
 }) => {
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
   const [aiInput, setAiInput] = useState('');
@@ -508,15 +497,6 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
           <option key={preset} value={preset} />
         ))}
       </datalist>
-
-      {/* Production Control HUD */}
-      <ProductionHUD
-        isTimerActive={isTimerActive}
-        isAdminOnline={isAdminOnline}
-        onEndEvent={onEndEvent || (() => { })}
-        onNudge={onNudge || (() => { })}
-        currentSlotTitle={program.slots[currentSlotIndex]?.title}
-      />
     </div>
   );
 };
