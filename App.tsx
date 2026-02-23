@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams, Navigate } from 'react-router-dom';
 import { Mic, Edit3, Play, List, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -971,6 +971,13 @@ const AppContent: React.FC = () => {
     }
   }, [isReadOnly, location.pathname, navigate, importData]);
 
+  // --- Public Path Logic ---
+  const isPublicPath =
+    location.pathname.includes('/p/') ||
+    location.pathname === '/guide' ||
+    location.hash.includes('/p/') ||
+    location.hash.includes('mode=viewer');
+
   const legacyRedirectDetected = React.useRef(false);
   useEffect(() => {
     if (legacyRedirectDetected.current) return;
@@ -987,11 +994,26 @@ const AppContent: React.FC = () => {
     }
   }, [navigate]);
 
-  const isPublicPath =
-    location.pathname.includes('/p/') ||
-    location.pathname === '/guide' ||
-    location.hash.includes('/p/') ||
-    location.hash.includes('mode=viewer');
+  // --- Public View Bypass (TOP LEVEL) ---
+  // We check this before ANY auth or shell rendering to ensure zero-friction guest access and no flicker.
+  if (isPublicPath && !user) {
+    // Handle path contamination: /live/p/ or /calendar/p/
+    if (location.pathname.includes('/p/') && !location.pathname.startsWith('/p/')) {
+      const cleanPath = location.pathname.substring(location.pathname.indexOf('/p/'));
+      return <Navigate to={cleanPath} replace />;
+    }
+
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+        <Routes>
+          <Route path="/p/:slug" element={<PublicPortal />} />
+          <Route path="/guide" element={<UserGuide />} />
+          {/* Fallback to home if they somehow land here or legacy link is processing */}
+          <Route path="*" element={<div className="flex items-center justify-center min-h-screen"><div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>} />
+        </Routes>
+      </div>
+    );
+  }
 
   // Special Route Handling: TV Mode
   // We render this exclusively, bypassing the main application shell (header, footer, etc.)
@@ -1018,21 +1040,6 @@ const AppContent: React.FC = () => {
         secondsElapsed={secondsElapsed}
         activeOrg={activeOrg}
       />
-    );
-  }
-
-  // --- Public View Bypass ---
-  // If we are on a public path and NOT logged in, render the view directly without the main app shell
-  if (isPublicPath && !user) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-        <Routes>
-          <Route path="/p/:slug" element={<PublicPortal />} />
-          <Route path="/guide" element={<UserGuide />} />
-          {/* Fallback to home if they somehow land here */}
-          <Route path="*" element={<Auth />} />
-        </Routes>
-      </div>
     );
   }
 
@@ -1239,9 +1246,6 @@ const AppContent: React.FC = () => {
                     </div>
                   )
                 } />
-
-                <Route path="/p/:slug" element={<PublicPortal />} />
-                <Route path="/guide" element={<UserGuide />} />
 
                 <Route path="/live" element={
                   <LiveTimer

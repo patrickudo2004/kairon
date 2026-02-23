@@ -21,8 +21,8 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program }) =
 
     if (!isOpen) return null;
 
-    // Strip trailing slash to avoid //#/
-    const baseUrl = (window.location.origin + window.location.pathname).replace(/\/$/, '');
+    // Use origin only to prevent path contamination (e.g. /live/p/id)
+    const baseUrl = window.location.origin;
 
     const getShareUrl = (type: 'view' | 'edit' | 'tv') => {
         const shareId = program.slug || program.id;
