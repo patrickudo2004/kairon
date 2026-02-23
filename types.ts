@@ -43,6 +43,7 @@ export interface Program {
   secondsElapsed?: number;
   slug?: string;
   isPublic?: boolean;
+  status?: 'draft' | 'live' | 'concluded';
 }
 
 export interface AnalyticsData {

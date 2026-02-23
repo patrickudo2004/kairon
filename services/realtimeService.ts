@@ -33,7 +33,8 @@ export class RealtimeService {
         onTimerUpdate: (state: TimerState) => void,
         onProgramUpdate?: (program: Program) => void,
         onSyncRequest?: (payload: SyncRequestPayload) => void,
-        onSyncResponse?: (payload: SyncResponsePayload) => void
+        onSyncResponse?: (payload: SyncResponsePayload) => void,
+        onPresenceUpdate?: (presence: any) => void
     ): () => void {
         // Unsubscribe from previous channel if exists
         if (this.channel) {
@@ -46,6 +47,7 @@ export class RealtimeService {
         this.channel = supabase.channel(`program:${programId}`, {
             config: {
                 broadcast: { self: false }, // Don't receive own broadcasts
+                presence: { key: programId }
             },
         });
 
@@ -94,18 +96,49 @@ export class RealtimeService {
             );
         }
 
+        // Handle Presence
+        this.channel.on('presence', { event: 'sync' }, () => {
+            const newState = this.channel?.presenceState();
+            console.log('Presence sync:', newState);
+            if (onPresenceUpdate) onPresenceUpdate(newState);
+        });
+
+        this.channel.on('presence', { event: 'join' }, ({ key, newPresences }) => {
+            console.log('Presence join:', key, newPresences);
+            if (onPresenceUpdate) onPresenceUpdate(this.channel?.presenceState());
+        });
+
+        this.channel.on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+            console.log('Presence leave:', key, leftPresences);
+            if (onPresenceUpdate) onPresenceUpdate(this.channel?.presenceState());
+        });
+
         // Subscribe to the channel
-        this.channel.subscribe((status) => {
+        this.channel.subscribe(async (status) => {
             console.log(`Realtime subscription status: ${status}`);
 
-            // New subscribers won't receive past broadcasts; request a state sync on join.
             if (status === 'SUBSCRIBED') {
+                // New subscribers won't receive past broadcasts; request a state sync on join.
                 this.requestSync();
             }
         });
 
         // Return unsubscribe function
         return () => this.unsubscribe();
+    }
+
+    /**
+     * Start tracking presence for this user
+     */
+    trackPresence(role: 'admin' | 'viewer', metadata: any = {}): void {
+        if (!this.channel) return;
+
+        console.log('Tracking presence as:', role);
+        this.channel.track({
+            role,
+            online_at: new Date().toISOString(),
+            ...metadata
+        });
     }
 
     /**

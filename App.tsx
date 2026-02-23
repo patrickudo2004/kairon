@@ -163,6 +163,7 @@ const AppContent: React.FC = () => {
   const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
   const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
   const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
+  const [isAdminOnline, setIsAdminOnline] = useState(true);
 
 
   // useStageMessages Hook (Consolidated logic)
@@ -436,6 +437,34 @@ const AppContent: React.FC = () => {
     }) => updateTimerStateService(program.id, state)
   });
 
+  const handleNudge = (minutes: number) => {
+    if (isReadOnly) return;
+    const newSlots = [...program.slots];
+    const currentSlot = newSlots[currentSlotIndex];
+    if (currentSlot) {
+      currentSlot.durationMinutes = Math.max(1, currentSlot.durationMinutes + minutes);
+      setProgram({ ...program, slots: newSlots });
+      realtimeService.broadcastProgram({ ...program, slots: newSlots });
+    }
+  };
+
+  const handleEndEvent = () => {
+    if (isReadOnly) return;
+    const updatedProgram = { ...program, status: 'concluded' as const, isTimerActive: false };
+    setProgram(updatedProgram);
+    setIsTimerActive(false);
+    realtimeService.broadcastProgram(updatedProgram);
+    realtimeService.broadcast({
+      programId: program.id,
+      isTimerActive: false,
+      currentSlotIndex,
+      secondsElapsed,
+      timerStartTimestamp: null
+    });
+    // Final save to DB
+    updateProgramService(updatedProgram);
+  };
+
   // Debounced Auto-Save with Visual Feedback
   useEffect(() => {
     if (isReadOnly) return;
@@ -573,14 +602,24 @@ const AppContent: React.FC = () => {
         } else {
           setSecondsElapsed(state.secondsElapsed);
         }
+      },
+      (presence) => {
+        // Check if any admin is present
+        const onlineAdmins = Object.values(presence).flat().filter((p: any) => p.role === 'admin');
+        setIsAdminOnline(onlineAdmins.length > 0);
       }
     );
+
+    // Track presence if not read-only
+    if (!isReadOnly) {
+      realtimeService.trackPresence('admin');
+    }
 
     return () => {
       console.log('Unsubscribing from realtime updates');
       unsubscribe();
     };
-  }, [program.id]);
+  }, [program.id, isReadOnly]);
 
   // --- Local Sync Integration ---
   const onRequestSyncRef = React.useRef<() => void>(() => { });
@@ -1279,6 +1318,10 @@ const AppContent: React.FC = () => {
                     <ProgramEditor
                       program={program}
                       isCoEditor={isCoEditor}
+                      isAdminOnline={isAdminOnline}
+                      currentSlotIndex={currentSlotIndex}
+                      onEndEvent={handleEndEvent}
+                      onNudge={handleNudge}
                       onUpdate={(p) => {
                         if ((p as any)._triggerRebalance) {
                           handleAiRebalance(p);
