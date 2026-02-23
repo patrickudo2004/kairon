@@ -971,7 +971,27 @@ const AppContent: React.FC = () => {
     }
   }, [isReadOnly, location.pathname, navigate, importData]);
 
-  const isPublicPath = location.pathname.includes('/p/') || location.pathname === '/guide' || location.hash.includes('/p/');
+  const legacyRedirectDetected = React.useRef(false);
+  useEffect(() => {
+    if (legacyRedirectDetected.current) return;
+
+    // Handle legacy links: http://domain/#/live?mode=viewer&id=xxx
+    const fullUrl = window.location.href;
+    if (fullUrl.includes('mode=viewer') && fullUrl.includes('id=')) {
+      const match = fullUrl.match(/[?&]id=([a-z0-9-]+)/i);
+      if (match && match[1]) {
+        console.log("Legacy Viewer Link Detected. Redirecting to clean Public Portal...");
+        legacyRedirectDetected.current = true;
+        navigate(`/p/${match[1]}`, { replace: true });
+      }
+    }
+  }, [navigate]);
+
+  const isPublicPath =
+    location.pathname.includes('/p/') ||
+    location.pathname === '/guide' ||
+    location.hash.includes('/p/') ||
+    location.hash.includes('mode=viewer');
 
   // Special Route Handling: TV Mode
   // We render this exclusively, bypassing the main application shell (header, footer, etc.)

@@ -230,49 +230,54 @@ export const updateTimerState = async (programId: string, state: {
     if (error) throw error;
 };
 
-export const getProgramBySlug = async (slug: string): Promise<Program | null> => {
-    const { data, error } = await supabase
+export const getPublicProgram = async (slugOrId: string): Promise<Program | null> => {
+    // Try slug first
+    const { data: slugData } = await supabase
         .from('programs')
-        .select(`
-      *,
-      slots (*)
-    `)
-        .eq('slug', slug)
+        .select(`*, slots (*)`)
+        .eq('slug', slugOrId)
         .eq('is_public', true)
         .single();
 
-    if (error) {
-        console.error("Error fetching public program:", error);
-        return null;
-    }
+    if (slugData) return transformProgram(slugData);
 
-    if (!data) return null;
+    // Try ID fallback
+    const { data: idData } = await supabase
+        .from('programs')
+        .select(`*, slots (*)`)
+        .eq('id', slugOrId)
+        .eq('is_public', true)
+        .single();
 
-    const p = data;
-    return {
-        id: p.id,
-        title: p.title,
-        subtitle: p.subtitle,
-        date: p.date,
-        startTime: p.start_time,
-        endTime: p.end_time,
-        currentSlotIndex: p.current_slot_index,
-        isTimerActive: p.is_timer_active,
-        timerStartTimestamp: p.timer_start_timestamp,
-        secondsElapsed: p.seconds_elapsed,
-        isManualMode: p.manual_mode,
-        isOnHold: p.is_on_hold,
-        holdMessage: p.hold_message,
-        slug: p.slug,
-        isPublic: p.is_public,
-        slots: (p.slots || []).map((s: any) => ({
-            id: s.id,
-            title: s.title,
-            speaker: s.speaker,
-            durationMinutes: s.duration_minutes,
-            type: s.type,
-            details: s.details,
-            actualDuration: s.actual_duration
-        })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
-    };
+    if (idData) return transformProgram(idData);
+
+    return null;
 };
+
+// Helper to transform snake_case to camelCase
+const transformProgram = (p: any): Program => ({
+    id: p.id,
+    title: p.title,
+    subtitle: p.subtitle,
+    date: p.date,
+    startTime: p.start_time,
+    endTime: p.end_time,
+    currentSlotIndex: p.current_slot_index,
+    isTimerActive: p.is_timer_active,
+    timerStartTimestamp: p.timer_start_timestamp,
+    secondsElapsed: p.seconds_elapsed,
+    isManualMode: p.manual_mode,
+    isOnHold: p.is_on_hold,
+    holdMessage: p.hold_message,
+    slug: p.slug,
+    isPublic: p.is_public,
+    slots: (p.slots || []).map((s: any) => ({
+        id: s.id,
+        title: s.title,
+        speaker: s.speaker,
+        durationMinutes: s.duration_minutes,
+        type: s.type,
+        details: s.details,
+        actualDuration: s.actual_duration
+    })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+});
