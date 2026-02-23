@@ -2,21 +2,42 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Program } from '../types';
 import { getPublicProgram } from '../services/programService';
-import { formatDuration } from '../utils/time';
-import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight } from 'lucide-react';
+import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
+import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer } from 'lucide-react';
+import { realtimeService, TimerState } from '../services/realtimeService';
 
 export const PublicPortal: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
     const [program, setProgram] = useState<Program | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // Live State
+    const [currentSlotIndex, setCurrentSlotIndex] = useState(0);
+    const [isTimerActive, setIsTimerActive] = useState(false);
+    const [secondsElapsed, setSecondsElapsed] = useState(0);
+    const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
+    const [isOnHold, setIsOnHold] = useState(false);
+    const [holdMessage, setHoldMessage] = useState('');
+
+    const [isScrolled, setIsScrolled] = useState(false);
+
+    // Initial Load
     useEffect(() => {
         if (!slug) return;
 
         const loadPublicProgram = async () => {
             try {
                 const data = await getPublicProgram(slug);
-                setProgram(data);
+                if (data) {
+                    setProgram(data);
+                    // Sync initial state if available in the program object (fallback)
+                    setCurrentSlotIndex(data.currentSlotIndex ?? 0);
+                    setIsTimerActive(data.isTimerActive ?? false);
+                    setSecondsElapsed(data.secondsElapsed ?? 0);
+                    setTimerStartTimestamp(data.timerStartTimestamp ?? null);
+                    setIsOnHold(data.isOnHold ?? false);
+                    setHoldMessage(data.holdMessage ?? '');
+                }
             } catch (err) {
                 console.error("Failed to load public program:", err);
             } finally {
@@ -27,11 +48,94 @@ export const PublicPortal: React.FC = () => {
         loadPublicProgram();
     }, [slug]);
 
+    // Realtime Subscription
+    useEffect(() => {
+        if (!program?.id) return;
+
+        console.log('PublicPortal: Subscribing to realtime updates for:', program.id);
+
+        const unsubscribe = realtimeService.subscribe(
+            program.id,
+            (state: TimerState) => {
+                console.log('PublicPortal: Received timer update:', state);
+                setCurrentSlotIndex(state.currentSlotIndex);
+                setIsTimerActive(state.isTimerActive);
+                setTimerStartTimestamp(state.timerStartTimestamp);
+                if (state.hasOwnProperty('isOnHold')) setIsOnHold(state.isOnHold ?? false);
+                if (state.hasOwnProperty('holdMessage')) setHoldMessage(state.holdMessage ?? '');
+
+                if (state.isTimerActive && state.timerStartTimestamp) {
+                    const elapsed = Math.floor((Date.now() - state.timerStartTimestamp) / 1000);
+                    setSecondsElapsed(elapsed);
+                } else {
+                    setSecondsElapsed(state.secondsElapsed);
+                }
+            },
+            (updatedProgram) => {
+                setProgram(updatedProgram);
+            },
+            undefined, // No sync requests from public portal
+            (payload) => {
+                console.log('PublicPortal: Received sync response:', payload);
+                const state = payload.state;
+                setCurrentSlotIndex(state.currentSlotIndex);
+                setIsTimerActive(state.isTimerActive);
+                setTimerStartTimestamp(state.timerStartTimestamp);
+                if (state.hasOwnProperty('isOnHold')) setIsOnHold(state.isOnHold ?? false);
+                if (state.hasOwnProperty('holdMessage')) setHoldMessage(state.holdMessage ?? '');
+
+                if (state.isTimerActive && state.timerStartTimestamp) {
+                    const elapsed = Math.floor((Date.now() - state.timerStartTimestamp) / 1000);
+                    setSecondsElapsed(elapsed);
+                } else {
+                    setSecondsElapsed(state.secondsElapsed);
+                }
+            }
+        );
+
+        return () => unsubscribe();
+    }, [program?.id]);
+
+    // Local Timer Logic
+    useEffect(() => {
+        let interval: number;
+        if (isTimerActive && timerStartTimestamp) {
+            interval = window.setInterval(() => {
+                const now = Date.now();
+                const exactElapsed = Math.floor((now - timerStartTimestamp) / 1000);
+                setSecondsElapsed(exactElapsed);
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [isTimerActive, timerStartTimestamp]);
+
+    // Scroll Observer for Floating Bar
+    useEffect(() => {
+        const handleScroll = () => {
+            setIsScrolled(window.scrollY > 300);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    // Auto-scroll to active slot on load
+    useEffect(() => {
+        if (program && isTimerActive && !loading) {
+            const timer = setTimeout(() => {
+                const element = document.getElementById(`slot-${program.slots[currentSlotIndex]?.id}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [program?.id, isTimerActive, loading]);
+
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6">
                 <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
-                <p className="text-slate-500 dark:text-slate-400 font-medium">Loading event schedule...</p>
+                <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Syncing event pulse...</p>
             </div>
         );
     }
@@ -53,54 +157,160 @@ export const PublicPortal: React.FC = () => {
         );
     }
 
+    const currentSlot = program.slots[currentSlotIndex];
+    const nextSlots = program.slots.slice(currentSlotIndex + 1, currentSlotIndex + 3);
+
+    const formatCountdown = (totalSeconds: number) => {
+        const abs = Math.abs(totalSeconds);
+        const mins = Math.floor(abs / 60);
+        const secs = abs % 60;
+        return `${totalSeconds < 0 ? '-' : ''}${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const remainingSeconds = currentSlot ? (currentSlot.durationMinutes * 60) - secondsElapsed : 0;
+
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors pb-24">
             {/* Minimal Header */}
-            <header className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
+            <header className="bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 transition-all">
                 <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">K</div>
-                        <span className="font-bold text-slate-900 dark:text-white">Kairon</span>
+                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">K</div>
+                        <span className="font-bold text-slate-900 dark:text-white tracking-tight">Kairon</span>
                     </div>
+                    {isTimerActive && (
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-full border border-indigo-100 dark:border-indigo-800/50">
+                            <span className="w-2 h-2 bg-indigo-600 rounded-full animate-pulse" />
+                            Live Sync Active
+                        </div>
+                    )}
                 </div>
             </header>
 
+            {/* Floating Status Bar (Appears on Scroll) */}
+            <div
+                className={`fixed top-16 left-0 right-0 z-40 transition-all duration-500 transform ${isScrolled && isTimerActive ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}
+            >
+                <div className="bg-indigo-600/90 dark:bg-indigo-900/90 backdrop-blur-lg text-white border-b border-indigo-400/20 shadow-2xl">
+                    <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between">
+                        <div className="flex-1 truncate mr-4">
+                            <div className="text-[10px] font-bold uppercase opacity-70 tracking-tighter">Live Now</div>
+                            <div className="font-bold truncate text-sm">{currentSlot?.title}</div>
+                        </div>
+                        <div className={`text-2xl font-mono font-black tabular-nums ${remainingSeconds < 60 ? 'text-amber-300 animate-pulse' : ''}`}>
+                            {formatCountdown(remainingSeconds)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <main className="max-w-3xl mx-auto px-6 py-12">
                 {/* Event Hero */}
-                <div className="mb-12">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-bold uppercase tracking-wider mb-4">
-                        <Calendar size={14} />
-                        {new Date(program.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                {!isScrolled && (
+                    <div className="mb-12">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-bold uppercase tracking-wider mb-4 border border-indigo-200/50 dark:border-indigo-800/50">
+                            <Calendar size={14} />
+                            {new Date(program.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                        </div>
+                        <h1 className="text-4xl md:text-6xl font-black text-slate-900 dark:text-white mb-4 tracking-tight leading-none">
+                            {program.title}
+                        </h1>
+                        {program.subtitle && (
+                            <p className="text-xl text-slate-600 dark:text-slate-400 font-medium max-w-xl">
+                                {program.subtitle}
+                            </p>
+                        )}
                     </div>
-                    <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tight leading-tight">
-                        {program.title}
-                    </h1>
-                    {program.subtitle && (
-                        <p className="text-xl text-slate-600 dark:text-slate-400 font-medium">
-                            {program.subtitle}
-                        </p>
-                    )}
-                </div>
+                )}
+
+                {/* Live Hero Component */}
+                {isTimerActive && currentSlot && (
+                    <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 dark:from-indigo-600 dark:to-indigo-950 rounded-[2.5rem] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden group">
+                            {/* Abstract Background Shapes */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32 transition-transform duration-1000 group-hover:scale-110" />
+                            <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-400/10 rounded-full blur-3xl -ml-32 -mb-32" />
+
+                            <div className="relative z-10">
+                                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 text-indigo-200 font-bold uppercase tracking-widest text-xs">
+                                            <span className="w-2 h-2 bg-amber-400 rounded-full animate-ping" />
+                                            Happening Now
+                                        </div>
+                                        <h2 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">
+                                            {currentSlot.title}
+                                        </h2>
+                                        {currentSlot.speaker && (
+                                            <div className="flex items-center gap-2 text-indigo-100 font-medium text-lg italic">
+                                                <User size={18} />
+                                                {currentSlot.speaker}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col items-center md:items-end">
+                                        <div className="text-[10px] font-bold uppercase text-indigo-200 tracking-widest mb-1">Remaining</div>
+                                        <div className={`text-6xl md:text-7xl font-mono font-black tabular-nums transition-all ${remainingSeconds < 60 ? 'text-amber-400 scale-105' : ''}`}>
+                                            {formatCountdown(remainingSeconds)}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Progress Bar */}
+                                <div className="h-3 bg-indigo-900/40 rounded-full overflow-hidden border border-indigo-400/20">
+                                    <div
+                                        className="h-full bg-gradient-to-r from-amber-400 to-amber-200 transition-all duration-1000 ease-linear shadow-[0_0_15px_rgba(251,191,36,0.3)]"
+                                        style={{ width: `${Math.min(100, (secondsElapsed / (currentSlot.durationMinutes * 60)) * 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Up Next Preview */}
+                        {nextSlots.length > 0 && (
+                            <div className="mt-8 px-4">
+                                <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">Up Next</h3>
+                                <div className="flex flex-col md:flex-row gap-4">
+                                    {nextSlots.map((slot) => (
+                                        <div key={slot.id} className="flex-1 bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-4 group">
+                                            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-slate-400">
+                                                <Timer size={20} />
+                                            </div>
+                                            <div>
+                                                <div className="text-[10px] font-bold text-indigo-500 uppercase">{slot.durationMinutes} min Session</div>
+                                                <div className="font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{slot.title}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Schedule List */}
                 <div className="space-y-4">
-                    <h2 className="text-lg font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-6">Schedule</h2>
+                    <h2 className="text-lg font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-6 px-1">Full Program</h2>
                     {program.slots.map((slot, index) => (
                         <div
                             key={slot.id}
-                            className={`group p-6 rounded-3xl border border-slate-200 dark:border-slate-800 transition-all ${index === program.currentSlotIndex && program.isTimerActive
-                                ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 scale-[1.02] shadow-xl'
-                                : 'bg-white dark:bg-slate-950 hover:border-slate-300 dark:hover:border-slate-700'
+                            id={`slot-${slot.id}`}
+                            className={`group p-6 rounded-[2rem] border transition-all duration-500 ${index === currentSlotIndex && isTimerActive
+                                ? 'bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-200 dark:border-indigo-800/50 shadow-xl'
+                                : index < currentSlotIndex
+                                    ? 'bg-slate-50/50 dark:bg-slate-900/30 border-transparent opacity-60 grayscale-[0.5]'
+                                    : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                                 }`}
                         >
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="text-xs font-mono font-bold bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-800">
-                                        Slot {index + 1}
+                                    <div className="text-[10px] font-mono font-black bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-800">
+                                        EVENT {index + 1}
                                     </div>
-                                    {index === program.currentSlotIndex && program.isTimerActive && (
-                                        <div className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-full animate-pulse tracking-widest">
-                                            Live Now
+                                    {index === currentSlotIndex && isTimerActive && (
+                                        <div className="relative flex items-center gap-2 px-3 py-1 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-full tracking-widest">
+                                            <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                                            Live
                                         </div>
                                     )}
                                 </div>
@@ -110,29 +320,39 @@ export const PublicPortal: React.FC = () => {
                                 </div>
                             </div>
 
-                            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3 tracking-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            <h3 className={`text-2xl font-black mb-3 tracking-tight transition-colors ${index === currentSlotIndex && isTimerActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-900 dark:text-white'}`}>
                                 {slot.title}
                             </h3>
 
                             <div className="flex flex-wrap items-center gap-6">
                                 {slot.speaker && (
-                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-medium">
-                                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-bold">
+                                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 overflow-hidden">
                                             <User size={16} />
                                         </div>
                                         {slot.speaker}
                                     </div>
                                 )}
-                                <div className="flex items-center gap-2 text-slate-400 dark:text-slate-600 text-sm font-bold uppercase tracking-wider">
+                                <div className="flex items-center gap-2 text-slate-400 dark:text-slate-600 text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded">
                                     <Mic size={14} />
                                     {slot.type}
                                 </div>
                             </div>
 
                             {slot.details && (
-                                <p className="mt-4 text-slate-500 dark:text-slate-400 text-sm leading-relaxed border-t border-slate-100 dark:border-slate-900 pt-4">
+                                <p className="mt-4 text-slate-500 dark:text-slate-400 text-sm font-medium leading-relaxed border-t border-slate-100 dark:border-slate-900 pt-4">
                                     {slot.details}
                                 </p>
+                            )}
+
+                            {/* In-list Progress Bar for active slot */}
+                            {index === currentSlotIndex && isTimerActive && (
+                                <div className="mt-6 h-1 bg-indigo-200 dark:bg-indigo-900/50 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-indigo-600 transition-all duration-1000 ease-linear"
+                                        style={{ width: `${Math.min(100, (secondsElapsed / (slot.durationMinutes * 60)) * 100)}%` }}
+                                    />
+                                </div>
                             )}
                         </div>
                     ))}
@@ -140,18 +360,41 @@ export const PublicPortal: React.FC = () => {
 
                 {/* Footer */}
                 <footer className="mt-20 pt-12 border-t border-slate-200 dark:border-slate-800 text-center">
-                    <p className="text-slate-400 dark:text-slate-600 text-sm mb-4">
-                        This schedule is managed live using
+                    <div className="flex items-center justify-center gap-0.5 mb-6">
+                        {[...Array(3)].map((_, i) => (
+                            <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === 1 ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'}`} />
+                        ))}
+                    </div>
+                    <p className="text-slate-400 dark:text-slate-600 text-xs font-bold uppercase tracking-widest mb-4">
+                        Powered by Kairon
                     </p>
                     <Link
                         to="/"
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl font-bold hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                        className="inline-flex items-center gap-2 px-8 py-4 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-2xl font-black hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-slate-900 transition-all shadow-xl hover:shadow-2xl border border-slate-200 dark:border-slate-800"
                     >
-                        Kairon Production Timer
+                        Try Kairon for your event
                         <ExternalLink size={18} />
                     </Link>
                 </footer>
             </main>
+
+            {/* Hold Message Overlay */}
+            {isOnHold && (
+                <div className="fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-500">
+                    <div className="text-center max-w-lg">
+                        <div className="w-24 h-24 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
+                            <Clock size={48} />
+                        </div>
+                        <h2 className="text-4xl font-black text-white mb-4 tracking-tight">Event On Hold</h2>
+                        <p className="text-slate-400 text-xl font-medium mb-8">
+                            {holdMessage || "We'll be back in just a few minutes. Stay tuned!"}
+                        </p>
+                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-800 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                            Live Sync Active
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
