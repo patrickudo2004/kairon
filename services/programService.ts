@@ -231,26 +231,44 @@ export const updateTimerState = async (programId: string, state: {
 };
 
 export const getPublicProgram = async (slugOrId: string): Promise<Program | null> => {
-    // Try slug first
-    const { data: slugData } = await supabase
+    console.log("Searching for public program:", slugOrId);
+
+    // 1. Try slug first
+    const { data: slugData, error: slugError } = await supabase
         .from('programs')
         .select(`*, slots (*)`)
         .eq('slug', slugOrId)
         .eq('is_public', true)
-        .single();
+        .maybeSingle();
 
-    if (slugData) return transformProgram(slugData);
+    if (slugData) {
+        console.log("Found program by slug:", slugData.title);
+        return transformProgram(slugData);
+    }
 
-    // Try ID fallback
-    const { data: idData } = await supabase
-        .from('programs')
-        .select(`*, slots (*)`)
-        .eq('id', slugOrId)
-        .eq('is_public', true)
-        .single();
+    // 2. Try ID fallback (only if slugOrId is a valid UUID)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId);
 
-    if (idData) return transformProgram(idData);
+    if (isUuid) {
+        const { data: idData, error: idError } = await supabase
+            .from('programs')
+            .select(`*, slots (*)`)
+            .eq('id', slugOrId)
+            .eq('is_public', true)
+            .maybeSingle();
 
+        if (idData) {
+            console.log("Found program by ID:", idData.title);
+            return transformProgram(idData);
+        }
+        if (idError) console.error("ID Lookup Error:", idError);
+    } else {
+        console.log("Not a UUID, skipping ID lookup.");
+    }
+
+    if (slugError) console.error("Slug Lookup Error:", slugError);
+
+    console.warn("No public program found for:", slugOrId);
     return null;
 };
 
