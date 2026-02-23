@@ -971,6 +971,8 @@ const AppContent: React.FC = () => {
     }
   }, [isReadOnly, location.pathname, navigate, importData]);
 
+  const isPublicPath = location.pathname.includes('/p/') || location.pathname === '/guide' || location.hash.includes('/p/');
+
   // Special Route Handling: TV Mode
   // We render this exclusively, bypassing the main application shell (header, footer, etc.)
   if (location.pathname === '/tv') {
@@ -996,6 +998,21 @@ const AppContent: React.FC = () => {
         secondsElapsed={secondsElapsed}
         activeOrg={activeOrg}
       />
+    );
+  }
+
+  // --- Public View Bypass ---
+  // If we are on a public path and NOT logged in, render the view directly without the main app shell
+  if (isPublicPath && !user) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+        <Routes>
+          <Route path="/p/:slug" element={<PublicPortal />} />
+          <Route path="/guide" element={<UserGuide />} />
+          {/* Fallback to home if they somehow land here */}
+          <Route path="*" element={<Auth />} />
+        </Routes>
+      </div>
     );
   }
 
@@ -1158,12 +1175,10 @@ const AppContent: React.FC = () => {
               <div className="flex items-center justify-center h-full">
                 <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
-            ) : (!user && !location.pathname.startsWith('/p/') && location.pathname !== '/guide') ? (
+            ) : !user ? (
               <Auth />
             ) : (
               <Routes>
-                <Route path="/guide" element={<UserGuide />} />
-                <Route path="/p/:slug" element={<PublicPortal />} />
                 <Route path="/org" element={
                   <OrganizationManager
                     activeOrgId={activeOrgId ?? undefined}
