@@ -37,6 +37,7 @@ import HomeWrapper from './components/wrappers/HomeWrapper';
 import CalendarWrapper from './components/wrappers/CalendarWrapper';
 import { Sidebar } from './components/Sidebar';
 import { OnboardingOverlay } from './components/OnboardingOverlay';
+import { UserGuide } from './components/UserGuide';
 
 // Utils & Types
 import { Program, Slot, SlotType, Profile, Organization } from './types';
@@ -1188,6 +1189,7 @@ const AppContent: React.FC = () => {
                 } />
 
                 <Route path="/p/:slug" element={<PublicPortal />} />
+                <Route path="/guide" element={<UserGuide />} />
 
                 <Route path="/live" element={
                   <LiveTimer
