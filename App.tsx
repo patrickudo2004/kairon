@@ -1035,11 +1035,22 @@ const AppContent: React.FC = () => {
         <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md transition-colors h-16 flex items-center shrink-0 no-print">
           <div className="w-full px-6 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h2 className="font-bold text-slate-900 dark:text-white truncate max-w-[200px] lg:max-w-[400px]">
-                {program.title}
-              </h2>
-              {isReadOnly && (
-                <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-medium tracking-widest uppercase">Viewer</span>
+              {!user ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-gradient-to-tr from-indigo-500 to-violet-500">
+                    <Mic className="text-white" size={18} />
+                  </div>
+                  <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">KAIRON</span>
+                </div>
+              ) : (
+                <>
+                  <h2 className="font-bold text-slate-900 dark:text-white truncate max-w-[200px] lg:max-w-[400px]">
+                    {program.title}
+                  </h2>
+                  {isReadOnly && (
+                    <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-medium tracking-widest uppercase">Viewer</span>
+                  )}
+                </>
               )}
             </div>
 
@@ -1099,29 +1110,33 @@ const AppContent: React.FC = () => {
                     {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
                   </button>
 
-                  <button
-                    onClick={() => window.open(`${window.location.origin}/#/tv`, '_blank')}
-                    className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
-                    title="Launch Projector (TV View)"
-                  >
-                    <Monitor size={18} />
-                  </button>
+                  {user && (
+                    <>
+                      <button
+                        onClick={() => window.open(`${window.location.origin}/#/tv`, '_blank')}
+                        className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                        title="Launch Projector (TV View)"
+                      >
+                        <Monitor size={18} />
+                      </button>
 
-                  <button
-                    onClick={() => setIsExportOpen(true)}
-                    className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
-                    title="Export PDF"
-                  >
-                    <Download size={18} />
-                  </button>
+                      <button
+                        onClick={() => setIsExportOpen(true)}
+                        className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                        title="Export PDF"
+                      >
+                        <Download size={18} />
+                      </button>
 
-                  <button
-                    onClick={() => setIsShareOpen(true)}
-                    className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-md shadow-indigo-500/20 transition-all active:scale-95 flex items-center gap-2"
-                  >
-                    <Share2 size={14} />
-                    Share
-                  </button>
+                      <button
+                        onClick={() => setIsShareOpen(true)}
+                        className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-md shadow-indigo-500/20 transition-all active:scale-95 flex items-center gap-2"
+                      >
+                        <Share2 size={14} />
+                        Share
+                      </button>
+                    </>
+                  )}
                 </>
               )}
             </div>
