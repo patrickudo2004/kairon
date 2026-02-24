@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Clock, User, Mic, ExternalLink, GripVertical } from 'lucide-react';
+import { X, Clock, User, Mic, ExternalLink, GripVertical, List } from 'lucide-react';
 import { Program } from '../types';
 
 interface PreviewDrawerProps {
