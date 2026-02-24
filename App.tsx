@@ -123,23 +123,34 @@ const AppContent: React.FC = () => {
     let sub: { unsubscribe: () => void } | null = null;
 
     const setupAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        const p = await getProfile(session.user.id);
-        setProfile(p);
-      }
-      setIsAuthLoading(false);
-
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
         setUser(session?.user ?? null);
         if (session?.user) {
           const p = await getProfile(session.user.id);
           setProfile(p);
-        } else {
-          setProfile(null);
         }
+      } catch (err) {
+        console.error("Auth hydration failed:", err);
+      } finally {
         setIsAuthLoading(false);
+      }
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        setIsAuthLoading(true);
+        try {
+          setUser(session?.user ?? null);
+          if (session?.user) {
+            const p = await getProfile(session.user.id);
+            setProfile(p);
+          } else {
+            setProfile(null);
+          }
+        } catch (err) {
+          console.error("Auth change handling failed:", err);
+        } finally {
+          setIsAuthLoading(false);
+        }
       });
       sub = subscription;
     };
@@ -880,6 +891,18 @@ const AppContent: React.FC = () => {
     }
     return () => clearInterval(interval);
   }, [isTimerActive, liveProgramId, timerStartTimestamp]);
+
+  // Periodic Broadcast Pulse (Handshake stability for background/idle clients)
+  useEffect(() => {
+    if (isReadOnly || !isTimerActive) return;
+
+    const pulse = setInterval(() => {
+      console.log("Continuity Pulse: Broadcasting current state...");
+      broadcastState();
+    }, 15000); // 15s pulse
+
+    return () => clearInterval(pulse);
+  }, [isTimerActive, isReadOnly, currentSlotIndex, secondsElapsed]);
 
   const handleSlotComplete = (slotId: string, actualDuration: number) => {
     setProgram(prev => ({

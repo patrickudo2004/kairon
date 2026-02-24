@@ -115,11 +115,20 @@ export class RealtimeService {
 
         // Subscribe to the channel
         this.channel.subscribe(async (status) => {
-            console.log(`Realtime subscription status: ${status}`);
+            console.log(`[Realtime: ${programId}] status: ${status}`);
 
             if (status === 'SUBSCRIBED') {
                 // New subscribers won't receive past broadcasts; request a state sync on join.
                 this.requestSync();
+            }
+            if (status === 'CLOSED') {
+                console.warn(`[Realtime: ${programId}] connection closed`);
+            }
+            if (status === 'CHANNEL_ERROR') {
+                console.error(`[Realtime: ${programId}] channel error occurred`);
+            }
+            if (status === 'TIMED_OUT') {
+                console.error(`[Realtime: ${programId}] subscription timed out`);
             }
         });
 
