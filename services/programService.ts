@@ -2,14 +2,20 @@
 import { supabase } from './supabaseClient';
 import { Program, Slot } from '../types';
 
-export const getPrograms = async (): Promise<Program[]> => {
-    const { data, error } = await supabase
+export const getPrograms = async (organizationId?: string): Promise<Program[]> => {
+    let query = supabase
         .from('programs')
         .select(`
       *,
       slots (*)
     `)
         .order('created_at', { ascending: false });
+
+    if (organizationId) {
+        query = query.eq('organization_id', organizationId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         console.error("Supabase Error [getPrograms]:", error.message, error.details, error.hint);
@@ -304,6 +310,7 @@ const transformProgram = (p: any): Program => ({
         durationMinutes: s.duration_minutes,
         type: s.type,
         details: s.details,
-        actualDuration: s.actual_duration
+        actualDuration: s.actual_duration,
+        order: s.order
     })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
 });

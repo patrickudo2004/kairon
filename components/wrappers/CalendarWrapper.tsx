@@ -6,7 +6,9 @@ import CalendarView from '../CalendarView';
 import { Program } from '../../types';
 
 interface CalendarWrapperProps {
+    activeOrgId: string | undefined;
     activeProgramId: string;
+    liveProgramId: string | null;
     loadProgram: (p: Program) => void;
     createProgram: (date: string) => void;
     deleteProgram: (id: string) => void;
@@ -15,7 +17,9 @@ interface CalendarWrapperProps {
 }
 
 const CalendarWrapper: React.FC<CalendarWrapperProps> = ({
+    activeOrgId,
     activeProgramId,
+    liveProgramId,
     loadProgram,
     createProgram,
     deleteProgram,
@@ -24,15 +28,27 @@ const CalendarWrapper: React.FC<CalendarWrapperProps> = ({
 }) => {
     const navigate = useNavigate();
 
-    const { data: allPrograms = [], isLoading } = useQuery({
-        queryKey: ['programs'],
-        queryFn: getPrograms,
+    const { data: allPrograms = [], isLoading, isError, error } = useQuery({
+        queryKey: ['programs', activeOrgId],
+        queryFn: () => getPrograms(activeOrgId),
+        enabled: !!activeOrgId,
     });
 
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-full">
-                <div className="text-slate-500">Loading programs...</div>
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                    <p className="text-slate-500 text-sm animate-pulse">Loading calendar...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (isError) {
+        return (
+            <div className="flex items-center justify-center h-full text-rose-500">
+                <p>Error loading calendar: {(error as Error).message}</p>
             </div>
         );
     }

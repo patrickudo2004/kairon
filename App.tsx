@@ -1140,7 +1140,7 @@ const AppContent: React.FC = () => {
 
   // --- Public View Bypass (TOP LEVEL) ---
   // We check this before ANY auth or shell rendering to ensure zero-friction guest access and no flicker.
-  if (isPublicPath && !user) {
+  if (isPublicPath) {
     // Handle path contamination: /live/p/ or /calendar/p/
     if (location.pathname.includes('/p/') && !location.pathname.startsWith('/p/')) {
       const cleanPath = location.pathname.substring(location.pathname.indexOf('/p/'));
@@ -1361,6 +1361,7 @@ const AppContent: React.FC = () => {
                 {/* Main Views */}
                 <Route path="/" element={
                   <HomeWrapper
+                    activeOrgId={activeOrgId ?? undefined}
                     activeProgramId={program.id}
                     liveProgramId={liveProgramId}
                     loadProgram={loadProgram}
@@ -1373,6 +1374,7 @@ const AppContent: React.FC = () => {
 
                 <Route path="/calendar" element={
                   <CalendarWrapper
+                    activeOrgId={activeOrgId ?? undefined}
                     activeProgramId={program.id}
                     liveProgramId={liveProgramId}
                     loadProgram={loadProgram}
