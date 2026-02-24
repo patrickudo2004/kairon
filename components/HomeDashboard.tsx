@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Program } from '../types';
-import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy, AlertTriangle, X } from 'lucide-react';
+import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy, AlertTriangle, X, Eye, List } from 'lucide-react';
+import { PreviewDrawer } from './PreviewDrawer';
 
 interface HomeDashboardProps {
   programs: Program[];
@@ -18,11 +19,12 @@ interface ProgramCardProps {
   isActive: boolean;
   isLive: boolean;
   onSelect: (program: Program) => void;
+  onPreview: (program: Program) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
 }
 
-const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, isLive, onSelect, onDelete, onDuplicate }) => {
+const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, isLive, onSelect, onPreview, onDelete, onDuplicate }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -44,6 +46,11 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
   const handleDuplicate = (e: React.MouseEvent) => {
     e.stopPropagation();
     onDuplicate(program.id);
+  };
+
+  const handlePreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onPreview(program);
   };
 
   return (
@@ -97,15 +104,22 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
 
       <div className={`absolute right-4 bottom-4 flex gap-2 transition-opacity ${isPast ? 'opacity-0 group-hover:opacity-100' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100'}`}>
         <button
+          onClick={handlePreview}
+          className="bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-400 hover:text-emerald-600 p-2 rounded-full shadow-lg transition-colors border border-slate-200 dark:border-slate-800"
+          title="Quick Preview"
+        >
+          <Eye size={16} />
+        </button>
+        <button
           onClick={handleDuplicate}
-          className="bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-slate-400 hover:text-indigo-600 p-2 rounded-full shadow-lg transition-colors"
+          className="bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-slate-400 hover:text-indigo-600 p-2 rounded-full shadow-lg transition-colors border border-slate-200 dark:border-slate-800"
           title="Duplicate Program"
         >
           <Copy size={16} />
         </button>
         <button
           onClick={handleDelete}
-          className="bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-slate-400 hover:text-rose-600 p-2 rounded-full shadow-lg transition-colors"
+          className="bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-slate-400 hover:text-rose-600 p-2 rounded-full shadow-lg transition-colors border border-slate-200 dark:border-slate-800"
           title="Delete Program"
         >
           <Trash2 size={16} />
@@ -175,6 +189,8 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onDelete,
   onDuplicate
 }) => {
+  const [previewProgram, setPreviewProgram] = useState<Program | null>(null);
+
   // Sort programs: Newest date first
   const sortedPrograms = [...programs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -217,6 +233,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 isActive={program.id === activeProgramId}
                 isLive={program.id === liveProgramId}
                 onSelect={onSelectProgram}
+                onPreview={setPreviewProgram}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
               />
@@ -245,6 +262,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 isActive={program.id === activeProgramId}
                 isLive={program.id === liveProgramId}
                 onSelect={onSelectProgram}
+                onPreview={setPreviewProgram}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
               />
@@ -255,6 +273,15 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
         )}
       </div>
 
+      <PreviewDrawer
+        program={previewProgram}
+        isOpen={!!previewProgram}
+        onClose={() => setPreviewProgram(null)}
+        onOpenInEditor={(p) => {
+          setPreviewProgram(null);
+          onSelectProgram(p);
+        }}
+      />
     </div>
   );
 };
