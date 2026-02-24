@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Program, Organization } from '../../types';
 import { getProgramById } from '../../services/programService';
 import { getOrganizationById } from '../../services/orgService';
-import { realtimeService, TimerState } from '../../services/realtimeService';
+import { RealtimeService, TimerState } from '../../services/realtimeService';
 import StageDisplay from '../StageDisplay';
 
 const StageWrapper: React.FC = () => {
@@ -21,6 +21,7 @@ const StageWrapper: React.FC = () => {
     const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
     const [lastPulseTime, setLastPulseTime] = useState<number | null>(null);
     const [isAdminOnline, setIsAdminOnline] = useState(true);
+    const [realtime] = useState(() => new RealtimeService());
 
     // Initial Load
     useEffect(() => {
@@ -67,7 +68,7 @@ const StageWrapper: React.FC = () => {
         if (!programId) return;
 
         console.log('StageWrapper: Subscribing to:', programId);
-        const unsubscribe = realtimeService.subscribe(
+        const unsubscribe = realtime.subscribe(
             programId,
             (state: TimerState) => {
                 setLastPulseTime(Date.now());
@@ -110,7 +111,10 @@ const StageWrapper: React.FC = () => {
             }
         );
 
-        return () => unsubscribe();
+        return () => {
+            console.log('StageWrapper: Unsubscribing');
+            unsubscribe();
+        };
     }, [programId]);
 
     // Derived state for sync resilience (Self-Healing)
