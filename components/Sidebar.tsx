@@ -18,7 +18,8 @@ import {
     Play,
     ClipboardList,
     FileText,
-    Edit3
+    Edit3,
+    Monitor
 } from 'lucide-react';
 import { Organization, Profile } from '../types';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
@@ -61,6 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { icon: Edit3, label: 'Editor', path: '/editor' },
         { icon: Play, label: 'Live', path: '/live' },
         { icon: ClipboardList, label: 'List', path: '/list' },
+        { icon: Monitor, label: 'Monitors', path: '/monitors' },
         { icon: Calendar, label: 'Calendar', path: '/calendar' },
         { icon: FileText, label: 'User Guide', path: '/guide' },
         { icon: Settings, label: 'Workspace', path: '/admin' },
