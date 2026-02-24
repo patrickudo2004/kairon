@@ -19,6 +19,7 @@ export const PublicPortal: React.FC = () => {
     const [isOnHold, setIsOnHold] = useState(false);
     const [holdMessage, setHoldMessage] = useState('');
     const [isAdminOnline, setIsAdminOnline] = useState(true);
+    const [lastPulseTime, setLastPulseTime] = useState<number | null>(null);
 
     const [isScrolled, setIsScrolled] = useState(false);
 
@@ -59,6 +60,7 @@ export const PublicPortal: React.FC = () => {
             program.id,
             (state: TimerState) => {
                 console.log('PublicPortal: Received timer update:', state);
+                setLastPulseTime(Date.now());
                 setCurrentSlotIndex(state.currentSlotIndex);
                 setIsTimerActive(state.isTimerActive);
                 setTimerStartTimestamp(state.timerStartTimestamp);
@@ -78,6 +80,7 @@ export const PublicPortal: React.FC = () => {
             undefined, // No sync requests from public portal
             (payload) => {
                 console.log('PublicPortal: Received sync response:', payload);
+                setLastPulseTime(Date.now());
                 const state = payload.state;
                 setCurrentSlotIndex(state.currentSlotIndex);
                 setIsTimerActive(state.isTimerActive);
@@ -102,11 +105,15 @@ export const PublicPortal: React.FC = () => {
         return () => unsubscribe();
     }, [program?.id]);
 
+    // Derived state for sync resilience
+    const isSyncGraceActive = lastPulseTime ? (Date.now() - lastPulseTime < 60000) : false;
+    const isSyncEffective = isAdminOnline || isSyncGraceActive;
+
     // Local Timer Logic
     useEffect(() => {
         let interval: number;
-        // Only run timer if admin is online to prevent phantom counts
-        if (isTimerActive && timerStartTimestamp && isAdminOnline) {
+        // Only run timer if sync is effective to prevent phantom counts
+        if (isTimerActive && timerStartTimestamp && isSyncEffective) {
             interval = window.setInterval(() => {
                 const now = Date.now();
                 const exactElapsed = Math.floor((now - timerStartTimestamp) / 1000);
@@ -114,7 +121,7 @@ export const PublicPortal: React.FC = () => {
             }, 1000);
         }
         return () => clearInterval(interval);
-    }, [isTimerActive, timerStartTimestamp, isAdminOnline]);
+    }, [isTimerActive, timerStartTimestamp, isSyncEffective]);
 
     // Scroll Observer for Floating Bar
     useEffect(() => {
@@ -207,11 +214,11 @@ export const PublicPortal: React.FC = () => {
                         <span className="font-bold text-slate-900 dark:text-white tracking-tight">Kairon</span>
                     </div>
                     {isTimerActive && (
-                        <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border transition-colors ${isAdminOnline
+                        <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border transition-colors ${isSyncEffective
                             ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 border-indigo-100 dark:border-indigo-800/50'
                             : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border-amber-100 dark:border-amber-800/50'}`}>
-                            <span className={`w-2 h-2 rounded-full ${isAdminOnline ? 'bg-indigo-600 animate-pulse' : 'bg-amber-500'}`} />
-                            {isAdminOnline ? 'Live Sync Active' : 'Sync Paused (Admin Offline)'}
+                            <span className={`w-2 h-2 rounded-full ${isSyncEffective ? 'bg-indigo-600 animate-pulse' : 'bg-amber-500'}`} />
+                            {isSyncEffective ? (isAdminOnline ? 'Live Sync Active' : 'Sync Active (Trust Mode)') : 'Sync Paused (Admin Offline)'}
                         </div>
                     )}
                 </div>
