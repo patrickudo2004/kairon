@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Program } from '../types';
-import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy, AlertTriangle, X, Eye, List } from 'lucide-react';
+import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy, AlertTriangle, X, Eye } from 'lucide-react';
 import { PreviewDrawer } from './PreviewDrawer';
 
 interface HomeDashboardProps {
