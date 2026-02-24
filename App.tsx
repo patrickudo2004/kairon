@@ -56,6 +56,8 @@ import { User as SupabaseUser } from '@supabase/supabase-js';
 // --- App Content Component ---
 const AppContent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [mode, setMode] = useState(searchParams.get('mode') || 'editor');
   const importData = searchParams.get('import');
 
@@ -137,7 +139,7 @@ const AppContent: React.FC = () => {
       }
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        setIsAuthLoading(true);
+        // Only trigger loading if we are actually fetching a new profile
         try {
           setUser(session?.user ?? null);
           if (session?.user) {
@@ -582,6 +584,18 @@ const AppContent: React.FC = () => {
 
   // Main Supabase Realtime Connection & Sync
   useEffect(() => {
+    // GUARD: Do not subscribe in the main app if we are on a dedicated display route
+    // to avoid singleton channel conflicts.
+    const isDedicatedDisplay =
+      location.pathname === '/tv' ||
+      location.pathname === '/stage' ||
+      location.pathname.startsWith('/p/');
+
+    if (isDedicatedDisplay) {
+      console.log('Dedicated display detected. Skipping main app realtime subscription.');
+      return;
+    }
+
     console.log('Subscribing to realtime updates for program:', program.id);
 
     const unsubscribe = realtimeService.subscribe(
@@ -663,7 +677,7 @@ const AppContent: React.FC = () => {
       console.log('Unsubscribing from realtime updates');
       unsubscribe();
     };
-  }, [program.id, isReadOnly]);
+  }, [program.id, isReadOnly, location.pathname]);
 
   // Dedicated Admin Heartbeat for Background Live Program (Public Portal fix)
   useEffect(() => {
@@ -902,7 +916,7 @@ const AppContent: React.FC = () => {
     }, 15000); // 15s pulse
 
     return () => clearInterval(pulse);
-  }, [isTimerActive, isReadOnly, currentSlotIndex, secondsElapsed]);
+  }, [isTimerActive, isReadOnly, currentSlotIndex]); // Removed secondsElapsed
 
   const handleSlotComplete = (slotId: string, actualDuration: number) => {
     setProgram(prev => ({
@@ -1127,8 +1141,7 @@ const AppContent: React.FC = () => {
   // Wrappers (Replaced with external components)
 
   // Redirect if ReadOnly user tries to access restricted routes
-  const navigate = useNavigate();
-  const location = useLocation();
+  // Redirect if ReadOnly user tries to access restricted routes
 
   useEffect(() => {
     if (isReadOnly) {

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Program, Organization } from '../../types';
 import { getProgramById } from '../../services/programService';
 import { getOrganizationById } from '../../services/orgService';
-import { realtimeService, TimerState } from '../../services/realtimeService';
+import { RealtimeService, TimerState } from '../../services/realtimeService';
 import TVView from '../TVView';
 
 const TVWrapper: React.FC = () => {
@@ -22,6 +22,7 @@ const TVWrapper: React.FC = () => {
     const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
     const [lastPulseTime, setLastPulseTime] = useState<number | null>(null);
     const [isAdminOnline, setIsAdminOnline] = useState(true);
+    const [realtime] = useState(() => new RealtimeService());
 
     const toggleTheme = () => setIsDarkMode(prev => !prev);
 
@@ -70,7 +71,7 @@ const TVWrapper: React.FC = () => {
         if (!programId) return;
 
         console.log('TVWrapper: Subscribing to:', programId);
-        const unsubscribe = realtimeService.subscribe(
+        const unsubscribe = realtime.subscribe(
             programId,
             (state: TimerState) => {
                 setLastPulseTime(Date.now());
@@ -109,7 +110,10 @@ const TVWrapper: React.FC = () => {
             }
         );
 
-        return () => unsubscribe();
+        return () => {
+            console.log('TVWrapper: Unsubscribing');
+            unsubscribe();
+        };
     }, [programId]);
 
     // Derived state for sync resilience (Self-Healing)

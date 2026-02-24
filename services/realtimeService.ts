@@ -224,5 +224,6 @@ export class RealtimeService {
     }
 }
 
-// Export a singleton instance for backward compatibility in simple views
+// We keep a secondary singleton for legacy views that don't need isolation
+// but recommendation is to use `new RealtimeService()` in wrappers.
 export const realtimeService = new RealtimeService();
