@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Clock, User, Mic, ExternalLink, GripVertical, List } from 'lucide-react';
+import { X, Clock, User, Mic, ExternalLink, GripVertical, ClipboardList } from 'lucide-react';
 import { Program } from '../types';
 
 interface PreviewDrawerProps {
@@ -105,7 +105,7 @@ export const PreviewDrawer: React.FC<PreviewDrawerProps> = ({ program, isOpen, o
                             Open in Editor <ExternalLink size={16} />
                         </button>
                         <div className="w-11 h-11 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-center justify-center text-slate-400">
-                            <List size={20} />
+                            <ClipboardList size={20} />
                         </div>
                     </div>
                 </div>
@@ -160,7 +160,7 @@ export const PreviewDrawer: React.FC<PreviewDrawerProps> = ({ program, isOpen, o
                     {program.slots.length === 0 && (
                         <div className="py-20 text-center">
                             <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center mx-auto mb-4 text-slate-300">
-                                <List size={32} />
+                                <ClipboardList size={32} />
                             </div>
                             <p className="text-slate-400 text-sm font-medium italic">This program currently has no slots.</p>
                         </div>

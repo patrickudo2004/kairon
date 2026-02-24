@@ -16,7 +16,7 @@ import {
     WifiOff,
     Crown,
     Play,
-    List,
+    ClipboardList,
     FileText,
     Edit3
 } from 'lucide-react';
@@ -60,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
         { icon: Edit3, label: 'Editor', path: '/editor' },
         { icon: Play, label: 'Live', path: '/live' },
-        { icon: List, label: 'List', path: '/list' },
+        { icon: ClipboardList, label: 'List', path: '/list' },
         { icon: Calendar, label: 'Calendar', path: '/calendar' },
         { icon: FileText, label: 'User Guide', path: '/guide' },
         { icon: Settings, label: 'Workspace', path: '/admin' },
