@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Program, Organization } from '../../types';
 import { getProgramById } from '../../services/programService';
-import { getMyOrganizations } from '../../services/orgService';
+import { getOrganizationById } from '../../services/orgService';
 import { realtimeService, TimerState } from '../../services/realtimeService';
 import StageDisplay from '../StageDisplay';
 
@@ -38,13 +38,6 @@ const StageWrapper: React.FC = () => {
                     setIsTimerActive(data.isTimerActive ?? false);
                     setSecondsElapsed(data.secondsElapsed ?? 0);
                     setTimerStartTimestamp(data.timerStartTimestamp ?? null);
-
-                    // Fetch Org for branding
-                    if (data.organizationId) {
-                        const orgs = await getMyOrganizations();
-                        const org = orgs.find(o => o.id === data.organizationId);
-                        if (org) setActiveOrg(org);
-                    }
                 }
             } catch (err) {
                 console.error("StageWrapper: Failed to load program:", err);
@@ -53,7 +46,20 @@ const StageWrapper: React.FC = () => {
             }
         };
 
+        const loadBranding = async () => {
+            try {
+                const data = await getProgramById(programId);
+                if (data?.organizationId) {
+                    const org = await getOrganizationById(data.organizationId);
+                    if (org) setActiveOrg(org);
+                }
+            } catch (err) {
+                console.error("StageWrapper: Branding fetch failed:", err);
+            }
+        };
+
         loadData();
+        loadBranding();
     }, [programId]);
 
     // Realtime Subscription
