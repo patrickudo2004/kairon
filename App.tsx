@@ -40,6 +40,9 @@ import { OnboardingOverlay } from './components/OnboardingOverlay';
 import { UserGuide } from './components/UserGuide';
 import { ProductionHUD } from './components/ProductionHUD';
 import { InterlockModal } from './components/InterlockModal';
+import TVWrapper from './components/wrappers/TVWrapper';
+import StageWrapper from './components/wrappers/StageWrapper';
+import { MonitorDashboard } from './components/MonitorDashboard';
 
 // Utils & Types
 import { Program, Slot, SlotType, Profile, Organization } from './types';
@@ -1162,29 +1165,11 @@ const AppContent: React.FC = () => {
   // Special Route Handling: TV Mode
   // We render this exclusively, bypassing the main application shell (header, footer, etc.)
   if (location.pathname === '/tv') {
-    return (
-      <TVView
-        program={program}
-        currentSlotIndex={currentSlotIndex}
-        isTimerActive={isTimerActive}
-        secondsElapsed={secondsElapsed}
-        isDarkMode={isDarkMode}
-        toggleTheme={toggleTheme}
-        activeOrg={activeOrg}
-      />
-    );
+    return <TVWrapper />;
   }
 
   if (location.pathname === '/stage') {
-    return (
-      <StageDisplay
-        program={program}
-        currentSlotIndex={currentSlotIndex}
-        isTimerActive={isTimerActive}
-        secondsElapsed={secondsElapsed}
-        activeOrg={activeOrg}
-      />
-    );
+    return <StageWrapper />;
   }
 
   return (
@@ -1394,6 +1379,13 @@ const AppContent: React.FC = () => {
                       <p>Select a workspace from the sidebar to manage settings.</p>
                     </div>
                   )
+                } />
+
+                <Route path="/monitors" element={
+                  <MonitorDashboard
+                    program={program}
+                    activeOrg={activeOrg}
+                  />
                 } />
 
                 <Route path="/live" element={
