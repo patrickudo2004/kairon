@@ -23,6 +23,32 @@ export const getMyOrganizations = async (): Promise<Organization[]> => {
     }));
 };
 
+export const getOrganizationById = async (id: string): Promise<Organization | null> => {
+    const { data, error } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+    if (error) {
+        console.error("Supabase Error [getOrganizationById]:", error.message);
+        return null;
+    }
+    if (!data) return null;
+
+    return {
+        id: data.id,
+        name: data.name,
+        slug: data.slug,
+        logoUrl: data.logo_url,
+        brandColor: data.brand_color,
+        subscriptionStatus: data.subscription_status,
+        stripeCustomerId: data.stripe_customer_id,
+        createdBy: data.created_by,
+        createdAt: data.created_at
+    };
+};
+
 export const createOrganization = async (name: string, slug: string): Promise<Organization> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Auth required");
