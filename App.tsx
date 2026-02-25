@@ -83,6 +83,8 @@ const AppContent: React.FC = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
+  const [networkError, setNetworkError] = useState<string | null>(null);
+  const [isDataHydrated, setIsDataHydrated] = useState(false);
 
   // Fetch all organizations for the user
   const { data: userOrganizations = [] } = useQuery({
@@ -123,8 +125,18 @@ const AppContent: React.FC = () => {
   // Handle Auth Session
   useEffect(() => {
     let sub: { unsubscribe: () => void } | null = null;
+    let authTimeout: NodeJS.Timeout;
 
     const setupAuth = async () => {
+      // Timeout guard: If auth hasn't resolved in 10s, fail gracefully
+      authTimeout = setTimeout(() => {
+        if (isAuthLoading) {
+          console.warn("Auth hydration timed out. Likely DNS or network issue.");
+          setIsAuthLoading(false);
+          setNetworkError("Connection Timeout: Is the internet or Supabase down?");
+        }
+      }, 10000);
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
         setUser(session?.user ?? null);
@@ -134,8 +146,11 @@ const AppContent: React.FC = () => {
         }
       } catch (err) {
         console.error("Auth hydration failed:", err);
+        setNetworkError("Failed to connect to authentication service.");
       } finally {
         setIsAuthLoading(false);
+        setIsDataHydrated(true);
+        clearTimeout(authTimeout);
       }
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -161,6 +176,7 @@ const AppContent: React.FC = () => {
 
     return () => {
       if (sub) sub.unsubscribe();
+      if (authTimeout) clearTimeout(authTimeout);
     };
   }, []);
 
@@ -1522,6 +1538,27 @@ const AppContent: React.FC = () => {
         options={exportOptions}
         setOptions={setExportOptions}
       />
+
+      {/* Network Error Overlay */}
+      {networkError && (
+        <div className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-2xl border border-red-500/20 text-center animate-in zoom-in-95 duration-300">
+            <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Bell className="text-red-600 dark:text-red-400" size={40} />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Connection Issues</h2>
+            <p className="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
+              {networkError} Check your internet connection or try again in a moment.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition-all active:scale-[0.98] shadow-lg shadow-indigo-500/25"
+            >
+              Retry Connection
+            </button>
+          </div>
+        </div>
+      )}
 
       {!isReadOnly && liveProgramId && (
         <ProductionHUD
