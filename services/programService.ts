@@ -51,6 +51,7 @@ export const getPrograms = async (organizationId?: string): Promise<Program[]> =
             durationMinutes: s.duration_minutes,
             type: s.type,
             details: s.details,
+            productionNotes: s.production_notes,
             actualDuration: s.actual_duration,
             order: s.order
         })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
@@ -99,6 +100,7 @@ export const getProgramById = async (id: string): Promise<Program | null> => {
             durationMinutes: s.duration_minutes,
             type: s.type,
             details: s.details,
+            productionNotes: s.production_notes,
             actualDuration: s.actual_duration,
             order: s.order
         })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
@@ -141,6 +143,7 @@ export const createProgram = async (program: Program): Promise<Program> => {
             duration_minutes: s.durationMinutes,
             type: s.type,
             details: s.details,
+            production_notes: s.productionNotes,
             actual_duration: s.actualDuration,
             "order": index // We need to persist order!
         }));
@@ -198,6 +201,7 @@ export const updateProgram = async (program: Program): Promise<void> => {
             duration_minutes: s.durationMinutes,
             type: s.type,
             details: s.details,
+            production_notes: s.productionNotes,
             actual_duration: s.actualDuration,
             "order": index
         }));
@@ -310,6 +314,7 @@ const transformProgram = (p: any): Program => ({
         durationMinutes: s.duration_minutes,
         type: s.type,
         details: s.details,
+        productionNotes: s.production_notes,
         actualDuration: s.actual_duration,
         order: s.order
     })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0))

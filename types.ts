@@ -20,6 +20,7 @@ export interface Slot {
   type: SlotType;
   actualDuration?: number; // For analytics
   details?: string; // Additional detailed description
+  productionNotes?: string; // Phase 18: Internal cues for staff
 }
 
 export interface Program {

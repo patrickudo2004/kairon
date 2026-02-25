@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Program } from '../types';
-import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy, AlertTriangle, X, Eye } from 'lucide-react';
+import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy, AlertTriangle, X, Eye, BarChart3 } from 'lucide-react';
 import { PreviewDrawer } from './PreviewDrawer';
 
 interface HomeDashboardProps {
@@ -8,6 +8,7 @@ interface HomeDashboardProps {
   activeProgramId: string;
   liveProgramId: string | null;
   onSelectProgram: (program: Program) => void;
+  onViewAnalytics: (id: string) => void;
   onCreateNew: () => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
@@ -22,9 +23,10 @@ interface ProgramCardProps {
   onPreview: (program: Program) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onViewAnalytics: (id: string) => void;
 }
 
-const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, isLive, onSelect, onPreview, onDelete, onDuplicate }) => {
+const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, isLive, onSelect, onPreview, onDelete, onDuplicate, onViewAnalytics }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -51,6 +53,11 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
   const handlePreview = (e: React.MouseEvent) => {
     e.stopPropagation();
     onPreview(program);
+  };
+
+  const handleAnalytics = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onViewAnalytics(program.id);
   };
 
   return (
@@ -116,6 +123,13 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
           title="Duplicate Program"
         >
           <Copy size={16} />
+        </button>
+        <button
+          onClick={handleAnalytics}
+          className="bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-900/30 text-slate-400 hover:text-amber-600 p-2 rounded-full shadow-lg transition-colors border border-slate-200 dark:border-slate-800"
+          title="Service Report (Analytics)"
+        >
+          <BarChart3 size={16} />
         </button>
         <button
           onClick={handleDelete}
@@ -187,7 +201,8 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onSelectProgram,
   onCreateNew,
   onDelete,
-  onDuplicate
+  onDuplicate,
+  onViewAnalytics
 }) => {
   const [previewProgram, setPreviewProgram] = useState<Program | null>(null);
 
@@ -236,6 +251,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 onPreview={setPreviewProgram}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
+                onViewAnalytics={onViewAnalytics}
               />
             ))}
           </div>
@@ -265,6 +281,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 onPreview={setPreviewProgram}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
+                onViewAnalytics={onViewAnalytics}
               />
             ))}
           </div>
