@@ -110,11 +110,21 @@ const AppContent: React.FC = () => {
   const [isOnboardingManual, setIsOnboardingManual] = useState(false);
 
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    const handleOnline = () => {
+      setIsOnline(true);
+      setNetworkError(null);
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setNetworkError("Your device is offline. Kairon requires an active internet connection to sync.");
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+
+    if (!window.navigator.onLine) {
+      handleOffline();
+    }
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -1547,9 +1557,20 @@ const AppContent: React.FC = () => {
               <Bell className="text-red-600 dark:text-red-400" size={40} />
             </div>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Connection Issues</h2>
-            <p className="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
+            <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed text-sm">
               {networkError} Check your internet connection or try again in a moment.
             </p>
+
+            {/* Diagnostic Block */}
+            <div className="text-left bg-slate-100 dark:bg-slate-800/50 p-4 rounded-2xl mb-8 border border-slate-200 dark:border-slate-700">
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Technical Diagnostics</h3>
+              <p className="text-[10px] text-slate-500 break-all font-mono">
+                SUPABASE_URL: <span className="text-indigo-500">{import.meta.env.VITE_SUPABASE_URL}</span>
+              </p>
+              <p className="text-[10px] text-slate-500 mt-1 font-mono">
+                RESOLVE_TARGET: {import.meta.env.VITE_SUPABASE_URL?.replace('https://', '')}
+              </p>
+            </div>
             <button
               onClick={() => window.location.reload()}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition-all active:scale-[0.98] shadow-lg shadow-indigo-500/25"
