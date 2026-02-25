@@ -54,6 +54,34 @@ import { INITIAL_PROGRAM } from './utils/constants';
 import { Monitor, User as UserIcon, Building, MessageSquare, Bell, Clock, Crown, SkipForward, Pause } from 'lucide-react';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 
+// --- Analytics Wrapper (Dedicated Component to avoid render loops) ---
+const AnalyticsWrapper: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const [reportProgram, setReportProgram] = useState<Program | null>(null);
+  const [reportLoading, setReportLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    let isMounted = true;
+    void (async () => {
+      try {
+        const data = await getProgramById(id);
+        if (isMounted) setReportProgram(data);
+      } catch (err) {
+        console.error("Failed to load analytics data:", err);
+      } finally {
+        if (isMounted) setReportLoading(false);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [id]);
+
+  if (reportLoading) return <div className="flex h-screen items-center justify-center dark:bg-slate-950"><div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>;
+  if (!reportProgram) return <div className="p-12 text-center text-slate-500">Report not found.</div>;
+
+  return <AnalyticsDashboard program={reportProgram} />;
+};
+
 // --- App Content Component ---
 const AppContent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -74,8 +102,34 @@ const AppContent: React.FC = () => {
 
   // Main State
   const [program, setProgram] = useState<Program>(INITIAL_PROGRAM);
-
   const [currentSlotIndex, setCurrentSlotIndex] = useState<number>(0);
+  const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
+  const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
+  const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
+
+  // Stable Refs for Realtime Handlers
+  const programRef = React.useRef(program);
+  const timerStateRef = React.useRef({
+    programId: program.id,
+    isTimerActive,
+    currentSlotIndex,
+    secondsElapsed,
+    timerStartTimestamp
+  });
+
+  useEffect(() => {
+    programRef.current = program;
+  }, [program]);
+
+  useEffect(() => {
+    timerStateRef.current = {
+      programId: program.id,
+      isTimerActive,
+      currentSlotIndex,
+      secondsElapsed,
+      timerStartTimestamp
+    };
+  }, [program.id, isTimerActive, currentSlotIndex, secondsElapsed, timerStartTimestamp]);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
 
@@ -107,6 +161,13 @@ const AppContent: React.FC = () => {
   }, [activeOrgId, userOrganizations]);
 
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const authLoadingRef = React.useRef(true);
+
+  // Keep ref in sync for timeout closure
+  useEffect(() => {
+    authLoadingRef.current = isAuthLoading;
+  }, [isAuthLoading]);
+
   const [isOnline, setIsOnline] = useState(window.navigator.onLine);
   const [isOnboardingManual, setIsOnboardingManual] = useState(false);
 
@@ -141,7 +202,7 @@ const AppContent: React.FC = () => {
     const setupAuth = async () => {
       // Timeout guard: If auth hasn't resolved in 10s, fail gracefully
       authTimeout = setTimeout(() => {
-        if (isAuthLoading) {
+        if (authLoadingRef.current) {
           console.warn("Auth hydration timed out. Likely DNS or network issue.");
           setIsAuthLoading(false);
           setNetworkError("Connection Timeout: Is the internet or Supabase down?");
@@ -204,10 +265,6 @@ const AppContent: React.FC = () => {
     setActiveOrg(null);
   };
 
-  // Lifted Timer State
-  const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
-  const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
-  const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
   const [isAdminOnline, setIsAdminOnline] = useState(true);
   const [liveProgramId, setLiveProgramId] = useState<string | null>(null);
   const [liveProgram, setLiveProgram] = useState<Program | null>(null);
@@ -306,23 +363,6 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const timerStateRef = React.useRef({
-    programId: INITIAL_PROGRAM.id,
-    isTimerActive: false,
-    currentSlotIndex: 0,
-    secondsElapsed: 0,
-    timerStartTimestamp: null as number | null,
-  });
-
-  useEffect(() => {
-    timerStateRef.current = {
-      programId: program.id,
-      isTimerActive,
-      currentSlotIndex,
-      secondsElapsed,
-      timerStartTimestamp,
-    };
-  }, [program.id, isTimerActive, currentSlotIndex, secondsElapsed, timerStartTimestamp]);
 
   // Theme State
   // Theme State (Zustand)
@@ -707,6 +747,12 @@ const AppContent: React.FC = () => {
   }, [program.id, isReadOnly, location.pathname]);
 
   // Dedicated Admin Heartbeat for Background Live Program (Public Portal fix)
+  // Use refs to keep the subscription effect stable even when indices/timestamps change
+  const heartbeatStateRef = React.useRef({ liveCurrentSlotIndex, timerStartTimestamp });
+  useEffect(() => {
+    heartbeatStateRef.current = { liveCurrentSlotIndex, timerStartTimestamp };
+  }, [liveCurrentSlotIndex, timerStartTimestamp]);
+
   useEffect(() => {
     if (!liveProgramId || isReadOnly) return;
     if (liveProgramId === program.id) return;
@@ -722,9 +768,9 @@ const AppContent: React.FC = () => {
         liveRealtimeRef.current.sendSyncResponse({
           programId: liveProgramId,
           isTimerActive: true,
-          currentSlotIndex: liveCurrentSlotIndex,
+          currentSlotIndex: heartbeatStateRef.current.liveCurrentSlotIndex,
           secondsElapsed: 0, // Tick logic source of truth is timestamp
-          timerStartTimestamp: timerStartTimestamp // If A is live, timerStartTimestamp refers to A
+          timerStartTimestamp: heartbeatStateRef.current.timerStartTimestamp
         });
       },
       () => { },
@@ -735,47 +781,50 @@ const AppContent: React.FC = () => {
     return () => {
       liveRealtimeRef.current.unsubscribe();
     };
-  }, [liveProgramId, program.id, isReadOnly, liveCurrentSlotIndex, timerStartTimestamp]);
+  }, [liveProgramId, program.id, isReadOnly]); // removed liveCurrentSlotIndex, timerStartTimestamp
 
   // --- Local Sync Integration ---
   const onRequestSyncRef = React.useRef<() => void>(() => { });
 
+  const onLocalTimerState = React.useCallback((state: TimerState) => {
+    // Only accept if program ID matches
+    if (state.programId !== (programRef.current?.id || program.id)) return;
+
+    console.log('Local Sync: Timer:', state);
+    // Update local state
+    setCurrentSlotIndex(state.currentSlotIndex);
+    setIsTimerActive(state.isTimerActive);
+    setTimerStartTimestamp(state.timerStartTimestamp);
+
+    if (Object.prototype.hasOwnProperty.call(state, 'isOnHold')) {
+      setProgram(prev => ({ ...prev, isOnHold: state.isOnHold, holdMessage: state.holdMessage }));
+    }
+
+    if (state.isTimerActive && state.timerStartTimestamp) {
+      const now = Date.now();
+      const elapsed = Math.floor((now - state.timerStartTimestamp) / 1000);
+      setSecondsElapsed(elapsed);
+    } else {
+      setSecondsElapsed(state.secondsElapsed);
+    }
+  }, [program.id]);
+
+  const onLocalProgramUpdate = React.useCallback((updatedProgram: Program) => {
+    if (updatedProgram.id === (programRef.current?.id || program.id)) {
+      console.log('Local Sync: Program Update');
+      setProgram(updatedProgram);
+    }
+  }, [program.id]);
+
+  const onLocalRequestSync = React.useCallback(() => {
+    onRequestSyncRef.current();
+  }, []);
+
   const { broadcastTimerState, broadcastProgramUpdate, requestSync: requestLocalSync } = useLocalSync(
     'kairon_local_sync',
-    // onTimerState (Receive update from Controller)
-    (state) => {
-      // Only accept if program ID matches
-      if (state.programId !== program.id) return;
-
-      console.log('Local Sync: Timer:', state);
-      // Update local state
-      setCurrentSlotIndex(state.currentSlotIndex);
-      setIsTimerActive(state.isTimerActive);
-      setTimerStartTimestamp(state.timerStartTimestamp);
-
-      if (state.hasOwnProperty('isOnHold')) {
-        setProgram(prev => ({ ...prev, isOnHold: state.isOnHold, holdMessage: state.holdMessage }));
-      }
-
-      if (state.isTimerActive && state.timerStartTimestamp) {
-        const now = Date.now();
-        const elapsed = Math.floor((now - state.timerStartTimestamp) / 1000);
-        setSecondsElapsed(elapsed);
-      } else {
-        setSecondsElapsed(state.secondsElapsed);
-      }
-    },
-    // onProgramUpdate (Receive edit from Controller)
-    (updatedProgram) => {
-      if (updatedProgram.id === program.id) {
-        console.log('Local Sync: Program Update');
-        setProgram(updatedProgram);
-      }
-    },
-    // onRequestSync (Controller receives request from new Projector)
-    () => {
-      onRequestSyncRef.current();
-    }
+    onLocalTimerState,
+    onLocalProgramUpdate,
+    onLocalRequestSync
   );
 
   // Request sync on mount if we are a viewer (Projector)
@@ -1256,32 +1305,6 @@ const AppContent: React.FC = () => {
   if (location.pathname === '/stage') {
     return <StageWrapper />;
   }
-
-  // --- ANALYTICS WRAPPER ---
-  const AnalyticsWrapper = () => {
-    const { id } = useParams<{ id: string }>();
-    const [reportProgram, setReportProgram] = useState<Program | null>(null);
-    const [reportLoading, setReportLoading] = useState(true);
-
-    useEffect(() => {
-      if (!id) return;
-      void (async () => {
-        try {
-          const data = await getProgramById(id);
-          setReportProgram(data);
-        } catch (err) {
-          console.error("Failed to load analytics data:", err);
-        } finally {
-          setReportLoading(false);
-        }
-      })();
-    }, [id]);
-
-    if (reportLoading) return <div className="flex h-screen items-center justify-center dark:bg-slate-950"><span className="animate-spin text-indigo-500">⏳</span></div>;
-    if (!reportProgram) return <div className="p-12 text-center text-slate-500">Report not found.</div>;
-
-    return <AnalyticsDashboard program={reportProgram} />;
-  };
 
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
