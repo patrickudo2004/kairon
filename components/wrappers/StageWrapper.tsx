@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Program, Organization } from '../../types';
-import { getProgramById } from '../../services/programService';
+import { getProgramById, getPublicProgram } from '../../services/programService';
 import { getOrganizationById } from '../../services/orgService';
 import { RealtimeService, TimerState } from '../../services/realtimeService';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import StageDisplay from '../StageDisplay';
 
 const StageWrapper: React.FC = () => {
@@ -13,6 +14,7 @@ const StageWrapper: React.FC = () => {
     const [program, setProgram] = useState<Program | null>(null);
     const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
     const [loading, setLoading] = useState(true);
+    const [networkError, setNetworkError] = useState<string | null>(null);
 
     // Live State
     const [currentSlotIndex, setCurrentSlotIndex] = useState(0);
@@ -23,44 +25,66 @@ const StageWrapper: React.FC = () => {
     const [isAdminOnline, setIsAdminOnline] = useState(true);
     const [realtime] = useState(() => new RealtimeService());
 
-    // Initial Load
+    // Initial Load with Resilience
     useEffect(() => {
         if (!programId) {
             setLoading(false);
             return;
         }
 
-        const loadData = async () => {
+        let isMounted = true;
+        const connectionTimeout = setTimeout(() => {
+            if (loading && isMounted) {
+                console.warn("StageWrapper: Connection timeout reached.");
+                setNetworkError("Sync Timeout: The stage monitor is taking too long to connect.");
+                setLoading(false);
+            }
+        }, 10000);
+
+        const fetchData = async () => {
             try {
-                const data = await getProgramById(programId);
-                if (data) {
+                // Try private fetch first
+                let data = await getProgramById(programId);
+
+                // If private fails (e.g. unauthenticated), try public fallback
+                if (!data) {
+                    console.log("StageWrapper: Private access failed, trying public fallback...");
+                    data = await getPublicProgram(programId);
+                }
+
+                if (data && isMounted) {
                     setProgram(data);
                     setCurrentSlotIndex(data.currentSlotIndex ?? 0);
                     setIsTimerActive(data.isTimerActive ?? false);
                     setSecondsElapsed(data.secondsElapsed ?? 0);
                     setTimerStartTimestamp(data.timerStartTimestamp ?? null);
+                    setNetworkError(null);
+
+                    // Load Branding efficiently
+                    if (data.organizationId) {
+                        const org = await getOrganizationById(data.organizationId);
+                        if (org && isMounted) setActiveOrg(org);
+                    }
+                } else if (isMounted) {
+                    setNetworkError("Monitor Target Invalid: The program link is incorrect.");
                 }
             } catch (err) {
-                console.error("StageWrapper: Failed to load program:", err);
+                console.error("StageWrapper: Load failed:", err);
+                if (isMounted) setNetworkError("Sync Failure: Connection lost during heartbeat.");
             } finally {
-                setLoading(false);
-            }
-        };
-
-        const loadBranding = async () => {
-            try {
-                const data = await getProgramById(programId);
-                if (data?.organizationId) {
-                    const org = await getOrganizationById(data.organizationId);
-                    if (org) setActiveOrg(org);
+                if (isMounted) {
+                    setLoading(false);
+                    clearTimeout(connectionTimeout);
                 }
-            } catch (err) {
-                console.error("StageWrapper: Branding fetch failed:", err);
             }
         };
 
-        loadData();
-        loadBranding();
+        fetchData();
+
+        return () => {
+            isMounted = false;
+            clearTimeout(connectionTimeout);
+        };
     }, [programId]);
 
     // Realtime Subscription
@@ -138,16 +162,42 @@ const StageWrapper: React.FC = () => {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center">
                 <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
-                <p className="text-slate-500 font-medium tracking-widest uppercase text-xs">Syncing Stage Pulse...</p>
+                <p className="text-slate-500 font-medium tracking-[0.3em] uppercase text-[10px]">Syncing Stage Pulse...</p>
             </div>
         );
     }
 
-    if (!program) {
+    if (networkError || !program) {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center">
-                <h1 className="text-4xl font-bold text-white mb-4 uppercase tracking-tighter">No Stage Target</h1>
-                <p className="text-slate-500 max-w-md uppercase text-xs tracking-widest"> Please provide a valid Program ID to initiate this confidence monitor. </p>
+                <div className="max-w-md w-full bg-slate-900 rounded-[2.5rem] p-10 border border-slate-800 shadow-2xl">
+                    <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
+                        <AlertCircle className="text-emerald-500" size={40} />
+                    </div>
+
+                    <h1 className="text-2xl font-black text-white mb-2 tracking-tight uppercase tracking-tighter">Stage Disconnected</h1>
+                    <p className="text-slate-400 mb-10 leading-relaxed text-xs uppercase tracking-widest">
+                        {networkError || "Pulse connection failed. Verify program settings in the Admin console."}
+                    </p>
+
+                    <div className="text-left bg-black/40 p-5 rounded-2xl mb-10 border border-slate-800/50">
+                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Technical Context</h3>
+                        <p className="text-[10px] text-slate-600 font-mono break-all mb-1">
+                            P_ID: {programId}
+                        </p>
+                        <p className="text-[10px] text-slate-600 font-mono break-all uppercase">
+                            SRV: {import.meta.env.VITE_SUPABASE_URL?.replace('https://', '')}
+                        </p>
+                    </div>
+
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 uppercase tracking-widest text-xs"
+                    >
+                        <RefreshCw size={18} />
+                        Reconnect Pulse
+                    </button>
+                </div>
             </div>
         );
     }

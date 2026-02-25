@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Program, Organization } from '../../types';
-import { getProgramById } from '../../services/programService';
+import { getProgramById, getPublicProgram } from '../../services/programService';
 import { getOrganizationById } from '../../services/orgService';
 import { RealtimeService, TimerState } from '../../services/realtimeService';
+import { Bell, Wifi, WifiOff, AlertCircle, RefreshCw } from 'lucide-react';
 import TVView from '../TVView';
 
 const TVWrapper: React.FC = () => {
@@ -13,6 +14,7 @@ const TVWrapper: React.FC = () => {
     const [program, setProgram] = useState<Program | null>(null);
     const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
     const [loading, setLoading] = useState(true);
+    const [networkError, setNetworkError] = useState<string | null>(null);
     const [isDarkMode, setIsDarkMode] = useState(true); // Default to dark for TV
 
     // Live State
@@ -26,44 +28,66 @@ const TVWrapper: React.FC = () => {
 
     const toggleTheme = () => setIsDarkMode(prev => !prev);
 
-    // Initial Load
+    // Initial Load with Resilience
     useEffect(() => {
         if (!programId) {
             setLoading(false);
             return;
         }
 
-        const loadData = async () => {
+        let isMounted = true;
+        const connectionTimeout = setTimeout(() => {
+            if (loading && isMounted) {
+                console.warn("TVWrapper: Connection timeout reached.");
+                setNetworkError("Sync Timeout: The display is taking too long to connect.");
+                setLoading(false);
+            }
+        }, 10000);
+
+        const fetchData = async () => {
             try {
-                const data = await getProgramById(programId);
-                if (data) {
+                // Try private fetch first
+                let data = await getProgramById(programId);
+
+                // If private fails (e.g. unauthenticated), try public fallback
+                if (!data) {
+                    console.log("TVWrapper: Private access failed, trying public fallback...");
+                    data = await getPublicProgram(programId);
+                }
+
+                if (data && isMounted) {
                     setProgram(data);
                     setCurrentSlotIndex(data.currentSlotIndex ?? 0);
                     setIsTimerActive(data.isTimerActive ?? false);
                     setSecondsElapsed(data.secondsElapsed ?? 0);
                     setTimerStartTimestamp(data.timerStartTimestamp ?? null);
+                    setNetworkError(null);
+
+                    // Load Branding efficiently
+                    if (data.organizationId) {
+                        const org = await getOrganizationById(data.organizationId);
+                        if (org && isMounted) setActiveOrg(org);
+                    }
+                } else if (isMounted) {
+                    setNetworkError("Target Not Found: The program ID or link is invalid.");
                 }
             } catch (err) {
-                console.error("TVWrapper: Failed to load program:", err);
+                console.error("TVWrapper: Load failed:", err);
+                if (isMounted) setNetworkError("Network Failure: Could not reach Kairon services.");
             } finally {
-                setLoading(false);
-            }
-        };
-
-        const loadBranding = async () => {
-            try {
-                const data = await getProgramById(programId);
-                if (data?.organizationId) {
-                    const org = await getOrganizationById(data.organizationId);
-                    if (org) setActiveOrg(org);
+                if (isMounted) {
+                    setLoading(false);
+                    clearTimeout(connectionTimeout);
                 }
-            } catch (err) {
-                console.error("TVWrapper: Branding fetch failed:", err);
             }
         };
 
-        loadData();
-        loadBranding();
+        fetchData();
+
+        return () => {
+            isMounted = false;
+            clearTimeout(connectionTimeout);
+        };
     }, [programId]);
 
     // Realtime Subscription
@@ -137,16 +161,44 @@ const TVWrapper: React.FC = () => {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center">
                 <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
-                <p className="text-slate-500 font-medium">Connecting to Kairon Sync...</p>
+                <p className="text-slate-500 font-medium uppercase tracking-[0.2em] text-[10px]">Connecting to Kairon Sync...</p>
             </div>
         );
     }
 
-    if (!program) {
+    if (networkError || !program) {
         return (
-            <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center">
-                <h1 className="text-4xl font-bold text-white mb-4">Display Not Configured</h1>
-                <p className="text-slate-400 max-w-md"> Please use a link provided by the Admin to launch this projector. </p>
+            <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+                <div className="max-w-md w-full bg-slate-900 rounded-[2.5rem] p-10 border border-slate-800 shadow-2xl">
+                    <div className="w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
+                        <AlertCircle className="text-rose-500" size={40} />
+                    </div>
+
+                    <h1 className="text-2xl font-black text-white mb-2 tracking-tight">Sync Lost</h1>
+                    <p className="text-slate-400 mb-10 leading-relaxed text-sm">
+                        {networkError || "This display mode is not correctly configured or the program link has expired."}
+                    </p>
+
+                    <div className="text-left bg-black/40 p-5 rounded-2xl mb-10 border border-slate-800/50">
+                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Diagnostics</h3>
+                        <p className="text-[10px] text-slate-600 font-mono break-all mb-1">
+                            TARGET_ID: {programId}
+                        </p>
+                        <p className="text-[10px] text-slate-600 font-mono break-all uppercase">
+                            SRV: {import.meta.env.VITE_SUPABASE_URL?.replace('https://', '')}
+                        </p>
+                    </div>
+
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="w-full bg-white hover:bg-slate-100 text-black font-black py-4 rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                        <RefreshCw size={18} />
+                        Retry Connection
+                    </button>
+
+                    <p className="mt-6 text-[10px] text-slate-600 font-medium uppercase tracking-widest">Kairon Display Protocol v2.5</p>
+                </div>
             </div>
         );
     }
