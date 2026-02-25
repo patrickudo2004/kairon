@@ -212,6 +212,13 @@ export class RealtimeService {
     }
 
     /**
+     * Check if the service has an active, ready channel
+     */
+    isActive(): boolean {
+        return this.channel !== null;
+    }
+
+    /**
      * Unsubscribe from the current channel
      */
     unsubscribe(): void {

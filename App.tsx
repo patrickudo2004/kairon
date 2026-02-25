@@ -787,6 +787,10 @@ const AppContent: React.FC = () => {
 
   // Broadcast Helper (Supabase Realtime)
   const broadcastState = (overrides: Partial<TimerState> = {}) => {
+    if (!realtimeService.isActive()) {
+      console.log("Broadcast skipped: Channel not ready");
+      return;
+    }
     const now = Date.now();
     const hasStartOverride = Object.prototype.hasOwnProperty.call(overrides, 'timerStartTimestamp');
     const state: TimerState = {
@@ -937,8 +941,12 @@ const AppContent: React.FC = () => {
     if (isReadOnly || !isTimerActive) return;
 
     const pulse = setInterval(() => {
-      console.log("Continuity Pulse: Broadcasting current state...");
-      broadcastState();
+      if (realtimeService.isActive()) {
+        console.log("Continuity Pulse: Broadcasting current state...");
+        broadcastState();
+      } else {
+        console.log("Continuity Pulse skipped: Channel not ready");
+      }
     }, 15000); // 15s pulse
 
     return () => clearInterval(pulse);
