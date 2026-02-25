@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Power, Timer, Plus, Minus, Wifi, WifiOff } from 'lucide-react';
+import { Power, Timer, Plus, Minus, Wifi, WifiOff, BarChart3 } from 'lucide-react';
 
 interface ProductionHUDProps {
     isTimerActive: boolean;
     isAdminOnline: boolean;
     onEndEvent: () => void;
     onNudge: (minutes: number) => void;
+    onViewAnalytics: (id: string) => void;
     currentSlotTitle?: string;
+    programId?: string;
 }
 
 export const ProductionHUD: React.FC<ProductionHUDProps> = ({
@@ -14,7 +16,9 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
     isAdminOnline,
     onEndEvent,
     onNudge,
-    currentSlotTitle
+    onViewAnalytics,
+    currentSlotTitle,
+    programId
 }) => {
     const [holdToEnd, setHoldToEnd] = useState(0);
     const [isEnding, setIsEnding] = useState(false);
@@ -41,6 +45,7 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
         return () => clearInterval(interval);
     }, [isEnding, holdToEnd, onEndEvent]);
 
+    // If timer is not active, we can show a 'Review Report' state if a program was recently active
     if (!isTimerActive) return null;
 
     return (
@@ -83,6 +88,17 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                             <Plus size={18} />
                         </button>
                     </div>
+
+                    {programId && (
+                        <button
+                            onClick={() => onViewAnalytics(programId)}
+                            className="flex items-center gap-2 p-2 hover:bg-slate-800 text-amber-500 rounded-xl transition-colors"
+                            title="View Service Report"
+                        >
+                            <BarChart3 size={20} />
+                            <span className="hidden md:inline text-[10px] font-bold uppercase tracking-widest text-amber-500/80">Report</span>
+                        </button>
+                    )}
 
                     <div className="w-[1px] h-8 bg-slate-800 mx-2" />
 

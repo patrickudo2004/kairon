@@ -59,6 +59,7 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
             activeProgramId={activeProgramId}
             liveProgramId={liveProgramId}
             onSelectProgram={(p) => { loadProgram(p); navigate(`/editor?id=${p.id}&mode=${mode}`); }}
+            onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
             onCreateNew={() => { createProgram(new Date().toISOString().split('T')[0]); }}
             onDelete={deleteProgram}
             onDuplicate={duplicateProgram}

@@ -420,13 +420,27 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
 
             {/* Details Section (Collapsible) */}
             {expandedSlots.has(slot.id) && (
-              <div className="px-4 pb-4 pl-12 md:pl-36">
-                <textarea
-                  value={slot.details || ''}
-                  onChange={(e) => handleSlotChange(slot.id, 'details', e.target.value)}
-                  placeholder="Add notes, abstract, or detailed description for this slot..."
-                  className="w-full h-24 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none resize-none transition-colors"
-                />
+              <div className="px-4 pb-4 pl-12 md:pl-36 space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-wider">Public Details</label>
+                  <textarea
+                    value={slot.details || ''}
+                    onChange={(e) => handleSlotChange(slot.id, 'details', e.target.value)}
+                    placeholder="Add notes, abstract, or detailed description for this slot..."
+                    className="w-full h-24 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none resize-none transition-colors"
+                  />
+                </div>
+                <div className="pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
+                  <label className="block text-[10px] font-bold text-amber-500/80 uppercase mb-1 tracking-wider flex items-center gap-1">
+                    <AlertCircle size={10} /> Internal Production Cues (Staff Only)
+                  </label>
+                  <textarea
+                    value={slot.productionNotes || ''}
+                    onChange={(e) => handleSlotChange(slot.id, 'productionNotes', e.target.value)}
+                    placeholder="e.g. 'Ready acoustic guitar', 'Dim lights', 'Camera 2 focus on pulpit'..."
+                    className="w-full h-20 bg-amber-500/[0.03] dark:bg-amber-500/[0.05] border border-amber-500/20 dark:border-amber-500/10 rounded-lg p-3 text-sm text-slate-800 dark:text-amber-100/90 placeholder-amber-900/30 dark:placeholder-amber-400/20 focus:ring-1 focus:ring-amber-500/50 outline-none resize-none transition-colors"
+                  />
+                </div>
               </div>
             )}
           </div>

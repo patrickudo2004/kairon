@@ -70,6 +70,27 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                 {formatDuration(timeLeft)}
             </div>
 
+            {/* Production Cues Overlay */}
+            <div className="absolute top-[25vh] left-12 right-12 flex flex-col items-center gap-6 z-[50] pointer-events-none">
+                {currentSlot.productionNotes && (
+                    <div className="bg-amber-600/10 border-2 border-amber-500/20 rounded-2xl p-8 backdrop-blur-md max-w-4xl w-full text-center">
+                        <span className="text-xl font-bold uppercase tracking-[0.3em] text-amber-500 block mb-3">Staff Cue</span>
+                        <p className="text-4xl md:text-5xl font-black text-amber-100 uppercase leading-tight">
+                            {currentSlot.productionNotes}
+                        </p>
+                    </div>
+                )}
+
+                {program.slots[currentSlotIndex + 1] && (
+                    <div className="bg-slate-900/40 border border-slate-700/30 rounded-xl p-4 backdrop-blur-sm max-w-2xl w-full text-center opacity-60">
+                        <span className="text-sm font-bold uppercase tracking-widest text-[#555] block mb-1">Up Next Cue</span>
+                        <p className="text-xl font-bold text-slate-300 uppercase truncate">
+                            {program.slots[currentSlotIndex + 1].productionNotes || 'No notes'}
+                        </p>
+                    </div>
+                )}
+            </div>
+
             {/* Prompter Overlay - Full Screen Attention */}
             {promptMessage && (
                 <div className="fixed inset-0 z-[100] bg-rose-600 flex items-center justify-center p-12">

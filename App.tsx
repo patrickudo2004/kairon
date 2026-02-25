@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams, Navigate, useParams } from 'react-router-dom';
 import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -23,6 +23,7 @@ import ProgramEditor from './components/ProgramEditor';
 import CalendarView from './components/CalendarView';
 import HomeDashboard from './components/HomeDashboard';
 import PrintableSchedule from './components/PrintableSchedule';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ShareDialog from './components/ShareDialog';
 import TVView from './components/TVView';
 import { Auth } from './components/Auth';
@@ -1123,7 +1124,21 @@ const AppContent: React.FC = () => {
     if (isReadOnly) return;
     if (currentSlotIndex < program.slots.length) {
       const currentSlot = program.slots[currentSlotIndex];
-      handleSlotComplete(currentSlot.id, Math.round(secondsElapsed / 60));
+      const actualDur = Math.round(secondsElapsed / 60);
+      handleSlotComplete(currentSlot.id, actualDur);
+
+      // Persist the slot's performance data immediately
+      void (async () => {
+        try {
+          // Prepare updated slots array for persistence
+          const updatedSlots = program.slots.map(s =>
+            s.id === currentSlot.id ? { ...s, actualDuration: actualDur } : s
+          );
+          await updateProgramService({ ...program, slots: updatedSlots });
+        } catch (err) {
+          console.error("Failed to persist slot actual duration:", err);
+        }
+      })();
 
       if (currentSlotIndex < program.slots.length - 1) {
         setCurrentSlotIndex(prev => prev + 1);
@@ -1241,6 +1256,32 @@ const AppContent: React.FC = () => {
   if (location.pathname === '/stage') {
     return <StageWrapper />;
   }
+
+  // --- ANALYTICS WRAPPER ---
+  const AnalyticsWrapper = () => {
+    const { id } = useParams<{ id: string }>();
+    const [reportProgram, setReportProgram] = useState<Program | null>(null);
+    const [reportLoading, setReportLoading] = useState(true);
+
+    useEffect(() => {
+      if (!id) return;
+      void (async () => {
+        try {
+          const data = await getProgramById(id);
+          setReportProgram(data);
+        } catch (err) {
+          console.error("Failed to load analytics data:", err);
+        } finally {
+          setReportLoading(false);
+        }
+      })();
+    }, [id]);
+
+    if (reportLoading) return <div className="flex h-screen items-center justify-center dark:bg-slate-950"><span className="animate-spin text-indigo-500">⏳</span></div>;
+    if (!reportProgram) return <div className="p-12 text-center text-slate-500">Report not found.</div>;
+
+    return <AnalyticsDashboard program={reportProgram} />;
+  };
 
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
@@ -1458,6 +1499,8 @@ const AppContent: React.FC = () => {
                   />
                 } />
 
+                <Route path="/analytics/:id" element={<AnalyticsWrapper />} />
+
                 <Route path="/live" element={
                   <LiveTimer
                     program={program}
@@ -1591,11 +1634,13 @@ const AppContent: React.FC = () => {
 
       {!isReadOnly && liveProgramId && (
         <ProductionHUD
-          isTimerActive={true}
+          isTimerActive={isTimerActive}
           isAdminOnline={isAdminOnline}
           onEndEvent={handleEndEvent}
           onNudge={handleNudge}
+          onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
           currentSlotTitle={liveProgram?.slots[liveCurrentSlotIndex]?.title}
+          programId={liveProgramId}
         />
       )}
 
