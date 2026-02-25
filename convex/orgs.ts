@@ -40,3 +40,27 @@ export const createOrganization = mutation({
         return orgId;
     },
 });
+
+export const updateOrganizationBranding = mutation({
+    args: {
+        id: v.id("organizations"),
+        logoUrl: v.string(),
+        brandColor: v.string(),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.id, {
+            logoUrl: args.logoUrl,
+            brandColor: args.brandColor,
+        });
+    },
+});
+
+export const getOrgMembers = query({
+    args: { organizationId: v.id("organizations") },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("members")
+            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+            .collect();
+    },
+});
