@@ -4,9 +4,11 @@ import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, M
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Services
+import { ConvexProvider } from "convex/react";
+import { convex } from "./services/convexClient";
 import { realtimeService, RealtimeService, TimerState } from './services/realtimeService';
 import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService } from './services/programService';
-import { getProfile, signOut as signOutService } from './services/authService';
+import { getProfile, signOut as signOutService, getSession } from './services/authService';
 import { getMyOrganizations } from './services/orgService';
 import { rebalanceSchedule } from './services/geminiService';
 import { supabase } from './services/supabaseClient';
@@ -203,61 +205,24 @@ const AppContent: React.FC = () => {
 
   // Handle Auth Session
   useEffect(() => {
-    let sub: { unsubscribe: () => void } | null = null;
-    let authTimeout: NodeJS.Timeout;
-
     const setupAuth = async () => {
-      // Timeout guard: If auth hasn't resolved in 30s, fail gracefully
-      authTimeout = setTimeout(() => {
-        if (authLoadingRef.current) {
-          console.warn("Auth hydration timed out. Likely DNS or network issue.");
-          setIsAuthLoading(false);
-          setNetworkError("Connection Timeout: The application is taking too long to connect to the authentication service. Please check your internet connection.");
-        }
-      }, 30000);
-
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          const p = await getProfile(session.user.id);
+        const session = getSession();
+        setUser(session);
+        if (session) {
+          const p = await getProfile(session.id);
           setProfile(p);
         }
       } catch (err) {
         console.error("Auth hydration failed:", err);
-        setNetworkError("Failed to connect to authentication service.");
       } finally {
         setIsAuthLoading(false);
         setIsDataHydrated(true);
-        clearTimeout(authTimeout);
       }
-
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        // Only trigger loading if we are actually fetching a new profile
-        try {
-          setUser(session?.user ?? null);
-          if (session?.user) {
-            const p = await getProfile(session.user.id);
-            setProfile(p);
-          } else {
-            setProfile(null);
-          }
-        } catch (err) {
-          console.error("Auth change handling failed:", err);
-        } finally {
-          setIsAuthLoading(false);
-        }
-      });
-      sub = subscription;
     };
 
     setupAuth();
-
-    return () => {
-      if (sub) sub.unsubscribe();
-      if (authTimeout) clearTimeout(authTimeout);
-    };
-  }, [authRetryCount]);
+  }, []);
 
   const loadProfile = async (userId: string) => {
     const p = await getProfile(userId);
@@ -1717,11 +1682,13 @@ const queryClient = new QueryClient();
 
 const App: React.FC = () => {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ConvexProvider client={convex}>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ConvexProvider>
   );
 };
 

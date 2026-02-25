@@ -1,226 +1,65 @@
-// Program Service for Kairon
-import { supabase } from './supabaseClient';
+// Program Service for Kairon (Convex Implementation)
+import { convex } from './convexClient';
+import { api } from '../convex/_generated/api';
 import { Program, Slot } from '../types';
 
 export const getPrograms = async (organizationId?: string): Promise<Program[]> => {
-    let query = supabase
-        .from('programs')
-        .select(`
-      *,
-      slots (*)
-    `)
-        .order('created_at', { ascending: false });
+    if (!organizationId) return [];
 
-    if (organizationId) {
-        query = query.eq('organization_id', organizationId);
-    }
+    const data = await convex.query(api.programs.getPrograms, {
+        organizationId: organizationId as any
+    });
 
-    const { data, error } = await query;
-
-    if (error) {
-        console.error("Supabase Error [getPrograms]:", error.message, error.details, error.hint);
-        throw error;
-    }
-
-    // Transform data
-    // (e.g. converting snake_case DB columns to camelCase if they differed, but I tried to keep them similar.
-    // Wait, my SQL used snake_case for some fields (duration_minutes, start_time) but TS uses camelCase.
-    // I must map them.)
-
-    return (data || []).map((p: any) => ({
-        id: p.id,
-        title: p.title,
-        subtitle: p.subtitle,
-        date: p.date,
-        startTime: p.start_time,
-        endTime: p.end_time,
-        currentSlotIndex: p.current_slot_index,
-        isTimerActive: p.is_timer_active,
-        timerStartTimestamp: p.timer_start_timestamp,
-        secondsElapsed: p.seconds_elapsed,
-        isManualMode: p.manual_mode,
-        isOnHold: p.is_on_hold,
-        holdMessage: p.hold_message,
-        status: p.status,
-        slug: p.slug,
-        isPublic: p.is_public,
-        slots: (p.slots || []).map((s: any) => ({
-            id: s.id,
-            title: s.title,
-            speaker: s.speaker,
-            durationMinutes: s.duration_minutes,
-            type: s.type,
-            details: s.details,
-            productionNotes: s.production_notes,
-            actualDuration: s.actual_duration,
-            order: s.order
-        })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
-    }));
+    return (data || []).map(transformProgram);
 };
 
 export const getProgramById = async (id: string): Promise<Program | null> => {
-    const { data, error } = await supabase
-        .from('programs')
-        .select(`
-      *,
-      slots (*)
-    `)
-        .eq('id', id)
-        .single();
-
-    if (error) {
-        console.error("Error fetching program:", error);
-        return null;
-    }
-
+    const data = await convex.query(api.programs.getProgramById, { id: id as any });
     if (!data) return null;
-
-    const p = data;
-    return {
-        id: p.id,
-        title: p.title,
-        subtitle: p.subtitle,
-        date: p.date,
-        startTime: p.start_time,
-        endTime: p.end_time,
-        currentSlotIndex: p.current_slot_index,
-        isTimerActive: p.is_timer_active,
-        timerStartTimestamp: p.timer_start_timestamp,
-        secondsElapsed: p.seconds_elapsed,
-        isManualMode: p.manual_mode,
-        isOnHold: p.is_on_hold,
-        holdMessage: p.hold_message,
-        status: p.status,
-        slug: p.slug,
-        isPublic: p.is_public,
-        slots: (p.slots || []).map((s: any) => ({
-            id: s.id,
-            title: s.title,
-            speaker: s.speaker,
-            durationMinutes: s.duration_minutes,
-            type: s.type,
-            details: s.details,
-            productionNotes: s.production_notes,
-            actualDuration: s.actual_duration,
-            order: s.order
-        })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
-    };
+    return transformProgram(data);
 };
 
 export const createProgram = async (program: Program): Promise<Program> => {
     if (!program.organizationId) {
         throw new Error("Organization ID is mandatory for program creation.");
     }
-    // 1. Insert Program
-    const { data: pData, error: pError } = await supabase
-        .from('programs')
-        .insert({
-            id: program.id,
-            title: program.title,
-            subtitle: program.subtitle,
-            date: program.date,
-            start_time: program.startTime,
-            end_time: program.endTime,
-            organization_id: program.organizationId,
-            estimated_attendees: program.estimatedAttendees,
-            average_hourly_rate: program.averageHourlyRate,
-            slug: program.slug,
-            is_public: program.isPublic,
-            status: program.status
-        })
-        .select()
-        .single();
 
-    if (pError) throw pError;
+    const id = await convex.mutation(api.programs.createProgram, {
+        title: program.title,
+        subtitle: program.subtitle,
+        date: program.date,
+        startTime: program.startTime,
+        organizationId: program.organizationId as any,
+        slots: program.slots
+    });
 
-    // 2. Insert Slots if any
-    if (program.slots.length > 0) {
-        const slotsToInsert = program.slots.map((s, index) => ({
-            id: s.id,
-            program_id: program.id,
-            title: s.title,
-            speaker: s.speaker,
-            duration_minutes: s.durationMinutes,
-            type: s.type,
-            details: s.details,
-            production_notes: s.productionNotes,
-            actual_duration: s.actualDuration,
-            "order": index // We need to persist order!
-        }));
-
-        const { error: sError } = await supabase
-            .from('slots')
-            .insert(slotsToInsert);
-
-        if (sError) throw sError;
-    }
-
-    return program;
+    return { ...program, id: id as string };
 };
 
 export const updateProgram = async (program: Program): Promise<void> => {
-    // 1. Update Program Details
-    const { error: pError } = await supabase
-        .from('programs')
-        .update({
+    await convex.mutation(api.programs.updateProgram, {
+        id: program.id as any,
+        patch: {
             title: program.title,
             subtitle: program.subtitle,
             date: program.date,
-            start_time: program.startTime,
-            end_time: program.endTime,
-            manual_mode: program.isManualMode,
-            is_on_hold: program.isOnHold,
-            hold_message: program.holdMessage,
+            startTime: program.startTime,
+            endTime: program.endTime,
+            isManualMode: program.isManualMode,
+            isOnHold: program.isOnHold,
+            holdMessage: program.holdMessage,
             slug: program.slug,
-            is_public: program.isPublic,
+            isPublic: program.isPublic,
             status: program.status,
-            estimated_attendees: program.estimatedAttendees,
-            average_hourly_rate: program.averageHourlyRate,
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', program.id);
-
-    if (pError) throw pError;
-
-    // 2. Sync Slots (Full Replace Strategy for prototype simplicity)
-    // Delete all existing slots for this program
-    const { error: dError } = await supabase
-        .from('slots')
-        .delete()
-        .eq('program_id', program.id);
-
-    if (dError) throw dError;
-
-    // Insert new slots
-    if (program.slots.length > 0) {
-        const slotsToInsert = program.slots.map((s, index) => ({
-            id: s.id,
-            program_id: program.id,
-            title: s.title,
-            speaker: s.speaker,
-            duration_minutes: s.durationMinutes,
-            type: s.type,
-            details: s.details,
-            production_notes: s.productionNotes,
-            actual_duration: s.actualDuration,
-            "order": index
-        }));
-
-        const { error: sError } = await supabase
-            .from('slots')
-            .insert(slotsToInsert);
-
-        if (sError) throw sError;
-    }
+            estimatedAttendees: program.estimatedAttendees,
+            averageHourlyRate: program.averageHourlyRate,
+            slots: program.slots
+        }
+    });
 };
 
 export const deleteProgram = async (id: string): Promise<void> => {
-    const { error } = await supabase
-        .from('programs')
-        .delete()
-        .eq('id', id);
-
-    if (error) throw error;
+    await convex.mutation(api.programs.deleteProgram, { id: id as any });
 };
 
 export const updateTimerState = async (programId: string, state: {
@@ -231,91 +70,62 @@ export const updateTimerState = async (programId: string, state: {
     isOnHold?: boolean;
     holdMessage?: string;
 }): Promise<void> => {
-    const { error } = await supabase
-        .from('programs')
-        .update({
-            current_slot_index: state.currentSlotIndex,
-            is_timer_active: state.isTimerActive,
-            seconds_elapsed: state.secondsElapsed,
-            timer_start_timestamp: state.timerStartTimestamp,
-            is_on_hold: state.isOnHold,
-            hold_message: state.holdMessage,
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', programId);
-
-    if (error) throw error;
+    await convex.mutation(api.programs.updateTimerState, {
+        id: programId as any,
+        timerState: {
+            currentSlotIndex: state.currentSlotIndex,
+            isTimerActive: state.isTimerActive,
+            secondsElapsed: state.secondsElapsed,
+            timerStartTimestamp: state.timerStartTimestamp,
+        }
+    });
 };
 
 export const getPublicProgram = async (slugOrId: string): Promise<Program | null> => {
-    console.log("Searching for public program:", slugOrId);
-
     // 1. Try slug first
-    const { data: slugData, error: slugError } = await supabase
-        .from('programs')
-        .select(`*, slots (*)`)
-        .eq('slug', slugOrId)
-        .eq('is_public', true)
-        .maybeSingle();
-
-    if (slugData) {
-        console.log("Found program by slug:", slugData.title);
-        return transformProgram(slugData);
+    const dataBySlug = await convex.query(api.programs.getProgramBySlug, { slug: slugOrId });
+    if (dataBySlug && dataBySlug.isPublic) {
+        return transformProgram(dataBySlug);
     }
 
-    // 2. Try ID fallback (only if slugOrId is a valid UUID)
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId);
-
-    if (isUuid) {
-        const { data: idData, error: idError } = await supabase
-            .from('programs')
-            .select(`*, slots (*)`)
-            .eq('id', slugOrId)
-            .eq('is_public', true)
-            .maybeSingle();
-
-        if (idData) {
-            console.log("Found program by ID:", idData.title);
-            return transformProgram(idData);
-        }
-        if (idError) console.error("ID Lookup Error:", idError);
-    } else {
-        console.log("Not a UUID, skipping ID lookup.");
+    // 2. Try ID fallback
+    const dataById = await convex.query(api.programs.getProgramById, { id: slugOrId as any });
+    if (dataById && dataById.isPublic) {
+        return transformProgram(dataById);
     }
 
-    if (slugError) console.error("Slug Lookup Error:", slugError);
-
-    console.warn("No public program found for:", slugOrId);
     return null;
 };
 
-// Helper to transform snake_case to camelCase
+// Helper to transform Convex document to our Program type
 const transformProgram = (p: any): Program => ({
-    id: p.id,
+    id: p._id || p.id,
     title: p.title,
     subtitle: p.subtitle,
     date: p.date,
-    startTime: p.start_time,
-    endTime: p.end_time,
-    currentSlotIndex: p.current_slot_index,
-    isTimerActive: p.is_timer_active,
-    timerStartTimestamp: p.timer_start_timestamp,
-    secondsElapsed: p.seconds_elapsed,
-    isManualMode: p.manual_mode,
-    isOnHold: p.is_on_hold,
-    holdMessage: p.hold_message,
+    startTime: p.startTime,
+    endTime: p.endTime,
+    currentSlotIndex: p.currentSlotIndex,
+    isTimerActive: p.isTimerActive,
+    timerStartTimestamp: p.timerStartTimestamp,
+    secondsElapsed: p.secondsElapsed,
+    isManualMode: p.isManualMode,
+    isOnHold: p.isOnHold,
+    holdMessage: p.holdMessage,
     status: p.status,
     slug: p.slug,
-    isPublic: p.is_public,
+    isPublic: p.isPublic,
+    organizationId: p.organizationId,
+    estimatedAttendees: p.estimatedAttendees,
+    averageHourlyRate: p.averageHourlyRate,
     slots: (p.slots || []).map((s: any) => ({
         id: s.id,
         title: s.title,
         speaker: s.speaker,
-        durationMinutes: s.duration_minutes,
+        durationMinutes: s.durationMinutes,
         type: s.type,
         details: s.details,
-        productionNotes: s.production_notes,
-        actualDuration: s.actual_duration,
-        order: s.order
-    })).sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+        productionNotes: s.productionNotes,
+        actualDuration: s.actualDuration
+    }))
 });
