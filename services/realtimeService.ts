@@ -212,10 +212,17 @@ export class RealtimeService {
     }
 
     /**
+     * Get the current status of the channel
+     */
+    getStatus(): string {
+        return this.channel?.state || 'closed';
+    }
+
+    /**
      * Check if the service has an active, ready channel
      */
     isActive(): boolean {
-        return this.channel !== null;
+        return this.channel !== null && this.channel.state === 'joined';
     }
 
     /**
