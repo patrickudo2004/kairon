@@ -43,6 +43,14 @@ export const getProfile = async (userId: string): Promise<Profile | null> => {
     };
 };
 
+export const updateProfile = async (userId: string, patch: { fullName?: string, avatarUrl?: string }): Promise<void> => {
+    await convex.mutation(api.profiles.upsertProfile, {
+        userId,
+        fullName: patch.fullName || "Kairon Developer",
+        avatarUrl: patch.avatarUrl
+    });
+};
+
 export const upsertProfile = async (userId: string, fullName: string, avatarUrl?: string): Promise<void> => {
     await convex.mutation(api.profiles.upsertProfile, { userId, fullName, avatarUrl });
 };
