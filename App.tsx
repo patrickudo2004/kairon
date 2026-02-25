@@ -140,6 +140,13 @@ const AppContent: React.FC = () => {
   const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [isDataHydrated, setIsDataHydrated] = useState(false);
+  const [authRetryCount, setAuthRetryCount] = useState(0);
+
+  const retryAuth = () => {
+    setIsAuthLoading(true);
+    setNetworkError(null);
+    setAuthRetryCount(prev => prev + 1);
+  };
 
   // Fetch all organizations for the user
   const { data: userOrganizations = [] } = useQuery({
@@ -200,14 +207,14 @@ const AppContent: React.FC = () => {
     let authTimeout: NodeJS.Timeout;
 
     const setupAuth = async () => {
-      // Timeout guard: If auth hasn't resolved in 10s, fail gracefully
+      // Timeout guard: If auth hasn't resolved in 30s, fail gracefully
       authTimeout = setTimeout(() => {
         if (authLoadingRef.current) {
           console.warn("Auth hydration timed out. Likely DNS or network issue.");
           setIsAuthLoading(false);
-          setNetworkError("Connection Timeout: Is the internet or Supabase down?");
+          setNetworkError("Connection Timeout: The application is taking too long to connect to the authentication service. Please check your internet connection.");
         }
-      }, 10000);
+      }, 30000);
 
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -250,7 +257,7 @@ const AppContent: React.FC = () => {
       if (sub) sub.unsubscribe();
       if (authTimeout) clearTimeout(authTimeout);
     };
-  }, []);
+  }, [authRetryCount]);
 
   const loadProfile = async (userId: string) => {
     const p = await getProfile(userId);
@@ -1465,6 +1472,28 @@ const AppContent: React.FC = () => {
             {isAuthLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : networkError ? (
+              <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
+                <div className="w-16 h-16 bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mb-6">
+                  <WifiOff size={32} />
+                </div>
+                <h2 className="text-2xl font-bold mb-2">Connection Issues</h2>
+                <p className="text-slate-500 dark:text-slate-400 mb-8">{networkError}</p>
+                <div className="flex flex-col gap-3 w-full">
+                  <button
+                    onClick={retryAuth}
+                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2"
+                  >
+                    <Sparkles size={18} /> Try Again
+                  </button>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="w-full py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-semibold transition-all"
+                  >
+                    Refresh Page
+                  </button>
+                </div>
               </div>
             ) : !user ? (
               <Auth />
