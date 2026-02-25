@@ -12,6 +12,15 @@ export const createOrganization = async (name: string, slug: string, userId: str
     return await convex.mutation(api.orgs.createOrganization, { name, slug, userId });
 };
 
+export const updateOrganizationBranding = async (orgId: string, logoUrl: string, brandColor: string): Promise<void> => {
+    await convex.mutation(api.orgs.updateOrganizationBranding, { id: orgId as any, logoUrl, brandColor });
+};
+
+export const getOrgMembers = async (orgId: string): Promise<any[]> => {
+    const data = await convex.query(api.orgs.getOrgMembers, { organizationId: orgId as any });
+    return data || [];
+};
+
 const transformOrg = (o: any): Organization => ({
     id: o._id,
     name: o.name,
