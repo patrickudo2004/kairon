@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
+import type * as authQueries from "../authQueries.js";
 import type * as orgs from "../orgs.js";
 import type * as profiles from "../profiles.js";
 import type * as programs from "../programs.js";
@@ -19,6 +21,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
+  authQueries: typeof authQueries;
   orgs: typeof orgs;
   profiles: typeof profiles;
   programs: typeof programs;
