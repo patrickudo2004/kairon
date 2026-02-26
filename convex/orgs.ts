@@ -17,6 +17,22 @@ export const getMyOrganizations = query({
     },
 });
 
+export const getOrganizationById = query({
+    args: { id: v.string() },
+    handler: async (ctx, args) => {
+        // Handle both raw ID strings and Convex IDs if needed
+        let orgId;
+        try {
+            orgId = ctx.db.normalizeId("organizations", args.id);
+        } catch (e) {
+            return null;
+        }
+
+        if (!orgId) return null;
+        return await ctx.db.get(orgId);
+    },
+});
+
 export const createOrganization = mutation({
     args: {
         name: v.string(),
@@ -37,7 +53,8 @@ export const createOrganization = mutation({
             role: "admin",
         });
 
-        return orgId;
+        const org = await ctx.db.get(orgId);
+        return org;
     },
 });
 

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Program, Organization } from '../types';
-import { supabase } from '../services/supabaseClient';
 import { formatDuration } from '../utils/time';
 import { useStageMessages } from '../hooks/useStageMessages';
 
