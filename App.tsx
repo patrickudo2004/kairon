@@ -4,14 +4,15 @@ import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, M
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Services
-import { ConvexProvider } from "convex/react";
+import { ConvexAuthProvider } from "@convex-dev/auth/react";
+import { useConvexAuth, useQuery as useConvexQuery } from "convex/react";
+import { api } from "./convex/_generated/api";
 import { convex } from "./services/convexClient";
 import { realtimeService, RealtimeService, TimerState } from './services/realtimeService';
 import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService } from './services/programService';
-import { getProfile, signOut as signOutService, getSession } from './services/authService';
+import { getProfile } from './services/authService';
 import { getMyOrganizations } from './services/orgService';
 import { rebalanceSchedule } from './services/geminiService';
-import { supabase } from './services/supabaseClient';
 
 // Store & Hooks
 import { useUIStore } from './store/uiStore';
@@ -54,7 +55,6 @@ import { encodeProgramData, decodeProgramData } from './utils/encoding';
 import { INITIAL_PROGRAM } from './utils/constants';
 
 import { Monitor, User as UserIcon, Building, MessageSquare, Bell, Clock, Crown, SkipForward, Pause } from 'lucide-react';
-import { User as SupabaseUser } from '@supabase/supabase-js';
 
 // --- Analytics Wrapper (Dedicated Component to avoid render loops) ---
 const AnalyticsWrapper: React.FC = () => {
@@ -136,7 +136,18 @@ const AppContent: React.FC = () => {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
 
   // --- Auth & Org State ---
-  const [user, setUser] = useState<SupabaseUser | null>(null);
+  // Use real Convex Auth hooks
+  const { isAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
+  const convexUser = useConvexQuery(
+    api.authQueries.getCurrentUser,
+    isAuthenticated ? {} : "skip"
+  );
+
+  // Derive a simple user object compatible with existing code
+  const user = isAuthenticated && convexUser
+    ? { id: convexUser.id as string, email: convexUser.email as string | undefined }
+    : null;
+
   const [profile, setProfile] = useState<Profile | null>(null);
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
@@ -177,6 +188,9 @@ const AppContent: React.FC = () => {
     authLoadingRef.current = isAuthLoading;
   }, [isAuthLoading]);
 
+  // Auth is considered loading while Convex Auth is loading
+  const effectiveAuthLoading = isConvexAuthLoading;
+
   const [isOnline, setIsOnline] = useState(window.navigator.onLine);
   const [isOnboardingManual, setIsOnboardingManual] = useState(false);
 
@@ -203,26 +217,27 @@ const AppContent: React.FC = () => {
     };
   }, []);
 
-  // Handle Auth Session
+  // Handle Auth Session - now driven by Convex Auth state
   useEffect(() => {
     const setupAuth = async () => {
       try {
-        const session = getSession();
-        setUser(session);
-        if (session) {
-          const p = await getProfile(session.id);
+        if (user?.id) {
+          const p = await getProfile(user.id);
           setProfile(p);
+        } else {
+          setProfile(null);
         }
       } catch (err) {
         console.error("Auth hydration failed:", err);
       } finally {
-        setIsAuthLoading(false);
         setIsDataHydrated(true);
       }
     };
 
-    setupAuth();
-  }, []);
+    if (!isConvexAuthLoading) {
+      setupAuth();
+    }
+  }, [user?.id, isConvexAuthLoading]);
 
   const loadProfile = async (userId: string) => {
     const p = await getProfile(userId);
@@ -230,9 +245,8 @@ const AppContent: React.FC = () => {
   };
 
   const handleSignOut = async () => {
-    await signOutService();
+    // useAuthActions hook handles sign out in components that need to trigger it
     setProfile(null);
-    setUser(null);
     setActiveOrgId(null);
     setActiveOrg(null);
   };
@@ -1298,7 +1312,7 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {user && (userOrganizations.length === 0 || isOnboardingManual) && !isAuthLoading && (
+      {user && (userOrganizations.length === 0 || isOnboardingManual) && !effectiveAuthLoading && (
         <OnboardingOverlay
           userEmail={user.email || ''}
           onOrgCreated={(newOrg) => {
@@ -1434,7 +1448,7 @@ const AppContent: React.FC = () => {
 
         <main className="flex-1 overflow-y-auto pb-20 md:pb-0 relative custom-scrollbar">
           <div className="max-w-7xl mx-auto p-4 md:p-8 h-full">
-            {isAuthLoading ? (
+            {effectiveAuthLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
@@ -1682,13 +1696,13 @@ const queryClient = new QueryClient();
 
 const App: React.FC = () => {
   return (
-    <ConvexProvider client={convex}>
+    <ConvexAuthProvider client={convex}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AppContent />
         </BrowserRouter>
       </QueryClientProvider>
-    </ConvexProvider>
+    </ConvexAuthProvider>
   );
 };
 
