@@ -1,0 +1,2 @@
+id,name,slug,logo_url,theme_colors,created_at,created_by,brand_color,subscription_status,stripe_customer_id
+92ee3e25-4a2d-4ea0-83e9-530292375c9c,Winners Chapel,winners-chapel,,"{""primary"": ""#6366f1"", ""secondary"": ""#4f46e5""}",2026-02-22 16:53:27.42671+00,3149c1cb-56da-4c17-a19f-db953e3bba60,,free,

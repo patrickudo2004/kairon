@@ -56,6 +56,39 @@ export const createProgram = mutation({
     },
 });
 
+// Used exclusively by the migration script to import all fields from Supabase
+export const migrateProgram = mutation({
+    args: {
+        title: v.string(),
+        subtitle: v.string(),
+        date: v.string(),
+        startTime: v.string(),
+        endTime: v.optional(v.string()),
+        organizationId: v.id("organizations"),
+        slots: v.array(v.any()),
+        estimatedAttendees: v.optional(v.number()),
+        averageHourlyRate: v.optional(v.number()),
+        isManualMode: v.optional(v.boolean()),
+        isOnHold: v.optional(v.boolean()),
+        slug: v.optional(v.string()),
+        isPublic: v.optional(v.boolean()),
+        status: v.optional(v.union(v.literal("draft"), v.literal("live"), v.literal("concluded"))),
+        currentSlotIndex: v.optional(v.number()),
+        isTimerActive: v.optional(v.boolean()),
+        secondsElapsed: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db.insert("programs", {
+            ...args,
+            status: args.status ?? "draft",
+            isTimerActive: args.isTimerActive ?? false,
+            secondsElapsed: args.secondsElapsed ?? 0,
+            currentSlotIndex: args.currentSlotIndex ?? 0,
+        });
+    },
+});
+
+
 export const updateProgram = mutation({
     args: {
         id: v.id("programs"),
