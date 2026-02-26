@@ -1,19 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User as SupabaseUser } from '@supabase/supabase-js';
+import { useAuthActions } from '@convex-dev/auth/react';
 import { User, LogOut, Settings, Check, UserCircle, Sun, Moon } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { Profile } from '../types';
-import { signOut, updateProfile } from '../services/authService';
+import { updateProfile } from '../services/authService';
 import { Link } from 'react-router-dom';
 
 interface ProfileDropdownProps {
-    user: SupabaseUser;
+    user: { id: string; email?: string };
     profile: Profile | null;
     onProfileUpdate: (newProfile: Profile) => void;
+    handleSignOut?: () => void;
     isCollapsed?: boolean;
 }
 
-export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile, onProfileUpdate, isCollapsed = false }) => {
+export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile, onProfileUpdate, handleSignOut: onSignOutProp, isCollapsed = false }) => {
+    const { signOut } = useAuthActions();
     const [isOpen, setIsOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [newName, setNewName] = useState(profile?.fullName || '');
@@ -35,7 +37,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile,
     const handleSignOut = async () => {
         try {
             await signOut();
-            window.location.reload();
+            if (onSignOutProp) onSignOutProp();
         } catch (err) {
             console.error("Failed to sign out:", err);
         }
