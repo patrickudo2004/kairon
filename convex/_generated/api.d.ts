@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as authQueries from "../authQueries.js";
+import type * as http from "../http.js";
 import type * as orgs from "../orgs.js";
 import type * as profiles from "../profiles.js";
 import type * as programs from "../programs.js";
@@ -23,6 +24,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authQueries: typeof authQueries;
+  http: typeof http;
   orgs: typeof orgs;
   profiles: typeof profiles;
   programs: typeof programs;
