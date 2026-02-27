@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@auth/core": "^0.37.4",
     "@convex-dev/auth": "^0.0.90",
     "@google/genai": "^1.30.0",
     "@supabase/supabase-js": "^2.87.1",
