@@ -2,26 +2,23 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
 export const getLatestMessage = query({
-    args: { programId: v.string() },
+    args: { programId: v.any() },
     handler: async (ctx, args) => {
-        if (!args.programId) return null;
+        if (typeof args.programId !== "string" || !args.programId) {
+            return null;
+        }
 
         try {
             const now = Date.now();
-            // Fetch all messages for this program and filter in memory for maximum safety
-            // (Assuming few messages per program, which is true here)
-            const allMessages = await ctx.db
+            return await ctx.db
                 .query("stageMessages")
-                .collect();
-
-            const validMessages = allMessages
-                .filter(m => m.programId === args.programId && m.expiresAt > now)
-                .sort((a, b) => b.timestamp - a.timestamp);
-
-            return validMessages[0] || null;
+                .withIndex("by_program_latest", (q) => q.eq("programId", args.programId))
+                .order("desc")
+                .filter((q) => q.gt(q.field("expiresAt"), now))
+                .first();
         } catch (err) {
-            console.error("Critical error in getLatestMessage:", err);
-            return null; // Don't crash the client
+            console.error(`[stageMessages:getLatestMessage] Error for program ${args.programId}:`, err);
+            return null;
         }
     },
 });
