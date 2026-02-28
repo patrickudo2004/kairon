@@ -4,7 +4,7 @@ import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, M
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Services
-import { ConvexAuthProvider } from "@convex-dev/auth/react";
+import { ConvexAuthProvider, useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery as useConvexQuery } from "convex/react";
 import { api } from "./convex/_generated/api";
 import { convex } from "./services/convexClient";
@@ -138,6 +138,7 @@ const AppContent: React.FC = () => {
   // --- Auth & Org State ---
   // Use real Convex Auth hooks
   const { isAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
+  const { signOut } = useAuthActions();
   const convexUser = useConvexQuery(
     api.authQueries.getCurrentUser,
     isAuthenticated ? {} : "skip"
@@ -246,6 +247,7 @@ const AppContent: React.FC = () => {
 
   const handleSignOut = async () => {
     // useAuthActions hook handles sign out in components that need to trigger it
+    await signOut();
     setProfile(null);
     setActiveOrgId(null);
     setActiveOrg(null);
@@ -1302,7 +1304,7 @@ const AppContent: React.FC = () => {
           profile={profile}
           user={user}
           onProfileUpdate={setProfile}
-          handleSignOut={signOutService}
+          handleSignOut={handleSignOut}
           isOnline={isOnline}
           programTitle={program.title}
           liveProgramTitle={liveProgram?.title}

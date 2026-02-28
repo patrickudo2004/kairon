@@ -1,0 +1,33 @@
+2/27/2026, 1:59:47 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: verifier'
+2/27/2026, 1:59:48 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: verifierSignature'
+2/27/2026, 2:00:41 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: userOAuth'
+2/27/2026, 2:00:44 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: verifyCodeAndSignIn'
+2/27/2026, 2:00:44 PM [CONVEX M(auth:store)] Uncaught Error: Missing environment variable `JWT_PRIVATE_KEY`
+
+2/27/2026, 2:00:44 PM [CONVEX A(auth:signIn)] Uncaught Error: Uncaught Error: Missing environment variable `JWT_PRIVATE_KEY`
+
+
+2/27/2026, 2:19:05 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: verifier'
+2/27/2026, 2:19:05 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: verifierSignature'
+2/27/2026, 2:19:13 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: userOAuth'
+2/27/2026, 2:19:14 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: verifyCodeAndSignIn'
+2/27/2026, 2:19:15 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: refreshSession'
+2/27/2026, 2:19:15 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: refreshSession'
+2/27/2026, 2:19:31 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: verifier'
+2/27/2026, 2:19:31 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: verifierSignature'
+2/27/2026, 2:19:36 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: userOAuth'
+2/27/2026, 2:19:37 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: verifyCodeAndSignIn'
+2/27/2026, 2:19:37 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: refreshSession'
+2/27/2026, 2:20:45 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: refreshSession'
+2/27/2026, 2:20:46 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: refreshSession'
+2/27/2026, 2:20:50 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: refreshSession'
+2/27/2026, 2:21:44 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: refreshSession'
+2/27/2026, 2:21:45 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: refreshSession'
+2/27/2026, 2:21:45 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: refreshSession'
+2/27/2026, 2:21:49 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: verifier'
+2/27/2026, 2:21:49 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: verifierSignature'
+2/27/2026, 2:22:00 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: userOAuth'
+2/27/2026, 2:22:01 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: verifyCodeAndSignIn'
+2/27/2026, 2:22:01 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: refreshSession'
+2/27/2026, 2:39:31 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: refreshSession'
+2/27/2026, 2:39:38 PM [CONVEX M(auth:store)] [INFO] '`auth:store` type: refreshSession'
