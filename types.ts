@@ -61,6 +61,15 @@ export interface Profile {
   fullName: string;
   avatarUrl?: string;
 }
+export interface TimerState {
+  programId: string;
+  isTimerActive: boolean;
+  currentSlotIndex: number;
+  secondsElapsed: number;
+  timerStartTimestamp: number | null;
+  isOnHold?: boolean;
+  holdMessage?: string;
+}
 
 export interface Organization {
   id: string;

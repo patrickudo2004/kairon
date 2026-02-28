@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import { Id } from '../../convex/_generated/dataModel';
 import { Program, Organization } from '../../types';
-import { getProgramById, getPublicProgram } from '../../services/programService';
-import { getOrganizationById } from '../../services/orgService';
-import { RealtimeService, TimerState } from '../../services/realtimeService';
 import { Bell, Wifi, WifiOff, AlertCircle, RefreshCw } from 'lucide-react';
 import TVView from '../TVView';
 
@@ -11,157 +11,56 @@ const TVWrapper: React.FC = () => {
     const [searchParams] = useSearchParams();
     const programId = searchParams.get('id');
 
-    const [program, setProgram] = useState<Program | null>(null);
-    const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [networkError, setNetworkError] = useState<string | null>(null);
-    const [isDarkMode, setIsDarkMode] = useState(true); // Default to dark for TV
-
-    // Live State
-    const [currentSlotIndex, setCurrentSlotIndex] = useState(0);
-    const [isTimerActive, setIsTimerActive] = useState(false);
-    const [secondsElapsed, setSecondsElapsed] = useState(0);
-    const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
-    const [lastPulseTime, setLastPulseTime] = useState<number | null>(null);
-    const [isAdminOnline, setIsAdminOnline] = useState(true);
-    const [realtime] = useState(() => new RealtimeService());
-
+    const [isDarkMode, setIsDarkMode] = useState(true);
     const toggleTheme = () => setIsDarkMode(prev => !prev);
 
-    // Initial Load with Resilience
+    // Convex Reactive Query: This replaces the entire manual fetch + RealtimeService
+    const programData = useQuery(
+        api.programs.getProgramById,
+        programId ? { id: programId as any } : "skip"
+    );
+
+    // Derive the program object
+    const program = programData ? (programData as unknown as Program) : null;
+
+    // Organization Branding Query
+    const activeOrg = useQuery(
+        api.authQueries.getOrganizationById,
+        program?.organizationId ? { id: program.organizationId } : "skip"
+    ) as Organization | null;
+
+    // Internal Tick Logic for Smooth Countdown
+    const [secondsElapsed, setSecondsElapsed] = useState(0);
+
     useEffect(() => {
-        if (!programId) {
-            setLoading(false);
-            return;
-        }
+        if (program?.isTimerActive && program?.timerStartTimestamp) {
+            // Initial sync
+            const now = Date.now();
+            const elapsed = Math.floor((now - program.timerStartTimestamp) / 1000);
+            setSecondsElapsed(elapsed);
 
-        let isMounted = true;
-        const connectionTimeout = setTimeout(() => {
-            if (loading && isMounted) {
-                console.warn("TVWrapper: Connection timeout reached.");
-                setNetworkError("Sync Timeout: The display is taking too long to connect.");
-                setLoading(false);
-            }
-        }, 10000);
-
-        const fetchData = async () => {
-            try {
-                // Try private fetch first
-                let data = await getProgramById(programId);
-
-                // If private fails (e.g. unauthenticated), try public fallback
-                if (!data) {
-                    console.log("TVWrapper: Private access failed, trying public fallback...");
-                    data = await getPublicProgram(programId);
-                }
-
-                if (data && isMounted) {
-                    setProgram(data);
-                    setCurrentSlotIndex(data.currentSlotIndex ?? 0);
-                    setIsTimerActive(data.isTimerActive ?? false);
-                    setSecondsElapsed(data.secondsElapsed ?? 0);
-                    setTimerStartTimestamp(data.timerStartTimestamp ?? null);
-                    setNetworkError(null);
-
-                    // Load Branding efficiently
-                    if (data.organizationId) {
-                        const org = await getOrganizationById(data.organizationId);
-                        if (org && isMounted) setActiveOrg(org);
-                    }
-                } else if (isMounted) {
-                    setNetworkError("Target Not Found: The program ID or link is invalid.");
-                }
-            } catch (err) {
-                console.error("TVWrapper: Load failed:", err);
-                if (isMounted) setNetworkError("Network Failure: Could not reach Kairon services.");
-            } finally {
-                if (isMounted) {
-                    setLoading(false);
-                    clearTimeout(connectionTimeout);
-                }
-            }
-        };
-
-        fetchData();
-
-        return () => {
-            isMounted = false;
-            clearTimeout(connectionTimeout);
-        };
-    }, [programId]);
-
-    // Realtime Subscription
-    useEffect(() => {
-        if (!programId) return;
-
-        console.log('TVWrapper: Subscribing to:', programId);
-        const unsubscribe = realtime.subscribe(
-            programId,
-            (state: TimerState) => {
-                setLastPulseTime(Date.now());
-                setCurrentSlotIndex(state.currentSlotIndex);
-                setIsTimerActive(state.isTimerActive);
-                setTimerStartTimestamp(state.timerStartTimestamp);
-
-                if (state.isTimerActive && state.timerStartTimestamp) {
-                    const elapsed = Math.floor((Date.now() - state.timerStartTimestamp) / 1000);
-                    setSecondsElapsed(elapsed);
-                } else {
-                    setSecondsElapsed(state.secondsElapsed);
-                }
-            },
-            (updatedProgram) => {
-                setProgram(updatedProgram);
-            },
-            undefined,
-            (payload) => {
-                setLastPulseTime(Date.now());
-                const state = payload.state;
-                setCurrentSlotIndex(state.currentSlotIndex);
-                setIsTimerActive(state.isTimerActive);
-                setTimerStartTimestamp(state.timerStartTimestamp);
-
-                if (state.isTimerActive && state.timerStartTimestamp) {
-                    const elapsed = Math.floor((Date.now() - state.timerStartTimestamp) / 1000);
-                    setSecondsElapsed(elapsed);
-                } else {
-                    setSecondsElapsed(state.secondsElapsed);
-                }
-            },
-            (presence) => {
-                const onlineAdmins = Object.values(presence).flat().filter((p: any) => p.role === 'admin');
-                setIsAdminOnline(onlineAdmins.length > 0);
-            }
-        );
-
-        return () => {
-            console.log('TVWrapper: Unsubscribing');
-            unsubscribe();
-        };
-    }, [programId]);
-
-    // Derived state for sync resilience (Self-Healing)
-    const isSyncGraceActive = lastPulseTime ? (Date.now() - lastPulseTime < 60000) : false;
-    const isSyncEffective = isAdminOnline || isSyncGraceActive;
-
-    // Tick Logic
-    useEffect(() => {
-        let interval: number;
-        if (isTimerActive && timerStartTimestamp && isSyncEffective) {
-            interval = window.setInterval(() => {
-                const now = Date.now();
-                const exactElapsed = Math.floor((now - timerStartTimestamp) / 1000);
-                setSecondsElapsed(exactElapsed);
+            // Tick interval
+            const interval = window.setInterval(() => {
+                const updatedNow = Date.now();
+                const updatedElapsed = Math.floor((updatedNow - program.timerStartTimestamp!) / 1000);
+                setSecondsElapsed(updatedElapsed);
             }, 1000);
+            return () => clearInterval(interval);
+        } else {
+            // Static value when paused
+            setSecondsElapsed(program?.secondsElapsed || 0);
         }
-        return () => clearInterval(interval);
-    }, [isTimerActive, timerStartTimestamp, isSyncEffective]);
+    }, [program?.isTimerActive, program?.timerStartTimestamp, program?.secondsElapsed]);
+
+    // Handle Loading State
+    const loading = programId && programData === undefined;
+    const networkError = programId && programData === null;
 
     if (loading) {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center">
                 <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
-                <p className="text-slate-500 font-medium uppercase tracking-[0.2em] text-[10px]">Connecting to Kairon Sync...</p>
+                <p className="text-slate-500 font-medium uppercase tracking-[0.2em] text-[10px]">Connecting to Kairon Pulse...</p>
             </div>
         );
     }
@@ -176,16 +75,13 @@ const TVWrapper: React.FC = () => {
 
                     <h1 className="text-2xl font-black text-white mb-2 tracking-tight">Sync Lost</h1>
                     <p className="text-slate-400 mb-10 leading-relaxed text-sm">
-                        {networkError || "This display mode is not correctly configured or the program link has expired."}
+                        {"This display mode is not correctly configured or the program link has expired."}
                     </p>
 
                     <div className="text-left bg-black/40 p-5 rounded-2xl mb-10 border border-slate-800/50">
                         <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Diagnostics</h3>
                         <p className="text-[10px] text-slate-600 font-mono break-all mb-1">
                             TARGET_ID: {programId}
-                        </p>
-                        <p className="text-[10px] text-slate-600 font-mono break-all uppercase">
-                            SRV: {import.meta.env.VITE_SUPABASE_URL?.replace('https://', '')}
                         </p>
                     </div>
 
@@ -206,8 +102,8 @@ const TVWrapper: React.FC = () => {
     return (
         <TVView
             program={program}
-            currentSlotIndex={currentSlotIndex}
-            isTimerActive={isTimerActive}
+            currentSlotIndex={program.currentSlotIndex ?? 0}
+            isTimerActive={program.isTimerActive ?? false}
             secondsElapsed={secondsElapsed}
             isDarkMode={isDarkMode}
             toggleTheme={toggleTheme}

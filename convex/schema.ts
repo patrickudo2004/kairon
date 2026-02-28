@@ -62,4 +62,12 @@ export default defineSchema({
         isPublic: v.optional(v.boolean()),
         status: v.optional(v.union(v.literal("draft"), v.literal("live"), v.literal("concluded"))),
     }).index("by_org", ["organizationId"]).index("by_slug", ["slug"]),
+
+    stageMessages: defineTable({
+        programId: v.id("programs"),
+        text: v.string(),
+        type: v.string(), // 'alert', 'info', etc.
+        timestamp: v.number(),
+        expiresAt: v.number(), // For auto-cleanup or hiding
+    }).index("by_program", ["programId"]),
 });

@@ -8,7 +8,6 @@ import { ConvexAuthProvider, useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery as useConvexQuery } from "convex/react";
 import { api } from "./convex/_generated/api";
 import { convex } from "./services/convexClient";
-import { realtimeService, RealtimeService, TimerState } from './services/realtimeService';
 import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService } from './services/programService';
 import { getProfile } from './services/authService';
 import { getMyOrganizations } from './services/orgService';
@@ -49,7 +48,7 @@ import StageWrapper from './components/wrappers/StageWrapper';
 import { MonitorDashboard } from './components/MonitorDashboard';
 
 // Utils & Types
-import { Program, Slot, SlotType, Profile, Organization } from './types';
+import { Program, Slot, SlotType, Profile, Organization, TimerState } from './types';
 import { timeToMinutes, minutesToTime, formatDuration } from './utils/time';
 import { encodeProgramData, decodeProgramData } from './utils/encoding';
 import { INITIAL_PROGRAM } from './utils/constants';
@@ -263,8 +262,6 @@ const AppContent: React.FC = () => {
   const [liveSecondsElapsed, setLiveSecondsElapsed] = useState<number>(0);
   const [isInterlockOpen, setIsInterlockOpen] = useState(false);
 
-  // Background Live Realtime Instance
-  const liveRealtimeRef = React.useRef(new RealtimeService());
 
 
   // useStageMessages Hook (Consolidated logic)
@@ -510,10 +507,8 @@ const AppContent: React.FC = () => {
 
       if (isPeeking) {
         setLiveProgram(updated);
-        liveRealtimeRef.current.broadcastProgram(updated);
       } else {
         setProgram(updated);
-        realtimeService.broadcastProgram(updated);
       }
     }
   };
@@ -531,15 +526,6 @@ const AppContent: React.FC = () => {
       setLiveProgramId(null);
       setLiveCurrentSlotIndex(0);
       setLiveSecondsElapsed(0);
-      liveRealtimeRef.current.broadcastProgram(updatedProgram);
-      liveRealtimeRef.current.broadcast({
-        programId: targetProgram.id,
-        isTimerActive: false,
-        currentSlotIndex: liveCurrentSlotIndex,
-        secondsElapsed: 0,
-        timerStartTimestamp: null
-      });
-      liveRealtimeRef.current.unsubscribe();
     } else {
       setProgram(updatedProgram);
       setIsTimerActive(false);
@@ -547,14 +533,6 @@ const AppContent: React.FC = () => {
       setLiveProgram(null);
       setLiveCurrentSlotIndex(0);
       setLiveSecondsElapsed(0);
-      realtimeService.broadcastProgram(updatedProgram);
-      realtimeService.broadcast({
-        programId: targetProgram.id,
-        isTimerActive: false,
-        currentSlotIndex,
-        secondsElapsed,
-        timerStartTimestamp: null
-      });
     }
 
     // Final save to DB
@@ -613,102 +591,6 @@ const AppContent: React.FC = () => {
     }
   }, [mutation.isSuccess, mutation.isError, queryClient]);
 
-  // Main Convex Realtime Connection & Sync
-  useEffect(() => {
-    // GUARD: Do not subscribe in the main app if we are on a dedicated display route
-    // to avoid singleton channel conflicts.
-    const isDedicatedDisplay =
-      location.pathname === '/tv' ||
-      location.pathname === '/stage' ||
-      location.pathname.startsWith('/p/');
-
-    if (isDedicatedDisplay) {
-      console.log('Dedicated display detected. Skipping main app realtime subscription.');
-      return;
-    }
-
-    console.log('Subscribing to realtime updates for program:', program.id);
-
-    const unsubscribe = realtimeService.subscribe(
-      program.id,
-      (remoteState: TimerState) => {
-        console.log('Received realtime timer update:', remoteState);
-        if (remoteState.programId !== program.id) return;
-
-        setCurrentSlotIndex(prev => {
-          if (prev !== remoteState.currentSlotIndex) return remoteState.currentSlotIndex;
-          return prev;
-        });
-
-        setIsTimerActive(remoteState.isTimerActive);
-
-        if (remoteState.hasOwnProperty('isOnHold')) {
-          setProgram(prev => ({ ...prev, isOnHold: remoteState.isOnHold, holdMessage: remoteState.holdMessage }));
-        }
-
-        setTimerStartTimestamp(remoteState.timerStartTimestamp);
-
-        if (remoteState.isTimerActive && remoteState.timerStartTimestamp) {
-          const now = Date.now();
-          const elapsed = Math.floor((now - remoteState.timerStartTimestamp) / 1000);
-          setSecondsElapsed(elapsed);
-        } else {
-          setSecondsElapsed(remoteState.secondsElapsed);
-        }
-      },
-      (updatedProgram: Program) => {
-        if (updatedProgram.id === program.id) {
-          setProgram(updatedProgram);
-        }
-      },
-      () => {
-        if (isReadOnlyRef.current) return;
-        const now = Date.now();
-        const snapshot = timerStateRef.current;
-        const resolvedStart = snapshot.isTimerActive
-          ? (snapshot.timerStartTimestamp ?? (now - (snapshot.secondsElapsed * 1000)))
-          : null;
-
-        realtimeService.sendSyncResponse({
-          programId: snapshot.programId,
-          isTimerActive: snapshot.isTimerActive,
-          currentSlotIndex: snapshot.currentSlotIndex,
-          secondsElapsed: snapshot.secondsElapsed,
-          timerStartTimestamp: resolvedStart,
-        });
-      },
-      (payload) => {
-        const state = payload.state;
-        if (state.programId !== program.id) return;
-        setCurrentSlotIndex(state.currentSlotIndex);
-        setIsTimerActive(state.isTimerActive);
-        setTimerStartTimestamp(state.timerStartTimestamp);
-        if (state.hasOwnProperty('isOnHold')) {
-          setProgram(prev => ({ ...prev, isOnHold: state.isOnHold, holdMessage: state.holdMessage }));
-        }
-        if (state.isTimerActive && state.timerStartTimestamp) {
-          const now = Date.now();
-          const elapsed = Math.floor((now - state.timerStartTimestamp) / 1000);
-          setSecondsElapsed(elapsed);
-        } else {
-          setSecondsElapsed(state.secondsElapsed);
-        }
-      },
-      (presence) => {
-        const onlineAdmins = Object.values(presence).flat().filter((p: any) => p.role === 'admin');
-        setIsAdminOnline(onlineAdmins.length > 0);
-      }
-    );
-
-    if (!isReadOnly) {
-      realtimeService.trackPresence('admin');
-    }
-
-    return () => {
-      console.log('Unsubscribing from realtime updates');
-      unsubscribe();
-    };
-  }, [program.id, isReadOnly, location.pathname]);
 
   // Dedicated Admin Heartbeat for Background Live Program (Public Portal fix)
   // Use refs to keep the subscription effect stable even when indices/timestamps change
@@ -717,35 +599,6 @@ const AppContent: React.FC = () => {
     heartbeatStateRef.current = { liveCurrentSlotIndex, timerStartTimestamp };
   }, [liveCurrentSlotIndex, timerStartTimestamp]);
 
-  useEffect(() => {
-    if (!liveProgramId || isReadOnly) return;
-    if (liveProgramId === program.id) return;
-
-    console.log('Background Live Heartbeat starting for:', liveProgramId);
-    liveRealtimeRef.current.subscribe(
-      liveProgramId,
-      () => { }, // Background heartbeat doesn't apply incoming remote state
-      () => { },
-      () => {
-        // Sync Request Handler for Background Live Session
-        if (isReadOnlyRef.current) return;
-        liveRealtimeRef.current.sendSyncResponse({
-          programId: liveProgramId,
-          isTimerActive: true,
-          currentSlotIndex: heartbeatStateRef.current.liveCurrentSlotIndex,
-          secondsElapsed: 0, // Tick logic source of truth is timestamp
-          timerStartTimestamp: heartbeatStateRef.current.timerStartTimestamp
-        });
-      },
-      () => { },
-      () => { }
-    );
-    liveRealtimeRef.current.trackPresence('admin');
-
-    return () => {
-      liveRealtimeRef.current.unsubscribe();
-    };
-  }, [liveProgramId, program.id, isReadOnly]); // removed liveCurrentSlotIndex, timerStartTimestamp
 
   // --- Local Sync Integration ---
   const onRequestSyncRef = React.useRef<() => void>(() => { });
@@ -799,12 +652,8 @@ const AppContent: React.FC = () => {
     }
   }, [isReadOnly, requestLocalSync]);
 
-  // Broadcast Helper (Convex Realtime)
+  // Broadcast Helper (Local Sync only)
   const broadcastState = (overrides: Partial<TimerState> = {}) => {
-    if (!realtimeService.isActive()) {
-      console.log("Broadcast skipped: Channel not ready");
-      return;
-    }
     const now = Date.now();
     const hasStartOverride = Object.prototype.hasOwnProperty.call(overrides, 'timerStartTimestamp');
     const state: TimerState = {
@@ -818,9 +667,6 @@ const AppContent: React.FC = () => {
       isOnHold: overrides.hasOwnProperty('isOnHold') ? (overrides.isOnHold as boolean) : program.isOnHold,
       holdMessage: (overrides.holdMessage as string) || program.holdMessage,
     };
-
-    realtimeService.broadcast(state);
-    // Also broadcast locally
     broadcastTimerState(state);
   };
 
@@ -950,21 +796,6 @@ const AppContent: React.FC = () => {
     return () => clearInterval(interval);
   }, [isTimerActive, liveProgramId, timerStartTimestamp]);
 
-  // Periodic Broadcast Pulse (Handshake stability for background/idle clients)
-  useEffect(() => {
-    if (isReadOnly || !isTimerActive) return;
-
-    const pulse = setInterval(() => {
-      if (realtimeService.isActive()) {
-        console.log("Continuity Pulse: Broadcasting current state...");
-        broadcastState();
-      } else {
-        console.log("Continuity Pulse skipped: Channel not ready");
-      }
-    }, 15000); // 15s pulse
-
-    return () => clearInterval(pulse);
-  }, [isTimerActive, isReadOnly, currentSlotIndex]); // Removed secondsElapsed
 
   const handleSlotComplete = (slotId: string, actualDuration: number) => {
     setProgram(prev => ({
@@ -1008,12 +839,10 @@ const AppContent: React.FC = () => {
           setSecondsElapsed(0);
         }
 
-        // Broadcast to all viewers
-        const broadcaster = isLiveTarget ? realtimeService : liveRealtimeRef.current;
-        broadcaster.broadcast({
-          programId: liveProgramId,
-          isTimerActive: true,
+        // Persist the new slot index to Convex immediately for auto-advance sync
+        timerSaveMutation.mutate({
           currentSlotIndex: nextIndex,
+          isTimerActive: true,
           secondsElapsed: 0,
           timerStartTimestamp: nextStartTs
         });
@@ -1552,8 +1381,6 @@ const AppContent: React.FC = () => {
                           return;
                         }
                         setProgram(p);
-                        realtimeService.broadcastProgram(p);
-                        broadcastProgramUpdate(p);
                         if (p.slots.length === 0) {
                           setCurrentSlotIndex(0);
                           setSecondsElapsed(0);
