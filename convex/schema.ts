@@ -64,10 +64,10 @@ export default defineSchema({
     }).index("by_org", ["organizationId"]).index("by_slug", ["slug"]),
 
     stageMessages: defineTable({
-        programId: v.id("programs"),
+        programId: v.string(),
         text: v.string(),
         type: v.string(), // 'alert', 'info', etc.
         timestamp: v.number(),
         expiresAt: v.number(), // For auto-cleanup or hiding
-    }).index("by_program", ["programId"]),
+    }).index("by_program_latest", ["programId", "timestamp"]),
 });

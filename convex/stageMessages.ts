@@ -2,21 +2,23 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
 export const getLatestMessage = query({
-    args: { programId: v.id("programs") },
+    args: { programId: v.string() },
     handler: async (ctx, args) => {
+        if (!args.programId) return null;
         const now = Date.now();
+        // Use filter for safety if programId might not be a valid v.id
         return await ctx.db
             .query("stageMessages")
-            .withIndex("by_program", (q) => q.eq("programId", args.programId))
-            .filter((q) => q.gt(q.field("expiresAt"), now))
+            .withIndex("by_program_latest", (q) => q.eq("programId", args.programId))
             .order("desc")
+            .filter((q) => q.gt(q.field("expiresAt"), now))
             .first();
     },
 });
 
 export const sendMessage = mutation({
     args: {
-        programId: v.id("programs"),
+        programId: v.string(),
         text: v.string(),
         type: v.string(),
         durationMs: v.optional(v.number()),
@@ -35,11 +37,11 @@ export const sendMessage = mutation({
 });
 
 export const clearMessages = mutation({
-    args: { programId: v.id("programs") },
+    args: { programId: v.string() },
     handler: async (ctx, args) => {
         const messages = await ctx.db
             .query("stageMessages")
-            .withIndex("by_program", (q) => q.eq("programId", args.programId))
+            .withIndex("by_program_latest", (q) => q.eq("programId", args.programId))
             .collect();
         for (const msg of messages) {
             await ctx.db.delete(msg._id);
