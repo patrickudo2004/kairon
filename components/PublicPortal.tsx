@@ -1,149 +1,77 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useQuery } from 'convex/react';
+import { api } from '../convex/_generated/api';
 import { Program } from '../types';
-import { getPublicProgram } from '../services/programService';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
 import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer } from 'lucide-react';
-import { realtimeService, TimerState } from '../services/realtimeService';
+import { useStageMessages } from '../hooks/useStageMessages';
 
 export const PublicPortal: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
-    const [program, setProgram] = useState<Program | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    // Live State
-    const [currentSlotIndex, setCurrentSlotIndex] = useState(0);
-    const [isTimerActive, setIsTimerActive] = useState(false);
-    const [secondsElapsed, setSecondsElapsed] = useState(0);
-    const [timerStartTimestamp, setTimerStartTimestamp] = useState<number | null>(null);
-    const [isOnHold, setIsOnHold] = useState(false);
-    const [holdMessage, setHoldMessage] = useState('');
-    const [isAdminOnline, setIsAdminOnline] = useState(true);
-    const [lastPulseTime, setLastPulseTime] = useState<number | null>(null);
-
     const [isScrolled, setIsScrolled] = useState(false);
 
-    // Initial Load
-    useEffect(() => {
-        if (!slug) return;
+    // Convex Reactive Query
+    const programData = useQuery(
+        api.programs.getProgramBySlug,
+        slug ? { slug } : "skip"
+    );
 
-        const loadPublicProgram = async () => {
-            try {
-                const data = await getPublicProgram(slug);
-                if (data) {
-                    setProgram(data);
-                    // Sync initial state if available in the program object (fallback)
-                    setCurrentSlotIndex(data.currentSlotIndex ?? 0);
-                    setIsTimerActive(data.isTimerActive ?? false);
-                    setSecondsElapsed(data.secondsElapsed ?? 0);
-                    setTimerStartTimestamp(data.timerStartTimestamp ?? null);
-                    setIsOnHold(data.isOnHold ?? false);
-                    setHoldMessage(data.holdMessage ?? '');
-                }
-            } catch (err) {
-                console.error("Failed to load public program:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
+    // If slug is not found as a slug, it might be an ID
+    const programByIdData = useQuery(
+        api.programs.getProgramById,
+        !programData && slug ? { id: slug as any } : "skip"
+    );
 
-        loadPublicProgram();
-    }, [slug]);
+    const programRaw = programData || programByIdData;
+    const program = programRaw ? (programRaw as unknown as Program) : null;
 
-    // Realtime Subscription
-    useEffect(() => {
-        if (!program?.id) return;
-
-        console.log('PublicPortal: Subscribing to realtime updates for:', program.id);
-
-        const unsubscribe = realtimeService.subscribe(
-            program.id,
-            (state: TimerState) => {
-                console.log('PublicPortal: Received timer update:', state);
-                setLastPulseTime(Date.now());
-                setCurrentSlotIndex(state.currentSlotIndex);
-                setIsTimerActive(state.isTimerActive);
-                setTimerStartTimestamp(state.timerStartTimestamp);
-                if (state.hasOwnProperty('isOnHold')) setIsOnHold(state.isOnHold ?? false);
-                if (state.hasOwnProperty('holdMessage')) setHoldMessage(state.holdMessage ?? '');
-
-                if (state.isTimerActive && state.timerStartTimestamp) {
-                    const elapsed = Math.floor((Date.now() - state.timerStartTimestamp) / 1000);
-                    setSecondsElapsed(elapsed);
-                } else {
-                    setSecondsElapsed(state.secondsElapsed);
-                }
-            },
-            (updatedProgram) => {
-                setProgram(updatedProgram);
-            },
-            undefined, // No sync requests from public portal
-            (payload) => {
-                console.log('PublicPortal: Received sync response:', payload);
-                setLastPulseTime(Date.now());
-                const state = payload.state;
-                setCurrentSlotIndex(state.currentSlotIndex);
-                setIsTimerActive(state.isTimerActive);
-                setTimerStartTimestamp(state.timerStartTimestamp);
-                if (state.hasOwnProperty('isOnHold')) setIsOnHold(state.isOnHold ?? false);
-                if (state.hasOwnProperty('holdMessage')) setHoldMessage(state.holdMessage ?? '');
-
-                if (state.isTimerActive && state.timerStartTimestamp) {
-                    const elapsed = Math.floor((Date.now() - state.timerStartTimestamp) / 1000);
-                    setSecondsElapsed(elapsed);
-                } else {
-                    setSecondsElapsed(state.secondsElapsed);
-                }
-            },
-            (presence) => {
-                // Check if any admin is present
-                const onlineAdmins = Object.values(presence).flat().filter((p: any) => p.role === 'admin');
-                setIsAdminOnline(onlineAdmins.length > 0);
-            }
-        );
-
-        return () => unsubscribe();
-    }, [program?.id]);
-
-    // Derived state for sync resilience
-    const isSyncGraceActive = lastPulseTime ? (Date.now() - lastPulseTime < 60000) : false;
-    const isSyncEffective = isAdminOnline || isSyncGraceActive;
+    // Stage Cues
+    const { promptMessage: stageCue } = useStageMessages(program?.id);
 
     // Local Timer Logic
-    useEffect(() => {
-        let interval: number;
-        // Only run timer if sync is effective to prevent phantom counts
-        if (isTimerActive && timerStartTimestamp && isSyncEffective) {
-            interval = window.setInterval(() => {
-                const now = Date.now();
-                const exactElapsed = Math.floor((now - timerStartTimestamp) / 1000);
-                setSecondsElapsed(exactElapsed);
-            }, 1000);
-        }
-        return () => clearInterval(interval);
-    }, [isTimerActive, timerStartTimestamp, isSyncEffective]);
+    const [secondsElapsed, setSecondsElapsed] = useState(0);
 
-    // Scroll Observer for Floating Bar
     useEffect(() => {
-        const handleScroll = () => {
-            setIsScrolled(window.scrollY > 300);
-        };
+        if (program?.isTimerActive && program?.timerStartTimestamp) {
+            const now = Date.now();
+            const elapsed = Math.floor((now - program.timerStartTimestamp) / 1000);
+            setSecondsElapsed(elapsed);
+
+            const interval = window.setInterval(() => {
+                const updatedNow = Date.now();
+                const updatedElapsed = Math.floor((updatedNow - program.timerStartTimestamp!) / 1000);
+                setSecondsElapsed(updatedElapsed);
+            }, 1000);
+            return () => clearInterval(interval);
+        } else {
+            setSecondsElapsed(program?.secondsElapsed || 0);
+        }
+    }, [program?.isTimerActive, program?.timerStartTimestamp, program?.secondsElapsed]);
+
+    // Scroll Observer
+    useEffect(() => {
+        const handleScroll = () => setIsScrolled(window.scrollY > 300);
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
     // Auto-scroll to active slot on load
     useEffect(() => {
-        if (program && isTimerActive && !loading) {
+        if (program && program.isTimerActive && program.slots[program.currentSlotIndex ?? 0]) {
             const timer = setTimeout(() => {
-                const element = document.getElementById(`slot-${program.slots[currentSlotIndex]?.id}`);
+                const activeSlotId = program.slots[program.currentSlotIndex ?? 0].id;
+                const element = document.getElementById(`slot-${activeSlotId}`);
                 if (element) {
                     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [program?.id, isTimerActive, loading]);
+    }, [program?.id, program?.isTimerActive, program?.currentSlotIndex]);
+
+    const loading = slug && programData === undefined;
+    const networkError = slug && programData === null && programByIdData === null;
 
     if (loading) {
         return (
@@ -188,14 +116,12 @@ export const PublicPortal: React.FC = () => {
         );
     }
 
+    const currentSlotIndex = program.currentSlotIndex ?? 0;
     const currentSlot = program.slots[currentSlotIndex];
     const nextSlots = program.slots.slice(currentSlotIndex + 1, currentSlotIndex + 3);
 
     const formatCountdown = (totalSeconds: number) => {
-        // Overrun Cap: If more than 30 mins over, hide the clock
-        if (totalSeconds < -1800) {
-            return '--:--';
-        }
+        if (totalSeconds < -1800) return '--:--';
         const abs = Math.abs(totalSeconds);
         const mins = Math.floor(abs / 60);
         const secs = abs % 60;
@@ -203,6 +129,7 @@ export const PublicPortal: React.FC = () => {
     };
 
     const remainingSeconds = currentSlot ? (currentSlot.durationMinutes * 60) - secondsElapsed : 0;
+    const isTimerActive = program.isTimerActive ?? false;
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors pb-24">
@@ -213,21 +140,11 @@ export const PublicPortal: React.FC = () => {
                         <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">K</div>
                         <span className="font-bold text-slate-900 dark:text-white tracking-tight">Kairon</span>
                     </div>
-                    {isTimerActive && (
-                        <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border transition-colors ${isSyncEffective
-                            ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 border-indigo-100 dark:border-indigo-800/50'
-                            : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border-amber-100 dark:border-amber-800/50'}`}>
-                            <span className={`w-2 h-2 rounded-full ${isSyncEffective ? 'bg-indigo-600 animate-pulse' : 'bg-amber-500'}`} />
-                            {isSyncEffective ? (isAdminOnline ? 'Live Sync Active' : 'Sync Active (Trust Mode)') : 'Sync Paused (Admin Offline)'}
-                        </div>
-                    )}
                 </div>
             </header>
 
-            {/* Floating Status Bar (Appears on Scroll) */}
-            <div
-                className={`fixed top-16 left-0 right-0 z-40 transition-all duration-500 transform ${isScrolled && isTimerActive ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}
-            >
+            {/* Floating Status Bar */}
+            <div className={`fixed top-16 left-0 right-0 z-40 transition-all duration-500 transform ${isScrolled && isTimerActive ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
                 <div className="bg-indigo-600/90 dark:bg-indigo-900/90 backdrop-blur-lg text-white border-b border-indigo-400/20 shadow-2xl">
                     <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between">
                         <div className="flex-1 truncate mr-4">
@@ -260,11 +177,10 @@ export const PublicPortal: React.FC = () => {
                     </div>
                 )}
 
-                {/* Live Hero Component */}
+                {/* Live Hero */}
                 {isTimerActive && currentSlot && (
                     <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
                         <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 dark:from-indigo-600 dark:to-indigo-950 rounded-[2.5rem] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden group">
-                            {/* Abstract Background Shapes */}
                             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32 transition-transform duration-1000 group-hover:scale-110" />
                             <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-400/10 rounded-full blur-3xl -ml-32 -mb-32" />
 
@@ -293,7 +209,6 @@ export const PublicPortal: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {/* Progress Bar */}
                                 <div className="h-3 bg-indigo-900/40 rounded-full overflow-hidden border border-indigo-400/20">
                                     <div
                                         className="h-full bg-gradient-to-r from-amber-400 to-amber-200 transition-all duration-1000 ease-linear shadow-[0_0_15px_rgba(251,191,36,0.3)]"
@@ -303,7 +218,6 @@ export const PublicPortal: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Up Next Preview */}
                         {nextSlots.length > 0 && (
                             <div className="mt-8 px-4">
                                 <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">Up Next</h3>
@@ -381,27 +295,12 @@ export const PublicPortal: React.FC = () => {
                                     {slot.details}
                                 </p>
                             )}
-
-                            {/* In-list Progress Bar for active slot */}
-                            {index === currentSlotIndex && isTimerActive && (
-                                <div className="mt-6 h-1 bg-indigo-200 dark:bg-indigo-900/50 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-indigo-600 transition-all duration-1000 ease-linear"
-                                        style={{ width: `${Math.min(100, (secondsElapsed / (slot.durationMinutes * 60)) * 100)}%` }}
-                                    />
-                                </div>
-                            )}
                         </div>
                     ))}
                 </div>
 
                 {/* Footer */}
                 <footer className="mt-20 pt-12 border-t border-slate-200 dark:border-slate-800 text-center">
-                    <div className="flex items-center justify-center gap-0.5 mb-6">
-                        {[...Array(3)].map((_, i) => (
-                            <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === 1 ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'}`} />
-                        ))}
-                    </div>
                     <p className="text-slate-400 dark:text-slate-600 text-xs font-bold uppercase tracking-widest mb-4">
                         Powered by Kairon
                     </p>
@@ -415,16 +314,21 @@ export const PublicPortal: React.FC = () => {
                 </footer>
             </main>
 
-            {/* Hold Message Overlay */}
-            {isOnHold && (
+            {/* Hold Message or Stage Cue Overlay */}
+            {(program.isOnHold || stageCue) && (
                 <div className="fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-500">
                     <div className="text-center max-w-lg">
                         <div className="w-24 h-24 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
                             <Clock size={48} />
                         </div>
-                        <h2 className="text-4xl font-black text-white mb-4 tracking-tight">Event On Hold</h2>
+                        <h2 className="text-4xl font-black text-white mb-4 tracking-tight">
+                            {program.isOnHold ? "Event On Hold" : "Stage Announcement"}
+                        </h2>
                         <p className="text-slate-400 text-xl font-medium mb-8">
-                            {holdMessage || "We'll be back in just a few minutes. Stay tuned!"}
+                            {program.isOnHold
+                                ? (program.holdMessage || "We'll be back in just a few minutes.")
+                                : stageCue?.text
+                            }
                         </p>
                         <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-800 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                             Live Sync Active

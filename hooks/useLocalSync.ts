@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { TimerState } from '../services/realtimeService';
+import { TimerState } from '../types';
 import { Program } from '../types';
 
 const CHANNEL_NAME = 'kairon_local_sync';
