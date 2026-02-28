@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
+import { useAuthActions } from '@convex-dev/auth/react';
 import { Building, Rocket, ArrowRight, Star, ShieldCheck, Zap } from 'lucide-react';
 import { createOrganization } from '../services/orgService';
 import { Organization } from '../types';
 
 interface OnboardingOverlayProps {
+    userId: string;
     onOrgCreated: (org: Organization) => void;
     userEmail: string;
 }
 
-export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onOrgCreated, userEmail }) => {
+export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ userId, onOrgCreated, userEmail }) => {
+    const { signOut } = useAuthActions();
     const [orgName, setOrgName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -21,7 +24,7 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onOrgCreat
         setError(null);
         try {
             const slug = orgName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-            const newOrg = await createOrganization(orgName, slug);
+            const newOrg = await createOrganization(orgName, slug, userId);
             onOrgCreated(newOrg);
         } catch (err: any) {
             setError(err.message || 'Failed to create workspace. Try a different name.');
@@ -78,6 +81,12 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ onOrgCreat
                             <p className="text-xs font-bold uppercase tracking-widest text-indigo-300">Identity Verified</p>
                         </div>
                         <p className="text-sm font-medium text-white/50">{userEmail}</p>
+                        <button
+                            onClick={() => signOut()}
+                            className="mt-4 text-xs font-bold text-white/40 hover:text-white underline"
+                        >
+                            Not you? Sign out
+                        </button>
                     </div>
                 </div>
 

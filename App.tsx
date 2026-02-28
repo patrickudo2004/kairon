@@ -1289,6 +1289,7 @@ const AppContent: React.FC = () => {
 
       {user && (userOrganizations.length === 0 || isOnboardingManual) && !effectiveAuthLoading && (
         <OnboardingOverlay
+          userId={user.id}
           userEmail={user.email || ''}
           onOrgCreated={(newOrg) => {
             queryClient.invalidateQueries({ queryKey: ['organizations', user?.id] });

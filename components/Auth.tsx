@@ -158,6 +158,16 @@ export const Auth: React.FC = () => {
                     </button>
                 </form>
 
+                {/* OTP Back Button */}
+                {step === 'verifyCode' && (
+                    <button
+                        onClick={() => { setStep('signIn'); setMessage(null); }}
+                        className="w-full mt-4 text-sm text-slate-500 hover:text-indigo-600 font-medium transition-colors"
+                    >
+                        ← Use a different email
+                    </button>
+                )}
+
                 {/* Mode Toggle */}
                 <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
                     {mode === 'signin' ? "Don't have an account? " : "Already have an account? "}

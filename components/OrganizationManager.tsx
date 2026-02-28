@@ -28,7 +28,7 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
     const createMutation = useMutation({
         mutationFn: (name: string) => {
             const slug = name.toLowerCase().replace(/\s+/g, '-');
-            return createOrganization(name, slug);
+            return createOrganization(name, slug, userId);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['my-organizations'] });
