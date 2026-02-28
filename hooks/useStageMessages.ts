@@ -1,37 +1,19 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
+import { useState } from 'react';
 
 interface StageMessage {
     text: string;
     type: string;
 }
 
+/**
+ * useStageMessages Stub
+ * (Supabase implementation removed. Convex implementation pending schema update.)
+ */
 export const useStageMessages = (programId: string | undefined) => {
-    const [promptMessage, setPromptMessage] = useState<StageMessage | null>(null);
-
-    useEffect(() => {
-        if (!programId) return;
-
-        const channel = supabase.channel(`prompter:${programId}`)
-            .on('broadcast', { event: 'stage_message' }, ({ payload }) => {
-                setPromptMessage({ text: payload.text, type: payload.type });
-                setTimeout(() => setPromptMessage(null), 5000);
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [programId]);
+    const [promptMessage] = useState<StageMessage | null>(null);
 
     const sendStageMessage = async (text: string, type: string = 'alert') => {
-        if (!programId) return;
-
-        await supabase.channel(`prompter:${programId}`).send({
-            type: 'broadcast',
-            event: 'stage_message',
-            payload: { text, type }
-        });
+        console.warn("Stage messaging is currently disabled (Supabase gutted).", { text, type });
     };
 
     return { promptMessage, sendStageMessage };
