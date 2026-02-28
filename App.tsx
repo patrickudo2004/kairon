@@ -236,6 +236,9 @@ const AppContent: React.FC = () => {
     };
 
     if (!isConvexAuthLoading) {
+      if (user?.id) {
+        console.log("%c[Convex] User ID:", "color: #4f46e5; font-weight: bold;", user.id);
+      }
       setupAuth();
     }
   }, [user?.id, isConvexAuthLoading]);
