@@ -6,11 +6,12 @@ import { Plus, Settings, Building, ChevronRight, Loader, Check, Image as ImageIc
 import { createCheckoutSession } from '../services/stripeService';
 
 interface OrganizationManagerProps {
+    userId: string;
     onSelect: (orgId: string) => void;
     activeOrgId?: string;
 }
 
-export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ onSelect, activeOrgId }) => {
+export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId, onSelect, activeOrgId }) => {
     const [isCreating, setIsCreating] = useState(false);
     const [newOrgName, setNewOrgName] = useState('');
     const [isSettingsOpen, setIsSettingsOpen] = useState<string | null>(null);
@@ -19,8 +20,9 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ onSele
     const queryClient = useQueryClient();
 
     const { data: organizations, isLoading } = useQuery<Organization[]>({
-        queryKey: ['my-organizations'],
-        queryFn: getMyOrganizations
+        queryKey: ['my-organizations', userId],
+        queryFn: () => getMyOrganizations(userId),
+        enabled: !!userId,
     });
 
     const createMutation = useMutation({
@@ -184,7 +186,7 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ onSele
                             </button>
                         </div>
 
-                        {organizations?.find(o => o.id === isSettingsOpen)?.subscriptionStatus !== 'pro' ? (
+                        {organizations && organizations.find(o => o.id === isSettingsOpen)?.subscriptionStatus !== 'pro' ? (
                             <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-6 mb-8">
                                 <div className="flex items-center gap-3 mb-3">
                                     <Crown className="text-indigo-600 dark:text-indigo-400" size={24} />

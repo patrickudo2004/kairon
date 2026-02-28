@@ -165,7 +165,7 @@ const AppContent: React.FC = () => {
   // Fetch all organizations for the user
   const { data: userOrganizations = [] } = useQuery({
     queryKey: ['organizations', user?.id],
-    queryFn: getMyOrganizations,
+    queryFn: () => getMyOrganizations(user?.id || ''),
     enabled: !!user,
   });
 
@@ -399,33 +399,6 @@ const AppContent: React.FC = () => {
     }
   }, [program, mode]);
 
-  // Fetch active organization details for branding
-  useEffect(() => {
-    if (activeOrgId) {
-      supabase
-        .from('organizations')
-        .select('*')
-        .eq('id', activeOrgId)
-        .single()
-        .then(({ data }) => {
-          if (data) {
-            setActiveOrg({
-              id: data.id,
-              name: data.name,
-              slug: data.slug,
-              logoUrl: data.logo_url,
-              brandColor: data.brand_color,
-              subscriptionStatus: data.subscription_status,
-              createdBy: data.created_by,
-              createdAt: data.created_at
-            });
-          }
-        });
-    } else {
-      setActiveOrg(null);
-    }
-  }, [activeOrgId]);
-
   // If program has an orgId but activeOrgId is null, sync them
   useEffect(() => {
     if (program.organizationId && !activeOrgId) {
@@ -491,7 +464,7 @@ const AppContent: React.FC = () => {
     hydrate();
   }, [importData, fetchedProgram, searchParams]);
 
-  // Persistence (Supabase)
+  // Persistence (Convex)
   const mutation = useMutation({
     mutationFn: (p: Program) => {
       // Check if it exists? For now, we assume if we have an ID we "upsert" or "update".
@@ -598,7 +571,7 @@ const AppContent: React.FC = () => {
     setSaveStatus('unsaved');
 
     const timer = setTimeout(() => {
-      console.log("Auto-saving to Supabase...", program.id);
+      console.log("Auto-saving to Convex...", program.id);
       setSaveStatus('saving');
       mutation.mutate(program);
     }, 2000); // 2s debounce
@@ -606,12 +579,12 @@ const AppContent: React.FC = () => {
     return () => clearTimeout(timer);
   }, [program, isReadOnly]);
 
-  // Debounced Timer State Save to Supabase
+  // Debounced Timer State Save to Convex
   useEffect(() => {
     if (isReadOnly || program.id === INITIAL_PROGRAM.id) return;
 
     const timer = setTimeout(() => {
-      console.log("Saving timer state to Supabase...", program.id);
+      console.log("Saving timer state to Convex...", program.id);
       timerSaveMutation.mutate({
         currentSlotIndex,
         isTimerActive,
@@ -637,7 +610,7 @@ const AppContent: React.FC = () => {
     }
   }, [mutation.isSuccess, mutation.isError, queryClient]);
 
-  // Main Supabase Realtime Connection & Sync
+  // Main Convex Realtime Connection & Sync
   useEffect(() => {
     // GUARD: Do not subscribe in the main app if we are on a dedicated display route
     // to avoid singleton channel conflicts.
@@ -823,7 +796,7 @@ const AppContent: React.FC = () => {
     }
   }, [isReadOnly, requestLocalSync]);
 
-  // Broadcast Helper (Supabase Realtime)
+  // Broadcast Helper (Convex Realtime)
   const broadcastState = (overrides: Partial<TimerState> = {}) => {
     if (!realtimeService.isActive()) {
       console.log("Broadcast skipped: Channel not ready");
@@ -1482,6 +1455,7 @@ const AppContent: React.FC = () => {
               <Routes>
                 <Route path="/org" element={
                   <OrganizationManager
+                    userId={user.id}
                     activeOrgId={activeOrgId ?? undefined}
                     onSelect={setActiveOrgId}
                   />
@@ -1649,10 +1623,7 @@ const AppContent: React.FC = () => {
             <div className="text-left bg-slate-100 dark:bg-slate-800/50 p-4 rounded-2xl mb-8 border border-slate-200 dark:border-slate-700">
               <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Technical Diagnostics</h3>
               <p className="text-[10px] text-slate-500 break-all font-mono">
-                SUPABASE_URL: <span className="text-indigo-500">{import.meta.env.VITE_SUPABASE_URL}</span>
-              </p>
-              <p className="text-[10px] text-slate-500 mt-1 font-mono">
-                RESOLVE_TARGET: {import.meta.env.VITE_SUPABASE_URL?.replace('https://', '')}
+                CONVEX_URL: <span className="text-indigo-500">{import.meta.env.VITE_CONVEX_URL}</span>
               </p>
             </div>
             <button

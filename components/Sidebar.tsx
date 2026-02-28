@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { User as SupabaseUser } from '@supabase/supabase-js';
+// import { User as SupabaseUser } from '@supabase/supabase-js';
 import {
     LayoutDashboard,
     Settings,
@@ -30,7 +30,7 @@ interface SidebarProps {
     userOrganizations: Organization[];
     setActiveOrgId: (id: string) => void;
     profile: Profile | null;
-    user: SupabaseUser | null;
+    user: { id: string, email?: string } | null;
     onProfileUpdate: (profile: Profile) => void;
     handleSignOut: () => void;
     isOnline: boolean;
