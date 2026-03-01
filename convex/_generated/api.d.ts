@@ -14,6 +14,7 @@ import type * as http from "../http.js";
 import type * as orgs from "../orgs.js";
 import type * as profiles from "../profiles.js";
 import type * as programs from "../programs.js";
+import type * as stageMessages from "../stageMessages.js";
 
 import type {
   ApiFromModules,
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   orgs: typeof orgs;
   profiles: typeof profiles;
   programs: typeof programs;
+  stageMessages: typeof stageMessages;
 }>;
 
 /**
