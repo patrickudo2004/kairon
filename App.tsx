@@ -17,6 +17,7 @@ import { rebalanceSchedule } from './services/geminiService';
 import { useUIStore } from './store/uiStore';
 import { useLocalSync } from './hooks/useLocalSync';
 import { useStageMessages } from './hooks/useStageMessages';
+import { useWakeLock } from './hooks/useWakeLock';
 
 // Components
 import LiveTimer from './components/LiveTimer';
@@ -246,6 +247,8 @@ const AppContent: React.FC = () => {
     const p = await getProfile(userId);
     setProfile(p);
   };
+
+  useWakeLock(isTimerActive);
 
   const handleSignOut = async () => {
     // useAuthActions hook handles sign out in components that need to trigger it

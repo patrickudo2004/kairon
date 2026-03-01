@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Program, Organization } from '../types';
 import { formatDuration } from '../utils/time';
 import { useStageMessages } from '../hooks/useStageMessages';
+import { useWakeLock } from '../hooks/useWakeLock';
 
 interface StageDisplayProps {
     program: Program;
@@ -22,6 +23,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     isDarkMode = true,
     toggleTheme
 }) => {
+    useWakeLock(true);
     const { promptMessage } = useStageMessages(program.id);
     const currentSlot = program.slots[currentSlotIndex];
 
