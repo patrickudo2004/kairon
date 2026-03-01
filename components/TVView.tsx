@@ -3,6 +3,7 @@ import { Program, Organization } from '../types';
 import { Maximize, Minimize, Sun, Moon } from 'lucide-react';
 import { formatDuration } from '../utils/time';
 import { useStageMessages } from '../hooks/useStageMessages';
+import { useWakeLock } from '../hooks/useWakeLock';
 
 interface TVViewProps {
     program: Program;
@@ -29,40 +30,8 @@ const TVView: React.FC<TVViewProps> = ({
     const currentSlot = program.slots[currentSlotIndex];
     const nextSlot = program.slots[currentSlotIndex + 1];
 
-    // Wake Lock
-    useEffect(() => {
-        let wakeLock: any = null;
-
-        const requestWakeLock = async () => {
-            try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await (navigator as any).wakeLock.request('screen');
-                    console.log('Wake Lock is active');
-                }
-            } catch (err) {
-                console.error(`${err.name}, ${err.message}`);
-            }
-        };
-
-        requestWakeLock();
-
-        const handleVisibilityChange = () => {
-            if (wakeLock !== null && document.visibilityState === 'visible') {
-                requestWakeLock();
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            if (wakeLock !== null) {
-                wakeLock.release().then(() => {
-                    console.log('Wake Lock released');
-                });
-            }
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, []);
+    // Screen Wake Lock
+    useWakeLock(true);
 
     const toggleFullscreen = async () => {
         try {
