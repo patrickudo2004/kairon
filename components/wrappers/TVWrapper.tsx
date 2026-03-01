@@ -20,8 +20,11 @@ const TVWrapper: React.FC = () => {
         programId ? { id: programId as any } : "skip"
     );
 
-    // Derive the program object
-    const program = programData ? (programData as unknown as Program) : null;
+    // Derive the program object with explicit ID mapping
+    const program = programData ? {
+        ...(programData as any),
+        id: (programData as any)._id
+    } as Program : null;
 
     // Organization Branding Query
     const activeOrg = useQuery(
