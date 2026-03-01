@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Program, Organization } from '../types';
-import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle } from 'lucide-react';
+import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2 } from 'lucide-react';
 import { useStageMessages } from '../hooks/useStageMessages';
 
 interface MonitorDashboardProps {
@@ -9,7 +9,7 @@ interface MonitorDashboardProps {
 }
 
 export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({ program, activeOrg }) => {
-    const { sendStageMessage } = useStageMessages(program.id);
+    const { sendStageMessage, clearStageMessage } = useStageMessages(program.id);
     const [customMessage, setCustomMessage] = useState('');
 
     const quickCues = [
@@ -129,7 +129,6 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({ program, act
                                 </button>
                             </div>
                         </form>
-
                         <div>
                             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Quick Cues</label>
                             <div className="grid grid-cols-1 gap-2">
@@ -144,6 +143,13 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({ program, act
                                     </button>
                                 ))}
                             </div>
+                            <button
+                                onClick={clearStageMessage}
+                                className="w-full mt-4 px-4 py-3 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/30 rounded-xl text-rose-400 text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95"
+                            >
+                                <Trash2 size={16} />
+                                Clear Display
+                            </button>
                         </div>
 
                         <div className="mt-8 pt-6 border-t border-slate-800">
@@ -164,7 +170,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({ program, act
                     </div>
                 </div>
 
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
