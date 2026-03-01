@@ -2,20 +2,23 @@ import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
 export const getLatestMessage = query({
-    args: { programId: v.any() },
+    args: { programId: v.string() },
     handler: async (ctx, args) => {
-        if (typeof args.programId !== "string" || !args.programId) {
-            return null;
-        }
+        if (!args.programId) return null;
 
         try {
             const now = Date.now();
-            return await ctx.db
+            const message = await ctx.db
                 .query("stageMessages")
                 .withIndex("by_program_latest", (q) => q.eq("programId", args.programId))
                 .order("desc")
                 .filter((q) => q.gt(q.field("expiresAt"), now))
                 .first();
+
+            if (message) {
+                console.log(`[getLatestMessage] Found active message for ${args.programId}: ${message.text}`);
+            }
+            return message;
         } catch (err) {
             console.error(`[stageMessages:getLatestMessage] Error for program ${args.programId}:`, err);
             return null;
