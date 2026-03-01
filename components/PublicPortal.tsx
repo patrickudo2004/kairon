@@ -14,6 +14,16 @@ export const PublicPortal: React.FC = () => {
 
     const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
+    // Sync theme to document for full-page dark mode
+    useEffect(() => {
+        if (isDarkMode) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        return () => document.documentElement.classList.remove('dark');
+    }, [isDarkMode]);
+
     // Convex Reactive Query
     const programData = useQuery(
         api.programs.getProgramBySlug,
