@@ -44,8 +44,20 @@ export const createProgram = mutation({
         startTime: v.string(),
         organizationId: v.id("organizations"),
         slots: v.array(v.any()),
+        uuid: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        if (args.uuid) {
+            const existing = await ctx.db
+                .query("programs")
+                .withIndex("by_uuid", (q) => q.eq("uuid", args.uuid))
+                .first();
+            if (existing) {
+                const { uuid, ...patch } = args;
+                await ctx.db.patch(existing._id, patch);
+                return existing._id;
+            }
+        }
         return await ctx.db.insert("programs", {
             ...args,
             status: "draft",
@@ -76,8 +88,20 @@ export const migrateProgram = mutation({
         currentSlotIndex: v.optional(v.number()),
         isTimerActive: v.optional(v.boolean()),
         secondsElapsed: v.optional(v.number()),
+        uuid: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        if (args.uuid) {
+            const existing = await ctx.db
+                .query("programs")
+                .withIndex("by_uuid", (q) => q.eq("uuid", args.uuid))
+                .first();
+            if (existing) {
+                const { uuid, ...patch } = args;
+                await ctx.db.patch(existing._id, patch);
+                return existing._id;
+            }
+        }
         return await ctx.db.insert("programs", {
             ...args,
             status: args.status ?? "draft",

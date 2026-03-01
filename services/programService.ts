@@ -30,7 +30,8 @@ export const createProgram = async (program: Program): Promise<Program> => {
         date: program.date,
         startTime: program.startTime,
         organizationId: program.organizationId as any,
-        slots: program.slots
+        slots: program.slots,
+        uuid: program.id
     });
 
     return { ...program, id: id as string };
@@ -84,13 +85,13 @@ export const updateTimerState = async (programId: string, state: {
 export const getPublicProgram = async (slugOrId: string): Promise<Program | null> => {
     // 1. Try slug first
     const dataBySlug = await convex.query(api.programs.getProgramBySlug, { slug: slugOrId });
-    if (dataBySlug && dataBySlug.isPublic) {
+    if (dataBySlug && (dataBySlug as any).isPublic) {
         return transformProgram(dataBySlug);
     }
 
     // 2. Try ID fallback
     const dataById = await convex.query(api.programs.getProgramById, { id: slugOrId as any });
-    if (dataById && dataById.isPublic) {
+    if (dataById && (dataById as any).isPublic) {
         return transformProgram(dataById);
     }
 

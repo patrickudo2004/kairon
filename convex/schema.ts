@@ -58,10 +58,11 @@ export default defineSchema({
         isTimerActive: v.optional(v.boolean()),
         timerStartTimestamp: v.optional(v.union(v.number(), v.null())),
         secondsElapsed: v.optional(v.number()),
+        uuid: v.optional(v.string()),
         slug: v.optional(v.string()),
         isPublic: v.optional(v.boolean()),
         status: v.optional(v.union(v.literal("draft"), v.literal("live"), v.literal("concluded"))),
-    }).index("by_org", ["organizationId"]).index("by_slug", ["slug"]),
+    }).index("by_org", ["organizationId"]).index("by_slug", ["slug"]).index("by_uuid", ["uuid"]),
 
     stageMessages: defineTable({
         programId: v.string(),
