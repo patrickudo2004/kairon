@@ -5,7 +5,6 @@ import { api } from '../convex/_generated/api';
 import { Program } from '../types';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
 import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon } from 'lucide-react';
-import { useStageMessages } from '../hooks/useStageMessages';
 
 export const PublicPortal: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
@@ -39,8 +38,6 @@ export const PublicPortal: React.FC = () => {
     const programRaw = programData || programByIdData;
     const program = programRaw ? (programRaw as unknown as Program) : null;
 
-    // Stage Cues
-    const { promptMessage: stageCue } = useStageMessages(program?.id);
 
     // Local Timer Logic
     const [secondsElapsed, setSecondsElapsed] = useState(0);
@@ -335,21 +332,18 @@ export const PublicPortal: React.FC = () => {
                 </footer>
             </main>
 
-            {/* Hold Message or Stage Cue Overlay */}
-            {(program.isOnHold || stageCue) && (
+            {/* Hold Message Overlay */}
+            {program.isOnHold && (
                 <div className="fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-500">
                     <div className="text-center max-w-lg">
                         <div className="w-24 h-24 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
                             <Clock size={48} />
                         </div>
                         <h2 className="text-4xl font-black text-white mb-4 tracking-tight">
-                            {program.isOnHold ? "Event On Hold" : "Stage Announcement"}
+                            Event On Hold
                         </h2>
                         <p className="text-slate-400 text-xl font-medium mb-8">
-                            {program.isOnHold
-                                ? (program.holdMessage || "We'll be back in just a few minutes.")
-                                : stageCue?.text
-                            }
+                            {program.holdMessage || "We'll be back in just a few minutes."}
                         </p>
                         <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-800 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                             Live Sync Active

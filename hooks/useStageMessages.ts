@@ -19,6 +19,7 @@ export const useStageMessages = (programId: string | undefined) => {
     );
 
     const sendMutation = useMutation(api.stageMessages.sendMessage);
+    const clearMutation = useMutation(api.stageMessages.clearMessages);
 
     const sendStageMessage = async (text: string, type: string = 'alert', durationMs?: number) => {
         if (!programId) return;
@@ -34,5 +35,14 @@ export const useStageMessages = (programId: string | undefined) => {
         }
     };
 
-    return { promptMessage, sendStageMessage };
+    const clearStageMessage = async () => {
+        if (!programId) return;
+        try {
+            await clearMutation({ programId });
+        } catch (err) {
+            console.error("Failed to clear stage messages:", err);
+        }
+    };
+
+    return { promptMessage, sendStageMessage, clearStageMessage };
 };
