@@ -25,7 +25,7 @@ const TVWrapper: React.FC = () => {
 
     // Organization Branding Query
     const activeOrg = useQuery(
-        api.authQueries.getOrganizationById,
+        api.orgs.getOrganizationById,
         program?.organizationId ? { id: program.organizationId } : "skip"
     ) as Organization | null;
 

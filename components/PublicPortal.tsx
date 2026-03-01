@@ -10,6 +10,9 @@ import { useStageMessages } from '../hooks/useStageMessages';
 export const PublicPortal: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
     const [isScrolled, setIsScrolled] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(false); // Default to light for public users? 
+
+    const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
     // Convex Reactive Query
     const programData = useQuery(
@@ -132,13 +135,21 @@ export const PublicPortal: React.FC = () => {
     const isTimerActive = program.isTimerActive ?? false;
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors pb-24">
+        <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'} transition-colors pb-24`}>
             {/* Minimal Header */}
             <header className="bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 transition-all">
                 <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">K</div>
                         <span className="font-bold text-slate-900 dark:text-white tracking-tight">Kairon</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={toggleTheme}
+                            className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-colors"
+                        >
+                            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                        </button>
                     </div>
                 </div>
             </header>

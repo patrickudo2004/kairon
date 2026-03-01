@@ -10,6 +10,9 @@ const StageWrapper: React.FC = () => {
     const [searchParams] = useSearchParams();
     const programId = searchParams.get('id');
 
+    const [isDarkMode, setIsDarkMode] = useState(true);
+    const toggleTheme = () => setIsDarkMode(prev => !prev);
+
     // Convex Reactive Query
     const programData = useQuery(
         api.programs.getProgramById,
@@ -21,7 +24,7 @@ const StageWrapper: React.FC = () => {
 
     // Organization Branding Query
     const activeOrg = useQuery(
-        api.authQueries.getOrganizationById,
+        api.orgs.getOrganizationById,
         program?.organizationId ? { id: program.organizationId } : "skip"
     ) as Organization | null;
 
@@ -100,6 +103,8 @@ const StageWrapper: React.FC = () => {
             isTimerActive={program.isTimerActive ?? false}
             secondsElapsed={secondsElapsed}
             activeOrg={activeOrg}
+            isDarkMode={isDarkMode}
+            toggleTheme={toggleTheme}
         />
     );
 };
