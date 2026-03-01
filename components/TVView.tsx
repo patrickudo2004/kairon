@@ -37,7 +37,8 @@ const TVView: React.FC<TVViewProps> = ({
         if (promptMessage) {
             setIsVisible(true);
             const now = Date.now();
-            const delay = promptMessage.expiresAt - now;
+            // Buffer the server-relative time slightly to handle clock drift
+            const delay = (promptMessage.expiresAt + 1000) - now;
 
             if (delay > 0) {
                 const timer = setTimeout(() => {
