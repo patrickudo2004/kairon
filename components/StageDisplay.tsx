@@ -27,7 +27,27 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     const { promptMessage } = useStageMessages(program.id);
     const currentSlot = program.slots[currentSlotIndex];
 
-    // Stage Messaging Subscription (Consolidated)
+    // Stage Messaging Expiry Logic
+    const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        if (promptMessage) {
+            setIsVisible(true);
+            const now = Date.now();
+            const delay = promptMessage.expiresAt - now;
+
+            if (delay > 0) {
+                const timer = setTimeout(() => {
+                    setIsVisible(false);
+                }, delay);
+                return () => clearTimeout(timer);
+            } else {
+                setIsVisible(false);
+            }
+        } else {
+            setIsVisible(false);
+        }
+    }, [promptMessage]);
 
     const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
     const timeLeft = durationSeconds - secondsElapsed;
@@ -108,10 +128,22 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                 )}
             </div>
 
-            {/* Prompter Overlay - Full Screen Attention */}
-            {promptMessage && (
-                <div className="fixed inset-0 z-[100] bg-rose-600 flex items-center justify-center p-12">
-                    <h2 className="text-[10vw] font-black uppercase text-center text-white italic tracking-tighter leading-tight drop-shadow-2xl">
+            {/* Prompter Overlay - High Intensity Strobe */}
+            {isVisible && promptMessage && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-12 overflow-hidden"
+                    style={{
+                        animation: 'strobe 0.2s steps(2, start) infinite',
+                        backgroundColor: 'rgb(225, 29, 72)' // rose-600
+                    }}
+                >
+                    <style>{`
+                        @keyframes strobe {
+                            0% { opacity: 1; background-color: rgb(225, 29, 72); }
+                            50% { opacity: 0.85; background-color: rgb(159, 18, 57); }
+                        }
+                    `}</style>
+                    <h2 className="text-[12vw] font-black uppercase text-center text-white italic tracking-tighter leading-tight drop-shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-bounce">
                         {promptMessage.text}
                     </h2>
                 </div>

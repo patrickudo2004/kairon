@@ -30,6 +30,28 @@ const TVView: React.FC<TVViewProps> = ({
     const currentSlot = program.slots[currentSlotIndex];
     const nextSlot = program.slots[currentSlotIndex + 1];
 
+    // Stage Messaging Expiry Logic
+    const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        if (promptMessage) {
+            setIsVisible(true);
+            const now = Date.now();
+            const delay = promptMessage.expiresAt - now;
+
+            if (delay > 0) {
+                const timer = setTimeout(() => {
+                    setIsVisible(false);
+                }, delay);
+                return () => clearTimeout(timer);
+            } else {
+                setIsVisible(false);
+            }
+        } else {
+            setIsVisible(false);
+        }
+    }, [promptMessage]);
+
     // Screen Wake Lock
     useWakeLock(true);
 
@@ -195,11 +217,23 @@ const TVView: React.FC<TVViewProps> = ({
 
             </div>
 
-            {/* Prompter Message Overlay */}
-            {promptMessage && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-8 pointer-events-none animate-in zoom-in duration-300">
-                    <div className="bg-rose-600 text-white py-12 px-20 rounded-[4rem] shadow-[0_0_100px_rgba(225,29,72,0.5)] border-8 border-white/20 backdrop-blur-3xl text-center">
-                        <h2 className="text-6xl sm:text-8xl md:text-9xl font-black uppercase tracking-tighter leading-none mb-4 animate-bounce">
+            {/* Prompter Message Overlay - High Intensity Strobe */}
+            {isVisible && promptMessage && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-8 overflow-hidden"
+                    style={{
+                        animation: 'strobe 0.2s steps(2, start) infinite',
+                        backgroundColor: 'rgb(225, 29, 72)' // rose-600
+                    }}
+                >
+                    <style>{`
+                        @keyframes strobe {
+                            0% { opacity: 1; background-color: rgb(225, 29, 72); }
+                            50% { opacity: 0.85; background-color: rgb(159, 18, 57); }
+                        }
+                    `}</style>
+                    <div className="bg-white/10 text-white py-12 px-20 rounded-[4rem] shadow-[0_0_100px_rgba(0,0,0,0.5)] border-8 border-white/40 backdrop-blur-md text-center">
+                        <h2 className="text-6xl sm:text-8xl md:text-9xl font-black uppercase tracking-tighter leading-none animate-bounce">
                             {promptMessage.text}
                         </h2>
                     </div>

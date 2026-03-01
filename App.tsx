@@ -250,6 +250,8 @@ const AppContent: React.FC = () => {
 
   useWakeLock(isTimerActive);
 
+  const { clearStageMessage } = useStageMessages(program.id);
+
   const handleSignOut = async () => {
     // useAuthActions hook handles sign out in components that need to trigger it
     await signOut();
@@ -1001,6 +1003,7 @@ const AppContent: React.FC = () => {
         });
 
         // PUSH TO CLOUD IMMEDIATELY
+        clearStageMessage();
         timerSaveMutation.mutate({
           currentSlotIndex: currentSlotIndex + 1,
           isTimerActive: false,
@@ -1019,6 +1022,7 @@ const AppContent: React.FC = () => {
         });
 
         // PUSH TO CLOUD IMMEDIATELY
+        clearStageMessage();
         timerSaveMutation.mutate({
           currentSlotIndex: currentSlotIndex + 1,
           isTimerActive: false,
@@ -1044,6 +1048,7 @@ const AppContent: React.FC = () => {
       });
 
       // PUSH TO CLOUD IMMEDIATELY
+      clearStageMessage();
       timerSaveMutation.mutate({
         currentSlotIndex: currentSlotIndex - 1,
         isTimerActive: false,
