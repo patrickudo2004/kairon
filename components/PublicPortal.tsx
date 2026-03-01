@@ -4,7 +4,7 @@ import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
 import { Program } from '../types';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
-import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer } from 'lucide-react';
+import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon } from 'lucide-react';
 import { useStageMessages } from '../hooks/useStageMessages';
 
 export const PublicPortal: React.FC = () => {
