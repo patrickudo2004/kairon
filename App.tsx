@@ -491,6 +491,8 @@ const AppContent: React.FC = () => {
       isTimerActive: boolean;
       secondsElapsed: number;
       timerStartTimestamp: number | null;
+      isOnHold?: boolean;
+      holdMessage?: string;
     }) => updateTimerStateService(program.id, state)
   });
 
@@ -563,19 +565,19 @@ const AppContent: React.FC = () => {
     return () => clearTimeout(timer);
   }, [program, isReadOnly]);
 
-  // Debounced Timer State Save to Convex
+  // Debounced Timer State Save to Convex (for background ticks)
   useEffect(() => {
     if (isReadOnly || program.id === INITIAL_PROGRAM.id) return;
 
     const timer = setTimeout(() => {
-      console.log("Saving timer state to Convex...", program.id);
+      console.log("Syncing timer state (ticking)...", program.id);
       timerSaveMutation.mutate({
         currentSlotIndex,
         isTimerActive,
-        secondsElapsed: isTimerActive ? 0 : secondsElapsed, // If active, the start timestamp is the source of truth
+        secondsElapsed: isTimerActive ? 0 : secondsElapsed,
         timerStartTimestamp
       });
-    }, 5000); // 5s debounce for timer state to avoid spamming DB during ticks
+    }, 10000); // 10s for passive background syncing of seconds elapsed when paused
 
     return () => clearTimeout(timer);
   }, [currentSlotIndex, isTimerActive, secondsElapsed, timerStartTimestamp, isReadOnly, program.id]);
@@ -922,8 +924,16 @@ const AppContent: React.FC = () => {
     const startTs = newState ? (Date.now() - (secondsElapsed * 1000)) : null;
     setTimerStartTimestamp(startTs);
 
-    // Broadcast immediately so Viewers know
+    // Broadcast immediately so Viewers know (Local)
     broadcastState({ isTimerActive: newState, timerStartTimestamp: startTs });
+
+    // PUSH TO CLOUD IMMEDIATELY
+    timerSaveMutation.mutate({
+      currentSlotIndex,
+      isTimerActive: newState,
+      secondsElapsed: newState ? 0 : secondsElapsed,
+      timerStartTimestamp: startTs
+    });
   };
 
   const handleConfirmSwitch = () => {
@@ -947,21 +957,14 @@ const AppContent: React.FC = () => {
     // Broadcast for TV/Projectors and sync to Supabase
     broadcastState({ isOnHold: nextHoldState });
 
-    // Final persistence to DB
-    void (async () => {
-      try {
-        await updateTimerStateService(program.id, {
-          currentSlotIndex,
-          isTimerActive,
-          secondsElapsed,
-          timerStartTimestamp,
-          isOnHold: nextHoldState,
-          holdMessage: program.holdMessage
-        });
-      } catch (err) {
-        console.error("Failed to persist hold state:", err);
-      }
-    })();
+    // Final persistence to DB - IMMEDIATE
+    timerSaveMutation.mutate({
+      currentSlotIndex,
+      isTimerActive,
+      secondsElapsed,
+      timerStartTimestamp,
+      isOnHold: nextHoldState
+    });
   };
 
 
@@ -996,6 +999,14 @@ const AppContent: React.FC = () => {
           isTimerActive: false,
           secondsElapsed: 0
         });
+
+        // PUSH TO CLOUD IMMEDIATELY
+        timerSaveMutation.mutate({
+          currentSlotIndex: currentSlotIndex + 1,
+          isTimerActive: false,
+          secondsElapsed: 0,
+          timerStartTimestamp: null
+        });
       } else {
         setCurrentSlotIndex(prev => prev + 1);
         setIsTimerActive(false);
@@ -1005,6 +1016,14 @@ const AppContent: React.FC = () => {
           currentSlotIndex: currentSlotIndex + 1,
           isTimerActive: false,
           secondsElapsed: Math.round(secondsElapsed)
+        });
+
+        // PUSH TO CLOUD IMMEDIATELY
+        timerSaveMutation.mutate({
+          currentSlotIndex: currentSlotIndex + 1,
+          isTimerActive: false,
+          secondsElapsed: Math.round(secondsElapsed),
+          timerStartTimestamp: null
         });
       }
     }
@@ -1018,6 +1037,14 @@ const AppContent: React.FC = () => {
       setIsTimerActive(false);
       setTimerStartTimestamp(null);
       broadcastState({
+        currentSlotIndex: currentSlotIndex - 1,
+        isTimerActive: false,
+        secondsElapsed: 0,
+        timerStartTimestamp: null
+      });
+
+      // PUSH TO CLOUD IMMEDIATELY
+      timerSaveMutation.mutate({
         currentSlotIndex: currentSlotIndex - 1,
         isTimerActive: false,
         secondsElapsed: 0,

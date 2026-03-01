@@ -15,7 +15,7 @@ export const useStageMessages = (programId: string | undefined) => {
     // Stage display views call this to get the latest message
     const promptMessage = useQuery(
         api.stageMessages.getLatestMessage,
-        programId ? { programId: programId as Id<"programs"> } : "skip"
+        programId ? { programId } : "skip"
     );
 
     const sendMutation = useMutation(api.stageMessages.sendMessage);
@@ -24,7 +24,7 @@ export const useStageMessages = (programId: string | undefined) => {
         if (!programId) return;
         try {
             await sendMutation({
-                programId: programId as Id<"programs">,
+                programId,
                 text,
                 type,
                 durationMs
