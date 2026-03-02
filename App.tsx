@@ -495,6 +495,7 @@ const AppContent: React.FC = () => {
       timerStartTimestamp: number | null;
       isOnHold?: boolean;
       holdMessage?: string;
+      status?: 'draft' | 'live' | 'concluded';
     }) => updateTimerStateService(program.id, state)
   });
 
@@ -673,6 +674,7 @@ const AppContent: React.FC = () => {
         : (overrides.isTimerActive ? now : timerStartTimestamp),
       isOnHold: overrides.hasOwnProperty('isOnHold') ? (overrides.isOnHold as boolean) : program.isOnHold,
       holdMessage: (overrides.holdMessage as string) || program.holdMessage,
+      status: overrides.status || program.status,
     };
     broadcastTimerState(state);
   };
@@ -894,7 +896,19 @@ const AppContent: React.FC = () => {
         broadcastState({
           isTimerActive: true,
           timerStartTimestamp: startTs,
-          secondsElapsed: 0
+          secondsElapsed: 0,
+          status: 'live'
+        });
+
+        setProgram(prev => ({ ...prev, status: 'live' }));
+
+        // PUSH TO CLOUD 
+        timerSaveMutation.mutate({
+          currentSlotIndex,
+          isTimerActive: true,
+          secondsElapsed: 0,
+          timerStartTimestamp: startTs,
+          status: 'live'
         });
       }
     }, 1000);
@@ -934,8 +948,13 @@ const AppContent: React.FC = () => {
       currentSlotIndex,
       isTimerActive: newState,
       secondsElapsed: newState ? 0 : secondsElapsed,
-      timerStartTimestamp: startTs
+      timerStartTimestamp: startTs,
+      status: newState ? 'live' : program.status
     });
+
+    if (newState) {
+      setProgram(prev => ({ ...prev, status: 'live' }));
+    }
   };
 
   const handleConfirmSwitch = () => {

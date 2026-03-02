@@ -140,6 +140,7 @@ export const updateTimerState = mutation({
             timerStartTimestamp: v.union(v.number(), v.null()),
             isOnHold: v.optional(v.boolean()),
             holdMessage: v.optional(v.string()),
+            status: v.optional(v.union(v.literal("draft"), v.literal("live"), v.literal("concluded"))),
         }),
     },
     handler: async (ctx, args) => {
