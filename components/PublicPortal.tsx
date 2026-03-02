@@ -39,25 +39,18 @@ export const PublicPortal: React.FC = () => {
     const program = programRaw ? (programRaw as unknown as Program) : null;
 
 
-    // Local Timer Logic
-    const [secondsElapsed, setSecondsElapsed] = useState(0);
-
+    // Use a simple ticker to force re-render every second for the countdown
+    const [, setTick] = useState(0);
     useEffect(() => {
-        if (program?.isTimerActive && program?.timerStartTimestamp) {
-            const now = Date.now();
-            const elapsed = Math.floor((now - program.timerStartTimestamp) / 1000);
-            setSecondsElapsed(elapsed);
+        const interval = window.setInterval(() => setTick(t => t + 1), 1000);
+        return () => clearInterval(interval);
+    }, []);
 
-            const interval = window.setInterval(() => {
-                const updatedNow = Date.now();
-                const updatedElapsed = Math.floor((updatedNow - program.timerStartTimestamp!) / 1000);
-                setSecondsElapsed(updatedElapsed);
-            }, 1000);
-            return () => clearInterval(interval);
-        } else {
-            setSecondsElapsed(program?.secondsElapsed || 0);
-        }
-    }, [program?.isTimerActive, program?.timerStartTimestamp, program?.secondsElapsed]);
+    // Derived Time Logic (Prevents desync during slot transitions)
+    const derivedSecondsElapsed = (program?.isTimerActive && program?.timerStartTimestamp)
+        ? Math.max(0, Math.floor((Date.now() - program.timerStartTimestamp) / 1000))
+        : (program?.secondsElapsed || 0);
+
 
     // Scroll Observer
     useEffect(() => {
@@ -138,7 +131,7 @@ export const PublicPortal: React.FC = () => {
         return `${totalSeconds < 0 ? '-' : ''}${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const remainingSeconds = currentSlot ? (currentSlot.durationMinutes * 60) - secondsElapsed : 0;
+    const remainingSeconds = currentSlot ? (currentSlot.durationMinutes * 60) - derivedSecondsElapsed : 0;
     const isTimerActive = program.isTimerActive ?? false;
 
     return (
@@ -230,7 +223,7 @@ export const PublicPortal: React.FC = () => {
                                 <div className="h-3 bg-indigo-900/40 rounded-full overflow-hidden border border-indigo-400/20">
                                     <div
                                         className="h-full bg-gradient-to-r from-amber-400 to-amber-200 transition-all duration-1000 ease-linear shadow-[0_0_15px_rgba(251,191,36,0.3)]"
-                                        style={{ width: `${Math.min(100, (secondsElapsed / (currentSlot.durationMinutes * 60)) * 100)}%` }}
+                                        style={{ width: `${Math.min(100, (derivedSecondsElapsed / (currentSlot.durationMinutes * 60)) * 100)}%` }}
                                     />
                                 </div>
                             </div>
