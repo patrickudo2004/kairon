@@ -70,6 +70,7 @@ export const updateTimerState = async (programId: string, state: {
     timerStartTimestamp: number | null;
     isOnHold?: boolean;
     holdMessage?: string;
+    status?: 'draft' | 'live' | 'concluded';
 }): Promise<void> => {
     await convex.mutation(api.programs.updateTimerState, {
         id: programId as any,
@@ -80,6 +81,7 @@ export const updateTimerState = async (programId: string, state: {
             timerStartTimestamp: state.timerStartTimestamp,
             isOnHold: state.isOnHold,
             holdMessage: state.holdMessage,
+            status: state.status,
         }
     });
 };

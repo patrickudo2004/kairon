@@ -69,6 +69,7 @@ export interface TimerState {
   timerStartTimestamp: number | null;
   isOnHold?: boolean;
   holdMessage?: string;
+  status?: 'draft' | 'live' | 'concluded';
 }
 
 export interface Organization {
