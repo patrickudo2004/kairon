@@ -266,6 +266,7 @@ const AppContent: React.FC = () => {
   const [liveCurrentSlotIndex, setLiveCurrentSlotIndex] = useState<number>(0);
   const [liveSecondsElapsed, setLiveSecondsElapsed] = useState<number>(0);
   const [isInterlockOpen, setIsInterlockOpen] = useState(false);
+  const lastAdvanceTimeRef = React.useRef<number>(0);
 
 
 
@@ -418,8 +419,14 @@ const AppContent: React.FC = () => {
         console.log("Hydrating program from ID:", fetchedProgram.title);
         setProgram(fetchedProgram);
 
-        // Hydrate Timer State from DB if available
+        // Hydrate Timer State from DB if available (Throttled by transition lock)
         if (fetchedProgram.isTimerActive !== undefined) {
+          const isTransitioning = Date.now() - lastAdvanceTimeRef.current < 2000;
+          if (isTransitioning) {
+            console.log("Skipping timer hydration during active transition...");
+            return;
+          }
+
           setCurrentSlotIndex(fetchedProgram.currentSlotIndex ?? 0);
           setIsTimerActive(fetchedProgram.isTimerActive ?? false);
           setTimerStartTimestamp(fetchedProgram.timerStartTimestamp ?? null);
@@ -830,6 +837,10 @@ const AppContent: React.FC = () => {
     if (targetProgram.isManualMode) return;
 
     if (elapsed >= durationSeconds) {
+      // Throttle Auto-Advance (Mutation Lock)
+      if (Date.now() - lastAdvanceTimeRef.current < 2000) return;
+      lastAdvanceTimeRef.current = Date.now();
+
       console.log('AUTO-ADVANCE TRIGGERED FOR:', targetProgram.title);
       handleSlotComplete(currentSlot.id, currentSlot.durationMinutes);
 
@@ -931,6 +942,8 @@ const AppContent: React.FC = () => {
       setLiveProgramId(program.id);
       setLiveProgram(program);
       setLiveCurrentSlotIndex(currentSlotIndex);
+      setSecondsElapsed(0);
+      setLiveSecondsElapsed(0);
     } else {
       setLiveProgramId(null);
       setLiveProgram(null);
@@ -1010,6 +1023,7 @@ const AppContent: React.FC = () => {
       })();
 
       if (currentSlotIndex < program.slots.length - 1) {
+        lastAdvanceTimeRef.current = Date.now();
         setCurrentSlotIndex(prev => prev + 1);
         setSecondsElapsed(0);
         setIsTimerActive(false);

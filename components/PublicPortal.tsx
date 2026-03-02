@@ -46,9 +46,9 @@ export const PublicPortal: React.FC = () => {
         return () => clearInterval(interval);
     }, []);
 
-    // Derived Time Logic (Prevents desync during slot transitions)
+    const nowTime = Date.now();
     const derivedSecondsElapsed = (program?.isTimerActive && program?.timerStartTimestamp)
-        ? Math.max(0, Math.floor((Date.now() - program.timerStartTimestamp) / 1000))
+        ? Math.max(0, Math.floor((nowTime - program.timerStartTimestamp) / 1000))
         : (program?.secondsElapsed || 0);
 
 
