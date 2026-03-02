@@ -31,28 +31,18 @@ const StageWrapper: React.FC = () => {
         program?.organizationId ? { id: program.organizationId } : "skip"
     ) as Organization | null;
 
-    // Internal Tick Logic for Smooth Countdown
-    const [secondsElapsed, setSecondsElapsed] = useState(0);
-
+    // Use a simple ticker to force re-render every second for the countdown
+    const [, setTick] = useState(0);
     useEffect(() => {
-        if (program?.isTimerActive && program?.timerStartTimestamp) {
-            // Initial sync
-            const now = Date.now();
-            const elapsed = Math.floor((now - program.timerStartTimestamp) / 1000);
-            setSecondsElapsed(elapsed);
+        const interval = window.setInterval(() => setTick(t => t + 1), 1000);
+        return () => clearInterval(interval);
+    }, []);
 
-            // Tick interval
-            const interval = window.setInterval(() => {
-                const updatedNow = Date.now();
-                const updatedElapsed = Math.floor((updatedNow - program.timerStartTimestamp!) / 1000);
-                setSecondsElapsed(updatedElapsed);
-            }, 1000);
-            return () => clearInterval(interval);
-        } else {
-            // Static value when paused
-            setSecondsElapsed(program?.secondsElapsed || 0);
-        }
-    }, [program?.isTimerActive, program?.timerStartTimestamp, program?.secondsElapsed]);
+    // Derived Time Logic (Prevents desync during slot transitions)
+    const derivedSecondsElapsed = (program?.isTimerActive && program?.timerStartTimestamp)
+        ? Math.max(0, Math.floor((Date.now() - program.timerStartTimestamp) / 1000))
+        : (program?.secondsElapsed || 0);
+
 
     // Handle Loading State
     const loading = programId && programData === undefined;
@@ -104,7 +94,7 @@ const StageWrapper: React.FC = () => {
             program={program}
             currentSlotIndex={program.currentSlotIndex ?? 0}
             isTimerActive={program.isTimerActive ?? false}
-            secondsElapsed={secondsElapsed}
+            secondsElapsed={derivedSecondsElapsed}
             activeOrg={activeOrg}
             isDarkMode={isDarkMode}
             toggleTheme={toggleTheme}
