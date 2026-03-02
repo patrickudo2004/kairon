@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Program, Organization } from '../types';
-import { Maximize, Minimize, Sun, Moon } from 'lucide-react';
+import { Maximize, Minimize, Sun, Moon, Timer } from 'lucide-react';
 import { formatDuration } from '../utils/time';
 import { useStageMessages } from '../hooks/useStageMessages';
 import { useWakeLock } from '../hooks/useWakeLock';
