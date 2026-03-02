@@ -138,6 +138,8 @@ export const updateTimerState = mutation({
             secondsElapsed: v.number(),
             currentSlotIndex: v.number(),
             timerStartTimestamp: v.union(v.number(), v.null()),
+            isOnHold: v.optional(v.boolean()),
+            holdMessage: v.optional(v.string()),
         }),
     },
     handler: async (ctx, args) => {

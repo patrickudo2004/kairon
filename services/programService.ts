@@ -78,6 +78,8 @@ export const updateTimerState = async (programId: string, state: {
             isTimerActive: state.isTimerActive,
             secondsElapsed: state.secondsElapsed,
             timerStartTimestamp: state.timerStartTimestamp,
+            isOnHold: state.isOnHold,
+            holdMessage: state.holdMessage,
         }
     });
 };
