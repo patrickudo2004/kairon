@@ -53,10 +53,11 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
     const timeLeft = durationSeconds - secondsElapsed;
 
-    if (!currentSlot) {
+    if (!currentSlot || program.status === 'concluded') {
         return (
-            <div className="w-screen h-screen bg-black flex items-center justify-center">
-                <h1 className="text-white text-[15vw] font-black uppercase">Stand By</h1>
+            <div className="w-screen h-screen bg-black flex flex-col items-center justify-center p-12 text-center">
+                <h1 className="text-white text-[12vw] font-black uppercase tracking-tighter leading-none mb-8">Stand By</h1>
+                <div className="w-24 h-1 bg-emerald-500/50 rounded-full animate-pulse" />
             </div>
         );
     }

@@ -109,11 +109,19 @@ const TVView: React.FC<TVViewProps> = ({
         ? Math.min(100, Math.max(0, (timeLeft / durationSeconds) * 100))
         : 0;
 
-    if (!currentSlot) {
+    if (!currentSlot || program.status === 'concluded') {
         return (
-            <div className="w-screen h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center text-slate-900 dark:text-white transition-colors">
-                <h1 className="text-9xl font-bold mb-8">All Done</h1>
-                <p className="text-4xl text-slate-500 dark:text-slate-400">The program has concluded.</p>
+            <div className={`w-screen h-screen ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'} flex flex-col items-center justify-center p-12 text-center transition-colors duration-500`}>
+                <div className="w-32 h-32 bg-indigo-600/10 rounded-full flex items-center justify-center mb-12 animate-pulse">
+                    <Timer size={64} className="text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <h1 className="text-6xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-6">Program Concluded</h1>
+                <p className="text-2xl md:text-4xl text-slate-500 dark:text-slate-400 font-medium max-w-2xl">
+                    Thank you for attending **{program.title}**.
+                </p>
+                <div className="mt-12 text-xs font-bold uppercase tracking-[0.5em] text-slate-400 dark:text-slate-600">
+                    Stand By for Next Event
+                </div>
             </div>
         );
     }
