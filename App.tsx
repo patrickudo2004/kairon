@@ -378,12 +378,15 @@ const AppContent: React.FC = () => {
   // Hydrate from URL Import or ID
   const urlId = searchParams.get('id');
 
-  // Fetch program if ID is present
-  const { data: fetchedProgram } = useQuery<Program>({
-    queryKey: ['program', urlId],
-    queryFn: () => getProgramById(urlId!),
-    enabled: !!urlId,
-  });
+  // Fetch program if ID is present (Reactive Convex Query)
+  const fetchedProgramRaw = useConvexQuery(
+    api.programs.getProgramById,
+    urlId ? { id: urlId as any } : "skip"
+  );
+  const fetchedProgram = fetchedProgramRaw ? {
+    ...(fetchedProgramRaw as any),
+    id: (fetchedProgramRaw as any)._id
+  } as Program : undefined;
 
   // Load state from URL if present
   useEffect(() => {
@@ -414,32 +417,38 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     const hydrate = async () => {
-      // 1. Try DB Hydration
-      if (fetchedProgram && fetchedProgram.id !== program.id) {
-        console.log("Hydrating program from ID:", fetchedProgram.title);
-        setProgram(fetchedProgram);
+      // 1. Try DB Hydration (Reactive)
+      if (fetchedProgram) {
+        const isNewProgram = fetchedProgram.id !== program.id;
+        const isTransitioning = Date.now() - lastAdvanceTimeRef.current < 2000;
 
-        // Hydrate Timer State from DB if available (Throttled by transition lock)
-        if (fetchedProgram.isTimerActive !== undefined) {
-          const isTransitioning = Date.now() - lastAdvanceTimeRef.current < 2000;
-          if (isTransitioning) {
-            console.log("Skipping timer hydration during active transition...");
-            return;
+        if (isNewProgram) {
+          console.log("Hydrating new program from ID:", fetchedProgram.title);
+          setProgram(fetchedProgram);
+        }
+
+        // Always sync timer state from DB unless we just performed a local action (Optimistic Consistency)
+        if (fetchedProgram.isTimerActive !== undefined && !isTransitioning) {
+          // Only update if actually different to avoid render loops
+          if (fetchedProgram.currentSlotIndex !== currentSlotIndex) {
+            setCurrentSlotIndex(fetchedProgram.currentSlotIndex ?? 0);
+          }
+          if (fetchedProgram.isTimerActive !== isTimerActive) {
+            setIsTimerActive(fetchedProgram.isTimerActive ?? false);
+          }
+          if (fetchedProgram.timerStartTimestamp !== timerStartTimestamp) {
+            setTimerStartTimestamp(fetchedProgram.timerStartTimestamp ?? null);
           }
 
-          setCurrentSlotIndex(fetchedProgram.currentSlotIndex ?? 0);
-          setIsTimerActive(fetchedProgram.isTimerActive ?? false);
-          setTimerStartTimestamp(fetchedProgram.timerStartTimestamp ?? null);
+          const targetElapsed = fetchedProgram.isTimerActive && fetchedProgram.timerStartTimestamp
+            ? Math.floor((Date.now() - fetchedProgram.timerStartTimestamp) / 1000)
+            : (fetchedProgram.secondsElapsed ?? 0);
 
-          if (fetchedProgram.isTimerActive && fetchedProgram.timerStartTimestamp) {
-            const now = Date.now();
-            const elapsed = Math.floor((now - fetchedProgram.timerStartTimestamp) / 1000);
-            setSecondsElapsed(elapsed);
-          } else {
-            setSecondsElapsed(fetchedProgram.secondsElapsed ?? 0);
+          if (Math.abs(targetElapsed - secondsElapsed) > 2) {
+            setSecondsElapsed(targetElapsed);
           }
         }
-        return;
+        if (isNewProgram) return;
       }
 
       // 2. Try URL Import Hydration
@@ -575,22 +584,8 @@ const AppContent: React.FC = () => {
     return () => clearTimeout(timer);
   }, [program, isReadOnly]);
 
-  // Debounced Timer State Save to Convex (for background ticks)
-  useEffect(() => {
-    if (isReadOnly || program.id === INITIAL_PROGRAM.id) return;
-
-    const timer = setTimeout(() => {
-      console.log("Syncing timer state (ticking)...", program.id);
-      timerSaveMutation.mutate({
-        currentSlotIndex,
-        isTimerActive,
-        secondsElapsed: isTimerActive ? 0 : secondsElapsed,
-        timerStartTimestamp
-      });
-    }, 10000); // 10s for passive background syncing of seconds elapsed when paused
-
-    return () => clearTimeout(timer);
-  }, [currentSlotIndex, isTimerActive, secondsElapsed, timerStartTimestamp, isReadOnly, program.id]);
+  // No-op: Removed 10-second background sync to prevent overwriting server with stale local ticks.
+  // The system now relies on "Derived Time" on all displays, so the server only needs to know the StartTimestamp.
 
   // Update save status when mutation completes
   useEffect(() => {
