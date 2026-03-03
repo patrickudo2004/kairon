@@ -513,18 +513,13 @@ const AppContent: React.FC = () => {
   // Persistence (Convex)
   const mutation = useMutation({
     mutationFn: (p: Program) => {
-      // Check if it exists? For now, we assume if we have an ID we "upsert" or "update".
-      // Let's try update first. If DB empty, this fails. 
-      // Actually we should perform an UPSERT logic or Try Create if Update fails
-      // But our service abstractions are separate.
-      // Let's rely on Create for "Initial" valid UUIDs?
-      // Or just try create. If ID exists, it throws...
+      // Only attempt creation if it's a local-prefixed ID
+      if (p.id.startsWith('local-')) {
+        return createProgramService(p);
+      }
 
-      // Strategy: Since I just generated a new UUID, it definitely DOESN'T exist in DB.
-      // So first save should be CREATE. Subsequent are UPDATE.
-
-      // Hack for Prototype: Try Create, if conflict (23505), try Update.
-      return createProgramService(p).catch(() => updateProgramService(p));
+      // Otherwise, it's already a Convex program, just update it
+      return updateProgramService(p);
     }
   });
 
@@ -625,15 +620,29 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (mutation.isSuccess) {
       setSaveStatus('saved');
+
+      // CRITICAL: If we just created a new program (transitioning from local- ID), 
+      // we must update our local state with the actual Convex ID returned.
+      const savedProgram = mutation.data as Program | void;
+      if (savedProgram && savedProgram.id && program.id.startsWith('local-')) {
+        console.log("Syncing local ID to Convex ID:", savedProgram.id);
+        setProgram(prev => ({ ...prev, id: (savedProgram as Program).id }));
+        // Also update URL to prevent "stale local" state on refresh
+        setSearchParams(prev => {
+          prev.set('id', (savedProgram as Program).id);
+          return prev;
+        }, { replace: true });
+      }
+
       // Invalidate programs cache to refresh home view
       queryClient.invalidateQueries({ queryKey: ['programs'] });
-      // Reset to unsaved after 2 seconds to show it's ready for next change
+      // Reset to saved status after 2 seconds
       setTimeout(() => setSaveStatus('saved'), 2000);
     }
     if (mutation.isError) {
       setSaveStatus('unsaved');
     }
-  }, [mutation.isSuccess, mutation.isError, queryClient]);
+  }, [mutation.isSuccess, mutation.isError, mutation.data, queryClient]);
 
 
   // Dedicated Admin Heartbeat for Background Live Program (Public Portal fix)
@@ -741,8 +750,8 @@ const AppContent: React.FC = () => {
     // Clear persisted state for safety when explicitly switching/loading
     localStorage.removeItem(TIMER_STORAGE_KEY);
 
-    // Navigate to editor screen
-    navigate('/editor');
+    // Navigate to editor screen with the ID in the URL for better hydration
+    navigate(`/editor?id=${newProgram.id}`);
   };
 
   const createProgram = (date: string) => {
@@ -797,7 +806,7 @@ const AppContent: React.FC = () => {
 
         const newProgram: Program = {
           ...original,
-          id: crypto.randomUUID(),
+          id: `local-${crypto.randomUUID()}`,
           title: `${original.title} (Copy)`,
           slots: original.slots.map(s => ({
             ...s,
