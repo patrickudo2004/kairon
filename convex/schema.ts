@@ -62,7 +62,7 @@ export default defineSchema({
         slug: v.optional(v.string()),
         isPublic: v.optional(v.boolean()),
         status: v.optional(v.union(v.literal("draft"), v.literal("live"), v.literal("concluded"))),
-    }).index("by_org", ["organizationId"]).index("by_slug", ["slug"]).index("by_uuid", ["uuid"]),
+    }).index("by_org", ["organizationId"]).index("by_slug", ["slug"]).index("by_uuid", ["uuid"]).index("by_status", ["status"]),
 
     stageMessages: defineTable({
         programId: v.string(),

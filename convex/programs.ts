@@ -41,7 +41,7 @@ export const getLiveProgram = query({
     handler: async (ctx) => {
         return await ctx.db
             .query("programs")
-            .filter((q) => q.eq(q.field("status"), "live"))
+            .withIndex("by_status", (q) => q.eq("status", "live"))
             .first();
     },
 });

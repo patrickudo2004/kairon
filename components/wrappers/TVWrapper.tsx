@@ -57,7 +57,10 @@ const TVWrapper: React.FC = () => {
         ? (specificProgram === undefined)
         : (liveProgram === undefined);
 
-    const networkError = programId && specificProgram === null;
+    // Only show "Sync Lost" if we have no data at all after trying both specific and live lookups
+    const networkError = programId
+        ? (specificProgram === null && liveProgram === null)
+        : (liveProgram === null);
 
     if (loading) {
         return (
