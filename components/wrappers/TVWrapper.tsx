@@ -14,7 +14,6 @@ const TVWrapper: React.FC = () => {
     const [isDarkMode, setIsDarkMode] = useState(true);
     const toggleTheme = () => setIsDarkMode(prev => !prev);
 
-    // Convex Reactive Query: Try specific ID, fallback to whatever is Live
     const specificProgram = useQuery(
         api.programs.getProgramById,
         programId ? { id: programId as any } : "skip"
@@ -22,10 +21,11 @@ const TVWrapper: React.FC = () => {
 
     const liveProgram = useQuery(
         api.programs.getLiveProgram,
-        programId === null ? {} : "skip"
+        {} // Always poll live channel as fallback
     );
 
-    const activeData = programId ? specificProgram : liveProgram;
+    // Multi-level fallback: Specific ID -> Global Live -> Standby
+    const activeData = (programId && specificProgram) ? specificProgram : liveProgram;
 
     // Derive the program object with explicit ID mapping
     const program = activeData ? {

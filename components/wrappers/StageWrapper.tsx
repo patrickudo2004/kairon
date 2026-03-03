@@ -13,7 +13,6 @@ const StageWrapper: React.FC = () => {
     const [isDarkMode, setIsDarkMode] = useState(true);
     const toggleTheme = () => setIsDarkMode(prev => !prev);
 
-    // Convex Reactive Query: Try specific ID, fallback to whatever is Live
     const specificProgram = useQuery(
         api.programs.getProgramById,
         programId ? { id: programId as any } : "skip"
@@ -21,10 +20,11 @@ const StageWrapper: React.FC = () => {
 
     const liveProgram = useQuery(
         api.programs.getLiveProgram,
-        programId === null ? {} : "skip"
+        {} // Always poll the live channel as a secondary fallback
     );
 
-    const activeData = programId ? specificProgram : liveProgram;
+    // Prioritize specific ID, but fallback to live session if ID not found
+    const activeData = (programId && specificProgram) ? specificProgram : liveProgram;
 
     // Derive the program object with explicit ID mapping
     const program = activeData ? {
