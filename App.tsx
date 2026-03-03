@@ -431,19 +431,37 @@ const AppContent: React.FC = () => {
 
         // Always sync timer state from DB unless we just performed a local action (Optimistic Consistency)
         if (fetchedProgram.isTimerActive !== undefined && !isTransitioning) {
-          // Only update if actually different to avoid render loops
-          if (fetchedProgram.currentSlotIndex !== currentSlotIndex) {
-            setCurrentSlotIndex(fetchedProgram.currentSlotIndex ?? 0);
-          }
-          if (fetchedProgram.isTimerActive !== isTimerActive) {
-            setIsTimerActive(fetchedProgram.isTimerActive ?? false);
-          }
-          if (fetchedProgram.timerStartTimestamp !== timerStartTimestamp) {
-            setTimerStartTimestamp(fetchedProgram.timerStartTimestamp ?? null);
+          const isLive = fetchedProgram.status === 'live';
+
+          // SANITY CHECK: If not live, timer MUST be inactive
+          const targetIsActive = isLive ? (fetchedProgram.isTimerActive ?? false) : false;
+          const targetStartTs = isLive ? (fetchedProgram.timerStartTimestamp ?? null) : null;
+          const targetSlotIndex = fetchedProgram.currentSlotIndex ?? 0;
+
+          // AUTO-CORRECTION: If DB has "dirty" timer data on a non-live program, fix it
+          if (!isLive && (fetchedProgram.isTimerActive || fetchedProgram.timerStartTimestamp !== null)) {
+            console.warn("Dirty Data Detected: Auto-correcting stale timer state in DB for:", fetchedProgram.title);
+            timerSaveMutation.mutate({
+              currentSlotIndex: targetSlotIndex,
+              isTimerActive: false,
+              secondsElapsed: 0,
+              timerStartTimestamp: null
+            });
           }
 
-          const targetElapsed = fetchedProgram.isTimerActive && fetchedProgram.timerStartTimestamp
-            ? Math.floor((Date.now() - fetchedProgram.timerStartTimestamp) / 1000)
+          // Apply to local state
+          if (targetSlotIndex !== currentSlotIndex) {
+            setCurrentSlotIndex(targetSlotIndex);
+          }
+          if (targetIsActive !== isTimerActive) {
+            setIsTimerActive(targetIsActive);
+          }
+          if (targetStartTs !== timerStartTimestamp) {
+            setTimerStartTimestamp(targetStartTs);
+          }
+
+          const targetElapsed = targetIsActive && targetStartTs
+            ? Math.floor((Date.now() - targetStartTs) / 1000)
             : (fetchedProgram.secondsElapsed ?? 0);
 
           if (Math.abs(targetElapsed - secondsElapsed) > 2) {
