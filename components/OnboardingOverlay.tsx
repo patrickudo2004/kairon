@@ -11,7 +11,7 @@ interface OnboardingOverlayProps {
     onClose?: () => void;
 }
 
-export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ userId, onOrgCreated, userEmail }) => {
+export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ userId, onOrgCreated, userEmail, onClose }) => {
     const { signOut } = useAuthActions();
     const [orgName, setOrgName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
