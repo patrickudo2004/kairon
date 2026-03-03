@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthActions } from '@convex-dev/auth/react';
-import { Building, Rocket, ArrowRight, Star, ShieldCheck, Zap } from 'lucide-react';
+import { Building, Rocket, ArrowRight, Star, ShieldCheck, Zap, X } from 'lucide-react';
 import { createOrganization } from '../services/orgService';
 import { Organization } from '../types';
 
@@ -8,6 +8,7 @@ interface OnboardingOverlayProps {
     userId: string;
     onOrgCreated: (org: Organization) => void;
     userEmail: string;
+    onClose?: () => void;
 }
 
 export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ userId, onOrgCreated, userEmail }) => {
@@ -34,8 +35,23 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ userId, on
     };
 
     return (
-        <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in fade-in zoom-in-95 duration-500">
+        <div
+            className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => onClose?.()}
+        >
+            <div
+                className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in fade-in zoom-in-95 duration-500 relative"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {onClose && (
+                    <button
+                        onClick={onClose}
+                        className="absolute top-6 right-6 z-20 p-2 rounded-full bg-slate-100/10 hover:bg-slate-100/20 text-white/50 hover:text-white transition-all backdrop-blur-md"
+                        title="Close"
+                    >
+                        <X size={20} />
+                    </button>
+                )}
 
                 {/* Left Side: Illustration & Value Prop */}
                 <div className="md:w-5/12 bg-indigo-600 p-8 md:p-12 text-white flex flex-col justify-between relative overflow-hidden">

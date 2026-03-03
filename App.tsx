@@ -1240,6 +1240,7 @@ const AppContent: React.FC = () => {
         <OnboardingOverlay
           userId={user.id}
           userEmail={user.email || ''}
+          onClose={userOrganizations.length > 0 ? () => setIsOnboardingManual(false) : undefined}
           onOrgCreated={(newOrg) => {
             queryClient.invalidateQueries({ queryKey: ['organizations', user?.id] });
             setActiveOrgId(newOrg.id);
