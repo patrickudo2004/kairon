@@ -69,33 +69,44 @@ const StageWrapper: React.FC = () => {
     }
 
     if (networkError || !program) {
-        return (
-            <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center">
-                <div className="max-w-md w-full bg-slate-900 rounded-[2.5rem] p-10 border border-slate-800 shadow-2xl">
-                    <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
-                        <AlertCircle className="text-emerald-500" size={40} />
-                    </div>
+        // If it's a network error, show the diagnostic screen
+        if (networkError) {
+            return (
+                <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center">
+                    <div className="max-w-md w-full bg-slate-900 rounded-[2.5rem] p-10 border border-slate-800 shadow-2xl">
+                        <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
+                            <AlertCircle className="text-emerald-500" size={40} />
+                        </div>
 
-                    <h1 className="text-2xl font-black text-white mb-2 tracking-tight uppercase tracking-tighter">Stage Disconnected</h1>
-                    <p className="text-slate-400 mb-10 leading-relaxed text-xs uppercase tracking-widest">
-                        {"Pulse connection failed. Verify program settings in the Admin console."}
-                    </p>
-
-                    <div className="text-left bg-black/40 p-5 rounded-2xl mb-10 border border-slate-800/50">
-                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Technical Context</h3>
-                        <p className="text-[10px] text-slate-600 font-mono break-all mb-1">
-                            P_ID: {programId}
+                        <h1 className="text-2xl font-black text-white mb-2 tracking-tight uppercase tracking-tighter">Sync Lost</h1>
+                        <p className="text-slate-400 mb-10 leading-relaxed text-xs uppercase tracking-widest">
+                            {"Pulse connection failed. Verify your internet connection."}
                         </p>
-                    </div>
 
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 uppercase tracking-widest text-xs"
-                    >
-                        <RefreshCw size={18} />
-                        Reconnect Pulse
-                    </button>
+                        <div className="text-left bg-black/40 p-5 rounded-2xl mb-10 border border-slate-800/50">
+                            <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Technical Context</h3>
+                            <p className="text-[10px] text-slate-600 font-mono break-all mb-1">
+                                P_ID: {programId || 'GLOBAL_LIVE_FEED'}
+                            </p>
+                        </div>
+
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 uppercase tracking-widest text-xs"
+                        >
+                            <RefreshCw size={18} />
+                            Reconnect Pulse
+                        </button>
+                    </div>
                 </div>
+            );
+        }
+
+        // If no program found (and no network error), show STANDBY
+        return (
+            <div className="w-screen h-screen bg-black flex flex-col items-center justify-center p-12 text-center">
+                <h1 className="text-white text-[12vw] font-black uppercase tracking-tighter leading-none mb-8 font-sans">Stand By</h1>
+                <div className="w-24 h-1 bg-emerald-500/50 rounded-full animate-pulse" />
             </div>
         );
     }

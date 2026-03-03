@@ -69,34 +69,54 @@ const TVWrapper: React.FC = () => {
     }
 
     if (networkError || !program) {
-        return (
-            <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
-                <div className="max-w-md w-full bg-slate-900 rounded-[2.5rem] p-10 border border-slate-800 shadow-2xl">
-                    <div className="w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
-                        <AlertCircle className="text-rose-500" size={40} />
-                    </div>
+        if (networkError) {
+            return (
+                <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+                    <div className="max-w-md w-full bg-slate-900 rounded-[2.5rem] p-10 border border-slate-800 shadow-2xl">
+                        <div className="w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
+                            <AlertCircle className="text-rose-500" size={40} />
+                        </div>
 
-                    <h1 className="text-2xl font-black text-white mb-2 tracking-tight">Sync Lost</h1>
-                    <p className="text-slate-400 mb-10 leading-relaxed text-sm">
-                        {"This display mode is not correctly configured or the program link has expired."}
-                    </p>
-
-                    <div className="text-left bg-black/40 p-5 rounded-2xl mb-10 border border-slate-800/50">
-                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Diagnostics</h3>
-                        <p className="text-[10px] text-slate-600 font-mono break-all mb-1">
-                            TARGET_ID: {programId}
+                        <h1 className="text-2xl font-black text-white mb-2 tracking-tight">Sync Lost</h1>
+                        <p className="text-slate-400 mb-10 leading-relaxed text-sm">
+                            {"Pulse connection failed. Verify your internet connection."}
                         </p>
+
+                        <div className="text-left bg-black/40 p-5 rounded-2xl mb-10 border border-slate-800/50">
+                            <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Diagnostics</h3>
+                            <p className="text-[10px] text-slate-600 font-mono break-all mb-1">
+                                TARGET_ID: {programId || 'GLOBAL_LIVE_FEED'}
+                            </p>
+                        </div>
+
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="w-full bg-white hover:bg-slate-100 text-black font-black py-4 rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                        >
+                            <RefreshCw size={18} />
+                            Retry Connection
+                        </button>
                     </div>
+                </div>
+            );
+        }
 
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="w-full bg-white hover:bg-slate-100 text-black font-black py-4 rounded-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                    >
-                        <RefreshCw size={18} />
-                        Retry Connection
-                    </button>
-
-                    <p className="mt-6 text-[10px] text-slate-600 font-medium uppercase tracking-widest">Kairon Display Protocol v2.5</p>
+        // Default TV Fallback: Welcome/Thank You Screen
+        return (
+            <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-12 text-center font-sans">
+                <div className="w-24 h-24 bg-indigo-600/20 rounded-full flex items-center justify-center mb-12 animate-in zoom-in duration-1000">
+                    <div className="w-12 h-12 bg-indigo-500 rounded-xl rotate-45" />
+                </div>
+                <h1 className="text-white text-6xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-6">
+                    Stay Tuned
+                </h1>
+                <p className="text-slate-400 text-2xl font-medium max-w-2xl mx-auto leading-relaxed border-t border-slate-800 pt-8 mt-4">
+                    The next session will begin shortly. Thank you for your patience.
+                </p>
+                <div className="mt-20 flex gap-2">
+                    <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" />
+                    <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.15s]" />
+                    <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.3s]" />
                 </div>
             </div>
         );
