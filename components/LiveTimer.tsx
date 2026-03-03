@@ -40,7 +40,34 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
     ? Math.min(100, Math.max(0, (timeLeft / durationSeconds) * 100))
     : 0;
 
-  if (!currentSlot) {
+  if (program.status === 'draft') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto p-8 animate-in fade-in zoom-in-95 duration-500">
+        <div className="mb-8 p-6 bg-indigo-100 dark:bg-indigo-500/10 rounded-full shadow-xl shadow-indigo-500/20 ring-1 ring-indigo-500/20">
+          <Play size={80} className="text-indigo-600 dark:text-indigo-400 ml-2" strokeWidth={1.5} fill="currentColor" />
+        </div>
+
+        <h2 className="text-4xl md:text-6xl font-bold text-slate-900 dark:text-white text-center mb-4 tracking-tight">
+          Ready to Start?
+        </h2>
+        <p className="text-xl text-slate-500 dark:text-slate-400 text-center mb-12">
+          This program is in Draft mode. Click the button below to go live.
+        </p>
+
+        {!readOnly && (
+          <button
+            onClick={onToggleTimer}
+            className="flex items-center gap-3 px-12 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl shadow-xl shadow-indigo-500/30 transition-all transform hover:scale-105 active:scale-95 group"
+          >
+            <Play size={28} fill="currentColor" />
+            <span className="font-bold text-xl">Start Live Session</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (!currentSlot || program.status === 'concluded') {
     return (
       <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto p-8 animate-in fade-in zoom-in-95 duration-500">
         <div className="mb-8 p-6 bg-emerald-100 dark:bg-emerald-500/10 rounded-full shadow-xl shadow-emerald-500/20 ring-1 ring-emerald-500/20">

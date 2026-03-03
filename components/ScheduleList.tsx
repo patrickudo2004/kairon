@@ -124,7 +124,7 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
                   <span className={`text-sm font-mono font-bold ${isCurrent ? 'text-indigo-600 dark:text-white' : 'text-slate-500 dark:text-slate-500'}`}>
                     {minutesToTime(slotStart)}
                   </span>
-                  {isCurrent && (
+                  {isCurrent && program.status === 'live' && (
                     <span className="mt-2 text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-500/10 px-1.5 py-0.5 rounded animate-pulse">
                       Now
                     </span>
@@ -147,7 +147,7 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
                       </h3>
                     </div>
 
-                    {isCurrent && (
+                    {isCurrent && program.status === 'live' && (
                       <div className="font-mono font-bold whitespace-nowrap text-indigo-600 dark:text-indigo-300">
                         -{formatDuration(remainingSeconds)}
                       </div>
@@ -185,12 +185,12 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
                 </div>
 
                 {/* Action Arrow - Only show if not read only or just show icon without action? */}
-                {isCurrent && !readOnly && (
+                {isCurrent && program.status === 'live' && !readOnly && (
                   <div className="text-indigo-500 pl-2 pt-1">
                     {isTimerActive ? <Clock className="animate-pulse" size={20} /> : <Play size={20} className="opacity-50" />}
                   </div>
                 )}
-                {isCurrent && readOnly && (
+                {isCurrent && program.status === 'live' && readOnly && (
                   <div className="text-indigo-500 pl-2 pt-1">
                     <Clock className={isTimerActive ? "animate-pulse" : ""} size={20} />
                   </div>
