@@ -87,16 +87,16 @@ export const PublicPortal: React.FC = () => {
 
     if (!program) {
         return (
-            <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
-                <div className="w-20 h-20 bg-rose-100 dark:bg-rose-900/30 rounded-3xl flex items-center justify-center mb-6">
-                    <Calendar className="text-rose-600 dark:text-rose-400" size={40} />
+            <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-24 h-24 bg-indigo-600/20 text-indigo-500 rounded-[2rem] flex items-center justify-center mb-8 rotate-3">
+                    <Share2 size={48} />
                 </div>
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Event Not Found</h1>
-                <p className="text-slate-600 dark:text-slate-400 max-w-xs mb-8">
-                    This event might be private or the link might be incorrect.
+                <h1 className="text-4xl font-black text-white mb-4 tracking-tight">Welcome to Kairon</h1>
+                <p className="text-slate-400 text-xl font-medium max-w-md mb-12">
+                    There is currently no live session active. Please check back later or use a specific event link.
                 </p>
-                <Link to="/" className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-2">
-                    Back to Kairon
+                <Link to="/" className="text-indigo-400 font-bold hover:underline flex items-center gap-2">
+                    Back to Dashboard <ChevronRight size={18} />
                 </Link>
             </div>
         );
