@@ -13,16 +13,23 @@ const StageWrapper: React.FC = () => {
     const [isDarkMode, setIsDarkMode] = useState(true);
     const toggleTheme = () => setIsDarkMode(prev => !prev);
 
-    // Convex Reactive Query
-    const programData = useQuery(
+    // Convex Reactive Query: Try specific ID, fallback to whatever is Live
+    const specificProgram = useQuery(
         api.programs.getProgramById,
         programId ? { id: programId as any } : "skip"
     );
 
+    const liveProgram = useQuery(
+        api.programs.getLiveProgram,
+        programId === null ? {} : "skip"
+    );
+
+    const activeData = programId ? specificProgram : liveProgram;
+
     // Derive the program object with explicit ID mapping
-    const program = programData ? {
-        ...(programData as any),
-        id: (programData as any)._id
+    const program = activeData ? {
+        ...(activeData as any),
+        id: (activeData as any)._id
     } as Program : null;
 
     // Organization Branding Query
@@ -45,8 +52,12 @@ const StageWrapper: React.FC = () => {
 
 
     // Handle Loading State
-    const loading = programId && programData === undefined;
-    const networkError = programId && programData === null;
+    // If we have an ID, we load that specific one. If not, we wait for the Live fallback.
+    const loading = programId
+        ? (specificProgram === undefined)
+        : (liveProgram === undefined);
+
+    const networkError = programId && specificProgram === null;
 
     if (loading) {
         return (

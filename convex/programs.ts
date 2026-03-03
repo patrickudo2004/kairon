@@ -33,6 +33,16 @@ export const getProgramById = query({
     },
 });
 
+export const getLiveProgram = query({
+    args: {},
+    handler: async (ctx) => {
+        return await ctx.db
+            .query("programs")
+            .filter((q) => q.eq(q.field("status"), "live"))
+            .first();
+    },
+});
+
 export const getProgramBySlug = query({
     args: { slug: v.string() },
     handler: async (ctx, args) => {
