@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Organization } from '../types';
 import { getMyOrganizations, createOrganization, updateOrganizationBranding } from '../services/orgService';
-import { Plus, Settings, Building, ChevronRight, Loader, Check, Image as ImageIcon, Palette, Crown } from 'lucide-react';
+import { Plus, Settings, Building, ChevronRight, Loader, Check, Image as ImageIcon, Palette, Crown, X } from 'lucide-react';
 import { createCheckoutSession } from '../services/stripeService';
 
 interface OrganizationManagerProps {
@@ -80,30 +80,50 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
             </div>
 
             {isCreating && (
-                <div className="bg-white dark:bg-slate-900 border border-indigo-500/30 rounded-2xl p-6 mb-8 shadow-xl animate-in fade-in slide-in-from-top-4 duration-300">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Create New Organization</h3>
-                    <div className="flex gap-4">
-                        <input
-                            type="text"
-                            value={newOrgName}
-                            onChange={(e) => setNewOrgName(e.target.value)}
-                            placeholder="Organization Name (e.g. Grace Church)"
-                            className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                            autoFocus
-                        />
-                        <button
-                            onClick={() => createMutation.mutate(newOrgName)}
-                            disabled={createMutation.isPending || !newOrgName.trim()}
-                            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold disabled:opacity-50"
-                        >
-                            {createMutation.isPending ? 'Creating...' : 'Create'}
-                        </button>
-                        <button
-                            onClick={() => setIsCreating(false)}
-                            className="px-6 py-2 text-slate-500 hover:text-slate-700 font-medium"
-                        >
-                            Cancel
-                        </button>
+                <div
+                    className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+                    onClick={() => setIsCreating(false)}
+                >
+                    <div
+                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 w-full max-w-lg shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex justify-between items-start mb-6">
+                            <div>
+                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">New Organization</h3>
+                                <p className="text-slate-500 text-sm">Create a workspace for your team.</p>
+                            </div>
+                            <button
+                                onClick={() => setIsCreating(false)}
+                                className="p-2 text-slate-400 hover:text-slate-600 transition-transform hover:scale-110"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                                    Organization Name
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newOrgName}
+                                    onChange={(e) => setNewOrgName(e.target.value)}
+                                    placeholder="e.g. Grace Church Main"
+                                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                                    autoFocus
+                                />
+                            </div>
+
+                            <button
+                                onClick={() => createMutation.mutate(newOrgName)}
+                                disabled={createMutation.isPending || !newOrgName.trim()}
+                                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-500/25 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                {createMutation.isPending ? 'Creating Workspace...' : 'Create Organization'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -188,7 +208,7 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
                                 <p className="text-slate-500 text-sm">Customize your organization identity</p>
                             </div>
                             <button onClick={() => setIsSettingsOpen(null)} className="p-2 text-slate-400 hover:text-slate-600 transition-transform hover:scale-110">
-                                <Plus size={24} className="rotate-45" />
+                                <X size={24} />
                             </button>
                         </div>
 
