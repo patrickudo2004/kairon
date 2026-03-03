@@ -222,43 +222,27 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
             />
           </div>
 
-          {/* Analytics Fields (Pro Tier) */}
           <div className="md:col-span-1 border-l border-slate-200 dark:border-slate-800 pl-4">
-            <label className="block text-xs font-medium text-amber-600 dark:text-amber-400 uppercase mb-1 flex items-center gap-2">
-              <Users size={12} /> Attendees
+            <label className="block text-xs font-medium text-slate-500 uppercase mb-1 flex items-center gap-2">
+              <Clock size={12} /> Target End Time
             </label>
             <input
-              type="number"
-              value={program.estimatedAttendees || 0}
-              onChange={(e) => onUpdate({ ...program, estimatedAttendees: parseInt(e.target.value) || 0 })}
-              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none text-sm transition-colors"
+              type="time"
+              value={program.endTime || ''}
+              onChange={(e) => onUpdate({ ...program, endTime: e.target.value })}
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-colors"
             />
           </div>
 
-          <div className="md:col-span-1">
-            <label className="block text-xs font-medium text-amber-600 dark:text-amber-400 uppercase mb-1 flex items-center gap-2">
-              Avg. Hourly Rate
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-              <input
-                type="number"
-                value={program.averageHourlyRate || 0}
-                onChange={(e) => onUpdate({ ...program, averageHourlyRate: parseInt(e.target.value) || 0 })}
-                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md pl-7 pr-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none text-sm transition-colors"
-              />
-            </div>
-          </div>
-
           {/* Time Summary Widget */}
-          <div className="md:col-span-1 lg:col-span-1 flex flex-col justify-center pl-4 border-l border-slate-200 dark:border-slate-800 gap-1">
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-slate-500 dark:text-slate-400">Total Program</span>
+          <div className="md:col-span-1 lg:col-span-2 flex items-center justify-end pr-2 gap-6 border-l border-slate-200 dark:border-slate-800">
+            <div className="text-right">
+              <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-tight">Total Duration</span>
               <span className="text-sm font-bold text-slate-900 dark:text-white">{Math.floor(totalDuration / 60)}h {totalDuration % 60}m</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-slate-500 dark:text-slate-400">Finishes At</span>
-              <span className="text-sm font-mono text-indigo-600 dark:text-indigo-300">{minutesToTime(calculatedEndMinutes)}</span>
+            <div className="text-right">
+              <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-tight">Projected End</span>
+              <span className="text-sm font-mono font-bold text-indigo-600 dark:text-indigo-400">{minutesToTime(calculatedEndMinutes)}</span>
             </div>
           </div>
         </div>
