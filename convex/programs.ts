@@ -16,9 +16,16 @@ export const getProgramById = query({
     args: { id: v.string() }, // Accept string to handle potential legacy IDs or standard Convex IDs
     handler: async (ctx, args) => {
         try {
-            // Try as Convex ID first
+            // 1. Try as standard Convex ID
             const doc = await ctx.db.get(args.id as any);
             if (doc) return doc;
+
+            // 2. Try as UUID (for monitors/legacy links)
+            const byUuid = await ctx.db
+                .query("programs")
+                .withIndex("by_uuid", (q) => q.eq("uuid", args.id))
+                .first();
+            if (byUuid) return byUuid;
         } catch (e) {
             // Fallback or ignore
         }
