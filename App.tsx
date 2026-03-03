@@ -267,6 +267,7 @@ const AppContent: React.FC = () => {
   const [liveSecondsElapsed, setLiveSecondsElapsed] = useState<number>(0);
   const [isInterlockOpen, setIsInterlockOpen] = useState(false);
   const lastAdvanceTimeRef = React.useRef<number>(0);
+  const lastCorrectedIdRef = React.useRef<string | null>(null);
 
 
 
@@ -440,13 +441,17 @@ const AppContent: React.FC = () => {
 
           // AUTO-CORRECTION: If DB has "dirty" timer data on a non-live program, fix it
           if (!isLive && (fetchedProgram.isTimerActive || fetchedProgram.timerStartTimestamp !== null)) {
-            console.warn("Dirty Data Detected: Auto-correcting stale timer state in DB for:", fetchedProgram.title);
-            timerSaveMutation.mutate({
-              currentSlotIndex: targetSlotIndex,
-              isTimerActive: false,
-              secondsElapsed: 0,
-              timerStartTimestamp: null
-            });
+            // Guard: Only correct this specific ID once per session to prevent infinite render loops (React Error #185)
+            if (lastCorrectedIdRef.current !== fetchedProgram.id) {
+              console.warn("Dirty Data Detected: Auto-correcting stale timer state in DB for:", fetchedProgram.title);
+              lastCorrectedIdRef.current = fetchedProgram.id;
+              timerSaveMutation.mutate({
+                currentSlotIndex: targetSlotIndex,
+                isTimerActive: false,
+                secondsElapsed: 0,
+                timerStartTimestamp: null
+              });
+            }
           }
 
           // Apply to local state
