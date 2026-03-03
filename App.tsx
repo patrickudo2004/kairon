@@ -419,12 +419,14 @@ const AppContent: React.FC = () => {
     const hydrate = async () => {
       // 1. Try DB Hydration (Reactive)
       if (fetchedProgram) {
-        const isNewProgram = fetchedProgram.id !== program.id;
+        const isNewProgram = fetchedProgram.id !== program.id && !program.id.startsWith('local-');
         const isTransitioning = Date.now() - lastAdvanceTimeRef.current < 2000;
 
-        if (isNewProgram) {
-          console.log("Hydrating new program from ID:", fetchedProgram.title);
-          setProgram(fetchedProgram);
+        if (isNewProgram || program.id.startsWith('local-')) {
+          if (fetchedProgram.id !== program.id) {
+            console.log("Hydrating program from ID:", fetchedProgram.title);
+            setProgram(fetchedProgram);
+          }
         }
 
         // Always sync timer state from DB unless we just performed a local action (Optimistic Consistency)
@@ -553,13 +555,22 @@ const AppContent: React.FC = () => {
     } else {
       setProgram(updatedProgram);
       setIsTimerActive(false);
+      setTimerStartTimestamp(null);
+      setSecondsElapsed(0);
       setLiveProgramId(null);
       setLiveProgram(null);
       setLiveCurrentSlotIndex(0);
       setLiveSecondsElapsed(0);
     }
 
-    // Final save to DB
+    // Final save to DB - Explicitly clear timer state
+    timerSaveMutation.mutate({
+      currentSlotIndex: 0,
+      isTimerActive: false,
+      secondsElapsed: 0,
+      timerStartTimestamp: null,
+      status: 'concluded'
+    });
     updateProgramService(updatedProgram);
   };
 
@@ -715,7 +726,7 @@ const AppContent: React.FC = () => {
     if (isReadOnly) return;
     const newProgram: Program = {
       ...INITIAL_PROGRAM,
-      id: crypto.randomUUID(),
+      id: `local-${crypto.randomUUID()}`, // Prefix to distinguish local-only programs
       title: 'New Event',
       subtitle: 'Add subtitle',
       date: date,
@@ -931,38 +942,47 @@ const AppContent: React.FC = () => {
     }
 
     const newState = !isTimerActive;
-    setIsTimerActive(newState);
 
+    // ATOMIC STATE RESET
     if (newState) {
+      const now = Date.now();
       setLiveProgramId(program.id);
       setLiveProgram(program);
       setLiveCurrentSlotIndex(currentSlotIndex);
       setSecondsElapsed(0);
       setLiveSecondsElapsed(0);
-    } else {
-      setLiveProgramId(null);
-      setLiveProgram(null);
-      setLiveCurrentSlotIndex(0);
-    }
+      setIsTimerActive(true);
+      setTimerStartTimestamp(now);
 
-    const startTs = newState ? (Date.now() - (secondsElapsed * 1000)) : null;
-    setTimerStartTimestamp(startTs);
+      // PUSH TO CLOUD IMMEDIATELY
+      timerSaveMutation.mutate({
+        currentSlotIndex,
+        isTimerActive: true,
+        secondsElapsed: 0,
+        timerStartTimestamp: now,
+        status: 'live'
+      });
+      setProgram(prev => ({ ...prev, status: 'live' }));
+    } else {
+      setIsTimerActive(false);
+      setTimerStartTimestamp(null);
+      setSecondsElapsed(0);
+
+      // PUSH TO CLOUD IMMEDIATELY
+      timerSaveMutation.mutate({
+        currentSlotIndex,
+        isTimerActive: false,
+        secondsElapsed: 0,
+        timerStartTimestamp: null
+      });
+    }
 
     // Broadcast immediately so Viewers know (Local)
-    broadcastState({ isTimerActive: newState, timerStartTimestamp: startTs });
-
-    // PUSH TO CLOUD IMMEDIATELY
-    timerSaveMutation.mutate({
-      currentSlotIndex,
+    broadcastState({
       isTimerActive: newState,
-      secondsElapsed: newState ? 0 : secondsElapsed,
-      timerStartTimestamp: startTs,
-      status: newState ? 'live' : program.status
+      timerStartTimestamp: newState ? Date.now() : null,
+      secondsElapsed: 0
     });
-
-    if (newState) {
-      setProgram(prev => ({ ...prev, status: 'live' }));
-    }
   };
 
   const handleConfirmSwitch = () => {
@@ -1027,7 +1047,8 @@ const AppContent: React.FC = () => {
         broadcastState({
           currentSlotIndex: currentSlotIndex + 1,
           isTimerActive: false,
-          secondsElapsed: 0
+          secondsElapsed: 0,
+          timerStartTimestamp: null
         });
 
         // PUSH TO CLOUD IMMEDIATELY
@@ -1055,7 +1076,8 @@ const AppContent: React.FC = () => {
           currentSlotIndex: currentSlotIndex + 1,
           isTimerActive: false,
           secondsElapsed: Math.round(secondsElapsed),
-          timerStartTimestamp: null
+          timerStartTimestamp: null,
+          status: 'concluded' // Mark as concluded if we finished the last slot
         });
       }
     }

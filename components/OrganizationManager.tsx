@@ -174,14 +174,20 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
             </div>
 
             {isSettingsOpen && (
-                <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 w-full max-w-lg shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                <div
+                    className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+                    onClick={() => setIsSettingsOpen(null)}
+                >
+                    <div
+                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 w-full max-w-lg shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="flex justify-between items-start mb-6">
                             <div>
                                 <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Workspace Settings</h3>
                                 <p className="text-slate-500 text-sm">Customize your organization identity</p>
                             </div>
-                            <button onClick={() => setIsSettingsOpen(null)} className="p-2 text-slate-400 hover:text-slate-600">
+                            <button onClick={() => setIsSettingsOpen(null)} className="p-2 text-slate-400 hover:text-slate-600 transition-transform hover:scale-110">
                                 <Plus size={24} className="rotate-45" />
                             </button>
                         </div>
