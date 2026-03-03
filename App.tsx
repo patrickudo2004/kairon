@@ -434,22 +434,27 @@ const AppContent: React.FC = () => {
         if (fetchedProgram.isTimerActive !== undefined && !isTransitioning) {
           const isLive = fetchedProgram.status === 'live';
 
-          // SANITY CHECK: If not live, timer MUST be inactive
-          const targetIsActive = isLive ? (fetchedProgram.isTimerActive ?? false) : false;
-          const targetStartTs = isLive ? (fetchedProgram.timerStartTimestamp ?? null) : null;
+          // SANITY CHECK: If not live OR the start timestamp is "stale" (e.g., from yesterday), timer MUST be inactive
+          const isStale = isLive && fetchedProgram.timerStartTimestamp && (Date.now() - fetchedProgram.timerStartTimestamp > 12 * 60 * 60 * 1000);
+
+          const targetIsActive = (isLive && !isStale) ? (fetchedProgram.isTimerActive ?? false) : false;
+          const targetStartTs = (isLive && !isStale) ? (fetchedProgram.timerStartTimestamp ?? null) : null;
           const targetSlotIndex = fetchedProgram.currentSlotIndex ?? 0;
 
-          // AUTO-CORRECTION: If DB has "dirty" timer data on a non-live program, fix it
-          if (!isLive && (fetchedProgram.isTimerActive || fetchedProgram.timerStartTimestamp !== null)) {
+          // AUTO-CORRECTION: If DB has "dirty" or "stale" timer data, fix it permanently on the server
+          const needsCorrection = (!isLive && (fetchedProgram.isTimerActive || fetchedProgram.timerStartTimestamp !== null)) || isStale;
+
+          if (needsCorrection) {
             // Guard: Only correct this specific ID once per session to prevent infinite render loops (React Error #185)
             if (lastCorrectedIdRef.current !== fetchedProgram.id) {
-              console.warn("Dirty Data Detected: Auto-correcting stale timer state in DB for:", fetchedProgram.title);
+              console.warn("Dirty/Stale Data Detected: Auto-correcting timer state in DB for:", fetchedProgram.title, isStale ? "(Stale Live Timer)" : "(Non-Live Timer)");
               lastCorrectedIdRef.current = fetchedProgram.id;
               timerSaveMutation.mutate({
-                currentSlotIndex: targetSlotIndex,
+                currentSlotIndex: 0, // Reset to beginning if stale
                 isTimerActive: false,
                 secondsElapsed: 0,
-                timerStartTimestamp: null
+                timerStartTimestamp: null,
+                status: isStale ? 'draft' : fetchedProgram.status // Demote stale live to draft
               });
             }
           }
@@ -644,13 +649,6 @@ const AppContent: React.FC = () => {
     }
   }, [mutation.isSuccess, mutation.isError, mutation.data, queryClient]);
 
-
-  // Dedicated Admin Heartbeat for Background Live Program (Public Portal fix)
-  // Use refs to keep the subscription effect stable even when indices/timestamps change
-  const heartbeatStateRef = React.useRef({ liveCurrentSlotIndex, timerStartTimestamp });
-  useEffect(() => {
-    heartbeatStateRef.current = { liveCurrentSlotIndex, timerStartTimestamp };
-  }, [liveCurrentSlotIndex, timerStartTimestamp]);
 
 
   // --- Local Sync Integration ---
