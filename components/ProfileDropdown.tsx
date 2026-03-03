@@ -161,23 +161,6 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile,
                             </div>
                         </button>
 
-                        {/* Switch Theme Action */}
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                toggleTheme();
-                            }}
-                            className="w-full flex items-center justify-between px-4 py-3 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors group"
-                        >
-                            <div className="flex items-center gap-3">
-                                {isDarkMode ? <Sun size={18} className="text-amber-500" /> : <Moon size={18} className="text-indigo-500" />}
-                                <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
-                            </div>
-                            <div className={`w-8 h-4 rounded-full relative transition-colors ${isDarkMode ? 'bg-indigo-600' : 'bg-slate-200'}`}>
-                                <div className={`absolute top-1 w-2 h-2 bg-white rounded-full transition-all ${isDarkMode ? 'left-5' : 'left-1'}`} />
-                            </div>
-                        </button>
-
                         <Link
                             to="/admin"
                             onClick={() => setIsOpen(false)}
