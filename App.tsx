@@ -52,7 +52,7 @@ import { ConfirmationModal } from './components/ConfirmationModal';
 import { Program, Slot, SlotType, Profile, Organization, TimerState } from './types';
 import { timeToMinutes, minutesToTime, formatDuration } from './utils/time';
 import { encodeProgramData, decodeProgramData } from './utils/encoding';
-import { INITIAL_PROGRAM } from './utils/constants';
+import { getInitialProgram } from './utils/constants';
 
 import { Monitor, User as UserIcon, Building, MessageSquare, Bell, Clock, Crown, SkipForward, Pause } from 'lucide-react';
 
@@ -103,7 +103,7 @@ const AppContent: React.FC = () => {
   }, [isReadOnly]);
 
   // Main State
-  const [program, setProgram] = useState<Program>(INITIAL_PROGRAM);
+  const [program, setProgram] = useState<Program>(() => getInitialProgram());
   const [currentSlotIndex, setCurrentSlotIndex] = useState<number>(0);
   const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
   const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
@@ -486,14 +486,14 @@ const AppContent: React.FC = () => {
 
   // Persistence (Convex)
   const mutation = useMutation({
-    mutationFn: (p: Program) => {
+    mutationFn: async (p: Program): Promise<Program | void> => {
       // Only attempt creation if it's a local-prefixed ID
-      if (p.id.startsWith('local-')) {
-        return createProgramService(p);
+      if (p.id?.startsWith('local-')) {
+        return await createProgramService(p);
       }
 
       // Otherwise, it's already a Convex program, just update it
-      return updateProgramService(p);
+      return await updateProgramService(p);
     }
   });
 
@@ -508,7 +508,7 @@ const AppContent: React.FC = () => {
       status?: 'draft' | 'live' | 'concluded';
     }) => {
       // CRITICAL GUARD: Never send timer state if program ID is local/placeholder
-      if (program.id.startsWith('local-')) {
+      if (program.id?.startsWith('local-')) {
         console.warn("Timer save blocked: Program ID is local.");
         return;
       }
@@ -609,7 +609,7 @@ const AppContent: React.FC = () => {
 
     const timer = setTimeout(() => {
       // Guard: Only save if ID is valid Convex ID
-      if (program.id.startsWith('local-')) return;
+      if (program.id?.startsWith('local-')) return;
 
       console.log(`Auto-saving program "${program.title}" to Convex...`);
       setSaveStatus('saving');
@@ -630,7 +630,7 @@ const AppContent: React.FC = () => {
       // CRITICAL: If we just created a new program (transitioning from local- ID), 
       // we must update our local state with the actual Convex ID returned.
       const savedProgram = mutation.data as Program | void;
-      if (savedProgram && savedProgram.id && program.id.startsWith('local-')) {
+      if (savedProgram && savedProgram.id && program.id?.startsWith('local-')) {
         console.log("Syncing local ID to Convex ID:", savedProgram.id);
         setProgram(prev => ({ ...prev, id: (savedProgram as Program).id }));
         // Also update URL to prevent "stale local" state on refresh
@@ -674,14 +674,9 @@ const AppContent: React.FC = () => {
   const createProgram = (date: string) => {
     if (isReadOnly) return;
     const newProgram: Program = {
-      ...INITIAL_PROGRAM,
+      ...getInitialProgram(activeOrgId || undefined),
       id: `local-${crypto.randomUUID()}`, // Prefix to distinguish local-only programs
-      title: 'New Event',
-      subtitle: 'Add subtitle',
       date: date,
-      startTime: '09:00',
-      organizationId: activeOrgId || undefined,
-      slots: []
     };
     loadProgram(newProgram);
   };
@@ -690,8 +685,10 @@ const AppContent: React.FC = () => {
     if (isReadOnly) return;
 
     try {
-      // Delete from Supabase
-      await deleteProgramService(id);
+      // Guard: Don't call backend if it's a local-only program
+      if (!id.startsWith('local-')) {
+        await deleteProgramService(id);
+      }
 
       // Invalidate cache to refresh home view
       queryClient.invalidateQueries({ queryKey: ['programs'] });
@@ -704,7 +701,7 @@ const AppContent: React.FC = () => {
           loadProgram(allPrograms[0]);
         } else {
           // Reset to initial if all deleted
-          const reset = { ...INITIAL_PROGRAM, id: crypto.randomUUID() };
+          const reset = getInitialProgram();
           loadProgram(reset);
         }
       }
@@ -858,14 +855,6 @@ const AppContent: React.FC = () => {
         setTimerStartTimestamp(startTs);
         setSecondsElapsed(0); // Ensure fresh start
 
-        // Broadcast
-        broadcastState({
-          isTimerActive: true,
-          timerStartTimestamp: startTs,
-          secondsElapsed: 0,
-          status: 'live'
-        });
-
         setProgram(prev => ({ ...prev, status: 'live' }));
 
         // PUSH TO CLOUD 
@@ -925,13 +914,6 @@ const AppContent: React.FC = () => {
         timerStartTimestamp: null
       });
     }
-
-    // Broadcast immediately so Viewers know (Local)
-    broadcastState({
-      isTimerActive: newState,
-      timerStartTimestamp: newState ? Date.now() : null,
-      secondsElapsed: 0
-    });
   };
 
   const handleConfirmSwitch = () => {
@@ -951,9 +933,6 @@ const AppContent: React.FC = () => {
 
     // Update local state first for immediate UI feedback
     setProgram(prev => ({ ...prev, isOnHold: nextHoldState }));
-
-    // Broadcast for TV/Projectors and sync to Supabase
-    broadcastState({ isOnHold: nextHoldState });
 
     // Final persistence to DB - IMMEDIATE
     timerSaveMutation.mutate({
@@ -993,13 +972,6 @@ const AppContent: React.FC = () => {
         setIsTimerActive(false);
         setTimerStartTimestamp(null);
 
-        broadcastState({
-          currentSlotIndex: currentSlotIndex + 1,
-          isTimerActive: false,
-          secondsElapsed: 0,
-          timerStartTimestamp: null
-        });
-
         // PUSH TO CLOUD IMMEDIATELY
         clearStageMessage();
         timerSaveMutation.mutate({
@@ -1012,12 +984,6 @@ const AppContent: React.FC = () => {
         setCurrentSlotIndex(prev => prev + 1);
         setIsTimerActive(false);
         setTimerStartTimestamp(null);
-
-        broadcastState({
-          currentSlotIndex: currentSlotIndex + 1,
-          isTimerActive: false,
-          secondsElapsed: Math.round(secondsElapsed)
-        });
 
         // PUSH TO CLOUD IMMEDIATELY
         clearStageMessage();
@@ -1039,12 +1005,6 @@ const AppContent: React.FC = () => {
       setSecondsElapsed(0);
       setIsTimerActive(false);
       setTimerStartTimestamp(null);
-      broadcastState({
-        currentSlotIndex: currentSlotIndex - 1,
-        isTimerActive: false,
-        secondsElapsed: 0,
-        timerStartTimestamp: null
-      });
 
       // PUSH TO CLOUD IMMEDIATELY
       clearStageMessage();
