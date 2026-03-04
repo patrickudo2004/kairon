@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams, Navigate, useParams } from 'react-router-dom';
-import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles } from 'lucide-react';
+import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Services
@@ -889,36 +889,39 @@ const AppContent: React.FC = () => {
 
     const newState = !isTimerActive;
 
-    // ATOMIC STATE RESET
+    // ATOMIC STATE HANDLING (Stopwatch Logic)
     if (newState) {
       const now = Date.now();
+      // Drift-proof resume: shift start timestamp back by already elapsed seconds
+      const shiftedStart = now - (secondsElapsed * 1000);
+
       setLiveProgramId(program.id);
       setLiveProgram(program);
       setLiveCurrentSlotIndex(currentSlotIndex);
-      setSecondsElapsed(0);
-      setLiveSecondsElapsed(0);
+      // We don't reset secondsElapsed here - we pick up where we left off
       setIsTimerActive(true);
-      setTimerStartTimestamp(now);
+      setTimerStartTimestamp(shiftedStart);
 
       // PUSH TO CLOUD IMMEDIATELY
       timerSaveMutation.mutate({
         currentSlotIndex,
         isTimerActive: true,
-        secondsElapsed: 0,
-        timerStartTimestamp: now,
+        secondsElapsed,
+        timerStartTimestamp: shiftedStart,
         status: 'live'
       });
       setProgram(prev => ({ ...prev, status: 'live' }));
     } else {
+      // Pause: Capture current elapsed time and clear start timestamp
       setIsTimerActive(false);
       setTimerStartTimestamp(null);
-      setSecondsElapsed(0);
+      // secondsElapsed remains in state at its current value from the last tick
 
-      // PUSH TO CLOUD IMMEDIATELY
+      // PUSH TO CLOUD IMMEDIATELY (Persist the pause position)
       timerSaveMutation.mutate({
         currentSlotIndex,
         isTimerActive: false,
-        secondsElapsed: 0,
+        secondsElapsed,
         timerStartTimestamp: null
       });
     }
@@ -939,17 +942,32 @@ const AppContent: React.FC = () => {
     if (isReadOnly) return;
     const nextHoldState = !program.isOnHold;
 
-    // Update local state first for immediate UI feedback
+    // Coupled Logic: Entering Hold forces a Pause if running
+    let nextTimerActive = isTimerActive;
+    let nextStartTs = timerStartTimestamp;
+
+    if (nextHoldState && isTimerActive) {
+      nextTimerActive = false;
+      nextStartTs = null;
+      setIsTimerActive(false);
+      setTimerStartTimestamp(null);
+    }
+
     setProgram(prev => ({ ...prev, isOnHold: nextHoldState }));
 
     // Final persistence to DB - IMMEDIATE
     timerSaveMutation.mutate({
       currentSlotIndex,
-      isTimerActive,
+      isTimerActive: nextTimerActive,
       secondsElapsed,
-      timerStartTimestamp,
+      timerStartTimestamp: nextStartTs,
       isOnHold: nextHoldState
     });
+  };
+
+  const handleToggleManualMode = () => {
+    if (isReadOnly) return;
+    setProgram(prev => ({ ...prev, isManualMode: !prev.isManualMode }));
   };
 
 
@@ -1192,6 +1210,21 @@ const AppContent: React.FC = () => {
                     title="Toggle Hold"
                   >
                     <Clock size={18} />
+                  </button>
+
+                  <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
+
+                  <button
+                    onClick={handleToggleManualMode}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all ${program.isManualMode
+                      ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                      : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
+                    title={program.isManualMode ? "Manual Mode (Manual Advance)" : "Auto-Mode (Auto Advance)"}
+                  >
+                    {program.isManualMode ? <MousePointerClick size={16} /> : <Zap size={16} />}
+                    <span className="text-[10px] font-bold uppercase tracking-widest hidden lg:block">
+                      {program.isManualMode ? 'Manual' : 'Auto'}
+                    </span>
                   </button>
                 </div>
               </div>
