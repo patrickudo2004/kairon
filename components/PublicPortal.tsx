@@ -36,7 +36,10 @@ export const PublicPortal: React.FC = () => {
     );
 
     const programRaw = programData || programByIdData;
-    const program = programRaw ? (programRaw as unknown as Program) : null;
+    const program = programRaw ? {
+        ...(programRaw as any),
+        id: (programRaw as any)._id || (programRaw as any).id
+    } as Program : null;
 
 
     // Use a simple ticker to force re-render every second for the countdown

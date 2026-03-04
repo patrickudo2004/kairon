@@ -67,10 +67,16 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
         );
     }
 
+    // CRITICAL: Transform Convex _id to id for the rest of the app
+    const transformedPrograms = (allPrograms || []).map((p: any) => ({
+        ...p,
+        id: p._id || p.id
+    }));
+
     return (
         <>
             <HomeDashboard
-                programs={allPrograms || []}
+                programs={transformedPrograms}
                 activeProgramId={activeProgramId}
                 liveProgramId={liveProgramId}
                 onSelectProgram={(p) => { loadProgram(p); navigate(`/editor?id=${p.id}&mode=${mode}`); }}
