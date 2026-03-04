@@ -57,10 +57,11 @@ const TVWrapper: React.FC = () => {
         ? (specificProgram === undefined)
         : (liveProgram === undefined);
 
-    // Only show "Sync Lost" if we have no data at all after trying both specific and live lookups
-    const networkError = programId
-        ? (specificProgram === null && liveProgram === null)
-        : (liveProgram === null);
+    // FIX: Only show "Sync Lost" if the query itself is blocked (network error in Convex usually results in undefined/cached data)
+    // However, our current logic incorrectly marked "null" (no program) as a network error.
+    // We should ONLY show Sync Lost if we explicitly expect data but can't reach the server.
+    // For now, let's treat 'null' as STANDBY, not an error.
+    const networkError = false; // We use Convex's internal reconnection logic; false positives are worse.
 
     if (loading) {
         return (

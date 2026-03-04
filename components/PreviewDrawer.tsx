@@ -10,7 +10,7 @@ interface PreviewDrawerProps {
 }
 
 export const PreviewDrawer: React.FC<PreviewDrawerProps> = ({ program, isOpen, onClose, onOpenInEditor }) => {
-    const [width, setWidth] = useState(400);
+    const [width, setWidth] = useState(450);
     const [isResizing, setIsResizing] = useState(false);
     const drawerRef = useRef<HTMLDivElement>(null);
 

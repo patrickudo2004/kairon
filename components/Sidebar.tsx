@@ -170,9 +170,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 <button
                                     onClick={(e) => {
                                         e.preventDefault();
-                                        if (confirm('Stop all live sessions? This will reset all monitors to standby.')) {
-                                            onStopAllSessions();
-                                        }
+                                        onStopAllSessions();
                                     }}
                                     className="p-1.5 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-rose-400 hover:text-rose-600 rounded-lg transition-colors shrink-0"
                                     title="Stop all live sessions"
