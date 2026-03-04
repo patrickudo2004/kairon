@@ -1,6 +1,6 @@
 import React from 'react';
 import { Program } from '../types';
-import { Play, Pause, SkipForward, SkipBack, Eye, CheckCircle, ClipboardList } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Eye, CheckCircle, ClipboardList, MousePointerClick, Zap } from 'lucide-react';
 
 interface LiveTimerProps {
   program: Program;
@@ -133,6 +133,11 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             {currentSlot.type}
           </span>
           <span className="text-slate-500 dark:text-slate-400 text-sm">Current Session</span>
+          {program.isManualMode && (
+            <span className="flex items-center gap-1.5 text-[10px] font-black bg-amber-500/10 text-amber-600 px-3 py-1 rounded-full ml-2 uppercase tracking-widest border border-amber-500/20">
+              <MousePointerClick size={12} /> Manual Mode
+            </span>
+          )}
           {readOnly && (
             <span className="flex items-center gap-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-1 rounded-full ml-2">
               <Eye size={12} /> Viewer Mode
@@ -174,6 +179,15 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             Live - Session In Progress
           </div>
         )}
+
+        {/* Manual Advance Guidance */}
+        {!readOnly && program.isManualMode && timeLeft <= 0 && (
+          <div className="mt-8 px-6 py-3 bg-amber-500 text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl shadow-amber-500/40 animate-bounce flex items-center gap-3">
+            <MousePointerClick size={20} />
+            Awaiting Manual Jump
+          </div>
+        )}
+
         {readOnly && !isTimerActive && (
           <div className="mt-4 text-slate-400 text-sm font-semibold tracking-widest uppercase">
             Waiting to Start
@@ -221,7 +235,10 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
 
           <button
             onClick={onNext}
-            className="flex items-center gap-3 px-8 md:px-10 py-5 rounded-2xl font-semibold text-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 transition-all shadow-xl"
+            className={`flex items-center gap-3 px-8 md:px-10 py-5 rounded-2xl font-semibold text-xl border transition-all shadow-xl ${program.isManualMode && timeLeft <= 0
+                ? 'bg-amber-500 text-white border-amber-600 animate-pulse ring-4 ring-amber-500/20'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white border-slate-200 dark:border-slate-700'
+              }`}
           >
             <SkipForward size={28} />
             Next
