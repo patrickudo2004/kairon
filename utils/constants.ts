@@ -8,5 +8,6 @@ export const getInitialProgram = (organizationId?: string): Program => ({
     startTime: '09:00',
     organizationId,
     isManualMode: false,
+    status: 'draft',
     slots: []
 });
