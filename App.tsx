@@ -1050,7 +1050,6 @@ const AppContent: React.FC = () => {
   // --- Public Path Logic ---
   const isPublicPath =
     location.pathname.includes('/p/') ||
-    location.pathname === '/guide' ||
     location.hash.includes('/p/') ||
     location.hash.includes('mode=viewer');
 
@@ -1083,7 +1082,6 @@ const AppContent: React.FC = () => {
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
         <Routes>
           <Route path="/p/:slug" element={<PublicPortal />} />
-          <Route path="/guide" element={<UserGuide />} />
           {/* Fallback to home if they somehow land here or legacy link is processing */}
           <Route path="*" element={<div className="flex items-center justify-center min-h-screen"><div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>} />
         </Routes>
@@ -1297,6 +1295,8 @@ const AppContent: React.FC = () => {
                     onSelect={setActiveOrgId}
                   />
                 } />
+
+                <Route path="/guide" element={<UserGuide />} />
 
                 {/* Main Views */}
                 <Route path="/" element={

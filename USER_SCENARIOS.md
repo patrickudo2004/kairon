@@ -101,4 +101,4 @@ Before the summit, they export a high-density **Production PDF** for all VIPs an
 -   Real-time **Hold Messages** are used to provide "Technical Difficulty" or "Lunch Break" updates globally across the public links.
 
 ### Phase 4: Data Analysis
-Post-summit, the Admin reviews the **Local Sync** logs to see where bottlenecks occurred in the schedule, using this data for the next quarter's planning.
+Post-summit, the Admin reviews the **Event logs** to see where bottlenecks occurred in the schedule, using this data for the next quarter's planning.

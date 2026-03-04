@@ -15,7 +15,7 @@ export const UserGuide: React.FC = () => {
                     </div>
                     <h1 className="text-4xl md:text-5xl font-black mb-6 tracking-tight">Kairon User Guide</h1>
                     <p className="text-lg md:text-xl text-indigo-100 max-w-2xl leading-relaxed">
-                        The ultimate guide to mastering Kairon 2.0. From your first login to running mission-critical conferences with zero internet.
+                        The ultimate guide to mastering Kairon 2.0. From your first login to running mission-critical conferences with cloud-powered real-time sync.
                     </p>
                 </div>
                 {/* Decorative background circle */}
@@ -110,7 +110,7 @@ export const UserGuide: React.FC = () => {
                             <div>
                                 <Sparkles size={32} className="mb-4 text-violet-200" />
                                 <h4 className="text-xl font-bold mb-2">AI Rebalancer</h4>
-                                <p className="text-sm text-violet-100 leading-tight">Running late? Click the sparkles. Gemini will suggest a strategy to get back on track.</p>
+                                <p className="text-sm text-violet-100 leading-tight">Running late? Click the sparkles. Gemini will analyze your Convex data and suggest a strategy to get back on track.</p>
                             </div>
                             <div className="mt-6 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-violet-200">
                                 <Receipt size={14} /> Pro Feature
@@ -249,12 +249,12 @@ export const UserGuide: React.FC = () => {
                         <div className="flex flex-col md:flex-row gap-8">
                             <div className="flex-1 space-y-6">
                                 <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                                    Kairon is built for the "No Wi-Fi" reality of hotel ballrooms.
+                                    Kairon is built for the "No Wi-Fi" reality of hotel ballrooms, while maintaining high-speed cloud sync.
                                 </p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
                                         <Zap className="text-indigo-500" size={18} />
-                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest">Local Backup</span>
+                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest">Real-Time Sync</span>
                                     </div>
                                     <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
                                         <CheckCircle className="text-emerald-500" size={18} />
@@ -265,7 +265,7 @@ export const UserGuide: React.FC = () => {
                         </div>
                         <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800 flex items-center gap-4 text-xs font-bold text-slate-400">
                             <Wifi size={14} className="text-emerald-500" />
-                            WATCH THE "LIVE SYNC" BADGE IN THE HEADER TO KNOW WHEN YOUR DATA IS SAFELY IN THE CLOUD.
+                            WATCH THE "LIVE SYNC" BADGE IN THE HEADER TO KNOW WHEN YOUR DATA IS SAFELY SYNCED TO THE CONVEX CLOUD.
                         </div>
                     </div>
                 </section>

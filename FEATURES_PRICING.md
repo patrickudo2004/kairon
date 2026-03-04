@@ -7,7 +7,7 @@ This document outlines the segmentation between Free and Pro features in Kairon.
 
 | Feature | Description |
 | :--- | :--- |
-| **Offline-First Resilience** | PWA functionality with local backup. The timer never stops, even without Wi-Fi. |
+| **Sync Resilience** | Real-time cloud synchronization with smart offline recovery. The timer never stops, even with network jitter. |
 | **Precision Control** | Full access to **Auto-advance** (natural flow) and **Manual** (wait for cue) modes. |
 | **The Cue System** | Unified "Hold for Cue" functionality with standby screens for all displays. |
 | **Production Views** | Access to TV Mode, Stage Display, and Technician Pro View. |
