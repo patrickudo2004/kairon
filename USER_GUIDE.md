@@ -1,6 +1,6 @@
 # Kairon User Guide: The Ultimate Production Timer
 
-Welcome to Kairon 2.0! This guide will walk you through everything from your first login up to running a mission-critical conference with zero internet.
+Welcome to Kairon 2.0! This guide will walk you through everything from your first login up to running a mission-critical conference with high-speed cloud synchronization.
 
 ## 🚀 1. Getting Started: Identity & Workspaces
 
@@ -52,8 +52,8 @@ Want to share your schedule with the world?
 
 Kairon is built for the "No Wi-Fi" reality of hotel ballrooms.
 -   **PWA**: Click "Install" in your browser bar. Kairon will live in your dock/taskbar and open even without internet.
--   **Local Backup**: Every change is backed up to your device. If you refresh while the internet is down, your schedule is recovered instantly.
--   **Sync Indicator**: Watch the **"Live Sync"** badge in the header to know when your data is safely in the cloud.
+-   **Convex Sync**: Every change is instantly backed up to the cloud. If you refresh on any device, your schedule is recovered instantly.
+-   **Sync Indicator**: Watch the **"Live Sync"** badge in the header to know when your data is safely synced.
 
 ---
 

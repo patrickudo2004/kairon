@@ -1,13 +1,13 @@
 # Kairon - Conference Timer
 
-Kairon is a professional, client-side conference time management application designed for event coordinators, AV teams, and speakers. It bridges the gap between planning and live execution with a synchronized flow, AI-powered drafting, and smart sharing capabilities—all without requiring a backend server.
+Kairon is a professional, cloud-powered conference time management application designed for event coordinators, AV teams, and speakers. It bridges the gap between planning and live execution with a synchronized real-time flow, AI-powered drafting, and robust multi-device coordination powered by Convex.
 
 ## 🌟 Key Features
 
 ### 1. **Live Event Execution**
    - **Smart Live Timer**: Large, high-visibility countdown for the current session.
    - **Auto-Advance**: Automatically transitions to the next slot when the timer hits zero.
-   - **Smart Sync**: Automatically calculates the correct slot and time elapsed based on the scheduled start time, allowing late-joiners to "catch up" to the live event instantly.
+   - **Smart Sync**: Automatically calculates the correct slot and time elapsed based on the scheduled start time. Real-time synchronization ensures all screens (TV, Stage, Admin) are perfectly aligned in sub-second latency.
    - **Manual Controls**: Play, Pause, Next, and Previous controls for on-the-fly adjustments.
 
 ### 2. **Advanced Program Editor**
@@ -16,18 +16,14 @@ Kairon is a professional, client-side conference time management application des
    - **AI Drafting**: Integrated with Google Gemini API to convert raw text (emails, agendas) into structured schedules.
    - **Slot Management**: Duplicate existing slots, add detailed notes/abstracts, and categorize sessions (Keynote, Talk, Panel, Break).
 
-### 3. **Serverless Sharing & Collaboration**
-   - **URL-State Encoding**: The entire program state is compressed and encoded into the share link. No login or database required.
-   - **Role-Based Access**:
-     - **Co-Editor Link**: Grants full access to modify the schedule.
-     - **Viewer Link**: Opens a read-only interface restricted to the "Live" and "List" views (perfect for stage displays).
-   - **QR Code Generation**: Instantly generate QR codes for both Viewer and Editor links for easy scanning on mobile devices.
+   - **Real-Time Collaboration**: Changes made by any team member are instantly pushed to all other connected screens. No manual refreshing required.
+   - **QR Code Generation**: Instantly generate QR codes for TV, Stage, or Public Portal views for easy scanning on mobile devices.
 
 ### 4. **Export & Persistence**
    - **PDF Export**: Generate professional, clean PDF schedules optimized for print (A4/Letter).
    - **Clipboard Copy**: One-click copy of the formatted text schedule for emails or documents.
    - **Multi-Program Management**: Create, delete, and duplicate entire programs via the Dashboard or Calendar.
-   - **Auto-Save**: Work is automatically saved to the browser's LocalStorage.
+   - **Auto-Save**: All work is automatically synced to the Convex cloud in real-time.
 
 ### 5. **User Experience**
    - **Theme Support**: Toggle between Light and Dark modes.
@@ -37,11 +33,12 @@ Kairon is a professional, client-side conference time management application des
 ## 🛠 Tech Stack
 
 - **Frontend**: React 19, TypeScript
-- **Styling**: Tailwind CSS, Lucide React (Icons)
+- **Backend & Sync**: Convex (Cloud Functions, Real-time Database)
+- **State Management**: Zustand, React Query
+- **Styling**: Vanilla CSS, Lucide React (Icons)
 - **Routing**: React Router DOM
-- **AI Integration**: Google GenAI SDK (Gemini 2.5 Flash)
-- **Utilities**: `react-qr-code`, `recharts` (Analytics placeholder)
-- **State Management**: React State + LocalStorage + URL Parameter Hydration
+- **AI Integration**: Google GenAI SDK (Gemini 2.0 Flash)
+- **Utilities**: `react-qr-code`, `html2canvas`, `jspdf`
 
 ## 📖 How to Use
 
@@ -61,12 +58,12 @@ Kairon is a professional, client-side conference time management application des
 2.  Choose **Viewer Link** for attendees/AV or **Co-Editor Link** for colleagues.
 3.  Copy the link or show/download the QR code.
 
-## ⚠️ Important Note on Data
+## 💡 Important Note on Data
 
-This application uses **Client-Side Storage**. 
-*   Your data resides in your browser's LocalStorage.
-*   When you share a link, you are sending a *snapshot* of the data at that moment.
-*   Changes made by a Co-Editor on their device **do not** automatically push back to your device (as there is no central server). They must send a new link back to you to share their changes.
+This application uses **Cloud-First Synchronization**. 
+*   Your data is securely stored and synced via Convex.
+*   Changes are pushed instantly to all active displays (TV, Stage, Portal).
+*   Even if your connection drops, the app remains functional and syncs your changes as soon as you are reconnected.
 
 ## 🎨 Design System
 

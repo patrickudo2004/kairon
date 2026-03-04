@@ -1,56 +1,46 @@
-# Kairon - Project Documentation (Current State)
+# Kairon - Project Architecture (Phase 34)
 
 ## Project Overview
-Kairon is a high-precision, real-time event management and countdown platform designed for churches, conferences, and live productions. It allows organizers to draft schedules, manage them live, and project them to viewers synchronously.
+Kairon is a high-precision, real-time event management and countdown platform designed for churches, conferences, and live productions. It allows organizers to draft schedules, manage them live, and project them to viewers synchronously across multiple displays.
 
 ---
 
 ## Tech Stack
-- **Frontend**: React (with Vite)
-- **Styling**: Tailwind CSS + Lucide Icons (Modern, "Glassmorphic" UI)
-- **Database**: Supabase (PostgreSQL)
-- **Real-time**: Supabase Realtime Channels + BroadcastChannel (for local synchronization)
-- **Persistence**: Hybrid (Supabase + Browser LocalStorage fallback)
-- **State Management**: React State + React Query (Data fetching/mutations) + Zustand (UI Store)
-- **AI Integration**: Google Gemini (via `geminiService.ts`) for generating program drafts.
+- **Frontend**: React 19 (Vite)
+- **Backend & Real-time**: Convex (Cloud Functions, Real-time Database, Auth)
+- **State Management**: Zustand (UI Store), React Query (Data Mutations), Convex Hooks (Data Fetching/Sync)
+- **Styling**: Vanilla CSS (Premium "Glassmorphic" UI)
+- **Icons**: Lucide React
+- **AI Integration**: Google Gemini (via Convex Actions) for generating program drafts.
+- **Utilities**: `react-qr-code`, `html2canvas`, `jspdf`
 
 ---
 
 ## Core Application Structure
 
-### 1. Database Schema (`programs` table)
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `id` | UUID (PK) | Unique identifier for the program |
-| `title` | TEXT | Main event name |
-| `subtitle` | TEXT | Description/Theme |
-| `date` | DATE | Event date |
-| `start_time` | TEXT | "HH:mm" 24h format |
-| `end_time` | TEXT | Target finish time |
-| `current_slot_index` | INT | The index of the active speaker/session |
-| `is_timer_active` | BOOL | Current running state of the countdown |
-| `timer_start_timestamp`| BIGINT | Unix timestamp (ms) when the current slot started |
-| `seconds_elapsed` | INT | Seconds used (used for pausing) |
+### 1. Data Model (Convex Schema)
+- **`organizations`**: Stores workspace details, including name, logo URL, and brand color.
+- **`programs`**: Stores event details, status ('draft', 'live', 'concluded'), timer state, and current slot index.
+- **`slots`**: Array within the program or linked documents for individual schedule items (title, speaker, duration, etc.).
+- **`stageMessages`**: Ephemeral messages for stage prompts and technical cues.
 
-### 2. User Process (Workflow)
-1. **Creation**: User creates an event manually or via **AI Draft** (pasting an agenda).
-2. **Setup**: Slots are added with title, speaker, and duration. A "Target End Time" provides a budget indicator.
-3. **Live Operation**:
-    *   **Editor**: Hits "Start". The app records the timestamp.
-    *   **Sync**: The app broadcasts the update to Supabase and Local Broadcast channels.
-    *   **Viewer (TV/Projector)**: Reaches the URL (with `id=...`) and instantly calculates the current time based on the shared timestamp.
-4. **Conclusion**: When all slots finish, the app displays an "All Done" summary.
+### 2. Live Synchronization Workflow
+1. **Source of Truth**: All state (timer, current slot, hold status) is stored in Convex.
+2. **Reactivity**: Components use `useQuery` (Convex) to subscribe to the program state. Any change made in the Admin Editor is instantly pushed to TV, Stage, and Public displays.
+3. **Timer Logic**: High-precision countdown is derived from `startTime` and `secondsElapsed` to ensure all devices show the exact same second regardless of network jitter.
 
 ---
 
-## Key Features & Hooks
-- **`useLocalSync`**: Syncs state across different tabs of the same browser without hitting the network.
-- **`realtimeService`**: Manages Supabase realtime subscriptions so remote viewers see updates with <100ms latency.
-- **`programService`**: Handles CRUD and the specialized "Timer State" updates (debounced to 5s to save API costs).
-- **`TVView`**: A cleaned-up, high-visibility layout for projection or streaming overlays.
+## Key Components & Hooks
+- **`useUIStore`**: Manages global UI states like Dark/Light theme and Sidebar collapse.
+- **`LiveTimer`**: The primary interaction core for the live service.
+- **`TVView` / `StageDisplay`**: Specialized, high-visibility layouts for production monitors.
+- **`PublicPortal`**: Zero-friction viewer access for attendees.
 
 ---
 
-## Recent Architectural Changes
-- **ID Preservation**: The application now forces the `id` of the program into the URL. This is critical for stateless recovery on browser refresh.
-- **Hybrid Sync**: The app uses `localStorage` for millisecond-level recovery on the same device and Supabase for cross-device/remote persistence.
+## Recent Architectural Improvements
+- **Convex Migration**: Replaced Supabase and LocalStorage snapshots with a unified real-time cloud backend.
+- **ID Harmonization**: Implemented robust mapping between Convex's internal `_id` and the frontend's expected `id` field.
+- **Multi-View Status**: Unified the "Draft" vs "Concluded" logic across all display components to prevent premature "All Done" screens.
+- **Integrated User Guide**: Moved the documentation from a public bypass into the main app shell for a seamless UX.
