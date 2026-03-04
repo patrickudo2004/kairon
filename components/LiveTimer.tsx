@@ -1,6 +1,6 @@
 import React from 'react';
 import { Program } from '../types';
-import { Play, Pause, SkipForward, SkipBack, Eye, CheckCircle } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Eye, CheckCircle, ClipboardList } from 'lucide-react';
 
 interface LiveTimerProps {
   program: Program;
@@ -67,7 +67,8 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
     );
   }
 
-  if (!currentSlot || program.status === 'concluded') {
+  // Case 1: Program is concluded
+  if (program.status === 'concluded') {
     return (
       <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto p-8 animate-in fade-in zoom-in-95 duration-500">
         <div className="mb-8 p-6 bg-emerald-100 dark:bg-emerald-500/10 rounded-full shadow-xl shadow-emerald-500/20 ring-1 ring-emerald-500/20">
@@ -88,6 +89,27 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
           >
             <SkipBack size={24} className="group-hover:-translate-x-1 transition-transform" />
             <span className="font-semibold text-lg">Return to Previous</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Case 2: Program is live but has no slots (Safety)
+  if (program.status === 'live' && !currentSlot) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full max-w-2xl mx-auto p-8 text-center">
+        <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center mb-8">
+          <ClipboardList size={40} className="text-slate-400" />
+        </div>
+        <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">No Slots Added</h2>
+        <p className="text-slate-500 dark:text-slate-400 mb-8">This live program currently has no schedule items.</p>
+        {!readOnly && (
+          <button
+            onClick={onToggleTimer}
+            className="px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200"
+          >
+            Stop Session
           </button>
         )}
       </div>
