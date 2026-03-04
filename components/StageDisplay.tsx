@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Program, Organization } from '../types';
+import { CheckCircle } from 'lucide-react';
 import { formatDuration } from '../utils/time';
 import { useStageMessages } from '../hooks/useStageMessages';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -53,11 +54,27 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
     const timeLeft = durationSeconds - secondsElapsed;
 
-    if (!currentSlot || program.status === 'concluded') {
+    // Case 1: Program is concluded
+    if (program.status === 'concluded') {
+        return (
+            <div className="w-screen h-screen bg-black flex flex-col items-center justify-center p-12 text-center">
+                <div className="w-24 h-24 mb-12 flex items-center justify-center relative">
+                    <div className="absolute inset-0 bg-emerald-500/10 rounded-full blur-2xl animate-pulse"></div>
+                    <CheckCircle size={80} className="text-emerald-500 relative z-10" />
+                </div>
+                <h1 className="text-white text-[10vw] font-black uppercase tracking-tighter leading-none mb-4">Program Concluded</h1>
+                <p className="text-slate-500 text-3xl font-medium">All sessions are finished.</p>
+            </div>
+        );
+    }
+
+    // Case 2: Program is in Draft mode (or no slots yet)
+    if (program.status === 'draft' || !currentSlot) {
         return (
             <div className="w-screen h-screen bg-black flex flex-col items-center justify-center p-12 text-center">
                 <h1 className="text-white text-[12vw] font-black uppercase tracking-tighter leading-none mb-8">Stand By</h1>
                 <div className="w-24 h-1 bg-emerald-500/50 rounded-full animate-pulse" />
+                <p className="text-slate-600 text-2xl font-bold uppercase tracking-widest mt-12">{program.title}</p>
             </div>
         );
     }

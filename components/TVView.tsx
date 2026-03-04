@@ -109,7 +109,8 @@ const TVView: React.FC<TVViewProps> = ({
         ? Math.min(100, Math.max(0, (timeLeft / durationSeconds) * 100))
         : 0;
 
-    if (!currentSlot || program.status === 'concluded') {
+    // Case 1: Program is concluded
+    if (program.status === 'concluded') {
         return (
             <div className={`w-screen h-screen ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'} flex flex-col items-center justify-center p-12 text-center transition-colors duration-500`}>
                 <div className="w-32 h-32 bg-indigo-600/10 rounded-full flex items-center justify-center mb-12 animate-pulse">
@@ -121,6 +122,25 @@ const TVView: React.FC<TVViewProps> = ({
                 </p>
                 <div className="mt-12 text-xs font-bold uppercase tracking-[0.5em] text-slate-400 dark:text-slate-600">
                     Stand By for Next Event
+                </div>
+            </div>
+        );
+    }
+
+    // Case 2: Program is in Draft mode (or no slots yet)
+    if (program.status === 'draft' || !currentSlot) {
+        return (
+            <div className={`w-screen h-screen ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'} flex flex-col items-center justify-center p-12 text-center transition-colors duration-500`}>
+                <div className="w-24 h-24 mb-12 flex items-center justify-center relative">
+                    <div className="absolute inset-0 bg-indigo-500/20 rounded-full blur-2xl animate-pulse"></div>
+                    <Timer size={80} className="text-indigo-600 relative z-10" />
+                </div>
+                <h1 className="text-6xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-6">Ready to Begin</h1>
+                <p className="text-2xl md:text-4xl text-slate-500 dark:text-slate-400 font-medium max-w-2xl italic">
+                    {program.title}
+                </p>
+                <div className="mt-12 px-8 py-3 bg-indigo-600 text-white rounded-full font-bold uppercase tracking-[0.3em] animate-pulse">
+                    Stand By
                 </div>
             </div>
         );
