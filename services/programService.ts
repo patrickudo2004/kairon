@@ -72,17 +72,21 @@ export const updateTimerState = async (programId: string, state: {
     holdMessage?: string;
     status?: 'draft' | 'live' | 'concluded';
 }): Promise<void> => {
+    const stateToSave: any = {
+        currentSlotIndex: state.currentSlotIndex,
+        isTimerActive: state.isTimerActive,
+        secondsElapsed: state.secondsElapsed,
+        timerStartTimestamp: state.timerStartTimestamp,
+    };
+
+    // Only add optional fields if they are defined
+    if (state.isOnHold !== undefined) stateToSave.isOnHold = state.isOnHold;
+    if (state.holdMessage !== undefined) stateToSave.holdMessage = state.holdMessage;
+    if (state.status !== undefined) stateToSave.status = state.status;
+
     await convex.mutation(api.programs.updateTimerState, {
         id: programId as any,
-        timerState: {
-            currentSlotIndex: state.currentSlotIndex,
-            isTimerActive: state.isTimerActive,
-            secondsElapsed: state.secondsElapsed,
-            timerStartTimestamp: state.timerStartTimestamp,
-            isOnHold: state.isOnHold,
-            holdMessage: state.holdMessage,
-            status: state.status,
-        }
+        timerState: stateToSave
     });
 };
 

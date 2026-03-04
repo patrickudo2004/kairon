@@ -15,7 +15,6 @@ import { rebalanceSchedule } from './services/geminiService';
 
 // Store & Hooks
 import { useUIStore } from './store/uiStore';
-import { useLocalSync } from './hooks/useLocalSync';
 import { useStageMessages } from './hooks/useStageMessages';
 import { useWakeLock } from './hooks/useWakeLock';
 
@@ -289,55 +288,6 @@ const AppContent: React.FC = () => {
     if (isReadOnly) setIsShareOpen(false);
   }, [isReadOnly]);
 
-  // Persistence Key
-  const TIMER_STORAGE_KEY = 'kairon_timer_state';
-
-  // Restore state on program load
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(TIMER_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.programId === program.id) {
-          console.log("Restoring timer state from localStorage", parsed);
-          setCurrentSlotIndex(parsed.currentSlotIndex);
-          setIsTimerActive(parsed.isTimerActive);
-
-          // Recalculate elapsed if active to catch up time lost during refresh
-          if (parsed.isTimerActive && parsed.timerStartTimestamp) {
-            const now = Date.now();
-            const elapsed = Math.floor((now - parsed.timerStartTimestamp) / 1000);
-            setSecondsElapsed(elapsed);
-            setTimerStartTimestamp(parsed.timerStartTimestamp);
-          } else {
-            setSecondsElapsed(parsed.secondsElapsed);
-            setTimerStartTimestamp(parsed.timerStartTimestamp);
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("Failed to restore timer state", e);
-    }
-  }, [program.id]);
-
-  // Save state on change
-  useEffect(() => {
-    // Only save if we have a valid program and state
-    if (program.id === INITIAL_PROGRAM.id) return;
-
-    const state = {
-      programId: program.id,
-      program, // Include the full program for offline recovery
-      currentSlotIndex,
-      isTimerActive,
-      secondsElapsed,
-      timerStartTimestamp,
-      lastBackup: Date.now()
-    };
-    localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(state));
-    // Also save a per-program backup for easier multi-program management
-    localStorage.setItem(`kairon_backup_${program.id}`, JSON.stringify(state));
-  }, [program, currentSlotIndex, isTimerActive, secondsElapsed, timerStartTimestamp]);
 
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -491,25 +441,8 @@ const AppContent: React.FC = () => {
         return;
       }
 
-      // 3. Offline Deep Recovery Fallback
-      // If we are offline or DB failed, check for the specific program backup
-      const programId = searchParams.get('id');
-      if (programId && program.id === INITIAL_PROGRAM.id) {
-        const localBackup = localStorage.getItem(`kairon_backup_${programId}`);
-        if (localBackup) {
-          try {
-            const parsed = JSON.parse(localBackup);
-            console.log("Offline Recovery: Restoring full program from local backup", parsed.program.title);
-            setProgram(parsed.program);
-            setCurrentSlotIndex(parsed.currentSlotIndex);
-            setIsTimerActive(parsed.isTimerActive);
-            setTimerStartTimestamp(parsed.timerStartTimestamp);
-            setSecondsElapsed(parsed.secondsElapsed);
-          } catch (e) {
-            console.warn("Offline recovery failed:", e);
-          }
-        }
-      }
+      // 3. Offline Deep Recovery Fallback (Deprecated)
+      // Convex is now the single source of truth.
     };
 
     hydrate();
@@ -665,87 +598,6 @@ const AppContent: React.FC = () => {
 
 
 
-  // --- Local Sync Integration ---
-  const onRequestSyncRef = React.useRef<() => void>(() => { });
-
-  const onLocalTimerState = React.useCallback((state: TimerState) => {
-    // Only accept if program ID matches
-    if (state.programId !== (programRef.current?.id || program.id)) return;
-
-    console.log('Local Sync: Timer:', state);
-    // Update local state
-    setCurrentSlotIndex(state.currentSlotIndex);
-    setIsTimerActive(state.isTimerActive);
-    setTimerStartTimestamp(state.timerStartTimestamp);
-
-    if (Object.prototype.hasOwnProperty.call(state, 'isOnHold')) {
-      setProgram(prev => ({ ...prev, isOnHold: state.isOnHold, holdMessage: state.holdMessage }));
-    }
-
-    if (state.isTimerActive && state.timerStartTimestamp) {
-      const now = Date.now();
-      const elapsed = Math.floor((now - state.timerStartTimestamp) / 1000);
-      setSecondsElapsed(elapsed);
-    } else {
-      setSecondsElapsed(state.secondsElapsed);
-    }
-  }, [program.id]);
-
-  const onLocalProgramUpdate = React.useCallback((updatedProgram: Program) => {
-    if (updatedProgram.id === (programRef.current?.id || program.id)) {
-      console.log('Local Sync: Program Update');
-      setProgram(updatedProgram);
-    }
-  }, [program.id]);
-
-  const onLocalRequestSync = React.useCallback(() => {
-    onRequestSyncRef.current();
-  }, []);
-
-  const { broadcastTimerState, broadcastProgramUpdate, requestSync: requestLocalSync } = useLocalSync(
-    'kairon_local_sync',
-    onLocalTimerState,
-    onLocalProgramUpdate,
-    onLocalRequestSync
-  );
-
-  // Request sync on mount if we are a viewer (Projector)
-  useEffect(() => {
-    if (isReadOnly) {
-      console.log("Projector: Requesting Local Sync...");
-      requestLocalSync();
-    }
-  }, [isReadOnly, requestLocalSync]);
-
-  // Broadcast Helper (Local Sync only)
-  const broadcastState = (overrides: Partial<TimerState> = {}) => {
-    const now = Date.now();
-    const hasStartOverride = Object.prototype.hasOwnProperty.call(overrides, 'timerStartTimestamp');
-    const state: TimerState = {
-      programId: program.id,
-      isTimerActive: overrides.hasOwnProperty('isTimerActive') ? overrides.isTimerActive! : isTimerActive,
-      currentSlotIndex: overrides.hasOwnProperty('currentSlotIndex') ? overrides.currentSlotIndex! : currentSlotIndex,
-      secondsElapsed: overrides.hasOwnProperty('secondsElapsed') ? overrides.secondsElapsed! : secondsElapsed,
-      timerStartTimestamp: hasStartOverride
-        ? (overrides.timerStartTimestamp ?? null)
-        : (overrides.isTimerActive ? now : timerStartTimestamp),
-      isOnHold: overrides.hasOwnProperty('isOnHold') ? (overrides.isOnHold as boolean) : program.isOnHold,
-      holdMessage: (overrides.holdMessage as string) || program.holdMessage,
-      status: overrides.status || program.status,
-    };
-    broadcastTimerState(state);
-  };
-
-  // Wire up the sync request handler
-  useEffect(() => {
-    onRequestSyncRef.current = () => {
-      if (!isReadOnlyRef.current) {
-        console.log("Controller: Sending Local Sync Response");
-        // Force a broadcast of current state
-        broadcastState();
-      }
-    };
-  }, [program.id, isTimerActive, currentSlotIndex, secondsElapsed]);
   const loadProgram = (newProgram: Program) => {
     setProgram(newProgram);
 
@@ -760,7 +612,6 @@ const AppContent: React.FC = () => {
     }
 
     // Clear persisted state for safety when explicitly switching/loading
-    localStorage.removeItem(TIMER_STORAGE_KEY);
 
     // Navigate to editor screen with the ID in the URL for better hydration
     navigate(`/editor?id=${newProgram.id}`);
