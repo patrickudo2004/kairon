@@ -52,15 +52,13 @@ const StageWrapper: React.FC = () => {
 
 
     // Handle Loading State
-    // If we have an ID, we load that specific one. If not, we wait for the Live fallback.
     const loading = programId
         ? (specificProgram === undefined)
         : (liveProgram === undefined);
 
-    // Only show "Sync Lost" if we have no data at all after trying both specific and live lookups
-    const networkError = programId
-        ? (specificProgram === null && liveProgram === null)
-        : (liveProgram === null);
+    // FIX: Treat 'null' as STANDBY, not a network error. 
+    // This resolves the "Sync Lost" false positive when no session is live.
+    const networkError = false;
 
     if (loading) {
         return (

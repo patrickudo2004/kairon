@@ -46,6 +46,7 @@ import { InterlockModal } from './components/InterlockModal';
 import TVWrapper from './components/wrappers/TVWrapper';
 import StageWrapper from './components/wrappers/StageWrapper';
 import { MonitorDashboard } from './components/MonitorDashboard';
+import { ConfirmationModal } from './components/ConfirmationModal';
 
 // Utils & Types
 import { Program, Slot, SlotType, Profile, Organization, TimerState } from './types';
@@ -268,6 +269,41 @@ const AppContent: React.FC = () => {
   const lastAdvanceTimeRef = React.useRef<number>(0);
   const lastCorrectedIdRef = React.useRef<string | null>(null);
 
+  // --- Reactive Global Live Channel ---
+  const globalLiveProgram = useConvexQuery(api.programs.getLiveProgram, {});
+
+  useEffect(() => {
+    if (globalLiveProgram === undefined) return;
+    if (globalLiveProgram === null) {
+      if (liveProgramId !== null) {
+        setLiveProgramId(null);
+        setLiveProgram(null);
+      }
+    } else {
+      const liveId = globalLiveProgram._id as string;
+      if (liveProgramId !== liveId) {
+        setLiveProgramId(liveId);
+        setLiveProgram({ ...(globalLiveProgram as any), id: liveId });
+        setLiveCurrentSlotIndex(globalLiveProgram.currentSlotIndex ?? 0);
+      }
+    }
+  }, [globalLiveProgram]);
+
+  // Alert/Confirm Modal State
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'warning'
+  });
+
 
 
   // useStageMessages Hook (Consolidated logic)
@@ -470,20 +506,35 @@ const AppContent: React.FC = () => {
       isOnHold?: boolean;
       holdMessage?: string;
       status?: 'draft' | 'live' | 'concluded';
-    }) => updateTimerStateService(program.id, state)
+    }) => {
+      // CRITICAL GUARD: Never send timer state if program ID is local/placeholder
+      if (program.id.startsWith('local-')) {
+        console.warn("Timer save blocked: Program ID is local.");
+        return;
+      }
+      return updateTimerStateService(program.id, state);
+    }
   });
 
   const stopAllConvexSessions = useConvexMutation(api.programs.stopAllActiveSessions);
 
   const handleStopAllSessions = async () => {
-    if (activeOrgId) {
-      try {
-        await stopAllConvexSessions({ organizationId: activeOrgId as any });
-        queryClient.invalidateQueries({ queryKey: ['programs', activeOrgId] });
-      } catch (err) {
-        console.error("Failed to stop sessions:", err);
+    if (!activeOrgId) return;
+
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Stop All Sessions?',
+      message: 'This will instantly stop all active programs in this workspace and reset all monitors to standby.',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await stopAllConvexSessions({ organizationId: activeOrgId as any });
+          queryClient.invalidateQueries({ queryKey: ['programs', activeOrgId] });
+        } catch (err) {
+          console.error("Failed to stop sessions:", err);
+        }
       }
-    }
+    });
   };
 
   const handleNudge = (minutes: number) => {
@@ -557,7 +608,10 @@ const AppContent: React.FC = () => {
     setSaveStatus('unsaved');
 
     const timer = setTimeout(() => {
-      console.log("Auto-saving to Convex...", program.id);
+      // Guard: Only save if ID is valid Convex ID
+      if (program.id.startsWith('local-')) return;
+
+      console.log(`Auto-saving program "${program.title}" to Convex...`);
       setSaveStatus('saving');
       mutation.mutate(program);
     }, 2000); // 2s debounce
@@ -1473,6 +1527,15 @@ const AppContent: React.FC = () => {
         program={program}
         includeDetails={exportOptions.includeDetails}
         includeSpeakers={exportOptions.includeSpeakers}
+      />
+
+      <ConfirmationModal
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        type={confirmDialog.type}
+        onConfirm={confirmDialog.onConfirm}
+        onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
       />
     </div>
   );

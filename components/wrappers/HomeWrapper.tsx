@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery as useConvexQuery, useMutation as useConvexMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import HomeDashboard from '../HomeDashboard';
 import { Program } from '../../types';
+import { ConfirmationModal } from '../ConfirmationModal';
 
 interface HomeWrapperProps {
     activeOrgId: string | undefined;
@@ -27,6 +28,7 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
     mode
 }) => {
     const navigate = useNavigate();
+    const [confirmStopId, setConfirmStopId] = useState<string | null>(null);
 
     const allPrograms = useConvexQuery(
         api.programs.getPrograms,
@@ -36,7 +38,6 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
     const updateTimerState = useConvexMutation(api.programs.updateTimerState);
 
     const onStopLive = async (programId: string) => {
-        if (!confirm('Deactivate this live session? It will be moved back to draft.')) return;
         try {
             await updateTimerState({
                 id: programId as any,
@@ -67,17 +68,29 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
     }
 
     return (
-        <HomeDashboard
-            programs={allPrograms || []}
-            activeProgramId={activeProgramId}
-            liveProgramId={liveProgramId}
-            onSelectProgram={(p) => { loadProgram(p); navigate(`/editor?id=${p.id}&mode=${mode}`); }}
-            onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
-            onStopLive={onStopLive}
-            onCreateNew={() => { createProgram(new Date().toISOString().split('T')[0]); }}
-            onDelete={deleteProgram}
-            onDuplicate={duplicateProgram}
-        />
+        <>
+            <HomeDashboard
+                programs={allPrograms || []}
+                activeProgramId={activeProgramId}
+                liveProgramId={liveProgramId}
+                onSelectProgram={(p) => { loadProgram(p); navigate(`/editor?id=${p.id}&mode=${mode}`); }}
+                onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
+                onStopLive={(id) => setConfirmStopId(id)}
+                onCreateNew={() => { createProgram(new Date().toISOString().split('T')[0]); }}
+                onDelete={deleteProgram}
+                onDuplicate={duplicateProgram}
+            />
+
+            <ConfirmationModal
+                isOpen={!!confirmStopId}
+                title="Deactivate Session?"
+                message="This will stop the live timer and move the event back to draft. Monitors will return to standby."
+                confirmText="Deactivate"
+                type="warning"
+                onConfirm={() => confirmStopId && onStopLive(confirmStopId)}
+                onClose={() => setConfirmStopId(null)}
+            />
+        </>
     );
 };
 
