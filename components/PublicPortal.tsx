@@ -5,23 +5,15 @@ import { api } from '../convex/_generated/api';
 import { Program } from '../types';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
 import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon } from 'lucide-react';
+import { useUIStore } from '../store/uiStore';
 
 export const PublicPortal: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
     const [isScrolled, setIsScrolled] = useState(false);
-    const [isDarkMode, setIsDarkMode] = useState(false); // Default to light for public users? 
 
-    const toggleTheme = () => setIsDarkMode(!isDarkMode);
-
-    // Sync theme to document for full-page dark mode
-    useEffect(() => {
-        if (isDarkMode) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-        return () => document.documentElement.classList.remove('dark');
-    }, [isDarkMode]);
+    // Global Theme Sync
+    const isDarkMode = useUIStore((state) => state.isDarkMode);
+    const toggleTheme = useUIStore((state) => state.toggleTheme);
 
     // Convex Reactive Query
     const programData = useQuery(
