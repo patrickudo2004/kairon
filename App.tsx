@@ -375,8 +375,16 @@ const AppContent: React.FC = () => {
     id: (fetchedProgramRaw as any)._id
   } as Program : undefined;
 
-  // Load state from URL if present
+  // 1. Initial Program Loading & URL Sync
   useEffect(() => {
+    // If we have an ID in the URL, fetch that specific program
+    // Fallback: Check if urlId is actually the string "undefined" which can happen on bad redirects
+    if (urlId && urlId !== 'undefined') {
+      // The fetchedProgram is reactive, so this useEffect will trigger when it's available
+      // The actual fetching is handled by useConvexQuery above.
+    }
+
+    // Load state from URL if present (e.g., for sharing encoded data)
     const data = searchParams.get('data');
     if (data) {
       const decoded = decodeProgramData(data);
@@ -406,10 +414,10 @@ const AppContent: React.FC = () => {
     const hydrate = async () => {
       // 1. Try DB Hydration (Reactive)
       if (fetchedProgram) {
-        const isNewProgram = fetchedProgram.id !== program.id && !program.id.startsWith('local-');
+        const isNewProgram = fetchedProgram.id !== program.id && !program.id?.startsWith('local-');
         const isTransitioning = Date.now() - lastAdvanceTimeRef.current < 2000;
 
-        if (isNewProgram || program.id.startsWith('local-')) {
+        if (isNewProgram || program.id?.startsWith('local-')) {
           if (fetchedProgram.id !== program.id) {
             console.log("Hydrating program from ID:", fetchedProgram.title);
             setProgram(fetchedProgram);
@@ -682,7 +690,7 @@ const AppContent: React.FC = () => {
   };
 
   const deleteProgram = async (id: string) => {
-    if (isReadOnly) return;
+    if (isReadOnly || !id) return;
 
     try {
       // Guard: Don't call backend if it's a local-only program
