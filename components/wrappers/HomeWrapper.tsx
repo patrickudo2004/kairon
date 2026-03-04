@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { getPrograms } from '../../services/programService';
+import { useQuery as useConvexQuery, useMutation as useConvexMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import HomeDashboard from '../HomeDashboard';
 import { Program } from '../../types';
 
@@ -28,11 +28,32 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
 }) => {
     const navigate = useNavigate();
 
-    const { data: allPrograms = [], isLoading, isError, error } = useQuery({
-        queryKey: ['programs', activeOrgId],
-        queryFn: () => getPrograms(activeOrgId),
-        enabled: !!activeOrgId,
-    });
+    const allPrograms = useConvexQuery(
+        api.programs.getPrograms,
+        activeOrgId ? { organizationId: activeOrgId as any } : "skip"
+    );
+
+    const updateTimerState = useConvexMutation(api.programs.updateTimerState);
+
+    const onStopLive = async (programId: string) => {
+        if (!confirm('Deactivate this live session? It will be moved back to draft.')) return;
+        try {
+            await updateTimerState({
+                id: programId as any,
+                timerState: {
+                    isTimerActive: false,
+                    secondsElapsed: 0,
+                    timerStartTimestamp: null,
+                    status: 'draft',
+                    currentSlotIndex: 0
+                }
+            });
+        } catch (err) {
+            console.error("Failed to stop live session:", err);
+        }
+    };
+
+    const isLoading = activeOrgId && allPrograms === undefined;
 
     if (isLoading) {
         return (
@@ -45,21 +66,14 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
         );
     }
 
-    if (isError) {
-        return (
-            <div className="flex items-center justify-center h-full text-rose-500">
-                <p>Error loading programs: {(error as Error).message}</p>
-            </div>
-        );
-    }
-
     return (
         <HomeDashboard
-            programs={allPrograms}
+            programs={allPrograms || []}
             activeProgramId={activeProgramId}
             liveProgramId={liveProgramId}
             onSelectProgram={(p) => { loadProgram(p); navigate(`/editor?id=${p.id}&mode=${mode}`); }}
             onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
+            onStopLive={onStopLive}
             onCreateNew={() => { createProgram(new Date().toISOString().split('T')[0]); }}
             onDelete={deleteProgram}
             onDuplicate={duplicateProgram}

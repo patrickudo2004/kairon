@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider
 
 // Services
 import { ConvexAuthProvider, useAuthActions } from "@convex-dev/auth/react";
-import { useConvexAuth, useQuery as useConvexQuery } from "convex/react";
+import { useConvexAuth, useQuery as useConvexQuery, useMutation as useConvexMutation } from "convex/react";
 import { api } from "./convex/_generated/api";
 import { convex } from "./services/convexClient";
 import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService } from './services/programService';
@@ -540,6 +540,19 @@ const AppContent: React.FC = () => {
     }) => updateTimerStateService(program.id, state)
   });
 
+  const stopAllConvexSessions = useConvexMutation(api.programs.stopAllActiveSessions);
+
+  const handleStopAllSessions = async () => {
+    if (activeOrgId) {
+      try {
+        await stopAllConvexSessions({ organizationId: activeOrgId as any });
+        queryClient.invalidateQueries({ queryKey: ['programs', activeOrgId] });
+      } catch (err) {
+        console.error("Failed to stop sessions:", err);
+      }
+    }
+  };
+
   const handleNudge = (minutes: number) => {
     if (isReadOnly) return;
     const isPeeking = liveProgramId && liveProgramId !== program.id;
@@ -596,6 +609,7 @@ const AppContent: React.FC = () => {
     });
     updateProgramService(updatedProgram);
   };
+
 
   // Debounced Auto-Save with Visual Feedback
   useEffect(() => {
@@ -1231,6 +1245,7 @@ const AppContent: React.FC = () => {
           isCollapsed={isSidebarCollapsed}
           onToggle={setIsSidebarCollapsed}
           onCreateOrg={() => setIsOnboardingManual(true)}
+          onStopAllSessions={handleStopAllSessions}
         />
       )}
 
