@@ -39,10 +39,31 @@ export const getProgramById = query({
 export const getLiveProgram = query({
     args: {},
     handler: async (ctx) => {
+        const today = new Date().toISOString().split('T')[0];
         return await ctx.db
             .query("programs")
             .withIndex("by_status", (q) => q.eq("status", "live"))
+            .filter((q) => q.eq(q.field("date"), today))
             .first();
+    },
+});
+
+export const stopAllActiveSessions = mutation({
+    args: { organizationId: v.id("organizations") },
+    handler: async (ctx, args) => {
+        const activePrograms = await ctx.db
+            .query("programs")
+            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+            .filter((q) => q.eq(q.field("status"), "live"))
+            .collect();
+
+        for (const prog of activePrograms) {
+            await ctx.db.patch(prog._id, {
+                status: "draft",
+                isTimerActive: false,
+                timerStartTimestamp: null,
+            });
+        }
     },
 });
 

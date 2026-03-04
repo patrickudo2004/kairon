@@ -12,6 +12,7 @@ interface HomeDashboardProps {
   onCreateNew: () => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onStopLive?: (id: string) => void;
 }
 
 interface ProgramCardProps {
@@ -24,9 +25,10 @@ interface ProgramCardProps {
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
   onViewAnalytics: (id: string) => void;
+  onStopLive?: (id: string) => void;
 }
 
-const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, isLive, onSelect, onPreview, onDelete, onDuplicate, onViewAnalytics }) => {
+const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, isLive, onSelect, onPreview, onDelete, onDuplicate, onViewAnalytics, onStopLive }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -84,10 +86,20 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
         </div>
 
         {isLive ? (
-          <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide flex items-center gap-1">
-            <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-            Live Now
-          </span>
+          <div className="flex flex-col items-end gap-1">
+            <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+              Live Now
+            </span>
+            {onStopLive && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onStopLive(program.id); }}
+                className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
+              >
+                Deactivate
+              </button>
+            )}
+          </div>
         ) : isActive ? (
           <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide">
             Selected
@@ -202,7 +214,8 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onCreateNew,
   onDelete,
   onDuplicate,
-  onViewAnalytics
+  onViewAnalytics,
+  onStopLive
 }) => {
   const [previewProgram, setPreviewProgram] = useState<Program | null>(null);
 
@@ -252,6 +265,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
                 onViewAnalytics={onViewAnalytics}
+                onStopLive={onStopLive}
               />
             ))}
           </div>
@@ -282,6 +296,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
                 onViewAnalytics={onViewAnalytics}
+                onStopLive={onStopLive}
               />
             ))}
           </div>
