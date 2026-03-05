@@ -1334,6 +1334,27 @@ const AppContent: React.FC = () => {
 
         <main className="flex-1 overflow-y-auto pb-20 md:pb-0 relative custom-scrollbar">
           <div className="max-w-7xl mx-auto p-4 md:p-8 h-full">
+            {/* Invitation Banner for Unauthenticated Users */}
+            {!user && searchParams.get('invite') && (
+              <div className="mb-8 w-full max-w-xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-8 text-white/10 group-hover:text-white/20 transition-colors">
+                    <UserPlus size={120} />
+                  </div>
+                  <div className="relative z-10">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest mb-4">
+                      <Sparkles size={12} /> Special Invitation
+                    </div>
+                    <h2 className="text-3xl font-black tracking-tight mb-2">You've been invited!</h2>
+                    <p className="text-indigo-100 font-medium leading-relaxed max-w-sm">
+                      A teammate has invited you to join their organization on Kairon.
+                      Sign up or log in below to accept and start collaborating.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {effectiveAuthLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
