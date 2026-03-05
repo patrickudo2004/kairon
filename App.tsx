@@ -54,7 +54,7 @@ import { timeToMinutes, minutesToTime, formatDuration } from './utils/time';
 import { encodeProgramData, decodeProgramData } from './utils/encoding';
 import { getInitialProgram } from './utils/constants';
 
-import { Monitor, User as UserIcon, Building, MessageSquare, Bell, Clock, Crown, SkipForward, Pause } from 'lucide-react';
+import { Monitor, User as UserIcon, Building, MessageSquare, Bell, Clock, Crown, SkipBack, SkipForward, Pause } from 'lucide-react';
 
 // --- Analytics Wrapper (Dedicated Component to avoid render loops) ---
 const AnalyticsWrapper: React.FC = () => {
@@ -1200,6 +1200,15 @@ const AppContent: React.FC = () => {
                     title={isTimerActive ? "Pause Timer" : "Start Event"}
                   >
                     {isTimerActive ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+                  </button>
+
+                  <button
+                    onClick={handlePrev}
+                    disabled={currentSlotIndex === 0}
+                    className={`p-2 rounded-xl transition-all ${currentSlotIndex === 0 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
+                    title="Previous Slot"
+                  >
+                    <SkipBack size={18} />
                   </button>
 
                   <button
