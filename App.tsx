@@ -101,14 +101,8 @@ const AppContent: React.FC = () => {
   }, [location.pathname, location.search, location.hash, navigate]);
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const isReadOnly = mode === 'viewer' || mode === 'ReadOnly';
-  const isCoEditor = mode === 'coeditor';
   const queryClient = useQueryClient();
 
-  const isReadOnlyRef = React.useRef(isReadOnly);
-  useEffect(() => {
-    isReadOnlyRef.current = isReadOnly;
-  }, [isReadOnly]);
 
   // Main State
   const [program, setProgram] = useState<Program>(() => getInitialProgram());
@@ -160,6 +154,28 @@ const AppContent: React.FC = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
+
+  // --- Permissions & Membership ---
+  // Fetch membership for current user in active org
+  const myMembership = useConvexQuery(
+    api.members.getMyMembershipInOrg,
+    activeOrgId && isAuthenticated ? { organizationId: activeOrgId as any } : "skip"
+  );
+
+  const userRole = myMembership?.role; // 'admin', 'manager', 'operator'
+
+  // Permissions Logic
+  // 1. URL-based overrides (viewer mode)
+  const isUrlReadOnly = mode === 'viewer' || mode === 'ReadOnly';
+
+  // 2. Data-driven permissions
+  const isReadOnly = (isUrlReadOnly) || (isAuthenticated && userRole === 'operator') || (!isAuthenticated && !isUrlReadOnly);
+  const isCoEditor = (mode === 'coeditor') || (userRole === 'admin') || (userRole === 'manager');
+
+  const isReadOnlyRef = React.useRef(isReadOnly);
+  useEffect(() => {
+    isReadOnlyRef.current = isReadOnly;
+  }, [isReadOnly]);
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [isDataHydrated, setIsDataHydrated] = useState(false);
   const [authRetryCount, setAuthRetryCount] = useState(0);
@@ -1403,7 +1419,7 @@ const AppContent: React.FC = () => {
                     onToggleHold={handleToggleHold}
                     onNext={handleNext}
                     onPrev={handlePrev}
-                    readOnly={isReadOnly}
+                    readOnly={isReadOnly && userRole !== 'operator'}
                   />
                 } />
 
@@ -1417,31 +1433,30 @@ const AppContent: React.FC = () => {
                   />
                 } />
 
-                {!isReadOnly && (
-                  <Route path="/editor" element={
-                    <ProgramEditor
-                      program={program}
-                      isCoEditor={isCoEditor}
-                      isAdminOnline={isAdminOnline}
-                      isTimerActive={isTimerActive}
-                      currentSlotIndex={currentSlotIndex}
-                      onEndEvent={handleEndEvent}
-                      onNudge={handleNudge}
-                      onUpdate={(p) => {
-                        if ((p as any)._triggerRebalance) {
-                          handleAiRebalance(p);
-                          return;
-                        }
-                        setProgram(p);
-                        if (p.slots.length === 0) {
-                          setCurrentSlotIndex(0);
-                          setSecondsElapsed(0);
-                          setIsTimerActive(false);
-                        }
-                      }}
-                    />
-                  } />
-                )}
+                <Route path="/editor" element={
+                  <ProgramEditor
+                    program={program}
+                    isReadOnly={isReadOnly}
+                    isCoEditor={isCoEditor}
+                    isAdminOnline={isAdminOnline}
+                    isTimerActive={isTimerActive}
+                    currentSlotIndex={currentSlotIndex}
+                    onEndEvent={handleEndEvent}
+                    onNudge={handleNudge}
+                    onUpdate={(p) => {
+                      if ((p as any)._triggerRebalance) {
+                        handleAiRebalance(p);
+                        return;
+                      }
+                      setProgram(p);
+                      if (p.slots.length === 0) {
+                        setCurrentSlotIndex(0);
+                        setSecondsElapsed(0);
+                        setIsTimerActive(false);
+                      }
+                    }}
+                  />
+                } />
               </Routes>
             )}
           </div>
@@ -1519,7 +1534,7 @@ const AppContent: React.FC = () => {
         </div>
       )}
 
-      {!isReadOnly && liveProgramId && (
+      {(!isReadOnly || userRole === 'operator') && liveProgramId && (
         <ProductionHUD
           isTimerActive={isTimerActive}
           isAdminOnline={isAdminOnline}
