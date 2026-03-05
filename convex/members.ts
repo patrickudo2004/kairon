@@ -78,7 +78,7 @@ export const addMemberByEmail = mutation({
 
         if (!user) {
             console.warn("User not found for email:", args.email);
-            throw new Error(`User "${args.email}" not found. They must sign up for Kairon first using this exact email. (Note: Search is now case-insensitive, but they MUST have an account)`);
+            throw new Error(`[V2] User "${args.email}" not found. They must sign up for Kairon first using this exact email. (Note: Search is now case-insensitive, but they MUST have an account)`);
         }
 
         console.log("Found user to invite:", user._id);
