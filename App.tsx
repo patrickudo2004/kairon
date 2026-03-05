@@ -92,6 +92,14 @@ const AppContent: React.FC = () => {
   const [mode, setMode] = useState(searchParams.get('mode') || 'editor');
   const importData = searchParams.get('import');
 
+  // URL Sanitization: Strip trailing slashes to prevent routing mismatch
+  useEffect(() => {
+    if (location.pathname.length > 1 && location.pathname.endsWith('/')) {
+      const cleanPath = location.pathname.slice(0, -1);
+      navigate(cleanPath + location.search + location.hash, { replace: true });
+    }
+  }, [location.pathname, location.search, location.hash, navigate]);
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const isReadOnly = mode === 'viewer' || mode === 'ReadOnly';
   const isCoEditor = mode === 'coeditor';
@@ -1097,6 +1105,7 @@ const AppContent: React.FC = () => {
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
         <Routes>
           <Route path="/p/:slug" element={<PublicPortal />} />
+          <Route path="/p/:slug/" element={<PublicPortal />} />
           {/* Fallback to home if they somehow land here or legacy link is processing */}
           <Route path="*" element={<div className="flex items-center justify-center min-h-screen"><div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>} />
         </Routes>

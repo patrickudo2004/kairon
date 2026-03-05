@@ -68,7 +68,7 @@ export const PublicPortal: React.FC = () => {
         }
     }, [program?.id, program?.isTimerActive, program?.currentSlotIndex]);
 
-    const loading = slug && programData === undefined;
+    const loading = slug && (programData === undefined || (programData === null && programByIdData === undefined));
     const networkError = slug && programData === null && programByIdData === null;
 
     if (loading) {
@@ -76,6 +76,9 @@ export const PublicPortal: React.FC = () => {
             <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6">
                 <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
                 <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Syncing event pulse...</p>
+                <p className="mt-2 text-[10px] uppercase tracking-widest text-slate-400 opacity-50 font-mono">
+                    ID: {slug}
+                </p>
             </div>
         );
     }
