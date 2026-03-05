@@ -14,7 +14,9 @@ import {
     ChevronRight,
     ArrowLeft,
     Trash2,
-    AlertCircle
+    AlertCircle,
+    Link as LinkIcon,
+    Check
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -36,6 +38,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'operator'>('operator');
     const [inviteError, setInviteError] = useState('');
+    const [copied, setCopied] = useState(false);
+
+    const copyInviteLink = () => {
+        const url = `${window.location.origin}/?invite=${organization.id}`;
+        navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     // Members Query (Now returning detailed info)
     const { data: members = [], isLoading: loadingMembers, refetch: refetchMembers } = useQuery<any[]>({
@@ -242,12 +252,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
                                         <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Team Collaboration</h2>
                                         <p className="text-slate-500 text-sm">Members below have access to manage or view this workspace.</p>
                                     </div>
-                                    <button
-                                        onClick={() => setIsInviteOpen(true)}
-                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-500 transition-colors"
-                                    >
-                                        <UserPlus size={18} /> Invite Teammate
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={copyInviteLink}
+                                            className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                            title="Copy Invite Link"
+                                        >
+                                            {copied ? <Check size={18} className="text-emerald-500" /> : <LinkIcon size={18} />}
+                                            {copied ? 'Copied!' : 'Copy Link'}
+                                        </button>
+                                        <button
+                                            onClick={() => setIsInviteOpen(true)}
+                                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-500 transition-colors"
+                                        >
+                                            <UserPlus size={18} /> Invite Teammate
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-4">
