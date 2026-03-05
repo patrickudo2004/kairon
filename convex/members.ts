@@ -18,16 +18,20 @@ export const getOrgMembers = query({
                     .unique();
 
                 // Fetch user info for email/avatar from the private 'users' table
-                // This works because standard server queries have access to the whole DB
-                const user = (await ctx.db.get(m.userId as any)) as Record<string, any> | null;
+                // Safeguard: Check if it's a valid Convex ID to avoid crashes on legacy string IDs
+                let user = null;
+                const userId = ctx.db.normalizeId("users", m.userId);
+                if (userId) {
+                    user = await ctx.db.get(userId);
+                }
 
                 return {
                     id: m._id,
                     userId: m.userId,
                     role: m.role,
-                    name: profile?.fullName || user?.name || "Kairon User",
-                    email: user?.email || "No Email Provided",
-                    avatarUrl: profile?.avatarUrl || user?.image
+                    name: profile?.fullName || (user as any)?.name || "Kairon User",
+                    email: (user as any)?.email || "No Email Provided",
+                    avatarUrl: profile?.avatarUrl || (user as any)?.image
                 };
             })
         );
@@ -44,40 +48,54 @@ export const addMemberByEmail = mutation({
         const userId = await getAuthUserId(ctx);
         if (!userId) throw new Error("Unauthorized");
 
+        console.log("Inviting teammate:", args.email, "to org:", args.organizationId);
+
         // 1. Check if requester is an admin of this specific org
         const requester = await ctx.db
             .query("members")
             .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
             .filter((q) => q.eq(q.field("userId"), userId))
-            .unique();
+            .first();
+
+        console.log("Requester role:", requester?.role);
 
         if (requester?.role !== "admin") {
-            throw new Error("Only admins can invite members");
+            throw new Error("Only admins can invite members. You are: " + (requester?.role || "not a member"));
         }
 
         // 2. Find user by email in the 'users' table
-        // We use .filter as 'email' might not be a primary index in standard convex-auth setup
-        const user = await ctx.db
+        // Try exact match first (fast)
+        let user = await ctx.db
             .query("users")
             .filter((q) => q.eq(q.field("email"), args.email))
-            .unique();
+            .first();
+
+        // If not found, try case-insensitive scan (slower but resilient)
+        if (!user) {
+            const allUsers = await ctx.db.query("users").collect();
+            user = allUsers.find(u => u.email?.toLowerCase() === args.email.toLowerCase()) || null;
+        }
 
         if (!user) {
-            throw new Error(`User with email ${args.email} not found. They must sign up for Kairon first.`);
+            console.warn("User not found for email:", args.email);
+            throw new Error(`User "${args.email}" not found. They must sign up for Kairon first using this exact email. (Note: Search is now case-insensitive, but they MUST have an account)`);
         }
+
+        console.log("Found user to invite:", user._id);
 
         // 3. Check if already a member
         const existing = await ctx.db
             .query("members")
             .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
             .filter((q) => q.eq(q.field("userId"), user._id))
-            .unique();
+            .first();
 
         if (existing) {
             throw new Error("This user is already a member of your organization.");
         }
 
         // 4. Add member
+        console.log("Inserting new member record...");
         return await ctx.db.insert("members", {
             organizationId: args.organizationId,
             userId: user._id,
