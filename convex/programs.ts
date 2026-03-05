@@ -87,6 +87,7 @@ export const createProgram = mutation({
         organizationId: v.id("organizations"),
         slots: v.array(v.any()),
         uuid: v.optional(v.string()),
+        isPublic: v.optional(v.boolean()), // Added isPublic to args
     },
     handler: async (ctx, args) => {
         if (args.uuid) {
@@ -102,6 +103,8 @@ export const createProgram = mutation({
         }
         return await ctx.db.insert("programs", {
             ...args,
+            slug: args.uuid || undefined,
+            isPublic: true,
             status: "draft",
             isTimerActive: false,
             secondsElapsed: 0,
