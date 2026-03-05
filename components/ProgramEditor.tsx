@@ -274,31 +274,20 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
 
         {program.isPublic && (
           <div className="p-6 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 uppercase mb-2 flex items-center gap-2">
-                  <LinkIcon size={12} /> Custom Event Slug
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400 text-sm font-mono whitespace-nowrap">kairon.app/p/</span>
-                  <input
-                    type="text"
-                    value={program.slug || ''}
-                    placeholder="my-great-event"
-                    onChange={(e) => {
-                      const sanitized = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
-                      onUpdate({ ...program, slug: sanitized });
-                    }}
-                    className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm transition-colors"
-                  />
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Your Public Link is Active</h4>
+                <p className="text-xs text-slate-500 mb-4">Anyone with this link can view the live schedule and countdown.</p>
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 font-mono text-xs text-indigo-600 dark:text-indigo-400 break-all">
+                  {window.location.origin}/p/{program.id}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 w-full md:w-auto">
                 <a
-                  href={`/p/${program.slug || program.id}`}
+                  href={`/p/${program.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition-all shadow-sm group"
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition-all shadow-sm group"
                 >
                   <Share2 size={16} className="group-hover:text-indigo-600" />
                   Preview Portal
@@ -306,9 +295,9 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
               </div>
             </div>
 
-            {program.slug && (
-              <EmbedSnippet slug={program.slug} />
-            )}
+            <div className="mt-8">
+              <EmbedSnippet slug={program.id} />
+            </div>
           </div>
         )}
       </div>
