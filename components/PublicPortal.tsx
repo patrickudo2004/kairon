@@ -1,15 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from 'convex/react';
+import { useQuery, useConvex } from 'convex/react';
 import { api } from '../convex/_generated/api';
 import { Program } from '../types';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
-import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon } from 'lucide-react';
+import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon, RefreshCw } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 
 export const PublicPortal: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
     const [isScrolled, setIsScrolled] = useState(false);
+    const [secondsWaiting, setSecondsWaiting] = useState(0);
+
+    const convex = useConvex();
+    // Monitor Convex connection status
+    const [connStatus, setConnStatus] = useState<string>('connecting');
 
     // Global Theme Sync
     const isDarkMode = useUIStore((state) => state.isDarkMode);
@@ -28,6 +33,18 @@ export const PublicPortal: React.FC = () => {
     );
 
     const programRaw = programData || programByIdData;
+
+    // Ticker for connection diagnostics and countdowns
+    useEffect(() => {
+        const interval = window.setInterval(() => {
+            setSecondsWaiting(s => s + 1);
+            // Update connection state from client
+            const state = (convex as any).status?.() || 'unknown';
+            setConnStatus(state);
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [convex]);
+
     const program = programRaw ? {
         ...(programRaw as any),
         id: (programRaw as any)._id || (programRaw as any).id
@@ -35,11 +52,11 @@ export const PublicPortal: React.FC = () => {
 
 
     // Use a simple ticker to force re-render every second for the countdown
-    const [, setTick] = useState(0);
-    useEffect(() => {
-        const interval = window.setInterval(() => setTick(t => t + 1), 1000);
-        return () => clearInterval(interval);
-    }, []);
+    // const [, setTick] = useState(0);
+    // useEffect(() => {
+    //     const interval = window.setInterval(() => setTick(t => t + 1), 1000);
+    //     return () => clearInterval(interval);
+    // }, []);
 
     const nowTime = Date.now();
     const derivedSecondsElapsed = (program?.isTimerActive && program?.timerStartTimestamp)
@@ -73,12 +90,46 @@ export const PublicPortal: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6">
-                <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
-                <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Syncing event pulse...</p>
-                <p className="mt-2 text-[10px] uppercase tracking-widest text-slate-400 opacity-50 font-mono">
-                    ID: {slug}
-                </p>
+            <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-8" />
+
+                <h2 className="text-xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Syncing Event Pulse</h2>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 font-medium">Connecting to Kairon Cloud...</p>
+
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-xs shadow-xl space-y-4 mx-auto">
+                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+                        <span className="text-slate-400">Target ID</span>
+                        <span className="text-slate-900 dark:text-indigo-400 font-mono truncate ml-4 block max-w-[120px]">{slug}</span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+                        <span className="text-slate-400">Connection</span>
+                        <span className={`px-2 py-0.5 rounded ${connStatus === 'connected' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'
+                            }`}>
+                            {connStatus}
+                        </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
+                        <span className="text-slate-400">Wait Time</span>
+                        <span className="text-slate-600 dark:text-slate-300">{secondsWaiting}s</span>
+                    </div>
+                </div>
+
+                {secondsWaiting > 10 && (
+                    <div className="mt-8 animate-in fade-in slide-in-from-top-4 duration-500">
+                        <p className="text-xs text-amber-600 dark:text-amber-400 font-bold mb-4 px-4 bg-amber-500/10 py-2 rounded-lg">
+                            Connection taking longer than usual.
+                        </p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg active:scale-95 mx-auto"
+                        >
+                            <RefreshCw size={18} />
+                            Force Refresh
+                        </button>
+                    </div>
+                )}
             </div>
         );
     }
