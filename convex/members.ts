@@ -5,12 +5,18 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 export const getOrgMembers = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        const members = await ctx.db
-            .query("members")
-            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
-            .collect();
+        const [members, pendingInvites] = await Promise.all([
+            ctx.db
+                .query("members")
+                .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+                .collect(),
+            ctx.db
+                .query("invites")
+                .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+                .collect()
+        ]);
 
-        return await Promise.all(
+        const memberList = await Promise.all(
             members.map(async (m) => {
                 const profile = await ctx.db
                     .query("profiles")
@@ -31,10 +37,21 @@ export const getOrgMembers = query({
                     role: m.role,
                     name: profile?.fullName || (user as any)?.name || "Kairon User",
                     email: (user as any)?.email || "No Email Provided",
-                    avatarUrl: profile?.avatarUrl || (user as any)?.image
+                    avatarUrl: profile?.avatarUrl || (user as any)?.image,
+                    isPending: false
                 };
             })
         );
+
+        const inviteList = pendingInvites.map(i => ({
+            id: i._id,
+            email: i.email,
+            role: i.role,
+            name: "Pending Invite",
+            isPending: true
+        }));
+
+        return [...memberList, ...inviteList];
     },
 });
 
@@ -77,8 +94,25 @@ export const addMemberByEmail = mutation({
         }
 
         if (!user) {
-            console.warn("User not found for email:", args.email);
-            throw new Error(`[V2] User "${args.email}" not found. They must sign up for Kairon first using this exact email. (Note: Search is now case-insensitive, but they MUST have an account)`);
+            console.warn("User not found for email:", args.email, "- Creating shadow invite");
+
+            // Check if already invited
+            const existingInvite = await ctx.db
+                .query("invites")
+                .withIndex("by_email", (q) => q.eq("email", args.email.toLowerCase()))
+                .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
+                .first();
+
+            if (existingInvite) {
+                throw new Error("An invitation is already pending for this email.");
+            }
+
+            return await ctx.db.insert("invites", {
+                email: args.email.toLowerCase(),
+                organizationId: args.organizationId,
+                role: args.role,
+                invitedBy: userId,
+            });
         }
 
         console.log("Found user to invite:", user._id);
@@ -101,6 +135,74 @@ export const addMemberByEmail = mutation({
             userId: user._id,
             role: args.role,
         });
+    },
+});
+
+export const checkPendingInvites = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return null;
+
+        const user = await ctx.db.get(userId);
+        if (!user?.email) return null;
+
+        const email = user.email.toLowerCase();
+        const pendingInvites = await ctx.db
+            .query("invites")
+            .withIndex("by_email", (q) => q.eq("email", email))
+            .collect();
+
+        if (pendingInvites.length === 0) return null;
+
+        const results = [];
+        for (const invite of pendingInvites) {
+            // Check if somehow already a member
+            const existing = await ctx.db
+                .query("members")
+                .withIndex("by_org", (q) => q.eq("organizationId", invite.organizationId))
+                .filter((q) => q.eq(q.field("userId"), userId))
+                .first();
+
+            if (!existing) {
+                await ctx.db.insert("members", {
+                    organizationId: invite.organizationId,
+                    userId,
+                    role: invite.role,
+                });
+
+                const org = await ctx.db.get(invite.organizationId);
+                results.push(org?.name || "Unknown Organization");
+            }
+
+            // Clean up invite
+            await ctx.db.delete(invite._id);
+        }
+
+        return results;
+    },
+});
+
+export const cancelInvite = mutation({
+    args: { inviteId: v.id("invites") },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const invite = await ctx.db.get(args.inviteId);
+        if (!invite) throw new Error("Invitation not found");
+
+        const requester = await ctx.db
+            .query("members")
+            .withIndex("by_org", (q) => q.eq("organizationId", invite.organizationId))
+            .filter((q) => q.eq(q.field("userId"), userId))
+            .first();
+
+        if (requester?.role !== "admin") {
+            throw new Error("Only admins can cancel invitations.");
+        }
+
+        await ctx.db.delete(args.inviteId);
     },
 });
 

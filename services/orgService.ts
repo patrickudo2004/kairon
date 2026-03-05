@@ -48,6 +48,14 @@ export const updateMemberRole = async (memberId: string, role: string): Promise<
     await convex.mutation(api.members.updateMemberRole, { memberId: memberId as any, role: role as any });
 };
 
+export const checkPendingInvites = async (): Promise<string[] | null> => {
+    return await convex.mutation(api.members.checkPendingInvites, {});
+};
+
+export const cancelInvite = async (inviteId: string): Promise<void> => {
+    await convex.mutation(api.members.cancelInvite, { inviteId: inviteId as any });
+};
+
 const transformOrg = (o: any): Organization => ({
     id: o._id,
     name: o.name,

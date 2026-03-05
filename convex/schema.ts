@@ -30,6 +30,13 @@ export default defineSchema({
         role: v.union(v.literal("admin"), v.literal("manager"), v.literal("operator")),
     }).index("by_org", ["organizationId"]).index("by_user", ["userId"]),
 
+    invites: defineTable({
+        email: v.string(),
+        organizationId: v.id("organizations"),
+        role: v.union(v.literal("admin"), v.literal("manager"), v.literal("operator")),
+        invitedBy: v.string(),
+    }).index("by_email", ["email"]).index("by_org", ["organizationId"]),
+
     programs: defineTable({
         title: v.string(),
         subtitle: v.string(),

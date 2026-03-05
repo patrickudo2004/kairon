@@ -56,12 +56,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
     const inviteMutation = useMutation({
         mutationFn: (data: { email: string, role: 'admin' | 'manager' | 'operator' }) =>
             import('../services/orgService').then(s => s.inviteMember(organization.id, data.email, data.role)),
-        onSuccess: () => {
+        onSuccess: (data: any) => {
             setIsInviteOpen(false);
             setInviteEmail('');
             setInviteError('');
             refetchMembers();
-            alert('Member added successfully!');
+            // data is the ID of the new member or invite
+            alert('Invitation sent successfully!');
         },
         onError: (err: any) => {
             setInviteError(err.message || 'Failed to add member');
@@ -84,6 +85,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
             import('../services/orgService').then(s => s.updateMemberRole(data.memberId, data.role)),
         onSuccess: () => {
             refetchMembers();
+        }
+    });
+
+    const cancelInviteMutation = useMutation({
+        mutationFn: (inviteId: string) =>
+            import('../services/orgService').then(s => s.cancelInvite(inviteId)),
+        onSuccess: () => {
+            refetchMembers();
+        },
+        onError: (err: any) => {
+            alert(err.message || 'Failed to cancel invitation');
         }
     });
 
@@ -260,6 +272,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
                                                         {member.userId === organization.createdBy && (
                                                             <span className="bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-amber-500/20">Owner</span>
                                                         )}
+                                                        {member.isPending && (
+                                                            <span className="bg-indigo-500/10 text-indigo-500 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-indigo-500/20 animate-pulse">Pending</span>
+                                                        )}
                                                     </div>
                                                     <p className="text-xs text-slate-500 font-medium">{member.email}</p>
                                                     <p className="text-[10px] text-slate-400 uppercase tracking-widest flex items-center gap-1 mt-1 font-bold">
@@ -284,12 +299,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
 
                                                 <button
                                                     onClick={() => {
-                                                        if (confirm(`Remove ${member.name} from this organization?`)) {
-                                                            removeMutation.mutate(member.id);
+                                                        if (member.isPending) {
+                                                            if (confirm(`Cancel invitation for ${member.email}?`)) {
+                                                                cancelInviteMutation.mutate(member.id);
+                                                            }
+                                                        } else {
+                                                            if (confirm(`Remove ${member.name} from this organization?`)) {
+                                                                removeMutation.mutate(member.id);
+                                                            }
                                                         }
                                                     }}
                                                     className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
-                                                    title="Remove Member"
+                                                    title={member.isPending ? "Cancel Invitation" : "Remove Member"}
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>

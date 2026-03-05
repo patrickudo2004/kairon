@@ -10,7 +10,7 @@ import { api } from "./convex/_generated/api";
 import { convex } from "./services/convexClient";
 import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService } from './services/programService';
 import { getProfile } from './services/authService';
-import { getMyOrganizations } from './services/orgService';
+import { getMyOrganizations, checkPendingInvites } from './services/orgService';
 import { rebalanceSchedule } from './services/geminiService';
 
 // Store & Hooks
@@ -249,6 +249,18 @@ const AppContent: React.FC = () => {
         if (user?.id) {
           const p = await getProfile(user.id);
           setProfile(p);
+
+          // Check for shadow invites and handle auto-join
+          try {
+            const joinedOrgs = await checkPendingInvites();
+            if (joinedOrgs && joinedOrgs.length > 0) {
+              console.log("Successfully joined organizations via shadow invites:", joinedOrgs);
+              // Invalidate organizations query to show new orgs
+              queryClient.invalidateQueries({ queryKey: ['organizations', user.id] });
+            }
+          } catch (err) {
+            console.error("Shadow invite check failed:", err);
+          }
         } else {
           setProfile(null);
         }
