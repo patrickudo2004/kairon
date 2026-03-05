@@ -616,9 +616,6 @@ const AppContent: React.FC = () => {
     setSaveStatus('unsaved');
 
     const timer = setTimeout(() => {
-      // Guard: Only save if ID is valid Convex ID
-      if (program.id?.startsWith('local-')) return;
-
       console.log(`Auto-saving program "${program.title}" to Convex...`);
       setSaveStatus('saving');
       mutation.mutate(program);

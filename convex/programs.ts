@@ -23,10 +23,11 @@ export const getProgramById = query({
                 if (doc) return doc;
             }
 
-            // 2. Try as UUID (for monitors/legacy links)
+            // 2. Try as UUID (for monitors/legacy links) - Strip local- prefix if present
+            const cleanUuid = args.id.replace('local-', '');
             const byUuid = await ctx.db
                 .query("programs")
-                .withIndex("by_uuid", (q) => q.eq("uuid", args.id))
+                .withIndex("by_uuid", (q) => q.eq("uuid", cleanUuid))
                 .first();
             if (byUuid) return byUuid;
         } catch (e) {
