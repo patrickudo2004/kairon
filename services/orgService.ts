@@ -36,7 +36,7 @@ export const inviteMember = async (orgId: string, email: string, role: 'admin' |
     return await convex.mutation(api.members.addMemberByEmail, {
         organizationId: orgId as any,
         email,
-        role as any
+        role: role as any
     });
 };
 
