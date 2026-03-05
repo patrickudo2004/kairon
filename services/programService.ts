@@ -31,7 +31,7 @@ export const createProgram = async (program: Program): Promise<Program> => {
         startTime: program.startTime,
         organizationId: program.organizationId as any,
         slots: program.slots,
-        uuid: program.id
+        uuid: program.id.replace('local-', '')
     });
 
     return { ...program, id: id as string };
