@@ -12,7 +12,9 @@ import {
     UserPlus,
     Mail,
     ChevronRight,
-    ArrowLeft
+    ArrowLeft,
+    Trash2,
+    AlertCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -29,8 +31,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
     const [logoUrl, setLogoUrl] = useState(organization.logoUrl || '');
     const [brandColor, setBrandColor] = useState(organization.brandColor || '#4f46e5');
 
-    // Members Query
-    const { data: members = [], isLoading: loadingMembers } = useQuery<OrganizationMember[]>({
+    // Invite Modal State
+    const [isInviteOpen, setIsInviteOpen] = useState(false);
+    const [inviteEmail, setInviteEmail] = useState('');
+    const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'operator'>('operator');
+    const [inviteError, setInviteError] = useState('');
+
+    // Members Query (Now returning detailed info)
+    const { data: members = [], isLoading: loadingMembers, refetch: refetchMembers } = useQuery<any[]>({
         queryKey: ['org-members', organization.id],
         queryFn: () => getOrgMembers(organization.id),
     });
@@ -42,6 +50,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
             queryClient.invalidateQueries({ queryKey: ['organizations'] });
             queryClient.invalidateQueries({ queryKey: ['my-organizations'] });
             alert('Branding updated successfully!');
+        }
+    });
+
+    const inviteMutation = useMutation({
+        mutationFn: (data: { email: string, role: 'admin' | 'manager' | 'operator' }) =>
+            import('../services/orgService').then(s => s.inviteMember(organization.id, data.email, data.role)),
+        onSuccess: () => {
+            setIsInviteOpen(false);
+            setInviteEmail('');
+            setInviteError('');
+            refetchMembers();
+            alert('Member added successfully!');
+        },
+        onError: (err: any) => {
+            setInviteError(err.message || 'Failed to add member');
+        }
+    });
+
+    const removeMutation = useMutation({
+        mutationFn: (memberId: string) =>
+            import('../services/orgService').then(s => s.removeMember(memberId)),
+        onSuccess: () => {
+            refetchMembers();
+        },
+        onError: (err: any) => {
+            alert(err.message || 'Failed to remove member');
+        }
+    });
+
+    const roleMutation = useMutation({
+        mutationFn: (data: { memberId: string, role: string }) =>
+            import('../services/orgService').then(s => s.updateMemberRole(data.memberId, data.role)),
+        onSuccess: () => {
+            refetchMembers();
         }
     });
 
@@ -61,10 +103,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
                         </button>
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-                                <Settings className="text-indigo-600" />
-                                {organization.name} Settings
+                                <Settings className="text-indigo-600" size={24} />
+                                {organization.name}
                             </h1>
-                            <p className="text-slate-500 text-sm">Manage your workspace members and branding.</p>
+                            <p className="text-slate-500 text-sm">Managing collaboration and branding.</p>
                         </div>
                     </div>
                 </div>
@@ -75,8 +117,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
                         <button
                             onClick={() => setActiveTab('branding')}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'branding'
-                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                                    : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800'
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                                : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800'
                                 }`}
                         >
                             <Palette size={18} />
@@ -85,8 +127,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
                         <button
                             onClick={() => setActiveTab('members')}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'members'
-                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                                    : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800'
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                                : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800'
                                 }`}
                         >
                             <Users size={18} />
@@ -182,42 +224,161 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
                         )}
 
                         {activeTab === 'members' && (
-                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
+                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm relative">
                                 <div className="flex justify-between items-center mb-8">
                                     <div>
-                                        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Team Access</h2>
-                                        <p className="text-slate-500 text-sm">Manage who has access to this workspace.</p>
+                                        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Team Collaboration</h2>
+                                        <p className="text-slate-500 text-sm">Members below have access to manage or view this workspace.</p>
                                     </div>
-                                    <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-500 transition-colors">
-                                        <UserPlus size={18} /> Invite Member
+                                    <button
+                                        onClick={() => setIsInviteOpen(true)}
+                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-500 transition-colors"
+                                    >
+                                        <UserPlus size={18} /> Invite Teammate
                                     </button>
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className="space-y-4">
                                     {members.map((member) => (
                                         <div
                                             key={member.id}
-                                            className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                                            className="flex items-start md:items-center justify-between p-5 rounded-2xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                                         >
                                             <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-500">
-                                                    <Mail size={18} />
+                                                <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-slate-200 dark:border-slate-700 shadow-sm">
+                                                    {member.avatarUrl ? (
+                                                        <img src={member.avatarUrl} alt={member.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <Users className="text-slate-400" size={20} />
+                                                    )}
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-slate-900 dark:text-white text-sm">
-                                                        {member.userId === organization.createdBy ? 'Owner' : 'Team Member'}
-                                                    </p>
-                                                    <p className="text-xs text-slate-500 uppercase tracking-widest flex items-center gap-1">
-                                                        {member.role === 'admin' ? <Shield size={10} className="text-rose-500" /> : <Users size={10} className="text-indigo-500" />}
-                                                        {member.role}
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-bold text-slate-900 dark:text-white text-base leading-tight">
+                                                            {member.name}
+                                                        </p>
+                                                        {member.userId === organization.createdBy && (
+                                                            <span className="bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-amber-500/20">Owner</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 font-medium">{member.email}</p>
+                                                    <p className="text-[10px] text-slate-400 uppercase tracking-widest flex items-center gap-1 mt-1 font-bold">
+                                                        {member.role === 'admin' ? <Shield size={10} className="text-rose-500" /> : member.role === 'manager' ? <Users size={10} className="text-indigo-500" /> : <Mail size={10} className="text-slate-400" />}
+                                                        {member.role === 'admin' ? 'Administrator' : member.role === 'manager' ? 'Manager' : 'Operator'}
                                                     </p>
                                                 </div>
                                             </div>
-                                            <ChevronRight size={18} className="text-slate-300" />
+
+                                            <div className="flex items-center gap-2">
+                                                {member.userId !== organization.createdBy && (
+                                                    <select
+                                                        value={member.role}
+                                                        onChange={(e) => roleMutation.mutate({ memberId: member.id, role: e.target.value })}
+                                                        className="bg-transparent text-[10px] font-bold uppercase tracking-wider text-slate-400 outline-none hover:text-indigo-500 cursor-pointer"
+                                                    >
+                                                        <option value="admin">Admin</option>
+                                                        <option value="manager">Manager</option>
+                                                        <option value="operator">Operator</option>
+                                                    </select>
+                                                )}
+
+                                                <button
+                                                    onClick={() => {
+                                                        if (confirm(`Remove ${member.name} from this organization?`)) {
+                                                            removeMutation.mutate(member.id);
+                                                        }
+                                                    }}
+                                                    className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
+                                                    title="Remove Member"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
-                                    {loadingMembers && <p className="text-center text-slate-400 py-8">Loading members...</p>}
+                                    {loadingMembers && <p className="text-center text-slate-400 py-8 animate-pulse font-medium">Updating team access...</p>}
+                                    {members.length === 0 && !loadingMembers && (
+                                        <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800">
+                                            <p className="text-slate-400 font-medium">No team members yet. Time to recruit!</p>
+                                        </div>
+                                    )}
                                 </div>
+
+                                {/* Invite Modal */}
+                                {isInviteOpen && (
+                                    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+                                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
+                                            <div className="p-8 pb-4">
+                                                <div className="w-16 h-16 bg-indigo-600/10 text-indigo-600 rounded-3xl flex items-center justify-center mb-6">
+                                                    <UserPlus size={32} />
+                                                </div>
+                                                <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Invite Teammate</h3>
+                                                <p className="text-slate-500 mt-2 font-medium">Add someone to **{organization.name}** by their email address.</p>
+                                            </div>
+
+                                            <div className="p-8 space-y-6">
+                                                <div>
+                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Email Address</label>
+                                                    <div className="relative">
+                                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                                        <input
+                                                            type="email"
+                                                            value={inviteEmail}
+                                                            onChange={(e) => setInviteEmail(e.target.value)}
+                                                            autoFocus
+                                                            placeholder="teammate@example.com"
+                                                            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl pl-12 pr-4 py-4 outline-none focus:ring-2 focus:ring-indigo-600 text-slate-900 dark:text-white font-medium"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Access Role</label>
+                                                    <div className="grid grid-cols-3 gap-3">
+                                                        {(['operator', 'manager', 'admin'] as const).map((r) => (
+                                                            <button
+                                                                key={r}
+                                                                onClick={() => setInviteRole(r)}
+                                                                className={`px-3 py-3 rounded-xl border-2 transition-all text-[10px] font-black uppercase tracking-widest ${inviteRole === r
+                                                                    ? 'bg-indigo-600 border-indigo-600 text-white'
+                                                                    : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-400 hover:border-indigo-600/30'
+                                                                    }`}
+                                                            >
+                                                                {r}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {inviteError && (
+                                                    <div className="bg-rose-500/10 text-rose-500 p-4 rounded-xl text-xs font-bold border border-rose-500/20 flex items-center gap-3">
+                                                        <AlertCircle size={16} />
+                                                        {inviteError}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="p-8 pt-2 flex flex-col gap-3">
+                                                <button
+                                                    disabled={!inviteEmail || inviteMutation.isPending}
+                                                    onClick={() => inviteMutation.mutate({ email: inviteEmail, role: inviteRole })}
+                                                    className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-2xl font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50"
+                                                >
+                                                    {inviteMutation.isPending ? 'Connecting...' : 'Add Teammate'}
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setIsInviteOpen(false);
+                                                        setInviteError('');
+                                                    }}
+                                                    className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

@@ -11,12 +11,14 @@ interface ProgramEditorProps {
   program: Program;
   onUpdate: (program: Program) => void;
   isCoEditor?: boolean;
+  isReadOnly?: boolean;
 }
 
 const ProgramEditor: React.FC<ProgramEditorProps> = ({
   program,
   onUpdate,
-  isCoEditor = false
+  isCoEditor = false,
+  isReadOnly = false
 }) => {
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
   const [aiInput, setAiInput] = useState('');
@@ -147,7 +149,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
           <p className="text-slate-500 dark:text-slate-400">Configure schedule timeline and slots.</p>
         </div>
         <div className="flex items-center gap-3">
-          {remainingMinutes !== null && Math.abs(remainingMinutes) > 0 && (
+          {remainingMinutes !== null && Math.abs(remainingMinutes) > 0 && !isReadOnly && (
             <button
               onClick={() => {
                 // This will be handled by a prop or event bubble for real AI call
@@ -159,7 +161,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
               Re-balance with AI
             </button>
           )}
-          {!isCoEditor && (
+          {!isCoEditor && !isReadOnly && (
             <button
               onClick={() => setIsAIDialogOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg font-medium shadow-lg transition-all"
@@ -178,11 +180,12 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
             <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Conference Title</label>
             <input
               type="text"
+              readOnly={isReadOnly}
               value={program.title}
               onChange={(e) => {
                 onUpdate({ ...program, title: e.target.value });
               }}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none font-medium transition-colors"
+              className={`w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none font-medium transition-colors ${isReadOnly ? 'cursor-default' : ''}`}
             />
           </div>
           <div>
@@ -307,12 +310,12 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
         {program.slots.map((slot, index) => (
           <div
             key={slot.id}
-            draggable
-            onDragStart={(e) => handleDragStart(e, index)}
-            onDragEnter={(e) => handleDragEnter(e, index)}
+            draggable={!isReadOnly}
+            onDragStart={(e) => !isReadOnly && handleDragStart(e, index)}
+            onDragEnter={(e) => !isReadOnly && handleDragEnter(e, index)}
             onDragEnd={handleDragEnd}
             onDragOver={handleDragOver}
-            className="group flex flex-col bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors cursor-move md:cursor-default"
+            className={`group flex flex-col bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors ${!isReadOnly ? 'cursor-move md:cursor-default' : 'cursor-default'}`}
           >
             {/* Main Row */}
             <div className="flex flex-col md:flex-row items-center gap-4 p-4">
@@ -322,9 +325,11 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
                 <span className="text-xs font-mono text-slate-400 dark:text-slate-500">{getSlotStartTime(index)}</span>
               </div>
 
-              <div className="text-slate-400 dark:text-slate-600 hidden md:block cursor-move">
-                <GripVertical size={20} />
-              </div>
+              {!isReadOnly && (
+                <div className="text-slate-400 dark:text-slate-600 hidden md:block cursor-move">
+                  <GripVertical size={20} />
+                </div>
+              )}
 
               <div className="flex-1 grid grid-cols-12 gap-4 w-full items-center">
                 <div className="col-span-12 md:col-span-4 flex items-center gap-2">
@@ -338,18 +343,20 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
                   <input
                     type="text"
                     value={slot.title}
+                    readOnly={isReadOnly}
                     onChange={(e) => handleSlotChange(slot.id, 'title', e.target.value)}
                     placeholder="Session Title"
-                    className="w-full bg-transparent text-slate-900 dark:text-white font-medium focus:underline outline-none placeholder-slate-400 dark:placeholder-slate-600"
+                    className={`w-full bg-transparent text-slate-900 dark:text-white font-medium focus:underline outline-none placeholder-slate-400 dark:placeholder-slate-600 ${isReadOnly ? 'cursor-default' : ''}`}
                   />
                 </div>
                 <div className="col-span-12 md:col-span-3">
                   <input
                     type="text"
                     value={slot.speaker}
+                    readOnly={isReadOnly}
                     onChange={(e) => handleSlotChange(slot.id, 'speaker', e.target.value)}
                     placeholder="Speaker Name"
-                    className="w-full bg-transparent text-indigo-600 dark:text-indigo-300 text-sm focus:underline outline-none placeholder-slate-400 dark:placeholder-slate-600"
+                    className={`w-full bg-transparent text-indigo-600 dark:text-indigo-300 text-sm focus:underline outline-none placeholder-slate-400 dark:placeholder-slate-600 ${isReadOnly ? 'cursor-default' : ''}`}
                   />
                 </div>
                 <div className="col-span-6 md:col-span-2">
@@ -357,8 +364,9 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
                     list="slot-types"
                     type="text"
                     value={slot.type}
+                    readOnly={isReadOnly}
                     onChange={(e) => handleSlotChange(slot.id, 'type', e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 text-xs rounded px-2 py-1 border border-slate-200 dark:border-slate-700 outline-none"
+                    className={`w-full bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 text-xs rounded px-2 py-1 border border-slate-200 dark:border-slate-700 outline-none ${isReadOnly ? 'cursor-default opacity-80' : ''}`}
                     placeholder="Type..."
                   />
                 </div>
@@ -366,29 +374,32 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
                   <input
                     type="number"
                     value={slot.durationMinutes}
+                    readOnly={isReadOnly}
                     onChange={(e) => handleSlotChange(slot.id, 'durationMinutes', parseInt(e.target.value) || 0)}
-                    className="w-16 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm rounded px-2 py-1 border border-slate-200 dark:border-slate-700 outline-none text-center focus:ring-1 focus:ring-indigo-500"
+                    className={`w-16 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm rounded px-2 py-1 border border-slate-200 dark:border-slate-700 outline-none text-center focus:ring-1 focus:ring-indigo-500 ${isReadOnly ? 'cursor-default' : ''}`}
                   />
                   <span className="text-xs text-slate-500 w-6">min</span>
                 </div>
               </div>
 
-              <div className="flex items-center border-l border-slate-200 dark:border-slate-700 pl-2 ml-2 gap-1">
-                <button
-                  onClick={() => duplicateSlot(index)}
-                  className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-2 rounded transition-colors"
-                  title="Duplicate Slot"
-                >
-                  <Copy size={18} />
-                </button>
-                <button
-                  onClick={() => removeSlot(slot.id)}
-                  className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-500 p-2 rounded transition-colors"
-                  title="Remove Slot"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
+              {!isReadOnly && (
+                <div className="flex items-center border-l border-slate-200 dark:border-slate-700 pl-2 ml-2 gap-1">
+                  <button
+                    onClick={() => duplicateSlot(index)}
+                    className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-2 rounded transition-colors"
+                    title="Duplicate Slot"
+                  >
+                    <Copy size={18} />
+                  </button>
+                  <button
+                    onClick={() => removeSlot(slot.id)}
+                    className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-500 p-2 rounded transition-colors"
+                    title="Remove Slot"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Details Section (Collapsible) */}
@@ -398,9 +409,10 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-wider">Public Details</label>
                   <textarea
                     value={slot.details || ''}
+                    readOnly={isReadOnly}
                     onChange={(e) => handleSlotChange(slot.id, 'details', e.target.value)}
                     placeholder="Add notes, abstract, or detailed description for this slot..."
-                    className="w-full h-24 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none resize-none transition-colors"
+                    className={`w-full h-24 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none resize-none transition-colors ${isReadOnly ? 'cursor-default' : ''}`}
                   />
                 </div>
                 <div className="pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
@@ -409,9 +421,10 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
                   </label>
                   <textarea
                     value={slot.productionNotes || ''}
+                    readOnly={isReadOnly}
                     onChange={(e) => handleSlotChange(slot.id, 'productionNotes', e.target.value)}
                     placeholder="e.g. 'Ready acoustic guitar', 'Dim lights', 'Camera 2 focus on pulpit'..."
-                    className="w-full h-20 bg-amber-500/[0.03] dark:bg-amber-500/[0.05] border border-amber-500/20 dark:border-amber-500/10 rounded-lg p-3 text-sm text-slate-800 dark:text-amber-100/90 placeholder-amber-900/30 dark:placeholder-amber-400/20 focus:ring-1 focus:ring-amber-500/50 outline-none resize-none transition-colors"
+                    className={`w-full h-20 bg-amber-500/[0.03] dark:bg-amber-500/[0.05] border border-amber-500/20 dark:border-amber-500/10 rounded-lg p-3 text-sm text-slate-800 dark:text-amber-100/90 placeholder-amber-900/30 dark:placeholder-amber-400/20 focus:ring-1 focus:ring-amber-500/50 outline-none resize-none transition-colors ${isReadOnly ? 'cursor-default' : ''}`}
                   />
                 </div>
               </div>
@@ -420,20 +433,22 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
         ))}
       </div>
 
-      <button
-        onClick={addSlot}
-        className="w-full mt-4 py-4 border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-500 rounded-xl hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex flex-col items-center justify-center gap-1 font-medium group"
-      >
-        <div className="flex items-center gap-2">
-          <Plus size={20} className="group-hover:scale-110 transition-transform" />
-          <span>Add Session Slot</span>
-        </div>
-        {remainingMinutes !== null && remainingMinutes > 0 && (
-          <span className="text-xs text-emerald-600/80 dark:text-emerald-500/80 font-normal">
-            You have {remainingMinutes} minutes remaining in your budget
-          </span>
-        )}
-      </button>
+      {!isReadOnly && (
+        <button
+          onClick={addSlot}
+          className="w-full mt-4 py-4 border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-500 rounded-xl hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex flex-col items-center justify-center gap-1 font-medium group"
+        >
+          <div className="flex items-center gap-2">
+            <Plus size={20} className="group-hover:scale-110 transition-transform" />
+            <span>Add Session Slot</span>
+          </div>
+          {remainingMinutes !== null && remainingMinutes > 0 && (
+            <span className="text-xs text-emerald-600/80 dark:text-emerald-500/80 font-normal">
+              You have {remainingMinutes} minutes remaining in your budget
+            </span>
+          )}
+        </button>
+      )}
 
       {/* AI Modal */}
       {isAIDialogOpen && (

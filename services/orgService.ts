@@ -28,8 +28,24 @@ export const updateOrganizationBranding = async (orgId: string, logoUrl: string,
 };
 
 export const getOrgMembers = async (orgId: string): Promise<any[]> => {
-    const data = await convex.query(api.orgs.getOrgMembers, { organizationId: orgId as any });
+    const data = await convex.query(api.members.getOrgMembers, { organizationId: orgId as any });
     return data || [];
+};
+
+export const inviteMember = async (orgId: string, email: string, role: 'admin' | 'manager' | 'operator'): Promise<string> => {
+    return await convex.mutation(api.members.addMemberByEmail, {
+        organizationId: orgId as any,
+        email,
+        role as any
+    });
+};
+
+export const removeMember = async (memberId: string): Promise<void> => {
+    await convex.mutation(api.members.removeMember, { memberId: memberId as any });
+};
+
+export const updateMemberRole = async (memberId: string, role: string): Promise<void> => {
+    await convex.mutation(api.members.updateMemberRole, { memberId: memberId as any, role: role as any });
 };
 
 const transformOrg = (o: any): Organization => ({
