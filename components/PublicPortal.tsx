@@ -114,6 +114,12 @@ export const PublicPortal: React.FC = () => {
                         <span className="text-slate-400">Wait Time</span>
                         <span className="text-slate-600 dark:text-slate-300">{secondsWaiting}s</span>
                     </div>
+
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800/50">
+                        <p className="text-[8px] text-slate-400 dark:text-slate-600 font-mono break-all leading-tight">
+                            DB: {import.meta.env.VITE_CONVEX_URL}
+                        </p>
+                    </div>
                 </div>
 
                 {secondsWaiting > 10 && (
