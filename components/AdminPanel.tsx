@@ -35,6 +35,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
 
     // Invite Modal State
     const [isInviteOpen, setIsInviteOpen] = useState(false);
+    const [inviteEmail, setInviteEmail] = useState('');
+    const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'operator'>('operator');
     const [inviteError, setInviteError] = useState('');
     const [copiedId, setCopiedId] = useState<string | null>(null);
 
