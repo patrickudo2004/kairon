@@ -283,13 +283,15 @@ const AppContent: React.FC = () => {
   // Handle Auth Session - now driven by Convex Auth state
   useEffect(() => {
     const setupAuth = async () => {
-      try {
-        if (user?.id) {
+      // Only run setup if we have a user and authentication is fully resolved
+      if (user?.id && isAuthenticated && !isConvexAuthLoading) {
+        try {
           const p = await getProfile(user.id);
           setProfile(p);
 
           // Check for shadow invites and handle auto-join
           try {
+            console.log("Checking for pending invites for user:", user.email);
             const joinedOrgs = await checkPendingInvites();
             if (joinedOrgs && joinedOrgs.length > 0) {
               console.log("Successfully joined organizations via shadow invites:", joinedOrgs);
@@ -302,23 +304,16 @@ const AppContent: React.FC = () => {
           } catch (err) {
             console.error("Shadow invite check failed:", err);
           }
-        } else {
-          setProfile(null);
+        } catch (err) {
+          console.error("Profile fetch failed:", err);
         }
-      } catch (err) {
-        console.error("Auth hydration failed:", err);
-      } finally {
-        setIsDataHydrated(true);
+      } else if (!user?.id && !isConvexAuthLoading) {
+        setProfile(null);
       }
     };
+    setupAuth();
+  }, [user?.id, isAuthenticated, isConvexAuthLoading, checkPendingInvites, queryClient]);
 
-    if (!isConvexAuthLoading) {
-      if (user?.id) {
-        console.log("%c[Convex] User ID:", "color: #4f46e5; font-weight: bold;", user.id);
-      }
-      setupAuth();
-    }
-  }, [user?.id, isConvexAuthLoading]);
 
   const loadProfile = async (userId: string) => {
     const p = await getProfile(userId);
