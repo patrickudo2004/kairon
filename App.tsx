@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams, Navigate, useParams } from 'react-router-dom';
-import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick } from 'lucide-react';
+import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Services
@@ -10,7 +10,7 @@ import { api } from "./convex/_generated/api";
 import { convex } from "./services/convexClient";
 import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService } from './services/programService';
 import { getProfile } from './services/authService';
-import { getMyOrganizations, checkPendingInvites } from './services/orgService';
+import { getMyOrganizations, checkPendingInvites, getInviteDetails } from './services/orgService';
 import { rebalanceSchedule } from './services/geminiService';
 
 // Store & Hooks
@@ -187,10 +187,18 @@ const AppContent: React.FC = () => {
   };
 
   // Fetch all organizations for the user
-  const { data: userOrganizations = [] } = useQuery({
-    queryKey: ['organizations', user?.id],
-    queryFn: () => getMyOrganizations(user?.id || ''),
-    enabled: !!user,
+  const { data: userOrganizations = [] } = useQuery<Organization[]>({
+    queryKey: ['myOrganizations'],
+    queryFn: getMyOrganizations,
+    enabled: isAuthenticated
+  });
+
+  // Invite ID handling for personalized banner
+  const inviteId = searchParams.get('inviteId');
+  const { data: inviteDetails } = useQuery({
+    queryKey: ['inviteDetails', inviteId],
+    queryFn: () => getInviteDetails(inviteId!),
+    enabled: !!inviteId && !user
   });
 
   // Keep activeOrg in sync with activeOrgId
@@ -1335,9 +1343,9 @@ const AppContent: React.FC = () => {
         <main className="flex-1 overflow-y-auto pb-20 md:pb-0 relative custom-scrollbar">
           <div className="max-w-7xl mx-auto p-4 md:p-8 h-full">
             {/* Invitation Banner for Unauthenticated Users */}
-            {!user && searchParams.get('invite') && (
-              <div className="mb-8 w-full max-w-xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden group">
+            {!user && inviteId && (
+              <div className="mb-8 w-full max-w-xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden group border border-white/10">
                   <div className="absolute top-0 right-0 p-8 text-white/10 group-hover:text-white/20 transition-colors">
                     <UserPlus size={120} />
                   </div>
@@ -1345,11 +1353,23 @@ const AppContent: React.FC = () => {
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest mb-4">
                       <Sparkles size={12} /> Special Invitation
                     </div>
-                    <h2 className="text-3xl font-black tracking-tight mb-2">You've been invited!</h2>
-                    <p className="text-indigo-100 font-medium leading-relaxed max-w-sm">
-                      A teammate has invited you to join their organization on Kairon.
-                      Sign up or log in below to accept and start collaborating.
-                    </p>
+                    {inviteDetails ? (
+                      <>
+                        <h2 className="text-3xl font-black tracking-tight mb-2">You've been invited!</h2>
+                        <p className="text-indigo-100 font-medium leading-relaxed max-w-sm">
+                          You've been invited to join <span className="text-white font-bold px-1.5 py-0.5 bg-white/10 rounded-md decoration-indigo-300 underline underline-offset-4">{inviteDetails.organizationName}</span> as <span className="text-white font-bold">{inviteDetails.role}</span>.
+                          Sign up or log in below to claim your account.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <h2 className="text-3xl font-black tracking-tight mb-2">You've been invited!</h2>
+                        <p className="text-indigo-100 font-medium leading-relaxed max-w-sm">
+                          A teammate has invited you to join their organization on Kairon.
+                          Sign up or log in below to accept and start collaborating.
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
