@@ -73,7 +73,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
             setInviteEmail('');
             setInviteError('');
             refetchMembers();
-            // data is the ID of the new member or invite
             alert('Invitation sent successfully!');
         },
         onError: (err: any) => {
@@ -97,6 +96,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
             import('../services/orgService').then(s => s.updateMemberRole(data.memberId, data.role)),
         onSuccess: () => {
             refetchMembers();
+        },
+        onError: (err: any) => {
+            alert(err.message || 'Failed to update role');
         }
     });
 
@@ -280,98 +282,103 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                 </div>
 
                                 <div className="space-y-4">
-                                    {members.map((member) => (
-                                        <div
-                                            key={member.id}
-                                            className="flex items-start md:items-center justify-between p-5 rounded-2xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-slate-200 dark:border-slate-700 shadow-sm">
-                                                    {member.avatarUrl ? (
-                                                        <img src={member.avatarUrl} alt={member.name} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <Users className="text-slate-400" size={20} />
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="font-bold text-slate-900 dark:text-white text-base leading-tight">
-                                                            {member.name}
-                                                        </p>
-                                                        {member.userId === organization.createdBy && (
-                                                            <span className="bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-amber-500/20">Owner</span>
-                                                        )}
-                                                        {member.isPending && (
-                                                            <span className="bg-indigo-500/10 text-indigo-500 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-indigo-500/20 animate-pulse">Pending</span>
+                                    {members.map((member) => {
+                                        const isMe = member.userId === currentUser?.id;
+
+                                        return (
+                                            <div
+                                                key={member.id}
+                                                className="flex items-start md:items-center justify-between p-5 rounded-2xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-slate-200 dark:border-slate-700 shadow-sm">
+                                                        {member.avatarUrl ? (
+                                                            <img src={member.avatarUrl} alt={member.name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <Users className="text-slate-400" size={20} />
                                                         )}
                                                     </div>
-                                                    <p className="text-xs text-slate-500 font-medium">{member.email}</p>
-                                                    <p className="text-[10px] text-slate-400 uppercase tracking-widest flex items-center gap-1 mt-1 font-bold">
-                                                        {member.role === 'admin' ? <Shield size={10} className="text-rose-500" /> : member.role === 'manager' ? <Users size={10} className="text-indigo-500" /> : <Mail size={10} className="text-slate-400" />}
-                                                        {member.role === 'admin' ? 'Administrator' : member.role === 'manager' ? 'Manager' : 'Operator'}
-                                                    </p>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-bold text-slate-900 dark:text-white text-base leading-tight">
+                                                                {member.name}
+                                                            </p>
+                                                            {member.userId === organization.createdBy && (
+                                                                <span className="bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-amber-500/20">Owner</span>
+                                                            )}
+                                                            {member.isPending && (
+                                                                <span className="bg-indigo-500/10 text-indigo-500 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-indigo-500/20 animate-pulse">Pending</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-slate-500 font-medium">
+                                                            {member.email} {isMe && <span className="text-indigo-500 font-bold ml-1 tracking-tight text-[10px] uppercase">(You)</span>}
+                                                        </p>
+                                                        <p className="text-[10px] text-slate-400 uppercase tracking-widest flex items-center gap-1 mt-1 font-bold">
+                                                            {member.role === 'admin' ? <Shield size={10} className="text-rose-500" /> : member.role === 'manager' ? <Users size={10} className="text-indigo-500" /> : <Mail size={10} className="text-slate-400" />}
+                                                            {member.role === 'admin' ? 'Administrator' : member.role === 'manager' ? 'Manager' : 'Operator'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                    {member.isPending && (
+                                                        <button
+                                                            onClick={() => copyInviteLink(member.id)}
+                                                            className="p-2 text-slate-400 hover:text-indigo-500 transition-colors relative group"
+                                                            title="Copy Personalized Invite Link"
+                                                        >
+                                                            {copiedId === member.id ? <Check size={16} className="text-emerald-500" /> : <LinkIcon size={16} />}
+                                                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                                                Copy Unique Link
+                                                            </span>
+                                                        </button>
+                                                    )}
+
+                                                    {(() => {
+                                                        const canManageMember =
+                                                            (currentUserRole === 'admin' && (!isMe || members.filter(m => m.role === 'admin' && !m.isPending).length > 1)) ||
+                                                            (currentUserRole === 'manager' && member.role !== 'admin' && !isMe);
+
+                                                        if (!canManageMember) return null;
+
+                                                        return (
+                                                            <>
+                                                                {!member.isPending && member.userId !== organization.createdBy && (
+                                                                    <select
+                                                                        value={member.role}
+                                                                        onChange={(e) => roleMutation.mutate({ memberId: member.id, role: e.target.value })}
+                                                                        className="bg-transparent text-[10px] font-bold uppercase tracking-wider text-slate-400 outline-none hover:text-indigo-500 cursor-pointer"
+                                                                    >
+                                                                        {currentUserRole === 'admin' && <option value="admin">Admin</option>}
+                                                                        <option value="manager">Manager</option>
+                                                                        <option value="operator">Operator</option>
+                                                                    </select>
+                                                                )}
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (member.isPending) {
+                                                                            if (confirm(`Cancel invitation for ${member.email}?`)) {
+                                                                                cancelInviteMutation.mutate(member.id);
+                                                                            }
+                                                                        } else {
+                                                                            if (confirm(`Remove ${member.name} from this organization?`)) {
+                                                                                removeMutation.mutate(member.id);
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                    className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
+                                                                    title={member.isPending ? "Cancel Invitation" : "Remove Member"}
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
-
-                                            <div className="flex items-center gap-2">
-                                                {member.isPending && (
-                                                    <button
-                                                        onClick={() => copyInviteLink(member.id)}
-                                                        className="p-2 text-slate-400 hover:text-indigo-500 transition-colors relative group"
-                                                        title="Copy Personalized Invite Link"
-                                                    >
-                                                        {copiedId === member.id ? <Check size={16} className="text-emerald-500" /> : <LinkIcon size={16} />}
-                                                        <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                                                            Copy Unique Link
-                                                        </span>
-                                                    </button>
-                                                )}
-
-                                                {(() => {
-                                                    const isMe = member.userId === currentUser?.id;
-                                                    const canManageMember =
-                                                        (currentUserRole === 'admin' && (!isMe || members.filter(m => m.role === 'admin' && !m.isPending).length > 1)) ||
-                                                        (currentUserRole === 'manager' && member.role !== 'admin' && !isMe);
-
-                                                    if (!canManageMember) return null;
-
-                                                    return (
-                                                        <>
-                                                            {!member.isPending && member.userId !== organization.createdBy && (
-                                                                <select
-                                                                    value={member.role}
-                                                                    onChange={(e) => roleMutation.mutate({ memberId: member.id, role: e.target.value })}
-                                                                    className="bg-transparent text-[10px] font-bold uppercase tracking-wider text-slate-400 outline-none hover:text-indigo-500 cursor-pointer"
-                                                                >
-                                                                    {currentUserRole === 'admin' && <option value="admin">Admin</option>}
-                                                                    <option value="manager">Manager</option>
-                                                                    <option value="operator">Operator</option>
-                                                                </select>
-                                                            )}
-
-                                                            <button
-                                                                onClick={() => {
-                                                                    if (member.isPending) {
-                                                                        if (confirm(`Cancel invitation for ${member.email}?`)) {
-                                                                            cancelInviteMutation.mutate(member.id);
-                                                                        }
-                                                                    } else {
-                                                                        if (confirm(`Remove ${member.name} from this organization?`)) {
-                                                                            removeMutation.mutate(member.id);
-                                                                        }
-                                                                    }
-                                                                }}
-                                                                className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
-                                                                title={member.isPending ? "Cancel Invitation" : "Remove Member"}
-                                                            >
-                                                                <Trash2 size={16} />
-                                                            </button>
-                                                        </>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                     {loadingMembers && <p className="text-center text-slate-400 py-8 animate-pulse font-medium">Updating team access...</p>}
                                     {members.length === 0 && !loadingMembers && (
                                         <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800">
