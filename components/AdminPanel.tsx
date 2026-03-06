@@ -22,9 +22,11 @@ import { useNavigate } from 'react-router-dom';
 
 interface AdminPanelProps {
     organization: Organization;
+    currentUserRole?: string;
+    currentUser?: { id: string, email?: string } | null;
 }
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
+export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUserRole, currentUser }) => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<'branding' | 'members'>('branding');
@@ -325,35 +327,48 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
                                                     </button>
                                                 )}
 
-                                                {!member.isPending && member.userId !== organization.createdBy && (
-                                                    <select
-                                                        value={member.role}
-                                                        onChange={(e) => roleMutation.mutate({ memberId: member.id, role: e.target.value })}
-                                                        className="bg-transparent text-[10px] font-bold uppercase tracking-wider text-slate-400 outline-none hover:text-indigo-500 cursor-pointer"
-                                                    >
-                                                        <option value="admin">Admin</option>
-                                                        <option value="manager">Manager</option>
-                                                        <option value="operator">Operator</option>
-                                                    </select>
-                                                )}
+                                                {(() => {
+                                                    const isMe = member.userId === currentUser?.id;
+                                                    const canManageMember =
+                                                        (currentUserRole === 'admin' && (!isMe || members.filter(m => m.role === 'admin' && !m.isPending).length > 1)) ||
+                                                        (currentUserRole === 'manager' && member.role !== 'admin' && !isMe);
 
-                                                <button
-                                                    onClick={() => {
-                                                        if (member.isPending) {
-                                                            if (confirm(`Cancel invitation for ${member.email}?`)) {
-                                                                cancelInviteMutation.mutate(member.id);
-                                                            }
-                                                        } else {
-                                                            if (confirm(`Remove ${member.name} from this organization?`)) {
-                                                                removeMutation.mutate(member.id);
-                                                            }
-                                                        }
-                                                    }}
-                                                    className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
-                                                    title={member.isPending ? "Cancel Invitation" : "Remove Member"}
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                    if (!canManageMember) return null;
+
+                                                    return (
+                                                        <>
+                                                            {!member.isPending && member.userId !== organization.createdBy && (
+                                                                <select
+                                                                    value={member.role}
+                                                                    onChange={(e) => roleMutation.mutate({ memberId: member.id, role: e.target.value })}
+                                                                    className="bg-transparent text-[10px] font-bold uppercase tracking-wider text-slate-400 outline-none hover:text-indigo-500 cursor-pointer"
+                                                                >
+                                                                    {currentUserRole === 'admin' && <option value="admin">Admin</option>}
+                                                                    <option value="manager">Manager</option>
+                                                                    <option value="operator">Operator</option>
+                                                                </select>
+                                                            )}
+
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (member.isPending) {
+                                                                        if (confirm(`Cancel invitation for ${member.email}?`)) {
+                                                                            cancelInviteMutation.mutate(member.id);
+                                                                        }
+                                                                    } else {
+                                                                        if (confirm(`Remove ${member.name} from this organization?`)) {
+                                                                            removeMutation.mutate(member.id);
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
+                                                                title={member.isPending ? "Cancel Invitation" : "Remove Member"}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     ))}
@@ -396,18 +411,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
                                                 <div>
                                                     <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Access Role</label>
                                                     <div className="grid grid-cols-3 gap-3">
-                                                        {(['operator', 'manager', 'admin'] as const).map((r) => (
-                                                            <button
-                                                                key={r}
-                                                                onClick={() => setInviteRole(r)}
-                                                                className={`px-3 py-3 rounded-xl border-2 transition-all text-[10px] font-black uppercase tracking-widest ${inviteRole === r
-                                                                    ? 'bg-indigo-600 border-indigo-600 text-white'
-                                                                    : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-400 hover:border-indigo-600/30'
-                                                                    }`}
-                                                            >
-                                                                {r}
-                                                            </button>
-                                                        ))}
+                                                        {(['operator', 'manager', 'admin'] as const)
+                                                            .filter(r => currentUserRole === 'admin' || r !== 'admin')
+                                                            .map((r) => (
+                                                                <button
+                                                                    key={r}
+                                                                    onClick={() => setInviteRole(r)}
+                                                                    className={`px-3 py-3 rounded-xl border-2 transition-all text-[10px] font-black uppercase tracking-widest ${inviteRole === r
+                                                                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                                                                        : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-400 hover:border-indigo-600/30'
+                                                                        }`}
+                                                                >
+                                                                    {r}
+                                                                </button>
+                                                            ))}
                                                     </div>
                                                 </div>
 

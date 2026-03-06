@@ -76,8 +76,13 @@ export const addMemberByEmail = mutation({
 
         console.log("Requester role:", requester?.role);
 
-        if (requester?.role !== "admin") {
-            throw new Error("Only admins can invite members. You are: " + (requester?.role || "not a member"));
+        if (requester?.role !== "admin" && requester?.role !== "manager") {
+            throw new Error("You don't have permission to invite members.");
+        }
+
+        // Managers can only invite operators or other managers (not admins)
+        if (requester.role === "manager" && args.role === "admin") {
+            throw new Error("Managers cannot invite administrators.");
         }
 
         // 2. Find user by email in the 'users' table
@@ -226,14 +231,26 @@ export const removeMember = mutation({
 
         const isSelf = memberToRemove.userId === userId;
         const isAdmin = requester?.role === "admin";
+        const isManager = requester?.role === "manager";
 
-        if (!isAdmin && !isSelf) {
+        // --- SECURITY HIERARCHY ---
+        // 1. Only admins can remove other admins
+        if (memberToRemove.role === "admin" && !isAdmin && !isSelf) {
+            throw new Error("Only administrators can remove other administrators.");
+        }
+
+        // 2. Managers can only remove managers or operators
+        if (isManager && memberToRemove.role === "admin") {
+            throw new Error("Managers cannot remove administrators.");
+        }
+
+        // 3. Permission Gate
+        if (!isAdmin && !isManager && !isSelf) {
             throw new Error("You don't have permission to remove this member.");
         }
 
-        // Prevent removing the last admin? (Optional but recommended)
-        if (isAdmin && !isSelf) {
-            // Check if there are other admins
+        // --- LAST ADMIN GUARD ---
+        if (memberToRemove.role === "admin") {
             const otherAdmins = await ctx.db
                 .query("members")
                 .withIndex("by_org", (q) => q.eq("organizationId", memberToRemove.organizationId))
@@ -241,8 +258,7 @@ export const removeMember = mutation({
                 .collect();
 
             if (otherAdmins.length === 0) {
-                // We're trying to remove the last admin? Wait, requester IS an admin too.
-                // If requester is not the one being removed, then there IS at least one admin left (requester).
+                throw new Error("Cannot remove the last administrator. Please promote another member to Administrator first.");
             }
         }
 
@@ -268,8 +284,32 @@ export const updateMemberRole = mutation({
             .filter((q) => q.eq(q.field("userId"), userId))
             .unique();
 
-        if (requester?.role !== "admin") {
-            throw new Error("Only admins can change roles.");
+        if (requester?.role !== "admin" && requester?.role !== "manager") {
+            throw new Error("You don't have permission to change roles.");
+        }
+
+        // --- ROLE BOUNDARIES ---
+        // 1. Managers cannot promote anyone to Admin
+        if (requester.role === "manager" && args.role === "admin") {
+            throw new Error("Managers cannot create administrators.");
+        }
+
+        // 2. Only admins can manage other admins
+        if (targetMember.role === "admin" && requester.role !== "admin") {
+            throw new Error("Only administrators can manage other administrator roles.");
+        }
+
+        // 3. Last Admin Guard (prevent demoting the last admin)
+        if (targetMember.role === "admin" && args.role !== "admin") {
+            const otherAdmins = await ctx.db
+                .query("members")
+                .withIndex("by_org", (q) => q.eq("organizationId", targetMember.organizationId))
+                .filter((q) => q.and(q.eq(q.field("role"), "admin"), q.neq(q.field("_id"), args.memberId)))
+                .collect();
+
+            if (otherAdmins.length === 0) {
+                throw new Error("Cannot demote the last administrator. Promote someone else first.");
+            }
         }
 
         await ctx.db.patch(args.memberId, { role: args.role });

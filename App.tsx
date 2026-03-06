@@ -1441,7 +1441,7 @@ const AppContent: React.FC = () => {
 
                 <Route path="/admin" element={
                   activeOrg ? (
-                    <AdminPanel organization={activeOrg} />
+                    <AdminPanel organization={activeOrg} currentUserRole={userRole} currentUser={user} />
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4">
                       <Building size={48} className="opacity-20" />
