@@ -56,6 +56,10 @@ export const cancelInvite = async (inviteId: string): Promise<void> => {
     await convex.mutation(api.members.cancelInvite, { inviteId: inviteId as any });
 };
 
+export const getInviteDetails = async (inviteId: string): Promise<any> => {
+    return await convex.query(api.members.getInviteDetails, { inviteId: inviteId as any });
+};
+
 const transformOrg = (o: any): Organization => ({
     id: o._id,
     name: o.name,

@@ -289,3 +289,21 @@ export const getMyMembershipInOrg = query({
             .unique();
     },
 });
+
+export const getInviteDetails = query({
+    args: { inviteId: v.id("invites") },
+    handler: async (ctx, args) => {
+        const inviteId = ctx.db.normalizeId("invites", args.inviteId);
+        if (!inviteId) return null;
+
+        const invite = await ctx.db.get(inviteId);
+        if (!invite) return null;
+
+        const org = await ctx.db.get(invite.organizationId);
+        return {
+            organizationName: org?.name || "Unknown Organization",
+            role: invite.role,
+            email: invite.email
+        };
+    },
+});
