@@ -252,12 +252,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization }) => {
                                         <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Team Collaboration</h2>
                                         <p className="text-slate-500 text-sm">Members below have access to manage or view this workspace.</p>
                                     </div>
-                                    <button
-                                        onClick={() => setIsInviteOpen(true)}
-                                        className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20"
-                                    >
-                                        <UserPlus size={18} /> Invite Teammate
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => {
+                                                const url = `${window.location.origin}/?inviteId=generic&orgId=${organization.id}`;
+                                                navigator.clipboard.writeText(url);
+                                                setCopiedId('generic');
+                                                setTimeout(() => setCopiedId(null), 2000);
+                                            }}
+                                            className="p-2 text-slate-400 hover:text-indigo-600 transition-colors relative group"
+                                            title="Copy Generic Workspace Link"
+                                        >
+                                            {copiedId === 'generic' ? <Check size={18} className="text-emerald-500" /> : <LinkIcon size={18} />}
+                                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-30">
+                                                Copy Workspace Link
+                                            </span>
+                                        </button>
+                                        <button
+                                            onClick={() => setIsInviteOpen(true)}
+                                            className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20"
+                                        >
+                                            <UserPlus size={18} /> Invite Teammate
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-4">

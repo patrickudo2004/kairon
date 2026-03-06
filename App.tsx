@@ -194,12 +194,42 @@ const AppContent: React.FC = () => {
   });
 
   // Invite ID handling for personalized banner
-  const inviteId = searchParams.get('inviteId');
+  const urlInviteId = searchParams.get('inviteId');
+  const urlOrgId = searchParams.get('orgId'); // For generic links
+
+  // Persist inviteId in sessionStorage to survive OAuth redirects
+  useEffect(() => {
+    if (urlInviteId) {
+      sessionStorage.setItem('pendingInviteId', urlInviteId);
+      if (urlOrgId) sessionStorage.setItem('pendingOrgId', urlOrgId);
+    }
+  }, [urlInviteId, urlOrgId]);
+
+  const persistedInviteId = sessionStorage.getItem('pendingInviteId');
+  const persistedOrgId = sessionStorage.getItem('pendingOrgId');
+  const inviteId = urlInviteId || persistedInviteId;
+
+  // Fetch invite details (if not generic)
   const { data: inviteDetails } = useQuery({
     queryKey: ['inviteDetails', inviteId],
     queryFn: () => getInviteDetails(inviteId!),
-    enabled: !!inviteId && !user
+    enabled: !!inviteId && inviteId !== 'generic' && !user
   });
+
+  // Handle generic invite details manually or via a separate query if needed
+  // For now, if it's 'generic', we might just show a "Join Workspace" message
+  // Or fetch org details if orgId is present
+  const { data: genericOrgDetails } = useQuery({
+    queryKey: ['orgDetails', urlOrgId || persistedOrgId],
+    queryFn: () => import('./services/orgService').then(s => s.getOrganizationById((urlOrgId || persistedOrgId)!)),
+    enabled: inviteId === 'generic' && !!(urlOrgId || persistedOrgId) && !user
+  });
+
+  const effectiveInviteDetails = inviteId === 'generic' ? {
+    organizationName: genericOrgDetails?.name || "Kairon Workspace",
+    role: 'member',
+    isGeneric: true
+  } : inviteDetails;
 
   // Keep activeOrg in sync with activeOrgId
   useEffect(() => {
@@ -264,7 +294,10 @@ const AppContent: React.FC = () => {
             if (joinedOrgs && joinedOrgs.length > 0) {
               console.log("Successfully joined organizations via shadow invites:", joinedOrgs);
               // Invalidate organizations query to show new orgs
-              queryClient.invalidateQueries({ queryKey: ['organizations', user.id] });
+              queryClient.invalidateQueries({ queryKey: ['myOrganizations', user.id] });
+              // Clear pending invite from session
+              sessionStorage.removeItem('pendingInviteId');
+              sessionStorage.removeItem('pendingOrgId');
             }
           } catch (err) {
             console.error("Shadow invite check failed:", err);
@@ -1343,37 +1376,6 @@ const AppContent: React.FC = () => {
         <main className="flex-1 overflow-y-auto pb-20 md:pb-0 relative custom-scrollbar">
           <div className="max-w-7xl mx-auto p-4 md:p-8 h-full">
             {/* Invitation Banner for Unauthenticated Users */}
-            {!user && inviteId && (
-              <div className="mb-8 w-full max-w-xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden group border border-white/10">
-                  <div className="absolute top-0 right-0 p-8 text-white/10 group-hover:text-white/20 transition-colors">
-                    <UserPlus size={120} />
-                  </div>
-                  <div className="relative z-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest mb-4">
-                      <Sparkles size={12} /> Special Invitation
-                    </div>
-                    {inviteDetails ? (
-                      <>
-                        <h2 className="text-3xl font-black tracking-tight mb-2">You've been invited!</h2>
-                        <p className="text-indigo-100 font-medium leading-relaxed max-w-sm">
-                          You've been invited to join <span className="text-white font-bold px-1.5 py-0.5 bg-white/10 rounded-md decoration-indigo-300 underline underline-offset-4">{inviteDetails.organizationName}</span> as <span className="text-white font-bold">{inviteDetails.role}</span>.
-                          Sign up or log in below to claim your account.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <h2 className="text-3xl font-black tracking-tight mb-2">You've been invited!</h2>
-                        <p className="text-indigo-100 font-medium leading-relaxed max-w-sm">
-                          A teammate has invited you to join their organization on Kairon.
-                          Sign up or log in below to accept and start collaborating.
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
 
             {effectiveAuthLoading ? (
               <div className="flex items-center justify-center h-full">
@@ -1402,7 +1404,7 @@ const AppContent: React.FC = () => {
                 </div>
               </div>
             ) : !user ? (
-              <Auth />
+              <Auth inviteDetails={effectiveInviteDetails} />
             ) : (
               <Routes>
                 <Route path="/org" element={
