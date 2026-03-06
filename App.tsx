@@ -187,10 +187,10 @@ const AppContent: React.FC = () => {
   };
 
   // Fetch all organizations for the user
-  const { data: userOrganizations = [] } = useQuery<Organization[]>({
-    queryKey: ['myOrganizations'],
-    queryFn: getMyOrganizations,
-    enabled: isAuthenticated
+  const { data: userOrganizations = [], isLoading: loadingOrgs } = useQuery<Organization[]>({
+    queryKey: ['myOrganizations', user?.id],
+    queryFn: () => getMyOrganizations(user?.id || ''),
+    enabled: !!user
   });
 
   // Invite ID handling for personalized banner
@@ -1180,13 +1180,13 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {user && (userOrganizations.length === 0 || isOnboardingManual) && !effectiveAuthLoading && (
+      {user && (userOrganizations.length === 0 || isOnboardingManual) && !effectiveAuthLoading && !loadingOrgs && (
         <OnboardingOverlay
           userId={user.id}
           userEmail={user.email || ''}
-          onClose={userOrganizations.length > 0 ? () => setIsOnboardingManual(false) : undefined}
+          onClose={userOrganizations.length > 0 || isOnboardingManual ? () => setIsOnboardingManual(false) : undefined}
           onOrgCreated={(newOrg) => {
-            queryClient.invalidateQueries({ queryKey: ['organizations', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['myOrganizations', user?.id] });
             setActiveOrgId(newOrg.id);
             setIsOnboardingManual(false);
             navigate('/');
