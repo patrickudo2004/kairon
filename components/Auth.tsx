@@ -24,7 +24,7 @@ export const Auth: React.FC<AuthProps> = ({ inviteDetails }) => {
     const handleGoogleSignIn = async () => {
         try {
             setIsLoading(true);
-            await signIn("google");
+            await signIn("google", { redirectTo: window.location.href });
         } catch (error: any) {
             setMessage({ type: 'error', text: error.message || 'Google sign-in failed.' });
             setIsLoading(false);
