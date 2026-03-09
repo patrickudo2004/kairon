@@ -1650,6 +1650,8 @@ const AppContent: React.FC = () => {
           onPrev={handlePrev}
           onNudge={handleNudge}
           onEndEvent={handleEndEvent}
+          isManualMode={program.isManualMode}
+          onToggleManualMode={handleToggleManualMode}
         />,
         pipWindow.document.body
       )}

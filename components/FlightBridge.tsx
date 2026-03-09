@@ -16,6 +16,8 @@ interface FlightBridgeProps {
     onPrev: () => void;
     onNudge: (minutes: number) => void;
     onEndEvent: () => void;
+    isManualMode: boolean;
+    onToggleManualMode: () => void;
 }
 
 export const FlightBridge: React.FC<FlightBridgeProps> = ({
@@ -30,7 +32,9 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
     onNext,
     onPrev,
     onNudge,
-    onEndEvent
+    onEndEvent,
+    isManualMode,
+    onToggleManualMode
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [holdToEndProgress, setHoldToEndProgress] = useState(0);
@@ -164,37 +168,55 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                     </button>
                 </div>
 
-                {/* Sub-controls: Nudge & Hold */}
-                <div className="grid grid-cols-4 gap-2 mb-4">
-                    <button onClick={() => onNudge(-1)} className={`flex flex-col items-center justify-center py-2 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'} rounded-xl border`}>
-                        <span className="text-[10px] font-black">-1M</span>
+                {/* Sub-controls: Row 1 - Nudges */}
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                    <button onClick={() => onNudge(-1)} className={`flex items-center justify-center gap-2 py-2.5 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'} rounded-xl border transition-colors shadow-sm`}>
+                        <span className="text-[12px] font-black">-1M</span>
                     </button>
-                    <button onClick={() => onNudge(1)} className={`flex flex-col items-center justify-center py-2 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'} rounded-xl border`}>
-                        <span className="text-[10px] font-black">+1M</span>
+                    <button onClick={() => onNudge(1)} className={`flex items-center justify-center gap-2 py-2.5 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'} rounded-xl border transition-colors shadow-sm`}>
+                        <span className="text-[12px] font-black">+1M</span>
                     </button>
+                </div>
+
+                {/* Sub-controls: Row 2 - Hold & End */}
+                <div className="grid grid-cols-2 gap-2 mb-2">
                     <button
                         onClick={onToggleHold}
-                        className={`flex flex-col items-center justify-center py-2 rounded-xl border transition-all ${program.isOnHold ? 'bg-amber-600 border-amber-500 text-white' : (isDarkMode ? 'bg-slate-900 border-slate-800 text-amber-500 hover:bg-slate-800' : 'bg-slate-50 border-slate-200 text-amber-700 hover:bg-slate-100')}`}
+                        className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all shadow-sm ${program.isOnHold ? 'bg-amber-600 border-amber-500 text-white' : (isDarkMode ? 'bg-slate-900 border-slate-800 text-amber-500 hover:bg-slate-800' : 'bg-slate-50 border-slate-200 text-amber-600 hover:bg-slate-100')}`}
                     >
                         <Clock size={16} />
-                        <span className="text-[8px] font-black mt-1 uppercase">Hold</span>
+                        <span className="text-[10px] font-black uppercase">Hold</span>
                     </button>
 
-                    {/* Hold to End Button */}
                     <button
                         onMouseDown={handleHoldStart}
                         onMouseUp={handleHoldEnd}
                         onMouseLeave={handleHoldEnd}
                         onTouchStart={handleHoldStart}
                         onTouchEnd={handleHoldEnd}
-                        className={`relative flex flex-col items-center justify-center py-2 rounded-xl border select-none active:scale-[0.98] transition-all ${isDarkMode ? 'bg-rose-900/20 border-rose-500/20 text-rose-500 hover:bg-rose-900/40' : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'}`}
+                        className={`relative flex items-center justify-center gap-2 py-2.5 rounded-xl border select-none active:scale-[0.98] transition-all shadow-sm overflow-hidden ${isDarkMode ? 'bg-rose-900/20 border-rose-500/20 text-rose-500 hover:bg-rose-900/40' : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'}`}
                     >
                         <div
                             className="absolute bottom-0 left-0 h-full bg-rose-600/20 transition-all duration-75 pointer-events-none"
                             style={{ width: `${holdToEndProgress}%` }}
                         />
                         <AlertCircle size={16} />
-                        <span className="text-[8px] font-black mt-1 uppercase text-center">End Event</span>
+                        <span className="text-[10px] font-black uppercase">End Event</span>
+                    </button>
+                </div>
+
+                {/* Sub-controls: Row 3 - Auto/Manual Toggle */}
+                <div className="mb-4">
+                    <button
+                        onClick={onToggleManualMode}
+                        className={`w-full flex items-center justify-center gap-3 py-3 rounded-xl border transition-all shadow-md ${isManualMode
+                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
+                            : (isDarkMode ? 'bg-slate-900 border-slate-800 text-indigo-400 hover:bg-slate-800' : 'bg-slate-50 border-slate-200 text-indigo-600 hover:bg-slate-100')}`}
+                    >
+                        <div className={`w-2 h-2 rounded-full ${isManualMode ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]'}`} />
+                        <span className="text-[11px] font-black uppercase tracking-[0.1em]">
+                            {isManualMode ? 'Manual Advance Mode' : 'Auto Advance Mode'}
+                        </span>
                     </button>
                 </div>
 
