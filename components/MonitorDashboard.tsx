@@ -89,13 +89,13 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({ program, act
                             <div className="aspect-video bg-slate-100 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 relative group-hover:border-indigo-500/30 transition-colors">
                                 <div className="w-full h-full" style={{ overflow: 'hidden' }}>
                                     <iframe
-                                        src={`${opt.path}&mode=thumbnail`}
+                                        src={`${opt.path}${opt.path.includes('?') ? '&' : '?'}mode=thumbnail`}
                                         className="pointer-events-none opacity-80"
                                         title={opt.title}
                                         style={{
-                                            width: '1280px',
-                                            height: '720px',
-                                            transform: 'scale(0.25)',
+                                            width: '1920px',
+                                            height: '1080px',
+                                            transform: 'scale(0.1666)',
                                             transformOrigin: 'top left',
                                             border: 'none'
                                         }}

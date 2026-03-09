@@ -4,14 +4,15 @@ import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Program, Organization } from '../../types';
 import { AlertCircle, RefreshCw } from 'lucide-react';
+import { useUIStore } from '../../store/uiStore';
 import StageDisplay from '../StageDisplay';
 
 const StageWrapper: React.FC = () => {
     const [searchParams] = useSearchParams();
     const programId = searchParams.get('id');
 
-    const [isDarkMode, setIsDarkMode] = useState(true);
-    const toggleTheme = () => setIsDarkMode(prev => !prev);
+    const isDarkMode = useUIStore((state) => state.isDarkMode);
+    const toggleTheme = useUIStore((state) => state.toggleTheme);
 
     const specificProgram = useQuery(
         api.programs.getProgramById,
@@ -62,7 +63,7 @@ const StageWrapper: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-black flex flex-col items-center justify-center">
+            <div className={`min-h-screen ${isDarkMode ? 'bg-black' : 'bg-slate-50'} flex flex-col items-center justify-center transition-colors duration-500`}>
                 <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
                 <p className="text-slate-500 font-medium tracking-[0.3em] uppercase text-[10px]">Syncing Stage Pulse...</p>
             </div>
@@ -105,8 +106,8 @@ const StageWrapper: React.FC = () => {
 
         // If no program found (and no network error), show STANDBY
         return (
-            <div className="w-screen h-screen bg-black flex flex-col items-center justify-center p-12 text-center">
-                <h1 className="text-white text-[12vw] font-black uppercase tracking-tighter leading-none mb-8 font-sans">Stand By</h1>
+            <div className={`w-screen h-screen ${isDarkMode ? 'bg-black' : 'bg-slate-50'} flex flex-col items-center justify-center p-12 text-center transition-colors duration-500`}>
+                <h1 className={`${isDarkMode ? 'text-white' : 'text-slate-900'} text-[12vw] font-black uppercase tracking-tighter leading-none mb-8 font-sans`}>Stand By</h1>
                 <div className="w-24 h-1 bg-emerald-500/50 rounded-full animate-pulse" />
             </div>
         );
