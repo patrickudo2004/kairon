@@ -209,17 +209,29 @@ const TVView: React.FC<TVViewProps> = ({
                     </div>
 
                     <div
-                        className={`font-mono font-bold leading-none tracking-tighter tabular-nums select-none transition-colors
+                        className={`font-mono font-bold leading-none tracking-tighter tabular-nums select-none transition-all duration-700
                     ${timeLeft < 0
                                 ? 'text-rose-600 dark:text-rose-500 animate-pulse'
                                 : timeLeft < 60 && isTimerActive
                                     ? 'text-rose-500 dark:text-rose-400'
                                     : 'text-slate-900 dark:text-white'}
                 `}
-                        style={{ fontSize: 'min(35vw, 500px)' }} // Responsive massive text
+                        style={{
+                            fontSize: isVisible && !promptMessage?.isStrobe ? 'min(20vw, 300px)' : 'min(35vw, 500px)',
+                            transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-5vh)' : 'none'
+                        }}
                     >
                         {formatDuration(timeLeft)}
                     </div>
+
+                    {/* Standard Prompter Message (Non-Strobe) */}
+                    {isVisible && promptMessage && !promptMessage.isStrobe && (
+                        <div className="mt-8 animate-in slide-in-from-bottom-8 duration-700 text-center w-full px-4">
+                            <h2 className="text-4xl sm:text-6xl md:text-7xl font-black uppercase tracking-tight text-indigo-600 dark:text-indigo-400 drop-shadow-sm">
+                                {promptMessage.text}
+                            </h2>
+                        </div>
+                    )}
 
                     {/* Progress Bar - Thicker */}
                     <div className="w-full h-4 sm:h-6 bg-slate-200 dark:bg-slate-800 rounded-full mb-8 sm:mb-12 overflow-hidden shadow-xl ring-1 ring-slate-300 dark:ring-slate-700">
@@ -258,7 +270,7 @@ const TVView: React.FC<TVViewProps> = ({
                 </div>
 
                 {/* Prompter Message Overlay - High Intensity Strobe */}
-                {isVisible && promptMessage && (
+                {isVisible && promptMessage && promptMessage.isStrobe && (
                     <div
                         className="fixed inset-0 z-[100] flex items-center justify-center p-8 overflow-hidden"
                         style={{

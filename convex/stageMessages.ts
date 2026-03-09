@@ -31,6 +31,7 @@ export const sendMessage = mutation({
         programId: v.string(),
         text: v.string(),
         type: v.string(),
+        isStrobe: v.optional(v.boolean()),
         durationMs: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
@@ -40,6 +41,7 @@ export const sendMessage = mutation({
             programId: args.programId,
             text: args.text,
             type: args.type,
+            isStrobe: args.isStrobe,
             timestamp: now,
             expiresAt: now + duration,
         });

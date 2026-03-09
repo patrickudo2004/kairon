@@ -5,6 +5,7 @@ import { Id } from '../convex/_generated/dataModel';
 interface StageMessage {
     text: string;
     type: string;
+    isStrobe?: boolean;
 }
 
 /**
@@ -21,13 +22,14 @@ export const useStageMessages = (programId: string | undefined) => {
     const sendMutation = useMutation(api.stageMessages.sendMessage);
     const clearMutation = useMutation(api.stageMessages.clearMessages);
 
-    const sendStageMessage = async (text: string, type: string = 'alert', durationMs?: number) => {
+    const sendStageMessage = async (text: string, type: string = 'alert', isStrobe: boolean = false, durationMs?: number) => {
         if (!programId) return;
         try {
             await sendMutation({
                 programId,
                 text,
                 type,
+                isStrobe,
                 durationMs
             });
         } catch (err) {
