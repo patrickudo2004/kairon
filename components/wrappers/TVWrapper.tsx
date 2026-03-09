@@ -135,6 +135,7 @@ const TVWrapper: React.FC = () => {
             isDarkMode={isDarkMode}
             toggleTheme={toggleTheme}
             activeOrg={activeOrg}
+            isThumbnail={searchParams.get('mode') === 'thumbnail'}
         />
     );
 };

@@ -60,6 +60,10 @@ export const getInviteDetails = async (inviteId: string): Promise<any> => {
     return await convex.query(api.members.getInviteDetails, { inviteId: inviteId as any });
 };
 
+export const deleteOrganization = async (id: string) => {
+    return await convex.mutation(api.orgs.deleteOrganization, { id: id as any });
+};
+
 const transformOrg = (o: any): Organization => ({
     id: o._id,
     name: o.name,

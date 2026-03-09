@@ -87,12 +87,20 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({ program, act
                             <p className="text-sm text-slate-500 mb-6">{opt.description}</p>
 
                             <div className="aspect-video bg-slate-100 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 relative group-hover:border-indigo-500/30 transition-colors">
-                                <iframe
-                                    src={opt.path}
-                                    className="w-full h-full pointer-events-none opacity-80"
-                                    title={opt.title}
-                                    style={{ transform: 'scale(1)', transformOrigin: 'top left' }}
-                                />
+                                <div className="w-full h-full" style={{ overflow: 'hidden' }}>
+                                    <iframe
+                                        src={`${opt.path}&mode=thumbnail`}
+                                        className="pointer-events-none opacity-80"
+                                        title={opt.title}
+                                        style={{
+                                            width: '1280px',
+                                            height: '720px',
+                                            transform: 'scale(0.25)',
+                                            transformOrigin: 'top left',
+                                            border: 'none'
+                                        }}
+                                    />
+                                </div>
                                 <div className="absolute inset-0 bg-transparent flex items-center justify-center backdrop-blur-[1px]">
                                     <span className="bg-slate-900/80 text-white px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Live Preview</span>
                                 </div>

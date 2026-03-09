@@ -188,26 +188,29 @@ export const PublicPortal: React.FC = () => {
 
     const remainingSeconds = currentSlot ? (currentSlot.durationMinutes * 60) - derivedSecondsElapsed : 0;
     const isTimerActive = program.isTimerActive ?? false;
+    const isThumbnail = new URLSearchParams(window.location.search).get('mode') === 'thumbnail';
 
     return (
-        <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'} transition-colors pb-24`}>
+        <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'} transition-colors ${!isThumbnail ? 'pb-24' : ''}`}>
             {/* Minimal Header */}
-            <header className="bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 transition-all">
-                <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">K</div>
-                        <span className="font-bold text-slate-900 dark:text-white tracking-tight">Kairon</span>
+            {!isThumbnail && (
+                <header className="bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 transition-all">
+                    <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">K</div>
+                            <span className="font-bold text-slate-900 dark:text-white tracking-tight">Kairon</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={toggleTheme}
+                                className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-colors"
+                            >
+                                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                            </button>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={toggleTheme}
-                            className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-colors"
-                        >
-                            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-                        </button>
-                    </div>
-                </div>
-            </header>
+                </header>
+            )}
 
             {/* Floating Status Bar */}
             <div className={`fixed top-16 left-0 right-0 z-40 transition-all duration-500 transform ${isScrolled && isTimerActive ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
@@ -366,18 +369,20 @@ export const PublicPortal: React.FC = () => {
                 </div>
 
                 {/* Footer */}
-                <footer className="mt-20 pt-12 border-t border-slate-200 dark:border-slate-800 text-center">
-                    <p className="text-slate-400 dark:text-slate-600 text-xs font-bold uppercase tracking-widest mb-4">
-                        Powered by Kairon
-                    </p>
-                    <Link
-                        to="/"
-                        className="inline-flex items-center gap-2 px-8 py-4 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-2xl font-black hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-slate-900 transition-all shadow-xl hover:shadow-2xl border border-slate-200 dark:border-slate-800"
-                    >
-                        Try Kairon for your event
-                        <ExternalLink size={18} />
-                    </Link>
-                </footer>
+                {!isThumbnail && (
+                    <footer className="mt-20 pt-12 border-t border-slate-200 dark:border-slate-800 text-center">
+                        <p className="text-slate-400 dark:text-slate-600 text-xs font-bold uppercase tracking-widest mb-4">
+                            Powered by Kairon
+                        </p>
+                        <Link
+                            to="/"
+                            className="inline-flex items-center gap-2 px-8 py-4 bg-white dark:bg-slate-950 text-slate-900 dark:text-white rounded-2xl font-black hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-slate-900 transition-all shadow-xl hover:shadow-2xl border border-slate-200 dark:border-slate-800"
+                        >
+                            Try Kairon for your event
+                            <ExternalLink size={18} />
+                        </Link>
+                    </footer>
+                )}
             </main>
 
             {/* Hold Message Overlay */}

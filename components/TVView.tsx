@@ -14,6 +14,7 @@ interface TVViewProps {
     isDarkMode?: boolean;
     toggleTheme?: () => void;
     activeOrg?: Organization | null;
+    isThumbnail?: boolean;
 }
 
 const TVView: React.FC<TVViewProps> = ({
@@ -23,7 +24,8 @@ const TVView: React.FC<TVViewProps> = ({
     secondsElapsed,
     isDarkMode = true, // Default to dark if not provided
     toggleTheme,
-    activeOrg
+    activeOrg,
+    isThumbnail = false
 }) => {
     const [isFullscreen, setIsFullscreen] = useState(false);
     const { promptMessage } = useStageMessages(program.id);
@@ -150,31 +152,33 @@ const TVView: React.FC<TVViewProps> = ({
         <div className="w-screen h-screen bg-white dark:bg-black text-slate-900 dark:text-white overflow-hidden flex flex-col relative transition-colors duration-300">
 
             {/* Controls Container */}
-            <div className="absolute top-4 right-4 z-50 flex items-center gap-2 opacity-20 hover:opacity-100 transition-opacity p-4 rounded-xl">
-                {toggleTheme && (
+            {!isThumbnail && (
+                <div className="absolute top-4 right-4 z-50 flex items-center gap-2 opacity-20 hover:opacity-100 transition-opacity p-4 rounded-xl">
+                    {toggleTheme && (
+                        <button
+                            onClick={toggleTheme}
+                            className="p-3 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 transition-colors shadow-lg"
+                            title="Toggle Theme"
+                        >
+                            {isDarkMode ? <Sun size={24} /> : <Moon size={24} />}
+                        </button>
+                    )}
                     <button
-                        onClick={toggleTheme}
+                        onClick={toggleFullscreen}
                         className="p-3 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 transition-colors shadow-lg"
-                        title="Toggle Theme"
+                        title="Toggle Fullscreen"
                     >
-                        {isDarkMode ? <Sun size={24} /> : <Moon size={24} />}
+                        {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
                     </button>
-                )}
-                <button
-                    onClick={toggleFullscreen}
-                    className="p-3 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 transition-colors shadow-lg"
-                    title="Toggle Fullscreen"
-                >
-                    {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
-                </button>
-            </div>
+                </div>
+            )}
 
             {/* Main Content Area - Centered Vertical Flex */}
             <div className="flex-1 flex flex-col items-center justify-center px-8 sm:px-16 w-full max-w-[95vw] mx-auto">
 
                 {/* Top Meta: Event Title & Slot Title */}
                 <div className="text-center mb-4 sm:mb-8 w-full flex flex-col items-center">
-                    {activeOrg?.logoUrl && (
+                    {activeOrg?.logoUrl && !isThumbnail && (
                         <img
                             src={activeOrg.logoUrl}
                             alt={activeOrg.name}
@@ -229,20 +233,22 @@ const TVView: React.FC<TVViewProps> = ({
                 </div>
 
                 {/* Footer: Up Next */}
-                <div className="text-center pb-8 sm:pb-16 min-h-[100px]">
-                    {nextSlot ? (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                            <span className="text-2xl sm:text-3xl text-slate-400 dark:text-slate-500 uppercase font-bold tracking-widest mr-4">Up Next:</span>
-                            <span className="text-3xl sm:text-4xl md:text-5xl text-slate-700 dark:text-white font-medium">
-                                {nextSlot.title}
-                            </span>
-                        </div>
-                    ) : (
-                        <div className="text-3xl text-slate-400 dark:text-slate-600 font-medium">
-                            End of Program
-                        </div>
-                    )}
-                </div>
+                {!isThumbnail && (
+                    <div className="text-center pb-8 sm:pb-16 min-h-[100px]">
+                        {nextSlot ? (
+                            <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                                <span className="text-2xl sm:text-3xl text-slate-400 dark:text-slate-500 uppercase font-bold tracking-widest mr-4">Up Next:</span>
+                                <span className="text-3xl sm:text-4xl md:text-5xl text-slate-700 dark:text-white font-medium">
+                                    {nextSlot.title}
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="text-3xl text-slate-400 dark:text-slate-600 font-medium">
+                                End of Program
+                            </div>
+                        )}
+                    </div>
+                )}
 
             </div>
 

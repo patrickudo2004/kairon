@@ -64,6 +64,19 @@ export const deleteProgram = async (id: string): Promise<void> => {
     await convex.mutation(api.programs.deleteProgram, { id: id as any });
 };
 
+export const migratePrograms = async (targetOrganizationId: string, programIds: string[]) => {
+    return await convex.mutation(api.programs.migratePrograms, {
+        targetOrganizationId: targetOrganizationId as any,
+        programIds: programIds as any[]
+    });
+};
+
+export const deleteAllProgramsInOrg = async (organizationId: string) => {
+    return await convex.mutation(api.programs.deleteAllProgramsInOrg, {
+        organizationId: organizationId as any
+    });
+};
+
 export const updateTimerState = async (programId: string, state: {
     currentSlotIndex: number;
     isTimerActive: boolean;

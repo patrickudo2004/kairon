@@ -121,6 +121,7 @@ const StageWrapper: React.FC = () => {
             activeOrg={activeOrg}
             isDarkMode={isDarkMode}
             toggleTheme={toggleTheme}
+            isThumbnail={searchParams.get('mode') === 'thumbnail'}
         />
     );
 };
