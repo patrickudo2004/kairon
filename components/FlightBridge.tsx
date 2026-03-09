@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipForward, SkipBack, Clock, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Clock, ChevronDown, ChevronUp, AlertCircle, Sun, Moon } from 'lucide-react';
 import { Program, Slot } from '../types';
 import { formatDuration } from '../utils/time';
 
@@ -8,6 +8,8 @@ interface FlightBridgeProps {
     currentSlotIndex: number;
     isTimerActive: boolean;
     secondsElapsed: number;
+    isDarkMode: boolean;
+    onToggleTheme: () => void;
     onToggleTimer: () => void;
     onToggleHold: () => void;
     onNext: () => void;
@@ -21,6 +23,8 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
     currentSlotIndex,
     isTimerActive,
     secondsElapsed,
+    isDarkMode,
+    onToggleTheme,
     onToggleTimer,
     onToggleHold,
     onNext,
@@ -71,27 +75,35 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
     if (!currentSlot) return null;
 
     return (
-        <div className="flex flex-col h-full bg-slate-950 text-white font-sans overflow-hidden border-l-4 border-indigo-600 shadow-2xl">
+        <div className={`flex flex-col h-full ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-white text-slate-900'} font-sans overflow-hidden border-l-4 border-indigo-600 shadow-2xl transition-colors duration-300`}>
             {/* Minimal Header */}
-            <div className="px-4 py-2 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+            <div className={`px-4 py-2 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50'} flex justify-between items-center`}>
                 <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full bg-indigo-500 animate-pulse" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Flight Bridge</span>
+                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Flight Bridge</span>
                 </div>
-                <div className="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-bold">
-                    {program.status.toUpperCase()}
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={onToggleTheme}
+                        className={`p-1.5 rounded-lg ${isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'} transition-colors`}
+                    >
+                        {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
+                    </button>
+                    <div className="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-bold">
+                        {program.status.toUpperCase()}
+                    </div>
                 </div>
             </div>
 
             {/* Timer Core */}
             <div className="p-6 flex flex-col items-center">
-                <div className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1 truncate max-w-full">
+                <div className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'} text-[10px] font-bold uppercase tracking-widest mb-1 truncate max-w-full`}>
                     {currentSlot.title}
                 </div>
-                <div className={`text-6xl font-mono font-black tabular-nums leading-none tracking-tighter transition-colors ${isOvertime ? 'text-rose-500 animate-pulse' : 'text-white'}`}>
+                <div className={`text-6xl font-mono font-black tabular-nums leading-none tracking-tighter transition-colors ${isOvertime ? 'text-rose-500 animate-pulse' : (isDarkMode ? 'text-white' : 'text-indigo-600')}`}>
                     {formatDuration(timeLeft)}
                 </div>
-                <div className="text-[10px] text-slate-500 mt-2 font-medium">
+                <div className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} mt-2 font-medium`}>
                     {currentSlot.speaker}
                 </div>
             </div>
@@ -102,7 +114,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                     <button
                         onClick={onPrev}
                         disabled={currentSlotIndex === 0}
-                        className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all disabled:opacity-20"
+                        className={`p-3 ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-100 hover:bg-slate-200'} rounded-xl transition-all disabled:opacity-20`}
                     >
                         <SkipBack size={20} />
                     </button>
@@ -116,7 +128,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
 
                     <button
                         onClick={onNext}
-                        className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all"
+                        className={`p-3 ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-100 hover:bg-slate-200'} rounded-xl transition-all`}
                     >
                         <SkipForward size={20} />
                     </button>
@@ -124,15 +136,15 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
 
                 {/* Sub-controls: Nudge & Hold */}
                 <div className="grid grid-cols-4 gap-2 mb-4">
-                    <button onClick={() => onNudge(-1)} className="flex flex-col items-center justify-center py-2 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800">
+                    <button onClick={() => onNudge(-1)} className={`flex flex-col items-center justify-center py-2 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800' : 'bg-slate-50 hover:bg-slate-100 border-slate-200'} rounded-xl border`}>
                         <span className="text-xs font-bold">-1m</span>
                     </button>
-                    <button onClick={() => onNudge(1)} className="flex flex-col items-center justify-center py-2 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800">
+                    <button onClick={() => onNudge(1)} className={`flex flex-col items-center justify-center py-2 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800' : 'bg-slate-50 hover:bg-slate-100 border-slate-200'} rounded-xl border`}>
                         <span className="text-xs font-bold">+1m</span>
                     </button>
                     <button
                         onClick={onToggleHold}
-                        className={`flex flex-col items-center justify-center py-2 rounded-xl border transition-all ${program.isOnHold ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-800 text-amber-500 hover:bg-slate-800'}`}
+                        className={`flex flex-col items-center justify-center py-2 rounded-xl border transition-all ${program.isOnHold ? 'bg-amber-600 border-amber-500 text-white' : (isDarkMode ? 'bg-slate-900 border-slate-800 text-amber-500 hover:bg-slate-800' : 'bg-slate-50 border-slate-200 text-amber-600 hover:bg-slate-100')}`}
                     >
                         <Clock size={16} />
                         <span className="text-[8px] font-bold mt-1 uppercase">Hold</span>
@@ -159,7 +171,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                 {/* Expansion Toggle */}
                 <button
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className="w-full flex items-center justify-between px-3 py-2 bg-slate-900/80 hover:bg-slate-800 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-400 group transition-colors"
+                    className={`w-full flex items-center justify-between px-3 py-2 ${isDarkMode ? 'bg-slate-900/80 hover:bg-slate-800 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'} rounded-lg text-[10px] font-bold uppercase tracking-wider group transition-colors`}
                 >
                     <div className="flex items-center gap-2">
                         <ChevronDown className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} size={14} />
@@ -174,18 +186,18 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                 <div className="space-y-2">
                     {remainingSlots.length > 0 ? (
                         remainingSlots.map((slot, idx) => (
-                            <div key={slot.id} className="p-3 bg-slate-900/40 border border-slate-800 rounded-xl flex justify-between items-center group hover:border-slate-700 transition-colors">
+                            <div key={slot.id} className={`p-3 ${isDarkMode ? 'bg-slate-900/40 border-slate-800 hover:border-slate-700' : 'bg-slate-50 border-slate-100 hover:border-slate-200'} border rounded-xl flex justify-between items-center group transition-colors`}>
                                 <div className="min-w-0 pr-4">
-                                    <div className="text-[10px] font-bold text-white truncate group-hover:text-indigo-400 transition-colors">{slot.title}</div>
-                                    <div className="text-[8px] text-slate-500 mt-0.5 uppercase tracking-widest">{slot.speaker}</div>
+                                    <div className={`text-[10px] font-bold ${isDarkMode ? 'text-white group-hover:text-indigo-400' : 'text-slate-900 group-hover:text-indigo-600'} transition-colors truncate`}>{slot.title}</div>
+                                    <div className={`text-[8px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} mt-0.5 uppercase tracking-widest`}>{slot.speaker}</div>
                                 </div>
-                                <div className="shrink-0 text-[10px] font-mono font-bold text-slate-400 bg-slate-800 px-2 py-1 rounded">
+                                <div className={`shrink-0 text-[10px] font-mono font-bold ${isDarkMode ? 'text-slate-400 bg-slate-800' : 'text-slate-500 bg-slate-200/50'} px-2 py-1 rounded`}>
                                     {slot.durationMinutes}m
                                 </div>
                             </div>
                         ))
                     ) : (
-                        <div className="py-8 text-center text-slate-600 text-[10px] italic">
+                        <div className={`py-8 text-center ${isDarkMode ? 'text-slate-600' : 'text-slate-400'} text-[10px] italic`}>
                             End of Program
                         </div>
                     )}

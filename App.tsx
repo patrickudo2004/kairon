@@ -1642,6 +1642,8 @@ const AppContent: React.FC = () => {
           currentSlotIndex={currentSlotIndex}
           isTimerActive={isTimerActive}
           secondsElapsed={secondsElapsed}
+          isDarkMode={isDarkMode}
+          onToggleTheme={toggleTheme}
           onToggleTimer={handleToggleTimer}
           onToggleHold={handleToggleHold}
           onNext={handleNext}
