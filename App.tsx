@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams, Navigate, useParams } from 'react-router-dom';
-import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus } from 'lucide-react';
+import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus, ExternalLink } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Services
@@ -17,6 +18,10 @@ import { rebalanceSchedule } from './services/geminiService';
 import { useUIStore } from './store/uiStore';
 import { useStageMessages } from './hooks/useStageMessages';
 import { useWakeLock } from './hooks/useWakeLock';
+import { useFlightBridge } from './hooks/useFlightBridge';
+
+// Components
+import { FlightBridge } from './components/FlightBridge';
 
 // Components
 import LiveTimer from './components/LiveTimer';
@@ -140,6 +145,7 @@ const AppContent: React.FC = () => {
   // --- Auth & Org State ---
   // Use real Convex Auth hooks
   const { isAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
+  const { pipWindow, isSupported: isFlightBridgeSupported, openFlightBridge } = useFlightBridge();
   const { signOut } = useAuthActions();
   const convexUser = useConvexQuery(
     api.authQueries.getCurrentUser,
@@ -1462,6 +1468,8 @@ const AppContent: React.FC = () => {
                   <MonitorDashboard
                     program={program}
                     activeOrg={activeOrg}
+                    onLaunchFlightBridge={() => openFlightBridge()}
+                    isFlightBridgeSupported={isFlightBridgeSupported}
                   />
                 } />
 
@@ -1626,6 +1634,23 @@ const AppContent: React.FC = () => {
         onConfirm={confirmDialog.onConfirm}
         onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
       />
+
+      {/* Flight Bridge Portal */}
+      {pipWindow && createPortal(
+        <FlightBridge
+          program={program}
+          currentSlotIndex={currentSlotIndex}
+          isTimerActive={isTimerActive}
+          secondsElapsed={secondsElapsed}
+          onToggleTimer={handleToggleTimer}
+          onToggleHold={handleToggleHold}
+          onNext={handleNext}
+          onPrev={handlePrev}
+          onNudge={handleNudge}
+          onEndEvent={handleEndEvent}
+        />,
+        pipWindow.document.body
+      )}
     </div>
   );
 };

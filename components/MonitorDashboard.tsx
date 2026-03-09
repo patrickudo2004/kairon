@@ -6,9 +6,16 @@ import { useStageMessages } from '../hooks/useStageMessages';
 interface MonitorDashboardProps {
     program: Program;
     activeOrg: Organization | null;
+    onLaunchFlightBridge: () => void;
+    isFlightBridgeSupported: boolean;
 }
 
-export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({ program, activeOrg }) => {
+export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
+    program,
+    activeOrg,
+    onLaunchFlightBridge,
+    isFlightBridgeSupported
+}) => {
     const { sendStageMessage, clearStageMessage } = useStageMessages(program.id);
     const [customMessage, setCustomMessage] = useState('');
     const [isStrobe, setIsStrobe] = useState(false);
@@ -59,11 +66,21 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({ program, act
     return (
         <div className="flex flex-col gap-8 animate-in fade-in duration-500">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Display & Messaging</h1>
                     <p className="text-slate-500 font-medium">Manage your secondary monitors and send instant cues to the stage.</p>
                 </div>
+
+                {isFlightBridgeSupported && (
+                    <button
+                        onClick={onLaunchFlightBridge}
+                        className="flex items-center gap-3 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-95 group shrink-0"
+                    >
+                        <ExternalLink size={18} className="group-hover:rotate-12 transition-transform" />
+                        Launch Flight Bridge
+                    </button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
