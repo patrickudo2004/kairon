@@ -123,7 +123,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                 <div
                     className={`font-mono font-black tabular-nums leading-none tracking-[-0.08em] transition-colors ${isOvertime ? 'text-rose-500 animate-pulse' : (isDarkMode ? 'text-white' : 'text-slate-900')}`}
                     style={{
-                        fontSize: 'min(220px, 50vh)',
+                        fontSize: 'min(100px, 25vw)', // Balanced "sweet spot" for -MM:SS
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
