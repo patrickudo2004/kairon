@@ -500,8 +500,8 @@ const AppContent: React.FC = () => {
         if (fetchedProgram.isTimerActive !== undefined && !isTransitioning) {
           const isLive = fetchedProgram.status === 'live';
 
-          // SANITY CHECK: If not live OR the start timestamp is "stale" (e.g., from yesterday), timer MUST be inactive
-          const isStale = isLive && fetchedProgram.timerStartTimestamp && (Date.now() - fetchedProgram.timerStartTimestamp > 12 * 60 * 60 * 1000);
+          // SANITY CHECK: If not live OR the start timestamp is "stale" (e.g., from more than 4 hours ago), timer MUST be inactive
+          const isStale = isLive && fetchedProgram.timerStartTimestamp && (Date.now() - fetchedProgram.timerStartTimestamp > 4 * 60 * 60 * 1000);
 
           const targetIsActive = (isLive && !isStale) ? (fetchedProgram.isTimerActive ?? false) : false;
           const targetStartTs = (isLive && !isStale) ? (fetchedProgram.timerStartTimestamp ?? null) : null;
@@ -737,9 +737,8 @@ const AppContent: React.FC = () => {
     if (liveProgramId !== newProgram.id) {
       setCurrentSlotIndex(0);
       setSecondsElapsed(0);
-      if (!isTimerActive) {
-        setTimerStartTimestamp(null);
-      }
+      setIsTimerActive(false);
+      setTimerStartTimestamp(null);
     }
 
     // Clear persisted state for safety when explicitly switching/loading
