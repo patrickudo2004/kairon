@@ -13,6 +13,7 @@ interface StageDisplayProps {
     activeOrg?: Organization | null;
     isDarkMode?: boolean;
     toggleTheme?: () => void;
+    isThumbnail?: boolean;
 }
 
 const StageDisplay: React.FC<StageDisplayProps> = ({
@@ -22,7 +23,8 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     currentSlotIndex,
     activeOrg,
     isDarkMode = true,
-    toggleTheme
+    toggleTheme,
+    isThumbnail = false
 }) => {
     useWakeLock(true);
     const { promptMessage } = useStageMessages(program.id);
@@ -99,7 +101,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                 }`} />
 
             {/* Logo Overlay */}
-            {activeOrg?.logoUrl && (
+            {activeOrg?.logoUrl && !isThumbnail && (
                 <div className="absolute top-8 right-8 w-32 h-32 opacity-20 pointer-events-none">
                     <img src={activeOrg.logoUrl} alt={activeOrg.name} className="w-full h-full object-contain grayscale" />
                 </div>
@@ -127,25 +129,27 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
             </div>
 
             {/* Production Cues Overlay */}
-            <div className="absolute top-[25vh] left-12 right-12 flex flex-col items-center gap-6 z-[50] pointer-events-none">
-                {currentSlot.productionNotes && (
-                    <div className={`${isDarkMode ? 'bg-amber-600/10 border-amber-500/20' : 'bg-amber-50 border-amber-200'} border-2 rounded-2xl p-8 backdrop-blur-md max-w-4xl w-full text-center`}>
-                        <span className="text-xl font-bold uppercase tracking-[0.3em] text-amber-500 block mb-3">Staff Cue</span>
-                        <p className={`text-4xl md:text-5xl font-black ${isDarkMode ? 'text-amber-100' : 'text-amber-900'} uppercase leading-tight`}>
-                            {currentSlot.productionNotes}
-                        </p>
-                    </div>
-                )}
+            {!isThumbnail && (
+                <div className="absolute top-[25vh] left-12 right-12 flex flex-col items-center gap-6 z-[50] pointer-events-none">
+                    {currentSlot.productionNotes && (
+                        <div className={`${isDarkMode ? 'bg-amber-600/10 border-amber-500/20' : 'bg-amber-50 border-amber-200'} border-2 rounded-2xl p-8 backdrop-blur-md max-w-4xl w-full text-center`}>
+                            <span className="text-xl font-bold uppercase tracking-[0.3em] text-amber-500 block mb-3">Staff Cue</span>
+                            <p className={`text-4xl md:text-5xl font-black ${isDarkMode ? 'text-amber-100' : 'text-amber-900'} uppercase leading-tight`}>
+                                {currentSlot.productionNotes}
+                            </p>
+                        </div>
+                    )}
 
-                {program.slots[currentSlotIndex + 1] && (
-                    <div className={`${isDarkMode ? 'bg-slate-900/40 border-slate-700/30' : 'bg-slate-100 border-slate-200'} border rounded-xl p-4 backdrop-blur-sm max-w-2xl w-full text-center opacity-60`}>
-                        <span className={`text-sm font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-400'} block mb-1`}>Up Next Cue</span>
-                        <p className={`text-xl font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'} uppercase truncate`}>
-                            {program.slots[currentSlotIndex + 1].productionNotes || 'No notes'}
-                        </p>
-                    </div>
-                )}
-            </div>
+                    {program.slots[currentSlotIndex + 1] && (
+                        <div className={`${isDarkMode ? 'bg-slate-900/40 border-slate-700/30' : 'bg-slate-100 border-slate-200'} border rounded-xl p-4 backdrop-blur-sm max-w-2xl w-full text-center opacity-60`}>
+                            <span className={`text-sm font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-400'} block mb-1`}>Up Next Cue</span>
+                            <p className={`text-xl font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'} uppercase truncate`}>
+                                {program.slots[currentSlotIndex + 1].productionNotes || 'No notes'}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Prompter Overlay - High Intensity Strobe */}
             {isVisible && promptMessage && (

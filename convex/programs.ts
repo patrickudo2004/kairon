@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 export const getPrograms = query({
     args: { organizationId: v.optional(v.id("organizations")) },
@@ -190,5 +191,53 @@ export const updateTimerState = mutation({
     },
     handler: async (ctx, args) => {
         await ctx.db.patch(args.id, args.timerState);
+    },
+});
+
+export const migratePrograms = mutation({
+    args: {
+        targetOrganizationId: v.id("organizations"),
+        programIds: v.array(v.id("programs")),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        // Verify user is at least an admin/manager in the target org
+        const membership = await ctx.db
+            .query("members")
+            .withIndex("by_org", (q) => q.eq("organizationId", args.targetOrganizationId))
+            .filter((q) => q.eq(q.field("userId"), userId))
+            .unique();
+
+        if (membership?.role !== "admin" && membership?.role !== "manager") {
+            throw new Error("Insufficient permissions in the target organization.");
+        }
+
+        for (const id of args.programIds) {
+            await ctx.db.patch(id, { organizationId: args.targetOrganizationId });
+        }
+    },
+});
+
+export const deleteAllProgramsInOrg = mutation({
+    args: { organizationId: v.id("organizations") },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized");
+
+        const org = await ctx.db.get(args.organizationId);
+        if (org?.createdBy !== userId) {
+            throw new Error("Only the owner can purge all programs.");
+        }
+
+        const programs = await ctx.db
+            .query("programs")
+            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+            .collect();
+
+        for (const prog of programs) {
+            await ctx.db.delete(prog._id);
+        }
     },
 });
