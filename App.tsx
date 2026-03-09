@@ -165,12 +165,20 @@ const AppContent: React.FC = () => {
   const userRole = myMembership?.role; // 'admin', 'manager', 'operator'
 
   // Permissions Logic
-  // 1. URL-based overrides (viewer mode)
+  // 1. URL-based overrides
   const isUrlReadOnly = mode === 'viewer' || mode === 'ReadOnly';
 
-  // 2. Data-driven permissions
-  const isReadOnly = (isUrlReadOnly) || (isAuthenticated && userRole === 'operator') || (!isAuthenticated && !isUrlReadOnly);
-  const isCoEditor = (mode === 'coeditor') || (userRole === 'admin') || (userRole === 'manager');
+  // 2. Auth Resolution (Wait for Convex to settle)
+  const isAuthResolved = !isConvexAuthLoading && (!isAuthenticated || (isAuthenticated && myMembership !== undefined));
+
+  // 3. Permission Evaluation
+  const isReadOnly = !isAuthResolved ? false : (
+    (isAuthenticated && (userRole === 'admin' || userRole === 'manager'))
+      ? (mode === 'viewer') // Admins/Managers only read-only if they explicitly chose it
+      : (isUrlReadOnly || (isAuthenticated && userRole === 'operator') || !isAuthenticated)
+  );
+
+  const isCoEditor = (userRole === 'admin') || (userRole === 'manager') || (mode === 'coeditor');
 
   const isReadOnlyRef = React.useRef(isReadOnly);
   useEffect(() => {
@@ -1123,7 +1131,8 @@ const AppContent: React.FC = () => {
   // Redirect if ReadOnly user tries to access restricted routes
 
   useEffect(() => {
-    if (isReadOnly) {
+    // Only enforce redirect gating once auth has resolved
+    if (isAuthResolved && isReadOnly) {
       const restrictedPaths = ['/', '/editor', '/calendar'];
       if (restrictedPaths.includes(location.pathname)) {
         // Preserve import data if redirecting
@@ -1131,7 +1140,7 @@ const AppContent: React.FC = () => {
         navigate(`/live?mode=viewer${importParam}`, { replace: true });
       }
     }
-  }, [isReadOnly, location.pathname, navigate, importData]);
+  }, [isAuthResolved, isReadOnly, location.pathname, navigate, importData]);
 
   // --- Public Path Logic ---
   const isPublicPath =
