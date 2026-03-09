@@ -49,7 +49,7 @@ export const useFlightBridge = () => {
 
             // Set title and body class for theme support
             pip.document.title = 'Kairon Flight Bridge';
-            pip.document.body.className = document.body.className + ' bg-slate-950';
+            pip.document.body.className = document.body.className;
 
             pip.addEventListener('pagehide', () => {
                 setPipWindow(null);
