@@ -82,7 +82,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     }
 
     return (
-        <div className={`w-screen h-screen ${isDarkMode ? 'bg-black text-white' : 'bg-white text-slate-900'} overflow-hidden flex flex-col items-center justify-center font-sans select-none transition-colors duration-500`}>
+        <div className={`w-screen h-screen ${isDarkMode ? 'dark bg-black text-white' : 'bg-white text-slate-900'} overflow-hidden flex flex-col items-center justify-center font-sans select-none transition-colors duration-500`}>
 
             {/* Controls Overlay */}
             <div className="absolute bottom-8 right-8 z-[120] flex items-center gap-4 opacity-10 hover:opacity-100 transition-opacity">

@@ -149,7 +149,7 @@ const TVView: React.FC<TVViewProps> = ({
     }
 
     return (
-        <div className="w-screen h-screen bg-white dark:bg-black text-slate-900 dark:text-white overflow-hidden flex flex-col relative transition-colors duration-300">
+        <div className={`w-screen h-screen bg-white dark:bg-black text-slate-900 dark:text-white overflow-hidden flex flex-col relative transition-colors duration-300 ${isDarkMode ? 'dark' : ''}`}>
 
             {/* Controls Container */}
             {!isThumbnail && (
