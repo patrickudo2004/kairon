@@ -1,6 +1,7 @@
 import React from 'react';
-import { Building, ChevronDown, Check, Plus } from 'lucide-react';
+import { Building, ChevronDown, Check, Plus, Settings } from 'lucide-react';
 import { Organization } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 interface WorkspaceSwitcherProps {
     organizations: Organization[];
@@ -19,6 +20,7 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
 }) => {
     const [isOpen, setIsOpen] = React.useState(false);
     const dropdownRef = React.useRef<HTMLDivElement>(null);
+    const navigate = useNavigate();
 
     React.useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -62,34 +64,50 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
 
                     <div className="max-h-[300px] overflow-y-auto p-1">
                         {organizations?.map((org) => (
-                            <button
+                            <div
                                 key={org.id}
-                                onClick={() => {
-                                    onSelect(org.id);
-                                    setIsOpen(false);
-                                }}
-                                className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group"
+                                className="w-full flex items-center justify-between p-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group"
                             >
-                                <div className="flex items-center gap-3">
+                                <div
+                                    onClick={() => {
+                                        onSelect(org.id);
+                                        setIsOpen(false);
+                                    }}
+                                    className="flex-1 flex items-center gap-3 p-1 cursor-pointer"
+                                >
                                     <div
-                                        className="w-8 h-8 rounded-md flex items-center justify-center text-white font-bold text-xs"
+                                        className="w-8 h-8 rounded-md flex items-center justify-center text-white font-bold text-xs shrink-0"
                                         style={{ backgroundColor: org.brandColor || '#e11d48' }}
                                     >
                                         {org.name.substring(0, 1).toUpperCase()}
                                     </div>
-                                    <div className="text-left">
-                                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 line-clamp-1">
+                                    <div className="text-left min-w-0">
+                                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">
                                             {org.name}
                                         </p>
-                                        <p className="text-[10px] text-slate-400 line-clamp-1">
+                                        <p className="text-[10px] text-slate-400 truncate">
                                             {org.subscriptionStatus === 'pro' ? 'Pro Plan' : 'Free Workspace'}
                                         </p>
                                     </div>
                                 </div>
-                                {org.id === activeOrg?.id && (
-                                    <Check size={16} className="text-rose-600 dark:text-rose-400" />
-                                )}
-                            </button>
+                                <div className="flex items-center gap-1.5 px-2">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onSelect(org.id);
+                                            navigate('/admin');
+                                            setIsOpen(false);
+                                        }}
+                                        className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                                        title="Workspace Settings"
+                                    >
+                                        <Settings size={14} />
+                                    </button>
+                                    {org.id === activeOrg?.id && (
+                                        <Check size={16} className="text-rose-600 dark:text-rose-400 shrink-0" />
+                                    )}
+                                </div>
+                            </div>
                         ))}
                     </div>
 

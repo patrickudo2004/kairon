@@ -16,9 +16,14 @@ import {
     Trash2,
     AlertCircle,
     Link as LinkIcon,
-    Check
+    Check,
+    AlertTriangle,
+    ArrowRight,
+    Loader
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { deleteOrganization } from '../services/orgService';
+import { migratePrograms, deleteAllProgramsInOrg, getPrograms } from '../services/programService';
 
 interface AdminPanelProps {
     organization: Organization;
@@ -29,7 +34,7 @@ interface AdminPanelProps {
 export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUserRole, currentUser }) => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<'branding' | 'members'>('branding');
+    const [activeTab, setActiveTab] = useState<'branding' | 'members' | 'danger'>('branding');
 
     // Branding State
     const [logoUrl, setLogoUrl] = useState(organization.logoUrl || '');
@@ -41,6 +46,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
     const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'operator'>('operator');
     const [inviteError, setInviteError] = useState('');
     const [copiedId, setCopiedId] = useState<string | null>(null);
+
+    // Deletion State
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deletionSlug, setDeletionSlug] = useState('');
+    const [deleteOption, setDeleteOption] = useState<'purge' | 'migrate'>('purge');
+    const [targetOrgId, setTargetOrgId] = useState('');
+    const [holdProgress, setHoldProgress] = useState(0);
+    const [isHolding, setIsHolding] = useState(false);
 
     const copyInviteLink = (inviteId: string) => {
         const url = `${window.location.origin}/?inviteId=${inviteId}`;
@@ -113,7 +126,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
         }
     });
 
+    const deleteOrgMutation = useMutation({
+        mutationFn: async () => {
+            if (deleteOption === 'migrate') {
+                if (!targetOrgId) throw new Error("Please select a target organization.");
+                const programs = await getPrograms(organization.id);
+                const programIds = programs.map(p => p.id);
+                if (programIds.length > 0) {
+                    await migratePrograms(targetOrgId, programIds);
+                }
+            } else {
+                await deleteAllProgramsInOrg(organization.id);
+            }
+            return await deleteOrganization(organization.id);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['organizations'] });
+            queryClient.invalidateQueries({ queryKey: ['my-organizations'] });
+            navigate('/');
+        },
+        onError: (error) => {
+            alert(error instanceof Error ? error.message : "Deletion failed");
+        }
+    });
+
     const isPro = organization.subscriptionStatus === 'pro';
+
+    // Get candidate organizations for migration
+    const { data: allOrgs = [] } = useQuery<Organization[]>({
+        queryKey: ['my-organizations', currentUser?.id],
+        queryFn: () => import('../services/orgService').then(s => s.getMyOrganizations(currentUser!.id)),
+        enabled: !!currentUser?.id && activeTab === 'danger' && deleteOption === 'migrate'
+    });
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8">
@@ -160,6 +204,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                             <Users size={18} />
                             <span className="font-semibold">Team Members</span>
                         </button>
+                        {currentUserRole === 'admin' && (
+                            <button
+                                onClick={() => setActiveTab('danger')}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'danger'
+                                    ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20'
+                                    : 'text-rose-500 hover:bg-rose-500/10'
+                                    }`}
+                            >
+                                <AlertTriangle size={18} />
+                                <span className="font-semibold">Danger Zone</span>
+                            </button>
+                        )}
                     </div>
 
                     {/* Main Content */}
@@ -466,9 +522,187 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                 )}
                             </div>
                         )}
+                        {(activeTab === 'danger' && currentUserRole === 'admin') && (
+                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-rose-200 dark:border-rose-900/30 shadow-sm relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-8 opacity-5">
+                                    <AlertTriangle size={120} className="text-rose-500" />
+                                </div>
+                                <div className="relative z-10">
+                                    <div className="mb-8">
+                                        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Danger Zone</h2>
+                                        <p className="text-slate-500 text-sm italic">Critical workspace management actions. **Use with extreme caution.**</p>
+                                    </div>
+
+                                    <div className="bg-rose-500/5 border border-rose-500/20 rounded-2xl p-6 mb-8">
+                                        <h4 className="font-bold text-rose-600 dark:text-rose-400 mb-2 flex items-center gap-2">
+                                            <AlertTriangle size={18} /> Delete Workspace
+                                        </h4>
+                                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                                            Permanently delete this organization, all its data, and member associations. This action is irreversible.
+                                        </p>
+                                        <button
+                                            onClick={() => setIsDeleting(true)}
+                                            className="px-6 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-500 transition-colors shadow-lg shadow-rose-600/20 flex items-center gap-2"
+                                        >
+                                            <Trash2 size={18} /> Delete Organization
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-50">
+                                        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                                            <h5 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-widest mb-1">Transfer Ownership</h5>
+                                            <p className="text-[10px] text-slate-500">Coming soon in Kairon Pro.</p>
+                                        </div>
+                                        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                                            <h5 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-widest mb-1">Export Data</h5>
+                                            <p className="text-[10px] text-slate-500">Coming soon in Kairon Pro.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
+
+            {/* Deletion Overlay */}
+            {isDeleting && (
+                <div
+                    className="fixed inset-0 z-[110] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4"
+                    onClick={() => {
+                        if (!deleteOrgMutation.isPending) {
+                            setIsDeleting(false);
+                            setDeletionSlug('');
+                            setHoldProgress(0);
+                        }
+                    }}
+                >
+                    <div
+                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2.5rem] p-10 w-full max-w-xl shadow-2xl animate-in fade-in zoom-in-95 duration-300"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex flex-col items-center text-center mb-10">
+                            <div className="w-20 h-20 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                                <AlertTriangle size={40} />
+                            </div>
+                            <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Serious Action Required</h2>
+                            <p className="text-slate-500 max-w-sm">
+                                You are about to delete <span className="font-black text-slate-900 dark:text-white">"{organization.name}"</span>. This cannot be undone.
+                            </p>
+                        </div>
+
+                        <div className="space-y-8">
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    onClick={() => setDeleteOption('purge')}
+                                    className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center text-center gap-3 ${deleteOption === 'purge'
+                                        ? 'bg-rose-500/10 border-rose-500 shadow-lg shadow-rose-500/10'
+                                        : 'bg-slate-50 dark:bg-slate-800/50 border-transparent hover:border-slate-200 dark:hover:border-slate-700'}`}
+                                >
+                                    <Trash2 size={24} className={deleteOption === 'purge' ? 'text-rose-500' : 'text-slate-400'} />
+                                    <div>
+                                        <div className={`font-bold ${deleteOption === 'purge' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}`}>Purge All</div>
+                                        <div className="text-[10px] text-slate-400 uppercase font-black">Wipe Events</div>
+                                    </div>
+                                </button>
+                                <button
+                                    onClick={() => setDeleteOption('migrate')}
+                                    className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center text-center gap-3 ${deleteOption === 'migrate'
+                                        ? 'bg-indigo-500/10 border-indigo-500 shadow-lg shadow-indigo-500/10'
+                                        : 'bg-slate-50 dark:bg-slate-800/50 border-transparent hover:border-slate-200 dark:hover:border-slate-700'}`}
+                                >
+                                    <ArrowRight size={24} className={deleteOption === 'migrate' ? 'text-indigo-500' : 'text-slate-400'} />
+                                    <div>
+                                        <div className={`font-bold ${deleteOption === 'migrate' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-300'}`}>Migrate</div>
+                                        <div className="text-[10px] text-slate-400 uppercase font-black">Move Events</div>
+                                    </div>
+                                </button>
+                            </div>
+
+                            {deleteOption === 'migrate' && (
+                                <div className="space-y-4 animate-in slide-in-from-top-4 duration-300">
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Select Target Workspace</label>
+                                    <select
+                                        value={targetOrgId}
+                                        onChange={(e) => setTargetOrgId(e.target.value)}
+                                        className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 text-slate-900 dark:text-white font-bold appearance-none cursor-pointer"
+                                    >
+                                        <option value="">-- Choose target workspace --</option>
+                                        {allOrgs?.filter(o => o.id !== organization.id).map(o => (
+                                            <option key={o.id} value={o.id}>{o.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
+                                    Type <span className="text-slate-900 dark:text-white px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-mono">{organization.slug}</span> to confirm
+                                </label>
+                                <input
+                                    type="text"
+                                    value={deletionSlug}
+                                    onChange={(e) => setDeletionSlug(e.target.value)}
+                                    placeholder="your-org-slug"
+                                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 text-slate-900 dark:text-white font-mono font-bold outline-none focus:border-rose-500 transition-colors text-center"
+                                />
+                            </div>
+
+                            <div className="pt-4">
+                                <button
+                                    onMouseDown={() => {
+                                        if (deletionSlug === organization.slug && !deleteOrgMutation.isPending) {
+                                            setIsHolding(true);
+                                            const start = Date.now();
+                                            const interval = setInterval(() => {
+                                                const elapsed = Date.now() - start;
+                                                const progress = Math.min(100, (elapsed / 3000) * 100);
+                                                setHoldProgress(progress);
+                                                if (progress >= 100) {
+                                                    clearInterval(interval);
+                                                    setIsHolding(false);
+                                                    deleteOrgMutation.mutate();
+                                                }
+                                            }, 20);
+                                            (window as any)._holdInterval = interval;
+                                        }
+                                    }}
+                                    onMouseUp={() => {
+                                        setIsHolding(false);
+                                        clearInterval((window as any)._holdInterval);
+                                        if (holdProgress < 100) setHoldProgress(0);
+                                    }}
+                                    onMouseLeave={() => {
+                                        setIsHolding(false);
+                                        clearInterval((window as any)._holdInterval);
+                                        if (holdProgress < 100) setHoldProgress(0);
+                                    }}
+                                    disabled={deletionSlug !== organization.slug || deleteOrgMutation.isPending}
+                                    className={`relative w-full py-5 rounded-2xl font-black uppercase tracking-widest overflow-hidden transition-all active:scale-95 disabled:opacity-30 disabled:grayscale ${deletionSlug === organization.slug ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'
+                                        }`}
+                                >
+                                    <div
+                                        className="absolute left-0 top-0 bottom-0 bg-rose-950/30 transition-all ease-linear"
+                                        style={{ width: `${holdProgress}%` }}
+                                    />
+                                    <span className="relative z-10 flex items-center justify-center gap-3">
+                                        {deleteOrgMutation.isPending ? (
+                                            <Loader className="animate-spin" size={20} />
+                                        ) : holdProgress > 0 ? (
+                                            `HOLDING... ${Math.floor(holdProgress)}%`
+                                        ) : (
+                                            <>HOLD TO DELETE WORKSPACE</>
+                                        )}
+                                    </span>
+                                </button>
+                                <p className="text-center text-[10px] text-slate-500 mt-4 font-bold uppercase tracking-widest">
+                                    Ownership will be verified.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
