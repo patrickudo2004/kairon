@@ -143,7 +143,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['organizations'] });
             queryClient.invalidateQueries({ queryKey: ['my-organizations'] });
-            navigate('/');
+
+            // Find another organization to redirect to
+            const otherOrg = allOrgs.find(o => o.id !== organization.id);
+            if (otherOrg) {
+                // Navigate to home and let the switcher pick the new active org
+                window.location.href = '/';
+            } else {
+                navigate('/');
+            }
         },
         onError: (error) => {
             alert(error instanceof Error ? error.message : "Deletion failed");
@@ -152,12 +160,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
 
     const isPro = organization.subscriptionStatus === 'pro';
 
-    // Get candidate organizations for migration
+    // Get candidate organizations for migration and deletion logic
     const { data: allOrgs = [] } = useQuery<Organization[]>({
         queryKey: ['my-organizations', currentUser?.id],
         queryFn: () => import('../services/orgService').then(s => s.getMyOrganizations(currentUser!.id)),
-        enabled: !!currentUser?.id && activeTab === 'danger' && deleteOption === 'migrate'
+        enabled: !!currentUser?.id && activeTab === 'danger'
     });
+
+    const isOnlyOrg = allOrgs.length <= 1;
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8">
@@ -677,8 +687,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                         clearInterval((window as any)._holdInterval);
                                         if (holdProgress < 100) setHoldProgress(0);
                                     }}
-                                    disabled={deletionSlug !== organization.slug || deleteOrgMutation.isPending}
-                                    className={`relative w-full py-5 rounded-2xl font-black uppercase tracking-widest overflow-hidden transition-all active:scale-95 disabled:opacity-30 disabled:grayscale ${deletionSlug === organization.slug ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'
+                                    disabled={deletionSlug !== organization.slug || deleteOrgMutation.isPending || isOnlyOrg}
+                                    className={`relative w-full py-5 rounded-2xl font-black uppercase tracking-widest overflow-hidden transition-all active:scale-95 disabled:opacity-30 disabled:grayscale ${deletionSlug === organization.slug && !isOnlyOrg ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'
                                         }`}
                                 >
                                     <div
@@ -686,7 +696,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                         style={{ width: `${holdProgress}%` }}
                                     />
                                     <span className="relative z-10 flex items-center justify-center gap-3">
-                                        {deleteOrgMutation.isPending ? (
+                                        {isOnlyOrg ? (
+                                            <>CANNOT DELETE LAST WORKSPACE</>
+                                        ) : deleteOrgMutation.isPending ? (
                                             <Loader className="animate-spin" size={20} />
                                         ) : holdProgress > 0 ? (
                                             `HOLDING... ${Math.floor(holdProgress)}%`

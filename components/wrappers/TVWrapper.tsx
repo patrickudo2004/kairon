@@ -5,14 +5,15 @@ import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import { Program, Organization } from '../../types';
 import { Bell, Wifi, WifiOff, AlertCircle, RefreshCw } from 'lucide-react';
+import { useUIStore } from '../../store/uiStore';
 import TVView from '../TVView';
 
 const TVWrapper: React.FC = () => {
     const [searchParams] = useSearchParams();
     const programId = searchParams.get('id');
 
-    const [isDarkMode, setIsDarkMode] = useState(true);
-    const toggleTheme = () => setIsDarkMode(prev => !prev);
+    const isDarkMode = useUIStore((state) => state.isDarkMode);
+    const toggleTheme = useUIStore((state) => state.toggleTheme);
 
     const specificProgram = useQuery(
         api.programs.getProgramById,
@@ -65,7 +66,7 @@ const TVWrapper: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-black flex flex-col items-center justify-center">
+            <div className={`min-h-screen ${isDarkMode ? 'bg-black' : 'bg-slate-50'} flex flex-col items-center justify-center transition-colors duration-500`}>
                 <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
                 <p className="text-slate-500 font-medium uppercase tracking-[0.2em] text-[10px]">Connecting to Kairon Pulse...</p>
             </div>
@@ -107,14 +108,14 @@ const TVWrapper: React.FC = () => {
 
         // Default TV Fallback: Welcome/Thank You Screen
         return (
-            <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-12 text-center font-sans">
+            <div className={`min-h-screen ${isDarkMode ? 'bg-slate-950' : 'bg-slate-50'} flex flex-col items-center justify-center p-12 text-center font-sans transition-colors duration-500`}>
                 <div className="w-24 h-24 bg-indigo-600/20 rounded-full flex items-center justify-center mb-12 animate-in zoom-in duration-1000">
                     <div className="w-12 h-12 bg-indigo-500 rounded-xl rotate-45" />
                 </div>
-                <h1 className="text-white text-6xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-6">
+                <h1 className={`${isDarkMode ? 'text-white' : 'text-slate-900'} text-6xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-6`}>
                     Stay Tuned
                 </h1>
-                <p className="text-slate-400 text-2xl font-medium max-w-2xl mx-auto leading-relaxed border-t border-slate-800 pt-8 mt-4">
+                <p className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'} text-2xl font-medium max-w-2xl mx-auto leading-relaxed border-t ${isDarkMode ? 'border-slate-800' : 'border-slate-200'} pt-8 mt-4`}>
                     The next session will begin shortly. Thank you for your patience.
                 </p>
                 <div className="mt-20 flex gap-2">
