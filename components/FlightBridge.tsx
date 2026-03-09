@@ -77,7 +77,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
     return (
         <div className={`flex flex-col h-full ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-white text-slate-900'} font-sans overflow-hidden border-l-4 border-indigo-600 shadow-2xl transition-colors duration-300`}>
             {/* Minimal Header */}
-            <div className={`px-4 py-2 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50'} flex justify-between items-center`}>
+            <div className={`px-4 py-2 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50'} flex justify-between items-center z-10 shrink-0`}>
                 <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full bg-indigo-500 animate-pulse" />
                     <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Flight Bridge</span>
@@ -95,59 +95,67 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                 </div>
             </div>
 
-            {/* Timer Core */}
-            <div className="p-6 flex flex-col items-center">
-                <div className={`${isDarkMode ? 'text-slate-400' : 'text-slate-500'} text-[10px] font-bold uppercase tracking-widest mb-1 truncate max-w-full`}>
-                    {currentSlot.title}
+            {/* Timer Hub - Massive Focus */}
+            <div className="flex-1 flex flex-col items-center justify-center p-4 relative min-h-0">
+                {/* Slot Title - Marquee if long */}
+                <div className="w-full mb-2 overflow-hidden relative fade-mask">
+                    <div className={`marquee-container ${currentSlot.title.length > 25 ? 'animate-marquee' : 'text-center'}`}>
+                        <div className={`${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'} text-[14px] font-black uppercase tracking-tight whitespace-nowrap px-4`}>
+                            {currentSlot.title}
+                        </div>
+                    </div>
                 </div>
-                <div className={`text-6xl font-mono font-black tabular-nums leading-none tracking-tighter transition-colors ${isOvertime ? 'text-rose-500 animate-pulse' : (isDarkMode ? 'text-white' : 'text-indigo-600')}`}>
+
+                {/* THE TITANIC TIMER */}
+                <div className={`text-[120px] font-mono font-black tabular-nums leading-none tracking-[-0.08em] transition-colors ${isOvertime ? 'text-rose-500 animate-pulse' : (isDarkMode ? 'text-white' : 'text-slate-900')}`}>
                     {formatDuration(timeLeft)}
                 </div>
-                <div className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} mt-2 font-medium`}>
-                    {currentSlot.speaker}
+
+                <div className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-500'} font-bold uppercase tracking-[0.1em] mt-2`}>
+                    {currentSlot.speaker || 'No Speaker'}
                 </div>
             </div>
 
-            {/* Primary Controls */}
-            <div className="px-4 pb-4">
-                <div className="flex justify-center items-center gap-4 mb-4">
+            {/* Tactical Controls */}
+            <div className="px-4 pb-4 shrink-0 z-10">
+                <div className="flex justify-center items-center gap-6 mb-4">
                     <button
                         onClick={onPrev}
                         disabled={currentSlotIndex === 0}
-                        className={`p-3 ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-100 hover:bg-slate-200'} rounded-xl transition-all disabled:opacity-20`}
+                        className={`p-4 ${isDarkMode ? 'bg-slate-900 border-slate-800 hover:bg-slate-800' : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700'} rounded-2xl border transition-all disabled:opacity-20`}
                     >
-                        <SkipBack size={20} />
+                        <SkipBack size={24} fill="currentColor" stroke="none" />
                     </button>
 
                     <button
                         onClick={onToggleTimer}
-                        className={`w-16 h-16 rounded-full flex items-center justify-center transition-all bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-500/20 active:scale-95`}
+                        className={`w-20 h-20 rounded-full flex items-center justify-center transition-all bg-indigo-600 hover:bg-indigo-500 shadow-xl shadow-indigo-500/20 active:scale-90`}
                     >
-                        {isTimerActive ? <Pause size={32} fill="currentColor" /> : <Play size={32} className="ml-1" fill="currentColor" />}
+                        {isTimerActive ? <Pause size={40} fill="currentColor" /> : <Play size={40} className="ml-1" fill="currentColor" />}
                     </button>
 
                     <button
                         onClick={onNext}
-                        className={`p-3 ${isDarkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-100 hover:bg-slate-200'} rounded-xl transition-all`}
+                        className={`p-4 ${isDarkMode ? 'bg-slate-900 border-slate-800 hover:bg-slate-800' : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700'} rounded-2xl border transition-all`}
                     >
-                        <SkipForward size={20} />
+                        <SkipForward size={24} fill="currentColor" stroke="none" />
                     </button>
                 </div>
 
                 {/* Sub-controls: Nudge & Hold */}
                 <div className="grid grid-cols-4 gap-2 mb-4">
-                    <button onClick={() => onNudge(-1)} className={`flex flex-col items-center justify-center py-2 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800' : 'bg-slate-50 hover:bg-slate-100 border-slate-200'} rounded-xl border`}>
-                        <span className="text-xs font-bold">-1m</span>
+                    <button onClick={() => onNudge(-1)} className={`flex flex-col items-center justify-center py-2 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'} rounded-xl border`}>
+                        <span className="text-[10px] font-black">-1M</span>
                     </button>
-                    <button onClick={() => onNudge(1)} className={`flex flex-col items-center justify-center py-2 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800' : 'bg-slate-50 hover:bg-slate-100 border-slate-200'} rounded-xl border`}>
-                        <span className="text-xs font-bold">+1m</span>
+                    <button onClick={() => onNudge(1)} className={`flex flex-col items-center justify-center py-2 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'} rounded-xl border`}>
+                        <span className="text-[10px] font-black">+1M</span>
                     </button>
                     <button
                         onClick={onToggleHold}
-                        className={`flex flex-col items-center justify-center py-2 rounded-xl border transition-all ${program.isOnHold ? 'bg-amber-600 border-amber-500 text-white' : (isDarkMode ? 'bg-slate-900 border-slate-800 text-amber-500 hover:bg-slate-800' : 'bg-slate-50 border-slate-200 text-amber-600 hover:bg-slate-100')}`}
+                        className={`flex flex-col items-center justify-center py-2 rounded-xl border transition-all ${program.isOnHold ? 'bg-amber-600 border-amber-500 text-white' : (isDarkMode ? 'bg-slate-900 border-slate-800 text-amber-500 hover:bg-slate-800' : 'bg-slate-50 border-slate-200 text-amber-700 hover:bg-slate-100')}`}
                     >
                         <Clock size={16} />
-                        <span className="text-[8px] font-bold mt-1 uppercase">Hold</span>
+                        <span className="text-[8px] font-black mt-1 uppercase">Hold</span>
                     </button>
 
                     {/* Hold to End Button */}
@@ -157,27 +165,27 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                         onMouseLeave={handleHoldEnd}
                         onTouchStart={handleHoldStart}
                         onTouchEnd={handleHoldEnd}
-                        className="relative flex flex-col items-center justify-center py-2 bg-rose-900/40 hover:bg-rose-900/60 rounded-xl border border-rose-500/30 text-rose-500 overflow-hidden select-none active:scale-[0.98] transition-transform"
+                        className={`relative flex flex-col items-center justify-center py-2 rounded-xl border select-none active:scale-[0.98] transition-all ${isDarkMode ? 'bg-rose-900/20 border-rose-500/20 text-rose-500 hover:bg-rose-900/40' : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'}`}
                     >
                         <div
-                            className="absolute bottom-0 left-0 h-full bg-rose-600/30 transition-all duration-75 pointer-events-none"
+                            className="absolute bottom-0 left-0 h-full bg-rose-600/20 transition-all duration-75 pointer-events-none"
                             style={{ width: `${holdToEndProgress}%` }}
                         />
                         <AlertCircle size={16} />
-                        <span className="text-[8px] font-bold mt-1 uppercase">End Event</span>
+                        <span className="text-[8px] font-black mt-1 uppercase text-center">End Event</span>
                     </button>
                 </div>
 
                 {/* Expansion Toggle */}
                 <button
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className={`w-full flex items-center justify-between px-3 py-2 ${isDarkMode ? 'bg-slate-900/80 hover:bg-slate-800 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-500'} rounded-lg text-[10px] font-bold uppercase tracking-wider group transition-colors`}
+                    className={`w-full flex items-center justify-between px-3 py-2 ${isDarkMode ? 'bg-slate-900/80 hover:bg-slate-800 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'} rounded-lg text-[10px] font-bold uppercase tracking-wider group transition-colors`}
                 >
                     <div className="flex items-center gap-2">
                         <ChevronDown className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} size={14} />
                         Remaining Schedule
                     </div>
-                    <span>{remainingSlots.length} items</span>
+                    <span>{remainingSlots.length} Items</span>
                 </button>
             </div>
 
@@ -191,8 +199,8 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                                     <div className={`text-[10px] font-bold ${isDarkMode ? 'text-white group-hover:text-indigo-400' : 'text-slate-900 group-hover:text-indigo-600'} transition-colors truncate`}>{slot.title}</div>
                                     <div className={`text-[8px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} mt-0.5 uppercase tracking-widest`}>{slot.speaker}</div>
                                 </div>
-                                <div className={`shrink-0 text-[10px] font-mono font-bold ${isDarkMode ? 'text-slate-400 bg-slate-800' : 'text-slate-500 bg-slate-200/50'} px-2 py-1 rounded`}>
-                                    {slot.durationMinutes}m
+                                <div className={`shrink-0 text-[10px] font-mono font-bold ${isDarkMode ? 'text-slate-400 bg-slate-800' : 'text-slate-600 bg-slate-200'} px-2 py-1 rounded`}>
+                                    {slot.durationMinutes}M
                                 </div>
                             </div>
                         ))
@@ -207,10 +215,25 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
             {/* Style Injection Helper */}
             <style dangerouslySetInnerHTML={{
                 __html: `
+                @keyframes marquee {
+                    0% { transform: translateX(10%); }
+                    100% { transform: translateX(-100%); }
+                }
+                .animate-marquee {
+                    display: inline-block;
+                    animation: marquee 10s linear infinite;
+                    padding-left: 20px;
+                }
+                .marquee-container {
+                    width: 100%;
+                }
+                .fade-mask {
+                    -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+                    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+                }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 10px; opacity: 0.3; }
                 * { box-sizing: border-box; }
             ` }} />
         </div>
