@@ -130,16 +130,16 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
 
                 <div className={`relative z-10 font-mono font-black tabular-nums leading-none tracking-tighter transition-all duration-700 ${timeLeft < 0 ? 'text-rose-500' : timeLeft < 60 ? (isDarkMode ? 'text-amber-500' : 'text-amber-600') : (isDarkMode ? 'text-white' : 'text-black')
                     }`} style={{
-                        fontSize: isVisible && !promptMessage?.isStrobe ? '20vw' : '35vw',
-                        transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-10vh)' : 'none'
+                        fontSize: isVisible && !promptMessage?.isStrobe ? '10vw' : '35vw',
+                        transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-15vh)' : 'none'
                     }}>
                     {formatDuration(timeLeft)}
                 </div>
 
                 {/* Standard Prompter Message (Non-Strobe) */}
                 {isVisible && promptMessage && !promptMessage.isStrobe && (
-                    <div className="absolute top-[60vh] left-0 right-0 z-20 flex justify-center px-12 animate-in slide-in-from-bottom-12 duration-700">
-                        <h2 className="text-6xl md:text-8xl font-black uppercase text-center text-emerald-500 tracking-tighter leading-tight drop-shadow-xl">
+                    <div className="absolute top-[50vh] left-0 right-0 z-20 flex justify-center px-12 animate-in slide-in-from-bottom-12 duration-700">
+                        <h2 className="text-[10vw] md:text-[12vw] font-black uppercase text-center text-emerald-500 tracking-tighter leading-none drop-shadow-2xl">
                             {promptMessage.text}
                         </h2>
                     </div>

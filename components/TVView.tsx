@@ -217,8 +217,8 @@ const TVView: React.FC<TVViewProps> = ({
                                     : 'text-slate-900 dark:text-white'}
                 `}
                         style={{
-                            fontSize: isVisible && !promptMessage?.isStrobe ? 'min(20vw, 300px)' : 'min(35vw, 500px)',
-                            transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-5vh)' : 'none'
+                            fontSize: isVisible && !promptMessage?.isStrobe ? 'min(10vw, 200px)' : 'min(35vw, 500px)',
+                            transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-10vh)' : 'none'
                         }}
                     >
                         {formatDuration(timeLeft)}
@@ -226,8 +226,8 @@ const TVView: React.FC<TVViewProps> = ({
 
                     {/* Standard Prompter Message (Non-Strobe) */}
                     {isVisible && promptMessage && !promptMessage.isStrobe && (
-                        <div className="mt-8 animate-in slide-in-from-bottom-8 duration-700 text-center w-full px-4">
-                            <h2 className="text-4xl sm:text-6xl md:text-7xl font-black uppercase tracking-tight text-indigo-600 dark:text-indigo-400 drop-shadow-sm">
+                        <div className="mt-4 animate-in slide-in-from-bottom-8 duration-700 text-center w-full px-4">
+                            <h2 className="text-5xl sm:text-7xl md:text-9xl font-black uppercase tracking-tight text-indigo-600 dark:text-indigo-400 drop-shadow-md leading-none">
                                 {promptMessage.text}
                             </h2>
                         </div>
