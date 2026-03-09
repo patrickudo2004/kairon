@@ -66,6 +66,19 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
         setHoldToEndProgress(0);
     };
 
+    const containerRef = useRef<HTMLDivElement>(null);
+    const marqueeRef = useRef<HTMLDivElement>(null);
+
+    // Sync theme to PiP window body
+    useEffect(() => {
+        if (!containerRef.current) return;
+        // Ensure the body of the window this component is rendered in has the correct theme class
+        const localDoc = containerRef.current.ownerDocument;
+        localDoc.body.classList.toggle('dark', isDarkMode);
+        localDoc.body.style.backgroundColor = isDarkMode ? '#020617' : '#ffffff'; // slate-950 or white
+        localDoc.body.style.color = isDarkMode ? '#ffffff' : '#0f172a'; // white or slate-900
+    }, [isDarkMode]);
+
     useEffect(() => {
         return () => {
             if (holdTimerRef.current) clearInterval(holdTimerRef.current);
@@ -75,7 +88,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
     if (!currentSlot) return null;
 
     return (
-        <div className={`flex flex-col h-full ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-white text-slate-900'} font-sans overflow-hidden border-l-4 border-indigo-600 shadow-2xl transition-colors duration-300`}>
+        <div ref={containerRef} className={`flex flex-col h-full ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-white text-slate-900'} font-sans overflow-hidden border-l-4 border-indigo-600 shadow-2xl transition-colors duration-300`}>
             {/* Minimal Header */}
             <div className={`px-4 py-2 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50'} flex justify-between items-center z-10 shrink-0`}>
                 <div className="flex items-center gap-2">
@@ -106,12 +119,21 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                     </div>
                 </div>
 
-                {/* THE TITANIC TIMER */}
-                <div className={`text-[120px] font-mono font-black tabular-nums leading-none tracking-[-0.08em] transition-colors ${isOvertime ? 'text-rose-500 animate-pulse' : (isDarkMode ? 'text-white' : 'text-slate-900')}`}>
+                {/* THE TITANIC TIMER - Using inline styles for guaranteed scaling */}
+                <div
+                    className={`font-mono font-black tabular-nums leading-none tracking-[-0.08em] transition-colors ${isOvertime ? 'text-rose-500 animate-pulse' : (isDarkMode ? 'text-white' : 'text-slate-900')}`}
+                    style={{
+                        fontSize: 'min(220px, 50vh)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 900
+                    }}
+                >
                     {formatDuration(timeLeft)}
                 </div>
 
-                <div className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-500'} font-bold uppercase tracking-[0.1em] mt-2`}>
+                <div className={`text-[12px] ${isDarkMode ? 'text-slate-300' : 'text-slate-600'} font-black uppercase tracking-[0.2em] mt-2`}>
                     {currentSlot.speaker || 'No Speaker'}
                 </div>
             </div>
