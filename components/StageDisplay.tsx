@@ -128,10 +128,22 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                     </div>
                 </div>
 
-                <div className={`relative z-10 font-mono font-black tabular-nums leading-none tracking-tighter ${timeLeft < 0 ? 'text-rose-500' : timeLeft < 60 ? (isDarkMode ? 'text-amber-500' : 'text-amber-600') : (isDarkMode ? 'text-white' : 'text-black')
-                    }`} style={{ fontSize: '35vw' }}>
+                <div className={`relative z-10 font-mono font-black tabular-nums leading-none tracking-tighter transition-all duration-700 ${timeLeft < 0 ? 'text-rose-500' : timeLeft < 60 ? (isDarkMode ? 'text-amber-500' : 'text-amber-600') : (isDarkMode ? 'text-white' : 'text-black')
+                    }`} style={{
+                        fontSize: isVisible && !promptMessage?.isStrobe ? '20vw' : '35vw',
+                        transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-10vh)' : 'none'
+                    }}>
                     {formatDuration(timeLeft)}
                 </div>
+
+                {/* Standard Prompter Message (Non-Strobe) */}
+                {isVisible && promptMessage && !promptMessage.isStrobe && (
+                    <div className="absolute top-[60vh] left-0 right-0 z-20 flex justify-center px-12 animate-in slide-in-from-bottom-12 duration-700">
+                        <h2 className="text-6xl md:text-8xl font-black uppercase text-center text-emerald-500 tracking-tighter leading-tight drop-shadow-xl">
+                            {promptMessage.text}
+                        </h2>
+                    </div>
+                )}
 
                 {/* Production Cues Overlay */}
                 {!isThumbnail && (
@@ -157,7 +169,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                 )}
 
                 {/* Prompter Overlay - High Intensity Strobe */}
-                {isVisible && promptMessage && (
+                {isVisible && promptMessage && promptMessage.isStrobe && (
                     <div
                         className="fixed inset-0 z-[100] flex items-center justify-center p-12 overflow-hidden"
                         style={{

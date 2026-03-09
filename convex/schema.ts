@@ -75,6 +75,7 @@ export default defineSchema({
         programId: v.string(),
         text: v.string(),
         type: v.string(), // 'alert', 'info', etc.
+        isStrobe: v.optional(v.boolean()),
         timestamp: v.number(),
         expiresAt: v.number(), // For auto-cleanup or hiding
     }).index("by_program_latest", ["programId", "timestamp"]),

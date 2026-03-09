@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Program, Organization } from '../types';
-import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2 } from 'lucide-react';
+import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap } from 'lucide-react';
 import { useStageMessages } from '../hooks/useStageMessages';
 
 interface MonitorDashboardProps {
@@ -11,6 +11,7 @@ interface MonitorDashboardProps {
 export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({ program, activeOrg }) => {
     const { sendStageMessage, clearStageMessage } = useStageMessages(program.id);
     const [customMessage, setCustomMessage] = useState('');
+    const [isStrobe, setIsStrobe] = useState(false);
 
     const quickCues = [
         { label: '5 Mins Left', text: '5 MINUTES REMAINING', type: 'alert' },
@@ -21,13 +22,13 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({ program, act
     ];
 
     const handleSendQuick = (text: string, type: string) => {
-        sendStageMessage(text, type);
+        sendStageMessage(text, type, isStrobe, 10000); // 10s auto-clear
     };
 
     const handleSendCustom = (e: React.FormEvent) => {
         e.preventDefault();
         if (!customMessage.trim()) return;
-        sendStageMessage(customMessage.trim().toUpperCase(), 'alert');
+        sendStageMessage(customMessage.trim().toUpperCase(), 'alert', isStrobe, 15000); // 15s auto-clear
         setCustomMessage('');
     };
 
@@ -120,7 +121,20 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({ program, act
                         </div>
 
                         <form onSubmit={handleSendCustom} className="mb-8">
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Custom Message</label>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Custom Message</label>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsStrobe(!isStrobe)}
+                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase transition-all ${isStrobe
+                                        ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'
+                                        : 'bg-slate-800 text-slate-500 hover:text-slate-300'
+                                        }`}
+                                >
+                                    <Zap size={10} fill={isStrobe ? "currentColor" : "none"} />
+                                    Flash Mode {isStrobe ? 'ON' : 'OFF'}
+                                </button>
+                            </div>
                             <div className="flex gap-2">
                                 <input
                                     type="text"
