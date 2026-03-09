@@ -169,20 +169,20 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                 </div>
 
                 {/* Sub-controls: Row 1 - Nudges */}
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                    <button onClick={() => onNudge(-1)} className={`flex items-center justify-center gap-2 py-2.5 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'} rounded-xl border transition-colors shadow-sm`}>
+                <div className="flex gap-2 mb-2 w-full">
+                    <button onClick={() => onNudge(-1)} className={`flex-1 flex items-center justify-center gap-2 py-2.5 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'} rounded-xl border transition-colors shadow-sm`}>
                         <span className="text-[12px] font-black">-1M</span>
                     </button>
-                    <button onClick={() => onNudge(1)} className={`flex items-center justify-center gap-2 py-2.5 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'} rounded-xl border transition-colors shadow-sm`}>
+                    <button onClick={() => onNudge(1)} className={`flex-1 flex items-center justify-center gap-2 py-2.5 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'} rounded-xl border transition-colors shadow-sm`}>
                         <span className="text-[12px] font-black">+1M</span>
                     </button>
                 </div>
 
                 {/* Sub-controls: Row 2 - Hold & End */}
-                <div className="grid grid-cols-2 gap-2 mb-2">
+                <div className="flex gap-2 mb-2 w-full">
                     <button
                         onClick={onToggleHold}
-                        className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all shadow-sm ${program.isOnHold ? 'bg-amber-600 border-amber-500 text-white' : (isDarkMode ? 'bg-slate-900 border-slate-800 text-amber-500 hover:bg-slate-800' : 'bg-slate-50 border-slate-200 text-amber-600 hover:bg-slate-100')}`}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all shadow-sm ${program.isOnHold ? 'bg-amber-600 border-amber-500 text-white' : (isDarkMode ? 'bg-slate-900 border-slate-800 text-amber-500 hover:bg-slate-800' : 'bg-slate-50 border-slate-200 text-amber-600 hover:bg-slate-100')}`}
                     >
                         <Clock size={16} />
                         <span className="text-[10px] font-black uppercase">Hold</span>
@@ -194,7 +194,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                         onMouseLeave={handleHoldEnd}
                         onTouchStart={handleHoldStart}
                         onTouchEnd={handleHoldEnd}
-                        className={`relative flex items-center justify-center gap-2 py-2.5 rounded-xl border select-none active:scale-[0.98] transition-all shadow-sm overflow-hidden ${isDarkMode ? 'bg-rose-900/20 border-rose-500/20 text-rose-500 hover:bg-rose-900/40' : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'}`}
+                        className={`flex-1 relative flex items-center justify-center gap-2 py-2.5 rounded-xl border select-none active:scale-[0.98] transition-all shadow-sm overflow-hidden ${isDarkMode ? 'bg-rose-900/20 border-rose-500/20 text-rose-500 hover:bg-rose-900/40' : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'}`}
                     >
                         <div
                             className="absolute bottom-0 left-0 h-full bg-rose-600/20 transition-all duration-75 pointer-events-none"
