@@ -4,7 +4,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '../convex/_generated/api';
 import { Program } from '../types';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
-import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon, RefreshCw, Volume2, Lightbulb, Video, CheckCircle2 } from 'lucide-react';
+import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon, RefreshCw, Volume2, Lightbulb, Video, CheckCircle2, Activity } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 
 export const CrewHUD: React.FC = () => {
@@ -22,22 +22,6 @@ export const CrewHUD: React.FC = () => {
         !programData && slug ? { id: slug as any } : "skip"
     );
 
-    // Live Ticker (Forces re-render every second when timer is active)
-    useEffect(() => {
-        let interval: NodeJS.Timeout | null = null;
-        if (programData?.isTimerActive) {
-            interval = setInterval(() => {
-                setTick(t => t + 1);
-            }, 1000);
-        }
-        return () => {
-            if (interval) clearInterval(interval);
-        };
-    }, [programData?.isTimerActive]);
-
-    // Global Theme Sync (Force Dark for Tactical View)
-    const isDarkMode = true;
-
     const programRaw = programData || programByIdData;
     const acks = useQuery(api.programs.getAcknowledgements, programRaw ? { programId: (programRaw as any)._id } : "skip") || [];
     const acknowledge = useMutation(api.programs.acknowledgeCue);
@@ -46,6 +30,22 @@ export const CrewHUD: React.FC = () => {
         ...(programRaw as any),
         id: (programRaw as any)._id || (programRaw as any).id
     } as Program : null;
+
+    // Live Ticker (Forces re-render every second when timer is active)
+    useEffect(() => {
+        let interval: NodeJS.Timeout | null = null;
+        if (program?.isTimerActive) {
+            interval = setInterval(() => {
+                setTick(t => t + 1);
+            }, 1000);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [program?.isTimerActive, program?.id]);
+
+    // Global Theme Sync (Force Dark for Tactical View)
+    const isDarkMode = true;
 
     const nowTime = Date.now();
     const derivedSecondsElapsed = (program?.isTimerActive && program?.timerStartTimestamp)
@@ -142,64 +142,84 @@ export const CrewHUD: React.FC = () => {
 
                 {/* Right: Technical Cues & ACKs */}
                 <div className="col-span-12 lg:col-span-4 flex flex-col bg-slate-950">
-                    {/* Cue Box */}
-                    <div className="flex-1 p-8 space-y-6">
-                        <div className="space-y-4">
+                    <div className="flex-1 overflow-y-auto">
+                        {/* Active Cue Block */}
+                        <div className="p-6 space-y-4 border-b border-slate-800/50">
                             <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-[0.3em]">Production Cues</span>
-                                <div className="p-1 bg-amber-500/10 rounded border border-amber-500/20">
-                                    <Clock size={12} className="text-amber-500" />
-                                </div>
+                                <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em]">Active Cue</span>
+                                <Activity size={12} className="text-emerald-500" />
                             </div>
-                            <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-6 min-h-[200px]">
+                            <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-5">
                                 {currentSlot?.productionNotes ? (
-                                    <p className="text-xl text-amber-100 leading-relaxed italic font-medium">
+                                    <p className="text-lg text-emerald-100/90 leading-tight italic font-medium">
                                         "{currentSlot.productionNotes}"
                                     </p>
                                 ) : (
-                                    <p className="text-slate-700 italic">No technical cues for this slot.</p>
+                                    <p className="text-slate-700 text-sm italic">No cues for current slot.</p>
                                 )}
                             </div>
                         </div>
 
+                        {/* Next Prep Block (Option B) */}
+                        <div className="p-6 space-y-4 bg-amber-500/[0.02]">
+                            <div className="flex items-center justify-between">
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-[0.3em]">Upcoming Prep</span>
+                                    <span className="text-[9px] text-slate-600 font-bold uppercase truncate max-w-[200px]">Next: {nextSlot?.title || 'End'}</span>
+                                </div>
+                                <Clock size={12} className="text-amber-500" />
+                            </div>
+                            <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-5 relative overflow-hidden">
+                                {nextSlot?.productionNotes ? (
+                                    <p className="text-lg text-amber-100 leading-tight italic font-medium">
+                                        "{nextSlot.productionNotes}"
+                                    </p>
+                                ) : (
+                                    <p className="text-slate-700 text-sm italic">No preparation notes needed.</p>
+                                )}
+                                <div className="absolute top-0 right-0 h-1 w-12 bg-amber-500/20" />
+                            </div>
+                        </div>
+
                         {/* ACK Section */}
-                        <div className="space-y-4">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Acknowledged By</span>
-                            <div className="grid grid-cols-3 gap-3">
+                        <div className="p-6 space-y-4 border-t border-slate-800/50">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Confirm Readiness</span>
+                            <div className="grid grid-cols-3 gap-2">
                                 <button
                                     onClick={() => handleAck('sound')}
-                                    className={`flex flex-col items-center justify-center py-6 rounded-2xl border transition-all ${isAcked('sound') ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-600 hover:border-slate-600'}`}
+                                    className={`flex flex-col items-center justify-center py-4 rounded-xl border transition-all ${isAcked('sound') ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-600 hover:border-slate-600'}`}
                                 >
-                                    <Volume2 size={24} className="mb-2" />
-                                    <span className="text-[10px] font-black uppercase">Sound</span>
-                                    {isAcked('sound') && <CheckCircle2 size={12} className="mt-1" />}
+                                    <Volume2 size={20} className="mb-1" />
+                                    <span className="text-[9px] font-black uppercase">Sound</span>
+                                    {isAcked('sound') && <CheckCircle2 size={10} className="mt-1" />}
                                 </button>
                                 <button
                                     onClick={() => handleAck('lighting')}
-                                    className={`flex flex-col items-center justify-center py-6 rounded-2xl border transition-all ${isAcked('lighting') ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-600 hover:border-slate-600'}`}
+                                    className={`flex flex-col items-center justify-center py-4 rounded-xl border transition-all ${isAcked('lighting') ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-600 hover:border-slate-600'}`}
                                 >
-                                    <Lightbulb size={24} className="mb-2" />
-                                    <span className="text-[10px] font-black uppercase">Lights</span>
-                                    {isAcked('lighting') && <CheckCircle2 size={12} className="mt-1" />}
+                                    <Lightbulb size={20} className="mb-1" />
+                                    <span className="text-[9px] font-black uppercase">Lights</span>
+                                    {isAcked('lighting') && <CheckCircle2 size={10} className="mt-1" />}
                                 </button>
                                 <button
                                     onClick={() => handleAck('video')}
-                                    className={`flex flex-col items-center justify-center py-6 rounded-2xl border transition-all ${isAcked('video') ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-600 hover:border-slate-600'}`}
+                                    className={`flex flex-col items-center justify-center py-4 rounded-xl border transition-all ${isAcked('video') ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-600 hover:border-slate-600'}`}
                                 >
-                                    <Video size={24} className="mb-2" />
-                                    <span className="text-[10px] font-black uppercase">Video</span>
-                                    {isAcked('video') && <CheckCircle2 size={12} className="mt-1" />}
+                                    <Video size={20} className="mb-1" />
+                                    <span className="text-[9px] font-black uppercase">Video</span>
+                                    {isAcked('video') && <CheckCircle2 size={10} className="mt-1" />}
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Next Up (Small Footer) */}
-                    <div className="p-6 bg-slate-900 border-t border-slate-800">
-                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Next Up</div>
-                        <div className="flex items-center justify-between">
-                            <div className="font-bold text-slate-300 truncate mr-4 italic uppercase">{nextSlot?.title || 'End of Event'}</div>
-                            <div className="text-slate-500 text-xs font-mono">{nextSlot?.durationMinutes || 0}m</div>
+                    {/* Meta Footer */}
+                    <div className="p-4 bg-slate-900 border-t border-slate-800">
+                        <div className="flex items-center justify-between text-[10px] font-bold">
+                            <span className="text-slate-500 uppercase tracking-widest">Kairon HUD 2.0</span>
+                            <span className="text-slate-600 tabular-nums uppercase tracking-widest">
+                                {new Date().toLocaleDateString()}
+                            </span>
                         </div>
                     </div>
                 </div>
