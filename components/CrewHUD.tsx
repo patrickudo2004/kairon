@@ -31,13 +31,13 @@ export const CrewHUD: React.FC = () => {
         id: (programRaw as any)._id || (programRaw as any).id
     } as Program : null;
 
-    // Live Ticker (Forces re-render every second when timer is active)
+    // Live Ticker (High-Precision 200ms heartbeat to match main dashboard)
     useEffect(() => {
         let interval: NodeJS.Timeout | null = null;
         if (program?.isTimerActive) {
             interval = setInterval(() => {
                 setTick(t => t + 1);
-            }, 1000);
+            }, 200);
         }
         return () => {
             if (interval) clearInterval(interval);
@@ -48,6 +48,7 @@ export const CrewHUD: React.FC = () => {
     const isDarkMode = true;
 
     const nowTime = Date.now();
+    // Drift-Proof Calculation (Sync with App.tsx exactElapsed logic)
     const derivedSecondsElapsed = (program?.isTimerActive && program?.timerStartTimestamp)
         ? Math.max(0, Math.floor((nowTime - program.timerStartTimestamp) / 1000))
         : (program?.secondsElapsed || 0);
