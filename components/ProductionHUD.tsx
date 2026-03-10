@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Power, Timer, Plus, Minus, Wifi, WifiOff, BarChart3 } from 'lucide-react';
+import { Power, Timer, Plus, Minus, Wifi, WifiOff, BarChart3, Volume2, Lightbulb, Video } from 'lucide-react';
+import { useQuery } from 'convex/react';
+import { api } from '../convex/_generated/api';
 
 interface ProductionHUDProps {
     isTimerActive: boolean;
@@ -22,6 +24,18 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
 }) => {
     const [holdToEnd, setHoldToEnd] = useState(0);
     const [isEnding, setIsEnding] = useState(false);
+
+    const acks = useQuery(api.programs.getAcknowledgements, programId ? { programId: programId as any } : "skip") || [];
+
+    // Get current slot ID from program (this is a bit tricky since HUD only has title)
+    // Actually, we should probably pass the current slot ID to the HUD or fetch the full program.
+    // For now, let's fetch the program data to be sure.
+    const program = useQuery(api.programs.getProgramById, programId ? { id: programId as any } : "skip");
+    const currentSlot = program?.slots[program?.currentSlotIndex ?? 0];
+
+    const isAcked = (role: string) => {
+        return acks.some(a => a.slotId === currentSlot?.id && a.role === role);
+    };
 
     // Hold to end logic
     useEffect(() => {
@@ -63,6 +77,19 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                     <div className="hidden md:flex flex-col">
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Current Session</span>
                         <span className="text-sm font-bold text-white truncate max-w-[200px]">{currentSlotTitle || 'No Session'}</span>
+                    </div>
+
+                    {/* Crew Feedback */}
+                    <div className="hidden lg:flex items-center gap-3 border-l border-slate-800 pl-4 ml-2">
+                        <div className={`p-1.5 rounded-lg transition-all ${isAcked('sound') ? 'bg-emerald-500/20 text-emerald-500' : 'bg-slate-800 text-slate-600 opacity-30'}`} title="Sound ACK">
+                            <Volume2 size={14} />
+                        </div>
+                        <div className={`p-1.5 rounded-lg transition-all ${isAcked('lighting') ? 'bg-emerald-500/20 text-emerald-500' : 'bg-slate-800 text-slate-600 opacity-30'}`} title="Lighting ACK">
+                            <Lightbulb size={14} />
+                        </div>
+                        <div className={`p-1.5 rounded-lg transition-all ${isAcked('video') ? 'bg-emerald-500/20 text-emerald-500' : 'bg-slate-800 text-slate-600 opacity-30'}`} title="Video ACK">
+                            <Video size={14} />
+                        </div>
                     </div>
                 </div>
 

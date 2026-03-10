@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipForward, SkipBack, Clock, ChevronDown, ChevronUp, AlertCircle, Sun, Moon } from 'lucide-react';
 import { Program, Slot } from '../types';
 import { formatDuration } from '../utils/time';
+import { useQuery } from 'convex/react';
+import { api } from '../convex/_generated/api';
+import { Volume2, Lightbulb, Video } from 'lucide-react';
 
 interface FlightBridgeProps {
     program: Program;
@@ -40,7 +43,13 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
     const [holdToEndProgress, setHoldToEndProgress] = useState(0);
     const holdTimerRef = useRef<number | null>(null);
 
+    const acks = useQuery(api.programs.getAcknowledgements, { programId: program._id as any }) || [];
+
     const currentSlot = program.slots[currentSlotIndex];
+
+    const isAcked = (role: string) => {
+        return acks.some(a => a.slotId === currentSlot?.id && a.role === role);
+    };
     const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
     const timeLeft = durationSeconds - secondsElapsed;
     const isOvertime = timeLeft < 0;
@@ -99,6 +108,23 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                     <div className="w-4 h-4 rounded-full bg-indigo-500 animate-pulse" />
                     <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Flight Bridge</span>
                 </div>
+
+                {/* Crew ACK Feedback */}
+                <div className="flex items-center gap-3">
+                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md ${isAcked('sound') ? 'bg-emerald-500/20 text-emerald-500' : 'text-slate-500 opacity-30'}`} title="Sound ACK">
+                        <Volume2 size={12} />
+                        <span className="text-[8px] font-black uppercase">S</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md ${isAcked('lighting') ? 'bg-emerald-500/20 text-emerald-500' : 'text-slate-500 opacity-30'}`} title="Lighting ACK">
+                        <Lightbulb size={12} />
+                        <span className="text-[8px] font-black uppercase">L</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md ${isAcked('video') ? 'bg-emerald-500/20 text-emerald-500' : 'text-slate-500 opacity-30'}`} title="Video ACK">
+                        <Video size={12} />
+                        <span className="text-[8px] font-black uppercase">V</span>
+                    </div>
+                </div>
+
                 <div className="flex items-center gap-2">
                     <button
                         onClick={onToggleTheme}
