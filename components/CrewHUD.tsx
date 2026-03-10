@@ -9,10 +9,7 @@ import { useUIStore } from '../store/uiStore';
 
 export const CrewHUD: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
-    const [secondsWaiting, setSecondsWaiting] = useState(0);
-
-    // Global Theme Sync (Force Dark for Tactical View)
-    const isDarkMode = true;
+    const [tick, setTick] = useState(0);
 
     // Convex Reactive Query
     const programData = useQuery(
@@ -24,6 +21,22 @@ export const CrewHUD: React.FC = () => {
         api.programs.getProgramById,
         !programData && slug ? { id: slug as any } : "skip"
     );
+
+    // Live Ticker (Forces re-render every second when timer is active)
+    useEffect(() => {
+        let interval: NodeJS.Timeout | null = null;
+        if (programData?.isTimerActive) {
+            interval = setInterval(() => {
+                setTick(t => t + 1);
+            }, 1000);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [programData?.isTimerActive]);
+
+    // Global Theme Sync (Force Dark for Tactical View)
+    const isDarkMode = true;
 
     const programRaw = programData || programByIdData;
     const acks = useQuery(api.programs.getAcknowledgements, programRaw ? { programId: (programRaw as any)._id } : "skip") || [];
