@@ -241,3 +241,42 @@ export const deleteAllProgramsInOrg = mutation({
         }
     },
 });
+
+export const acknowledgeCue = mutation({
+    args: {
+        programId: v.id("programs"),
+        slotId: v.string(),
+        role: v.union(v.literal("sound"), v.literal("lighting"), v.literal("video")),
+    },
+    handler: async (ctx, args) => {
+        const timestamp = Date.now();
+
+        // Check if already acknowledged for this slot/role
+        const existing = await ctx.db
+            .query("acknowledgements")
+            .withIndex("by_slot", (q) => q.eq("programId", args.programId).eq("slotId", args.slotId))
+            .filter((q) => q.eq(q.field("role"), args.role))
+            .first();
+
+        if (existing) {
+            await ctx.db.patch(existing._id, { timestamp });
+        } else {
+            await ctx.db.insert("acknowledgements", {
+                programId: args.programId,
+                slotId: args.slotId,
+                role: args.role,
+                timestamp,
+            });
+        }
+    },
+});
+
+export const getAcknowledgements = query({
+    args: { programId: v.id("programs") },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("acknowledgements")
+            .withIndex("by_slot", (q) => q.eq("programId", args.programId))
+            .collect();
+    },
+});

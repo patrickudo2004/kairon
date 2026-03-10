@@ -79,4 +79,11 @@ export default defineSchema({
         timestamp: v.number(),
         expiresAt: v.number(), // For auto-cleanup or hiding
     }).index("by_program_latest", ["programId", "timestamp"]),
+
+    acknowledgements: defineTable({
+        programId: v.id("programs"),
+        slotId: v.string(),
+        role: v.union(v.literal("sound"), v.literal("lighting"), v.literal("video")),
+        timestamp: v.number(),
+    }).index("by_slot", ["programId", "slotId"]),
 });
