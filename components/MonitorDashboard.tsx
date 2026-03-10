@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Program, Organization } from '../types';
-import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap } from 'lucide-react';
+import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap, Activity } from 'lucide-react';
 import { useStageMessages } from '../hooks/useStageMessages';
 
 interface MonitorDashboardProps {
@@ -60,6 +60,13 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
             description: 'Attendee view for mobile phones.',
             path: `/p/${program.slug || program.id}`,
             color: 'bg-indigo-500'
+        },
+        {
+            title: 'Crew Tactical HUD',
+            icon: Activity,
+            description: 'Staff-only view with production cues.',
+            path: `/p/${program.slug || program.id}/crew`,
+            color: 'bg-amber-500'
         }
     ];
 
