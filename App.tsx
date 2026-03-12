@@ -191,6 +191,8 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     isReadOnlyRef.current = isReadOnly;
   }, [isReadOnly]);
+
+  const isPro = activeOrg?.subscriptionStatus === 'pro';
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [isDataHydrated, setIsDataHydrated] = useState(false);
   const [authRetryCount, setAuthRetryCount] = useState(0);
@@ -416,6 +418,20 @@ const AppContent: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
 
   const handleAiRebalance = async (currentProgram: Program) => {
+    if (!isPro) {
+      setConfirmDialog({
+        isOpen: true,
+        title: '👑 Pro Feature',
+        message: 'AI Rebalancing is a premium feature. Upgrade your workspace to unlock intelligent schedule optimization.',
+        type: 'info',
+        onConfirm: () => {
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+          setActiveTab('branding'); // Take them to where they see the Pro badge
+          setMode('admin');
+        }
+      });
+      return;
+    }
     setIsAiLoading(true);
     try {
       // Calculate how far off we are
@@ -1472,6 +1488,7 @@ const AppContent: React.FC = () => {
                     activeOrg={activeOrg}
                     onLaunchFlightBridge={() => openFlightBridge()}
                     isFlightBridgeSupported={isFlightBridgeSupported}
+                    isPro={isPro}
                   />
                 } />
 
@@ -1509,6 +1526,7 @@ const AppContent: React.FC = () => {
                     isAdminOnline={isAdminOnline}
                     isTimerActive={isTimerActive}
                     currentSlotIndex={currentSlotIndex}
+                    isPro={isPro}
                     onEndEvent={handleEndEvent}
                     onNudge={handleNudge}
                     onUpdate={(p) => {
@@ -1564,7 +1582,7 @@ const AppContent: React.FC = () => {
         )}
       </div>
 
-      <ShareDialog isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} program={program} />
+      <ShareDialog isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} program={program} isPro={isPro} />
       <ExportDialog
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}

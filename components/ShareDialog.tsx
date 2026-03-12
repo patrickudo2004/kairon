@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Program } from '../types';
-import { Share2, X, AlertTriangle, Check, Copy, QrCode, Edit3 } from 'lucide-react';
+import { Share2, X, AlertTriangle, Check, Copy, QrCode, Edit3, Crown } from 'lucide-react';
 import QRCode from 'react-qr-code';
 
 interface ShareDialogProps {
     isOpen: boolean;
     onClose: () => void;
     program: Program;
+    isPro?: boolean;
 }
 
-const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program }) => {
+const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program, isPro = false }) => {
     const [copiedType, setCopiedType] = useState<'view' | 'edit' | 'tv' | 'crew' | null>(null);
     const [qrType, setQrType] = useState<'view' | 'edit' | 'tv' | 'crew' | null>(null);
 
@@ -220,7 +221,14 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program }) =
                     {/* Crew Tactical HUD Option */}
                     <div className="pt-6 border-t border-slate-200 dark:border-slate-800">
                         <div className="flex justify-between items-center mb-2">
-                            <div className="font-semibold text-slate-900 dark:text-white">Crew Tactical HUD</div>
+                            <div className="flex items-center gap-2">
+                                <div className="font-semibold text-slate-900 dark:text-white">Crew Tactical HUD</div>
+                                {!isPro && (
+                                    <div className="bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 uppercase tracking-wider">
+                                        <Crown size={10} /> Pro
+                                    </div>
+                                )}
+                            </div>
                             <span className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-1 rounded-full font-bold uppercase tracking-wider">
                                 Staff Only
                             </span>
@@ -228,39 +236,60 @@ const ShareDialog: React.FC<ShareDialogProps> = ({ isOpen, onClose, program }) =
                         <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
                             Tactical view with production cues and real-time ACKs.
                         </p>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => copyToClipboard('crew')}
-                                className="flex-1 flex items-center justify-between bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 transition-all group"
-                            >
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                    <div className="bg-white dark:bg-slate-900 p-1.5 rounded shadow-sm">
-                                        <Share2 size={16} className="text-amber-500" />
-                                    </div>
-                                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
-                                        Copy Link
-                                    </span>
-                                </div>
-                                {copiedType === 'crew' ? <Check size={18} className="text-emerald-500" /> : <Copy size={18} className="text-slate-400 group-hover:text-amber-500" />}
-                            </button>
-                            <button
-                                onClick={() => toggleQr('crew')}
-                                className={`px-4 py-3 rounded-xl border transition-all flex items-center justify-center ${qrType === 'crew'
-                                    ? 'bg-amber-600 text-white border-amber-600'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-amber-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-amber-500'
-                                    }`}
-                                title="Toggle QR Code"
-                            >
-                                <QrCode size={20} />
-                            </button>
-                        </div>
-                        {qrType === 'crew' && (
-                            <div className="mt-4 p-4 bg-white rounded-xl border border-slate-200 shadow-inner flex flex-col items-center animate-in fade-in slide-in-from-top-2">
-                                <div className="bg-white p-2 rounded">
-                                    <QRCode value={getShareUrl('crew')} size={180} />
-                                </div>
-                                <p className="mt-2 text-xs text-slate-500 font-medium text-center">Scan to open Crew HUD</p>
+                        
+                        {!isPro ? (
+                            <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 text-center">
+                                <Crown size={24} className="mx-auto text-amber-500 mb-2 opacity-50" />
+                                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                                    Crew Tactical HUD is a premium feature.
+                                </p>
+                                <button
+                                    onClick={() => {
+                                        onClose();
+                                        window.location.href = '/admin?tab=branding';
+                                    }}
+                                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold transition-all text-sm shadow-md shadow-amber-500/20"
+                                >
+                                    Upgrade to Kairon Pro
+                                </button>
                             </div>
+                        ) : (
+                            <>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => copyToClipboard('crew')}
+                                        className="flex-1 flex items-center justify-between bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 transition-all group"
+                                    >
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className="bg-white dark:bg-slate-900 p-1.5 rounded shadow-sm">
+                                                <Share2 size={16} className="text-amber-500" />
+                                            </div>
+                                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
+                                                Copy Link
+                                            </span>
+                                        </div>
+                                        {copiedType === 'crew' ? <Check size={18} className="text-emerald-500" /> : <Copy size={18} className="text-slate-400 group-hover:text-amber-500" />}
+                                    </button>
+                                    <button
+                                        onClick={() => toggleQr('crew')}
+                                        className={`px-4 py-3 rounded-xl border transition-all flex items-center justify-center ${qrType === 'crew'
+                                            ? 'bg-amber-600 text-white border-amber-600'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-amber-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-amber-500'
+                                            }`}
+                                        title="Toggle QR Code"
+                                    >
+                                        <QrCode size={20} />
+                                    </button>
+                                </div>
+                                {qrType === 'crew' && (
+                                    <div className="mt-4 p-4 bg-white rounded-xl border border-slate-200 shadow-inner flex flex-col items-center animate-in fade-in slide-in-from-top-2">
+                                        <div className="bg-white p-2 rounded">
+                                            <QRCode value={getShareUrl('crew')} size={180} />
+                                        </div>
+                                        <p className="mt-2 text-xs text-slate-500 font-medium text-center">Scan to open Crew HUD</p>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>

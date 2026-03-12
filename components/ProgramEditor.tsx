@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Program, Slot, SLOT_PRESETS } from '../types';
-import { Trash2, Plus, GripVertical, Sparkles, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, Users, Globe, Link as LinkIcon, Share2 } from 'lucide-react';
+import { Trash2, Plus, GripVertical, Sparkles, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, Users, Globe, Link as LinkIcon, Share2, Crown } from 'lucide-react';
 import { generateProgramDraft } from '../services/geminiService';
 import { EmbedSnippet } from './EmbedSnippet';
 
@@ -12,13 +12,15 @@ interface ProgramEditorProps {
   onUpdate: (program: Program) => void;
   isCoEditor?: boolean;
   isReadOnly?: boolean;
+  isPro?: boolean;
 }
 
 const ProgramEditor: React.FC<ProgramEditorProps> = ({
   program,
   onUpdate,
   isCoEditor = false,
-  isReadOnly = false
+  isReadOnly = false,
+  isPro = false
 }) => {
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
   const [aiInput, setAiInput] = useState('');
@@ -155,19 +157,27 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
                 // This will be handled by a prop or event bubble for real AI call
                 (onUpdate as any)({ ...program, _triggerRebalance: true });
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 rounded-lg font-medium transition-all hover:bg-amber-200 dark:hover:bg-amber-500/20"
+              className="group relative flex items-center gap-2 px-4 py-2 bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 rounded-lg font-medium transition-all hover:bg-amber-200 dark:hover:bg-amber-500/20"
             >
               <Sparkles size={18} />
               Re-balance with AI
+              {!isPro && (
+                <Crown size={12} className="text-amber-500 ml-1" />
+              )}
             </button>
           )}
           {!isCoEditor && !isReadOnly && (
             <button
               onClick={() => setIsAIDialogOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg font-medium shadow-lg transition-all"
+              className="group relative flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg font-medium shadow-lg transition-all"
             >
               <Sparkles size={18} />
               AI Draft
+              {!isPro && (
+                <div className="absolute -top-2 -right-2 bg-amber-500 text-[8px] px-1.5 py-0.5 rounded-full border border-white dark:border-slate-900 flex items-center gap-0.5 shadow-sm">
+                  <Crown size={8} /> PRO
+                </div>
+              )}
             </button>
           )}
         </div>
@@ -455,40 +465,68 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
         <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
             <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                <Sparkles className="text-indigo-600 dark:text-indigo-400" size={24} />
-                AI Program Drafter
-              </h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                Paste an email, agenda document text, or rough notes. Gemini will organize it.
-              </p>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Sparkles className="text-indigo-600 dark:text-indigo-400" size={24} />
+                    AI Program Drafter
+                  </h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+                    Paste an email, agenda document text, or rough notes. Gemini will organize it.
+                  </p>
+                </div>
+                {!isPro && (
+                  <div className="bg-amber-500/10 text-amber-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 uppercase tracking-wider">
+                    <Crown size={12} /> Pro Feature
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="p-6">
+            <div className={`p-6 ${!isPro ? 'opacity-50 pointer-events-none grayscale-[0.5]' : ''}`}>
               <textarea
                 value={aiInput}
                 onChange={(e) => setAiInput(e.target.value)}
                 placeholder="e.g., 'Starts at 9am with Opening Remarks for 15m, then Keynote... ends at 1pm'"
                 className="w-full h-48 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 outline-none resize-none font-mono text-sm transition-colors"
+                disabled={!isPro}
               />
             </div>
-            <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex justify-end gap-3">
-              <button
-                onClick={() => setIsAIDialogOpen(false)}
-                className="px-4 py-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleMagicDraft}
-                disabled={isGenerating || !aiInput.trim()}
-                className="flex items-center gap-2 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-indigo-500/20"
-              >
-                {isGenerating ? (
-                  <><span className="animate-spin">⏳</span> Drafting...</>
-                ) : (
-                  <><Sparkles size={18} /> Generate Program</>
-                )}
-              </button>
+            <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
+              {!isPro ? (
+                <div className="flex flex-col items-center gap-4 text-center">
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    AI generation is reserved for **Kairon Pro** workspaces.
+                  </p>
+                  <button
+                    onClick={() => {
+                        window.location.href = '/admin?tab=branding'; // Redirect to branding tab to see Pro status
+                    }}
+                    className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+                  >
+                    <Crown size={18} /> Upgrade to Kairon Pro
+                  </button>
+                </div>
+              ) : (
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setIsAIDialogOpen(false)}
+                    className="px-4 py-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleMagicDraft}
+                    disabled={isGenerating || !aiInput.trim()}
+                    className="flex items-center gap-2 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-indigo-500/20"
+                  >
+                    {isGenerating ? (
+                      <><span className="animate-spin">⏳</span> Drafting...</>
+                    ) : (
+                      <><Sparkles size={18} /> Generate Program</>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

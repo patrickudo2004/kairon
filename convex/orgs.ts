@@ -123,3 +123,28 @@ export const getOrgMembers = query({
             .collect();
     },
 });
+export const grantProStatusByEmail = mutation({
+    args: { email: v.string() },
+    handler: async (ctx, args) => {
+        // 1. Find the user by email
+        const user = await ctx.db
+            .query("users")
+            .filter((q) => q.eq(q.field("email"), args.email.toLowerCase()))
+            .first();
+
+        if (!user) throw new Error("User not found");
+
+        // 2. Find all organizations created by this user
+        const orgs = await ctx.db
+            .query("organizations")
+            .filter((q) => q.eq(q.field("createdBy"), user._id))
+            .collect();
+
+        // 3. Upgrade them all to 'pro'
+        for (const org of orgs) {
+            await ctx.db.patch(org._id, { subscriptionStatus: "pro" });
+        }
+
+        return { count: orgs.length };
+    },
+});

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Program, Organization } from '../types';
-import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap, Activity } from 'lucide-react';
+import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap, Activity, Crown } from 'lucide-react';
 import { useStageMessages } from '../hooks/useStageMessages';
 
 interface MonitorDashboardProps {
@@ -8,13 +8,15 @@ interface MonitorDashboardProps {
     activeOrg: Organization | null;
     onLaunchFlightBridge: () => void;
     isFlightBridgeSupported: boolean;
+    isPro?: boolean;
 }
 
 export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
     program,
     activeOrg,
     onLaunchFlightBridge,
-    isFlightBridgeSupported
+    isFlightBridgeSupported,
+    isPro = false
 }) => {
     const { sendStageMessage, clearStageMessage } = useStageMessages(program.id);
     const [customMessage, setCustomMessage] = useState('');
@@ -94,44 +96,71 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
 
                 {/* Secondary Screen Launch Cards */}
                 <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {displayOptions.map((opt) => (
-                        <div key={opt.title} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all group">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className={`p-3 rounded-2xl ${opt.color} text-white`}>
-                                    <opt.icon size={24} />
-                                </div>
-                                <button
-                                    onClick={() => window.open(opt.path, '_blank')}
-                                    className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-indigo-600 transition-colors"
-                                    title="Open in new tab"
-                                >
-                                    <ExternalLink size={18} />
-                                </button>
-                            </div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{opt.title}</h3>
-                            <p className="text-sm text-slate-500 mb-6">{opt.description}</p>
+                    {displayOptions.map((opt) => {
+                        const isCrewHUD = opt.title === 'Crew Tactical HUD';
+                        const isLocked = isCrewHUD && !isPro;
 
-                            <div className="aspect-video bg-slate-100 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 relative group-hover:border-indigo-500/30 transition-colors">
-                                <div className="w-full h-full" style={{ overflow: 'hidden' }}>
-                                    <iframe
-                                        src={`${opt.path}${opt.path.includes('?') ? '&' : '?'}mode=thumbnail`}
-                                        className="pointer-events-none opacity-80"
-                                        title={opt.title}
-                                        style={{
-                                            width: '1920px',
-                                            height: '1080px',
-                                            transform: 'scale(0.1666)',
-                                            transformOrigin: 'top left',
-                                            border: 'none'
+                        return (
+                            <div key={opt.title} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-3 rounded-2xl ${opt.color} text-white`}>
+                                            <opt.icon size={24} />
+                                        </div>
+                                        {isLocked && (
+                                            <div className="bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-tighter shadow-sm border border-white/20">
+                                                <Crown size={10} /> Pro
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            if (isLocked) {
+                                                window.location.href = '/admin?tab=branding';
+                                                return;
+                                            }
+                                            window.open(opt.path, '_blank');
                                         }}
-                                    />
+                                        className={`p-2 rounded-xl transition-colors ${isLocked ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-600'}`}
+                                        title={isLocked ? "Unlock with Pro" : "Open in new tab"}
+                                    >
+                                        {isLocked ? <Crown size={18} /> : <ExternalLink size={18} />}
+                                    </button>
                                 </div>
-                                <div className="absolute inset-0 bg-transparent flex items-center justify-center backdrop-blur-[1px]">
-                                    <span className="bg-slate-900/80 text-white px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Live Preview</span>
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{opt.title}</h3>
+                                <p className="text-sm text-slate-500 mb-6">{opt.description}</p>
+
+                                <div className={`aspect-video bg-slate-100 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 relative transition-colors ${!isLocked ? 'group-hover:border-indigo-500/30' : ''}`}>
+                                    <div className={`w-full h-full ${isLocked ? 'blur-sm grayscale' : ''}`} style={{ overflow: 'hidden' }}>
+                                        <iframe
+                                            src={`${opt.path}${opt.path.includes('?') ? '&' : '?'}mode=thumbnail`}
+                                            className="pointer-events-none opacity-80"
+                                            title={opt.title}
+                                            style={{
+                                                width: '1920px',
+                                                height: '1080px',
+                                                transform: 'scale(0.1666)',
+                                                transformOrigin: 'top left',
+                                                border: 'none'
+                                            }}
+                                        />
+                                    </div>
+                                    {!isLocked ? (
+                                        <div className="absolute inset-0 bg-transparent flex items-center justify-center backdrop-blur-[1px]">
+                                            <span className="bg-slate-900/80 text-white px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Live Preview</span>
+                                        </div>
+                                    ) : (
+                                        <div className="absolute inset-0 bg-slate-950/20 flex flex-col items-center justify-center p-6 text-center">
+                                            <div className="p-3 bg-amber-500 rounded-2xl text-white shadow-xl mb-3 shadow-amber-500/20">
+                                                <Crown size={24} />
+                                            </div>
+                                            <p className="text-[10px] font-black text-slate-900 bg-white/90 px-3 py-1 rounded-full uppercase tracking-widest shadow-sm">Unlock with Kairon Pro</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 {/* Messaging Console */}
