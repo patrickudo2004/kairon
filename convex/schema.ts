@@ -8,6 +8,11 @@ export default defineSchema({
         userId: v.string(), // Clerk or Convex Auth ID
         fullName: v.string(),
         avatarUrl: v.optional(v.string()),
+        subscriptionStatus: v.optional(v.union(
+            v.literal("free"),
+            v.literal("pro"),
+            v.literal("enterprise")
+        )),
     }).index("by_userId", ["userId"]),
 
     organizations: defineTable({

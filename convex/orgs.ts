@@ -41,10 +41,18 @@ export const createOrganization = mutation({
         userId: v.string(),
     },
     handler: async (ctx, args) => {
+        // Find the user's profile to check for Pro status inheritance
+        const profile = await ctx.db
+            .query("profiles")
+            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .first();
+
+        const initialStatus = profile?.subscriptionStatus === "pro" ? "pro" : "free";
+
         const orgId = await ctx.db.insert("organizations", {
             name: args.name,
             slug: args.slug,
-            subscriptionStatus: "free",
+            subscriptionStatus: initialStatus,
             createdBy: args.userId,
         });
 
@@ -134,17 +142,27 @@ export const grantProStatusByEmail = mutation({
 
         if (!user) throw new Error("User not found");
 
-        // 2. Find all organizations created by this user
+        // 2. Upgrade the User Profile to 'pro'
+        const profile = await ctx.db
+            .query("profiles")
+            .withIndex("by_userId", (q) => q.eq("userId", user._id))
+            .first();
+
+        if (profile) {
+            await ctx.db.patch(profile._id, { subscriptionStatus: "pro" });
+        }
+
+        // 3. Find all organizations created by this user
         const orgs = await ctx.db
             .query("organizations")
             .filter((q) => q.eq(q.field("createdBy"), user._id))
             .collect();
 
-        // 3. Upgrade them all to 'pro'
+        // 4. Upgrade them all to 'pro'
         for (const org of orgs) {
             await ctx.db.patch(org._id, { subscriptionStatus: "pro" });
         }
 
-        return { count: orgs.length };
+        return { count: orgs.length, profileUpgraded: !!profile };
     },
 });
