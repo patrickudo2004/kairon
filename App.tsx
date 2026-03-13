@@ -1663,11 +1663,13 @@ const AppContent: React.FC = () => {
         newTargetEventTitle={program.title}
       />
 
-      <PrintableSchedule
-        program={program}
-        includeDetails={exportOptions.includeDetails}
-        includeSpeakers={exportOptions.includeSpeakers}
-      />
+      {!location.pathname.startsWith('/analytics') && (
+        <PrintableSchedule
+          program={program}
+          includeDetails={exportOptions.includeDetails}
+          includeSpeakers={exportOptions.includeSpeakers}
+        />
+      )}
 
       <ConfirmationModal
         isOpen={confirmDialog.isOpen}
