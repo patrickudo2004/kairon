@@ -93,8 +93,8 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-4 print:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm print:shadow-none print:border-slate-300">
                     <div className="flex items-center gap-3 text-slate-400 mb-2">
                         <Clock size={18} />
                         <span className="text-xs font-bold uppercase tracking-wider">Total Actual</span>
@@ -107,7 +107,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm print:shadow-none print:border-slate-300">
                     <div className="flex items-center gap-3 text-amber-500 mb-2">
                         {stats.totalVariance > 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
                         <span className="text-xs font-bold uppercase tracking-wider">Variance</span>
@@ -120,7 +120,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm print:shadow-none print:border-slate-300">
                     <div className="flex items-center gap-3 text-rose-500 mb-2">
                         <AlertTriangle size={18} />
                         <span className="text-xs font-bold uppercase tracking-wider">Overruns</span>
@@ -133,7 +133,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm print:shadow-none print:border-slate-300">
                     <div className="flex items-center gap-3 text-indigo-500 mb-2">
                         <BarChart3 size={18} />
                         <span className="text-xs font-bold uppercase tracking-wider">Efficiency</span>
@@ -148,8 +148,8 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
             </div>
 
             {/* Detailed Analysis Table */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xl print:shadow-none print:border-slate-300">
+                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3 print:border-slate-200">
                     <ClipboardList className="text-indigo-500" size={20} />
                     <h2 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">Slot Performance Breakdown</h2>
                 </div>
@@ -239,9 +239,9 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
             </div>
 
             {/* Footer Insight */}
-            <div className="bg-indigo-600 rounded-2xl p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-indigo-500/20">
+            <div className="bg-indigo-600 rounded-2xl p-8 text-white flex flex-col md:flex-row print:flex-row items-center justify-between gap-6 shadow-xl shadow-indigo-500/20 print:bg-slate-100 print:text-slate-900 print:shadow-none print:border print:border-slate-300">
                 <div>
-                    <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-2">Production Insight</h3>
+                    <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-2 print:text-indigo-600">Production Insight</h3>
                     <p className="max-w-xl opacity-90 font-medium">
                         {stats.totalVariance > 5
                             ? "Your event drifted significantly off-schedule. Consider adding 'Buffer' slots or re-evaluating slot durations for this type of session in Gemini AI."
@@ -251,9 +251,9 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                         }
                     </p>
                 </div>
-                <div className="p-4 bg-white/10 rounded-xl backdrop-blur-md border border-white/20">
-                    <div className="text-xs font-bold uppercase tracking-widest opacity-60 mb-1">Generated by</div>
-                    <div className="text-xl font-black uppercase tracking-tighter">Kairon Analytics</div>
+                <div className="p-4 bg-white/10 rounded-xl backdrop-blur-md border border-white/20 print:bg-white print:border-slate-300">
+                    <div className="text-xs font-bold uppercase tracking-widest opacity-60 print:opacity-100 mb-1 print:text-slate-500">Generated by</div>
+                    <div className="text-xl font-black uppercase tracking-tighter print:text-indigo-600">Kairon Analytics</div>
                 </div>
             </div>
         </div>
