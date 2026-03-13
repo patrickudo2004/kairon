@@ -63,7 +63,7 @@ import { getInitialProgram } from './utils/constants';
 import { Monitor, User as UserIcon, Building, MessageSquare, Bell, Clock, Crown, SkipBack, SkipForward, Pause } from 'lucide-react';
 
 // --- Analytics Wrapper (Dedicated Component to avoid render loops) ---
-const AnalyticsWrapper: React.FC = () => {
+const AnalyticsWrapper: React.FC<{ onUpdateSlot?: (slotId: string, updates: Partial<Slot>) => void }> = ({ onUpdateSlot }) => {
   const { id } = useParams<{ id: string }>();
   const [reportProgram, setReportProgram] = useState<Program | null>(null);
   const [reportLoading, setReportLoading] = useState(true);
@@ -87,7 +87,7 @@ const AnalyticsWrapper: React.FC = () => {
   if (reportLoading) return <div className="flex h-screen items-center justify-center dark:bg-slate-950"><div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>;
   if (!reportProgram) return <div className="p-12 text-center text-slate-500">Report not found.</div>;
 
-  return <AnalyticsDashboard program={reportProgram} />;
+  return <AnalyticsDashboard program={reportProgram} onUpdateSlot={onUpdateSlot} />;
 };
 
 // --- App Content Component ---
@@ -879,6 +879,29 @@ const AppContent: React.FC = () => {
     }));
   };
 
+  const handleUpdateSlot = async (slotId: string, updates: Partial<Slot>) => {
+    const isLiveTarget = liveProgramId === program.id;
+    const targetProgram = isLiveTarget ? program : liveProgram;
+    if (!targetProgram) return;
+
+    const newSlots = targetProgram.slots.map(s => 
+      s.id === slotId ? { ...s, ...updates } : s
+    );
+    const updatedProgram = { ...targetProgram, slots: newSlots };
+
+    if (isLiveTarget) {
+      setProgram(updatedProgram);
+    } else {
+      setLiveProgram(updatedProgram);
+    }
+
+    try {
+      await updateProgramService(updatedProgram);
+    } catch (err) {
+      console.error("Failed to update slot:", err);
+    }
+  };
+
   // Universal Auto-Advance Watcher
   useEffect(() => {
     const isLiveTarget = liveProgramId === program.id;
@@ -1492,7 +1515,7 @@ const AppContent: React.FC = () => {
                   />
                 } />
 
-                <Route path="/analytics/:id" element={<AnalyticsWrapper />} />
+                <Route path="/analytics/:id" element={<AnalyticsWrapper onUpdateSlot={handleUpdateSlot} />} />
 
                 <Route path="/live" element={
                   <LiveTimer
