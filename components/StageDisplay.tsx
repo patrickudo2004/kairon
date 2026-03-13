@@ -145,17 +145,6 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                     </div>
                 )}
 
-                {/* Next Up Preview (Speaker Focused) */}
-                {!isThumbnail && program.slots[currentSlotIndex + 1] && (
-                    <div className="absolute top-[28vh] left-12 right-12 flex flex-col items-center z-[50] pointer-events-none">
-                        <div className={`${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'} border rounded-3xl p-6 backdrop-blur-md max-w-4xl w-full text-center transition-all animate-in fade-in slide-in-from-top-4 duration-1000`}>
-                            <span className={`text-xl font-bold uppercase tracking-[0.4em] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} block mb-3`}>Up Next</span>
-                            <p className={`text-5xl md:text-6xl font-black ${isDarkMode ? 'text-white/90' : 'text-slate-900'} uppercase leading-tight tracking-tighter`}>
-                                {program.slots[currentSlotIndex + 1].title}
-                            </p>
-                        </div>
-                    </div>
-                )}
 
                 {/* Prompter Overlay - High Intensity Strobe */}
                 {isVisible && promptMessage && promptMessage.isStrobe && (
@@ -180,11 +169,22 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
 
                 {/* Bottom Meta */}
                 <div className={`absolute bottom-12 w-full px-12 flex justify-between items-end border-t ${isDarkMode ? 'border-white/10' : 'border-slate-200'} pt-8`}>
-                    <div>
+                    <div className="flex-1">
                         <span className={`text-2xl font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-300'} block mb-2`}>Duration</span>
                         <span className="text-4xl font-black">{currentSlot.durationMinutes}m Planned</span>
                     </div>
-                    <div className="text-right">
+
+                    {/* Up Next Preview (Speaker Focused) */}
+                    {!isThumbnail && program.slots[currentSlotIndex + 1] && (
+                        <div className="flex-[2] text-center px-8 border-x border-white/5 mx-8">
+                            <span className={`text-2xl font-bold uppercase tracking-[0.2em] ${isDarkMode ? 'text-amber-500' : 'text-amber-600'} block mb-2`}>Up Next</span>
+                            <p className={`text-5xl md:text-6xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'} uppercase leading-none tracking-tighter truncate px-4`}>
+                                {program.slots[currentSlotIndex + 1].title}
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="flex-1 text-right">
                         <span className={`text-2xl font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-300'} block mb-2`}>Event</span>
                         <span className="text-4xl font-black">{program.title}</span>
                     </div>
