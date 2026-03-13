@@ -55,6 +55,21 @@ const TVView: React.FC<TVViewProps> = ({
         }
     }, [promptMessage]);
 
+    // Drift-Proof Local Ticker for smooth countdown
+    const [localSecondsElapsed, setLocalSecondsElapsed] = useState(secondsElapsed);
+
+    useEffect(() => {
+        setLocalSecondsElapsed(secondsElapsed);
+    }, [secondsElapsed]);
+
+    useEffect(() => {
+        if (!isTimerActive) return;
+        const interval = setInterval(() => {
+            setLocalSecondsElapsed(prev => prev + 1);
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [isTimerActive]);
+
     // Screen Wake Lock
     useWakeLock(true);
 
@@ -105,7 +120,7 @@ const TVView: React.FC<TVViewProps> = ({
 
     // Calculations
     const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
-    const timeLeft = durationSeconds - secondsElapsed;
+    const timeLeft = durationSeconds - localSecondsElapsed;
 
     const progressPercent = durationSeconds > 0
         ? Math.min(100, Math.max(0, (timeLeft / durationSeconds) * 100))
@@ -119,11 +134,11 @@ const TVView: React.FC<TVViewProps> = ({
                     <div className="w-32 h-32 bg-indigo-600/10 rounded-full flex items-center justify-center mb-12 animate-pulse">
                         <Timer size={64} className="text-indigo-600 dark:text-indigo-400" />
                     </div>
-                    <h1 className="text-6xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-6">Program Concluded</h1>
-                    <p className="text-2xl md:text-4xl text-slate-500 dark:text-slate-400 font-medium max-w-2xl">
+                    <h1 className="text-6xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-6">Stand By</h1>
+                    <p className="text-2xl md:text-4xl text-slate-500 dark:text-slate-400 font-medium max-w-2xl mb-12">
                         Thank you for attending **{program.title}**.
                     </p>
-                    <div className="mt-12 text-xs font-bold uppercase tracking-[0.5em] text-slate-400 dark:text-slate-600">
+                    <div className="px-8 py-3 bg-indigo-600 text-white rounded-full font-bold uppercase tracking-[0.3em] animate-pulse">
                         Stand By for Next Event
                     </div>
                 </div>

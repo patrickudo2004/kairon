@@ -220,14 +220,14 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                         onMouseLeave={handleHoldEnd}
                         onTouchStart={handleHoldStart}
                         onTouchEnd={handleHoldEnd}
-                        className={`flex-1 relative flex items-center justify-center gap-2 py-2.5 rounded-xl border select-none active:scale-[0.98] transition-all shadow-sm overflow-hidden ${isDarkMode ? 'bg-rose-900/20 border-rose-500/20 text-rose-500 hover:bg-rose-900/40' : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'}`}
+                        className={`flex-1 relative flex items-center justify-center gap-2 py-2.5 rounded-xl border select-none active:scale-[0.98] transition-all shadow-sm overflow-hidden shrink-0 ${isDarkMode ? 'bg-rose-900/20 border-rose-500/20 text-rose-500 hover:bg-rose-900/40' : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'}`}
                     >
                         <div
                             className="absolute bottom-0 left-0 h-full bg-rose-600/20 transition-all duration-75 pointer-events-none"
                             style={{ width: `${holdToEndProgress}%` }}
                         />
-                        <AlertCircle size={16} />
-                        <span className="text-[10px] font-black uppercase">End Event</span>
+                        <AlertCircle size={16} className="shrink-0" />
+                        <span className="text-[10px] font-black uppercase whitespace-nowrap">End Event</span>
                     </button>
                 </div>
 
