@@ -19,6 +19,7 @@ export interface Slot {
   durationMinutes: number;
   type: SlotType;
   actualDuration?: number; // For analytics
+  postMortemNote?: string; // Phase: Post-event recap
   details?: string; // Additional detailed description
   productionNotes?: string; // Phase 18: Internal cues for staff
 }

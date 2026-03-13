@@ -1,13 +1,14 @@
 import React, { useMemo } from 'react';
 import { Program, Slot } from '../types';
-import { BarChart3, Clock, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, ClipboardList } from 'lucide-react';
+import { BarChart3, Clock, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, ClipboardList, Download, Printer, Save, MessageSquare } from 'lucide-react';
 import { formatDuration } from '../utils/time';
 
 interface AnalyticsDashboardProps {
     program: Program;
+    onUpdateSlot?: (slotId: string, updates: Partial<Slot>) => void;
 }
 
-const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program }) => {
+const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpdateSlot }) => {
     const stats = useMemo(() => {
         let totalPlanned = 0;
         let totalActual = 0;
@@ -50,6 +51,41 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program }) => {
                     <p className="text-slate-500 dark:text-slate-400 font-medium italic">
                         Performance analytics for "{program.title}"
                     </p>
+                </div>
+                <div className="flex items-center gap-2 no-print">
+                    <button
+                        onClick={() => {
+                            const headers = ['Title', 'Speaker', 'Planned Duration (m)', 'Actual Duration (m)', 'Variance (m)', 'Notes'];
+                            const rows = stats.items.map(item => [
+                                `"${item.title}"`,
+                                `"${item.speaker || ''}"`,
+                                item.plannedVal,
+                                item.actualVal,
+                                item.variance,
+                                `"${item.postMortemNote || ''}"`
+                            ]);
+                            const csvContent = "data:text/csv;charset=utf-8," 
+                                + headers.join(",") + "\n" 
+                                + rows.map(e => e.join(",")).join("\n");
+                            const encodedUri = encodeURI(csvContent);
+                            const link = document.createElement("a");
+                            link.setAttribute("href", encodedUri);
+                            link.setAttribute("download", `kairon_report_${program.title.replace(/\s+/g, '_')}.csv`);
+                            document.body.appendChild(link);
+                            link.click();
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 transition-colors"
+                    >
+                        <Download size={14} />
+                        Export CSV
+                    </button>
+                    <button
+                        onClick={() => window.print()}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold text-white shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
+                    >
+                        <Printer size={14} />
+                        Print PDF
+                    </button>
                 </div>
                 <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                     {program.date} • {program.startTime}
@@ -130,42 +166,72 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program }) => {
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {stats.items.map((item, idx) => (
-                                <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="font-bold text-slate-900 dark:text-white">{item.title}</div>
-                                        <div className="text-xs text-slate-500">{item.speaker || 'No Speaker'}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm font-mono text-slate-500">{item.plannedVal}m</td>
-                                    <td className="px-6 py-4 text-sm font-mono font-bold text-slate-900 dark:text-white">
-                                        {item.actualVal > 0 ? `${item.actualVal}m` : '---'}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {item.actualVal > 0 ? (
-                                            <span className={`text-xs font-black px-2 py-1 rounded ${item.variance > 0 ? 'bg-rose-100 dark:bg-rose-500/10 text-rose-600' :
-                                                    item.variance < 0 ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600' :
-                                                        'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                                                }`}>
-                                                {item.variance > 0 ? `+${item.variance}` : item.variance}m
-                                            </span>
-                                        ) : (
-                                            <span className="text-xs text-slate-300">N/A</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                            <div
-                                                className="bg-indigo-500 h-full border-r border-white/20"
-                                                style={{ width: `${Math.min(100, (item.plannedVal / Math.max(item.plannedVal, item.actualVal)) * 100)}%` }}
-                                            />
-                                            {item.variance > 0 && (
-                                                <div
-                                                    className="bg-rose-500 h-full"
-                                                    style={{ width: `${(item.variance / item.actualVal) * 100}%` }}
-                                                />
+                                <React.Fragment key={idx}>
+                                    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="font-bold text-slate-900 dark:text-white">{item.title}</div>
+                                            <div className="text-xs text-slate-500">{item.speaker || 'No Speaker'}</div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm font-mono text-slate-500">{item.plannedVal}m</td>
+                                        <td className="px-6 py-4 text-sm font-mono font-bold text-slate-900 dark:text-white">
+                                            {item.actualVal > 0 ? `${item.actualVal}m` : '---'}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {item.actualVal > 0 ? (
+                                                <span className={`text-xs font-black px-2 py-1 rounded ${item.variance > 0 ? 'bg-rose-100 dark:bg-rose-500/10 text-rose-600' :
+                                                        item.variance < 0 ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600' :
+                                                            'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                                    }`}>
+                                                    {item.variance > 0 ? `+${item.variance}` : item.variance}m
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-slate-300">N/A</span>
                                             )}
-                                        </div>
-                                    </td>
-                                </tr>
+                                        </td>
+                                        <td className="px-6 py-4 no-print">
+                                            <div className="flex h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                <div
+                                                    className="bg-indigo-500 h-full border-r border-white/20"
+                                                    style={{ width: `${Math.min(100, (item.plannedVal / Math.max(item.plannedVal, item.actualVal)) * 100)}%` }}
+                                                />
+                                                {item.variance > 0 && (
+                                                    <div
+                                                        className="bg-rose-500 h-full"
+                                                        style={{ width: `${(item.variance / item.actualVal) * 100}%` }}
+                                                    />
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {item.actualVal > 0 && (
+                                        <tr key={`note-${idx}`} className="bg-slate-50/30 dark:bg-slate-800/20 no-print">
+                                            <td colSpan={5} className="px-6 py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <MessageSquare size={14} className="text-slate-400 shrink-0" />
+                                                    <input 
+                                                        type="text"
+                                                        placeholder="Add post-mortem note (e.g. 'Mic failure', 'Extended Q&A')..."
+                                                        defaultValue={item.postMortemNote || ''}
+                                                        onBlur={(e) => {
+                                                            if (onUpdateSlot) {
+                                                                onUpdateSlot(item.id, { postMortemNote: e.target.value });
+                                                            }
+                                                        }}
+                                                        className="w-full bg-transparent border-none outline-none text-xs text-slate-600 dark:text-slate-400 placeholder:text-slate-400 focus:ring-0"
+                                                    />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {/* Print-only Notes row */}
+                                    {item.postMortemNote && (
+                                        <tr key={`print-note-${idx}`} className="hidden print:table-row">
+                                            <td colSpan={5} className="px-6 py-2 text-[10px] text-slate-500 italic">
+                                                Note: {item.postMortemNote}
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
                             ))}
                         </tbody>
                     </table>
