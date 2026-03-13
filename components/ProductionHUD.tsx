@@ -67,20 +67,20 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
             <div className="max-w-4xl mx-auto bg-slate-900 border border-slate-800 shadow-2xl rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 pointer-events-auto animate-in slide-in-from-bottom-8 duration-500">
 
                 {/* Status Section */}
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full">
+                <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex items-center shrink-0 gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full">
                         <span className={`w-2 h-2 rounded-full ${isAdminOnline ? 'bg-indigo-500 animate-pulse' : 'bg-rose-500'}`} />
                         <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">
                             {isAdminOnline ? 'Live Broadcast' : 'Sync Offline'}
                         </span>
                     </div>
-                    <div className="hidden md:flex flex-col">
+                    <div className="hidden md:flex flex-col min-w-0">
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Current Session</span>
-                        <span className="text-sm font-bold text-white truncate max-w-[200px]">{currentSlotTitle || 'No Session'}</span>
+                        <span className="text-sm font-bold text-white truncate">{currentSlotTitle || 'No Session'}</span>
                     </div>
 
                     {/* Crew Feedback */}
-                    <div className="hidden lg:flex items-center gap-3 border-l border-slate-800 pl-4 ml-2">
+                    <div className="hidden lg:flex items-center shrink-0 gap-3 border-l border-slate-800 pl-4 ml-2">
                         <div className={`p-1.5 rounded-lg transition-all ${isAcked('sound') ? 'bg-emerald-500/20 text-emerald-500' : 'bg-slate-800 text-slate-600 opacity-30'}`} title="Sound ACK">
                             <Volume2 size={14} />
                         </div>
@@ -94,7 +94,7 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                 </div>
 
                 {/* Control Section */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                     <div className="flex items-center bg-slate-800 rounded-xl p-1">
                         <button
                             onClick={() => onNudge(-1)}
@@ -119,7 +119,7 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                     {programId && (
                         <button
                             onClick={() => onViewAnalytics(programId)}
-                            className="flex items-center gap-2 p-2 hover:bg-slate-800 text-amber-500 rounded-xl transition-colors"
+                            className="flex items-center gap-2 p-2 hover:bg-slate-800 text-amber-500 rounded-xl transition-colors shrink-0"
                             title="View Service Report"
                         >
                             <BarChart3 size={20} />
@@ -135,7 +135,7 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                         onMouseLeave={() => setIsEnding(false)}
                         onTouchStart={() => setIsEnding(true)}
                         onTouchEnd={() => setIsEnding(false)}
-                        className="relative group overflow-hidden bg-rose-600 hover:bg-rose-700 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all active:scale-95 select-none"
+                        className="relative group overflow-hidden bg-rose-600 hover:bg-rose-700 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all active:scale-95 select-none shrink-0"
                     >
                         {/* Progress Reveal */}
                         <div
@@ -144,7 +144,7 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                         />
                         <Power size={18} className="relative z-10" />
                         <span className="relative z-10 whitespace-nowrap">
-                            {holdToEnd > 0 ? 'Hold to End...' : 'End Event'}
+                            {holdToEnd > 0 ? 'Hold...' : 'End Event'}
                         </span>
                     </button>
                 </div>
