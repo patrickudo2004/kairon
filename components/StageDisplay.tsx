@@ -145,26 +145,15 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                     </div>
                 )}
 
-                {/* Production Cues Overlay */}
-                {!isThumbnail && (
-                    <div className="absolute top-[25vh] left-12 right-12 flex flex-col items-center gap-6 z-[50] pointer-events-none">
-                        {currentSlot.productionNotes && (
-                            <div className={`${isDarkMode ? 'bg-amber-600/10 border-amber-500/20' : 'bg-amber-50 border-amber-200'} border-2 rounded-2xl p-8 backdrop-blur-md max-w-4xl w-full text-center`}>
-                                <span className="text-xl font-bold uppercase tracking-[0.3em] text-amber-500 block mb-3">Staff Cue</span>
-                                <p className={`text-4xl md:text-5xl font-black ${isDarkMode ? 'text-amber-100' : 'text-amber-900'} uppercase leading-tight`}>
-                                    {currentSlot.productionNotes}
-                                </p>
-                            </div>
-                        )}
-
-                        {program.slots[currentSlotIndex + 1] && (
-                            <div className={`${isDarkMode ? 'bg-slate-900/40 border-slate-700/30' : 'bg-slate-100 border-slate-200'} border rounded-xl p-4 backdrop-blur-sm max-w-2xl w-full text-center opacity-60`}>
-                                <span className={`text-sm font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-400'} block mb-1`}>Up Next Cue</span>
-                                <p className={`text-xl font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-600'} uppercase truncate`}>
-                                    {program.slots[currentSlotIndex + 1].productionNotes || 'No notes'}
-                                </p>
-                            </div>
-                        )}
+                {/* Next Up Preview (Speaker Focused) */}
+                {!isThumbnail && program.slots[currentSlotIndex + 1] && (
+                    <div className="absolute top-[28vh] left-12 right-12 flex flex-col items-center z-[50] pointer-events-none">
+                        <div className={`${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'} border rounded-3xl p-6 backdrop-blur-md max-w-4xl w-full text-center transition-all animate-in fade-in slide-in-from-top-4 duration-1000`}>
+                            <span className={`text-xl font-bold uppercase tracking-[0.4em] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} block mb-3`}>Up Next</span>
+                            <p className={`text-5xl md:text-6xl font-black ${isDarkMode ? 'text-white/90' : 'text-slate-900'} uppercase leading-tight tracking-tighter`}>
+                                {program.slots[currentSlotIndex + 1].title}
+                            </p>
+                        </div>
                     </div>
                 )}
 
