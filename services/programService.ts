@@ -149,6 +149,7 @@ const transformProgram = (p: any): Program => ({
         type: s.type,
         details: s.details,
         productionNotes: s.productionNotes,
+        postMortemNote: s.postMortemNote,
         actualDuration: s.actualDuration
     }))
 });
