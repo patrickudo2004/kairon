@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { Program, Slot } from '../types';
 import { BarChart3, Clock, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, ClipboardList, Download, Printer, Save, MessageSquare } from 'lucide-react';
 import { formatDuration } from '../utils/time';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import ServiceReportPDF from './ServiceReportPDF';
 
 interface AnalyticsDashboardProps {
     program: Program;
@@ -79,13 +81,18 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                         <Download size={14} />
                         Export CSV
                     </button>
-                    <button
-                        onClick={() => window.print()}
+                    <PDFDownloadLink
+                        document={<ServiceReportPDF program={program} stats={stats} />}
+                        fileName={`kairon_service_report_${program.title.replace(/\s+/g, '_')}.pdf`}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold text-white shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
                     >
-                        <Printer size={14} />
-                        Print PDF
-                    </button>
+                        {({ loading }) => (
+                            <>
+                                <Printer size={14} />
+                                {loading ? 'Generating PDF...' : 'Download PDF'}
+                            </>
+                        )}
+                    </PDFDownloadLink>
                 </div>
                 <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                     {program.date} • {program.startTime}
