@@ -9,7 +9,7 @@ import { ConvexAuthProvider, useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery as useConvexQuery, useMutation as useConvexMutation } from "convex/react";
 import { api } from "./convex/_generated/api";
 import { convex } from "./services/convexClient";
-import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, updateSlot as updateSlotService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService, transformProgram } from './services/programService';
+import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService, transformProgram } from './services/programService';
 import { getProfile } from './services/authService';
 import { getMyOrganizations, checkPendingInvites, getInviteDetails } from './services/orgService';
 import { rebalanceSchedule } from './services/geminiService';
@@ -891,7 +891,6 @@ const AppContent: React.FC = () => {
   };
 
   const handleUpdateSlot = async (slotId: string, updates: Partial<Slot>) => {
-    // 1. Optimistic Update (Local State)
     const isLiveTarget = liveProgramId === program.id;
     const targetProgram = isLiveTarget ? program : liveProgram;
     if (!targetProgram) return;
@@ -907,13 +906,10 @@ const AppContent: React.FC = () => {
       setLiveProgram(updatedProgram);
     }
 
-    // 2. Atomic Update (Backend)
-    // We use the new updateSlot mutation which ONLY patches the specific slot.
-    // This prevents "The Lost Update" problem where a full doc save overwrites notes.
     try {
-      await updateSlotService(targetProgram.id, slotId, updates);
+      await updateProgramService(updatedProgram);
     } catch (err) {
-      console.error("Failed to update slot atomically:", err);
+      console.error("Failed to update slot:", err);
     }
   };
 
