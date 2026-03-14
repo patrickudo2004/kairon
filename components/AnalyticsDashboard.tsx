@@ -41,7 +41,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
     }, [program]);
 
     return (
-        <div id="printable-area" className="max-w-6xl mx-auto p-6 space-y-8 animate-in fade-in duration-500">
+        <div id="printable-area" className="max-w-6xl print:max-w-none mx-auto p-6 space-y-8 print:space-y-4 animate-in fade-in duration-500">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
@@ -94,54 +94,54 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-4 print:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm print:shadow-none print:border-slate-300">
-                    <div className="flex items-center gap-3 text-slate-400 mb-2">
-                        <Clock size={18} />
-                        <span className="text-xs font-bold uppercase tracking-wider">Total Actual</span>
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 print:p-3 print:rounded-lg rounded-2xl shadow-sm print:shadow-none print:border-slate-300">
+                    <div className="flex items-center gap-3 text-slate-400 mb-2 print:mb-1">
+                        <Clock className="w-[18px] h-[18px] print:w-4 print:h-4" />
+                        <span className="text-xs font-bold uppercase tracking-wider print:text-[10px]">Total Actual</span>
                     </div>
-                    <div className="text-3xl font-black text-slate-900 dark:text-white">
+                    <div className="text-3xl font-black text-slate-900 dark:text-white print:text-xl">
                         {stats.totalActual}m
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">
+                    <div className="text-xs text-slate-500 mt-1 print:text-[10px]">
                         Planned: {stats.totalPlanned}m
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm print:shadow-none print:border-slate-300">
-                    <div className="flex items-center gap-3 text-amber-500 mb-2">
-                        {stats.totalVariance > 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
-                        <span className="text-xs font-bold uppercase tracking-wider">Variance</span>
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 print:p-3 print:rounded-lg rounded-2xl shadow-sm print:shadow-none print:border-slate-300">
+                    <div className="flex items-center gap-3 text-amber-500 mb-2 print:mb-1">
+                        {stats.totalVariance > 0 ? <TrendingUp className="w-[18px] h-[18px] print:w-4 print:h-4" /> : <TrendingDown className="w-[18px] h-[18px] print:w-4 print:h-4" />}
+                        <span className="text-xs font-bold uppercase tracking-wider print:text-[10px]">Variance</span>
                     </div>
-                    <div className={`text-3xl font-black ${stats.totalVariance > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                    <div className={`text-3xl font-black print:text-xl ${stats.totalVariance > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
                         {stats.totalVariance > 0 ? `+${stats.totalVariance}` : stats.totalVariance}m
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">
+                    <div className="text-xs text-slate-500 mt-1 print:text-[10px]">
                         {stats.totalVariance > 0 ? 'Over original budget' : 'Under original budget'}
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm print:shadow-none print:border-slate-300">
-                    <div className="flex items-center gap-3 text-rose-500 mb-2">
-                        <AlertTriangle size={18} />
-                        <span className="text-xs font-bold uppercase tracking-wider">Overruns</span>
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 print:p-3 print:rounded-lg rounded-2xl shadow-sm print:shadow-none print:border-slate-300">
+                    <div className="flex items-center gap-3 text-rose-500 mb-2 print:mb-1">
+                        <AlertTriangle className="w-[18px] h-[18px] print:w-4 print:h-4" />
+                        <span className="text-xs font-bold uppercase tracking-wider print:text-[10px]">Overruns</span>
                     </div>
-                    <div className="text-3xl font-black text-rose-500">
+                    <div className="text-3xl font-black text-rose-500 print:text-xl">
                         {stats.overruns}
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">
+                    <div className="text-xs text-slate-500 mt-1 print:text-[10px]">
                         Sessions exceeded time
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm print:shadow-none print:border-slate-300">
-                    <div className="flex items-center gap-3 text-indigo-500 mb-2">
-                        <BarChart3 size={18} />
-                        <span className="text-xs font-bold uppercase tracking-wider">Efficiency</span>
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 print:p-3 print:rounded-lg rounded-2xl shadow-sm print:shadow-none print:border-slate-300">
+                    <div className="flex items-center gap-3 text-indigo-500 mb-2 print:mb-1">
+                        <BarChart3 className="w-[18px] h-[18px] print:w-4 print:h-4" />
+                        <span className="text-xs font-bold uppercase tracking-wider print:text-[10px]">Efficiency</span>
                     </div>
-                    <div className="text-3xl font-black text-indigo-500">
+                    <div className="text-3xl font-black text-indigo-500 print:text-xl">
                         {stats.efficiency}%
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">
+                    <div className="text-xs text-slate-500 mt-1 print:text-[10px]">
                         Time accuracy score
                     </div>
                 </div>
@@ -157,35 +157,35 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                     <table className="w-full text-left">
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Session / Speaker</th>
-                                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Planned</th>
-                                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Actual</th>
-                                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Variance</th>
-                                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-48">Visualization</th>
+                                <th className="px-6 print:px-2 py-4 print:py-2 text-xs print:text-[10px] text-left font-bold text-slate-400 uppercase tracking-widest">Session / Speaker</th>
+                                <th className="px-6 print:px-2 py-4 print:py-2 text-xs print:text-[10px] text-left font-bold text-slate-400 uppercase tracking-widest">Planned</th>
+                                <th className="px-6 print:px-2 py-4 print:py-2 text-xs print:text-[10px] text-left font-bold text-slate-400 uppercase tracking-widest">Actual</th>
+                                <th className="px-6 print:px-2 py-4 print:py-2 text-xs print:text-[10px] text-left font-bold text-slate-400 uppercase tracking-widest">Variance</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-48 no-print">Visualization</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {stats.items.map((item, idx) => (
                                 <React.Fragment key={idx}>
                                     <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="font-bold text-slate-900 dark:text-white">{item.title}</div>
-                                            <div className="text-xs text-slate-500">{item.speaker || 'No Speaker'}</div>
+                                        <td className="px-6 print:px-2 py-4 print:py-2">
+                                            <div className="font-bold text-slate-900 dark:text-white print:text-[12px]">{item.title}</div>
+                                            <div className="text-xs text-slate-500 print:text-[10px]">{item.speaker || 'No Speaker'}</div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm font-mono text-slate-500">{item.plannedVal}m</td>
-                                        <td className="px-6 py-4 text-sm font-mono font-bold text-slate-900 dark:text-white">
+                                        <td className="px-6 print:px-2 py-4 print:py-2 text-sm font-mono text-slate-500 print:text-[11px]">{item.plannedVal}m</td>
+                                        <td className="px-6 print:px-2 py-4 print:py-2 text-sm font-mono font-bold text-slate-900 dark:text-white print:text-[11px]">
                                             {item.actualVal > 0 ? `${item.actualVal}m` : '---'}
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 print:px-2 py-4 print:py-2">
                                             {item.actualVal > 0 ? (
-                                                <span className={`text-xs font-black px-2 py-1 rounded ${item.variance > 0 ? 'bg-rose-100 dark:bg-rose-500/10 text-rose-600' :
+                                                <span className={`text-xs font-black px-2 py-1 rounded print:text-[11px] print:px-1 ${item.variance > 0 ? 'bg-rose-100 dark:bg-rose-500/10 text-rose-600' :
                                                         item.variance < 0 ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600' :
                                                             'bg-slate-100 dark:bg-slate-800 text-slate-500'
                                                     }`}>
                                                     {item.variance > 0 ? `+${item.variance}` : item.variance}m
                                                 </span>
                                             ) : (
-                                                <span className="text-xs text-slate-300">N/A</span>
+                                                <span className="text-xs text-slate-300 print:text-[10px]">N/A</span>
                                             )}
                                         </td>
                                         <td className="px-6 py-4 no-print">
@@ -226,9 +226,10 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                                     {/* Print-only Notes row */}
                                     {item.postMortemNote && (
                                         <tr key={`print-note-${idx}`} className="hidden print:table-row">
-                                            <td colSpan={5} className="px-6 py-2 text-[10px] text-slate-500 italic">
+                                            <td colSpan={4} className="px-6 print:px-2 py-2 text-[10px] text-slate-500 italic">
                                                 Note: {item.postMortemNote}
                                             </td>
+                                            <td className="no-print"></td>
                                         </tr>
                                     )}
                                 </React.Fragment>
@@ -239,9 +240,9 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
             </div>
 
             {/* Footer Insight */}
-            <div className="bg-indigo-600 rounded-2xl p-8 text-white flex flex-col md:flex-row print:flex-row items-center justify-between gap-6 shadow-xl shadow-indigo-500/20 print:bg-slate-100 print:text-slate-900 print:shadow-none print:border print:border-slate-300">
-                <div>
-                    <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-2 print:text-indigo-600">Production Insight</h3>
+            <div className="bg-indigo-600 rounded-2xl p-8 print:p-4 text-white flex flex-col md:flex-row print:flex-row items-center justify-between gap-6 print:gap-4 shadow-xl shadow-indigo-500/20 print:bg-slate-50 print:text-slate-900 print:shadow-none print:border print:border-slate-300">
+                <div className="print:flex-1">
+                    <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-2 print:text-lg print:mb-1 print:text-indigo-600">Production Insight</h3>
                     <p className="max-w-xl opacity-90 font-medium">
                         {stats.totalVariance > 5
                             ? "Your event drifted significantly off-schedule. Consider adding 'Buffer' slots or re-evaluating slot durations for this type of session in Gemini AI."
