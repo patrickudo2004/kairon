@@ -61,6 +61,7 @@ export default defineSchema({
                 actualDuration: v.optional(v.number()),
                 details: v.optional(v.string()),
                 productionNotes: v.optional(v.string()),
+                postMortemNote: v.optional(v.string()),
             })
         ),
         isManualMode: v.optional(v.boolean()),
@@ -73,7 +74,7 @@ export default defineSchema({
         uuid: v.optional(v.string()),
         slug: v.optional(v.string()),
         isPublic: v.optional(v.boolean()),
-        status: v.optional(v.union(v.literal("draft"), v.literal("live"), v.literal("concluded"))),
+        status: v.optional(v.union(v.literal("draft"), v.literal("live"), v.literal("concluded"), v.literal("archived"))),
     }).index("by_org", ["organizationId"]).index("by_slug", ["slug"]).index("by_uuid", ["uuid"]).index("by_status", ["status"]),
 
     stageMessages: defineTable({

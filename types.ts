@@ -45,7 +45,7 @@ export interface Program {
   secondsElapsed?: number;
   slug?: string;
   isPublic?: boolean;
-  status?: 'draft' | 'live' | 'concluded';
+  status?: 'draft' | 'live' | 'concluded' | 'archived';
 }
 
 export interface AnalyticsData {
