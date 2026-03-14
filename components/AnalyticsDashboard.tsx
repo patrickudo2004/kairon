@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Program, Slot } from '../types';
 import { BarChart3, Clock, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, ClipboardList, Download, Printer, Save, MessageSquare } from 'lucide-react';
 import { formatDuration } from '../utils/time';
-import { PDFDownloadLink } from '@react-pdf/renderer';
+import { usePDF } from '@react-pdf/renderer';
 import ServiceReportPDF from './ServiceReportPDF';
 
 interface AnalyticsDashboardProps {
@@ -41,6 +41,13 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
             efficiency: totalPlanned > 0 ? Math.round((totalPlanned / totalActual) * 100) : 100
         };
     }, [program]);
+
+    const [pdfInstance, updatePdf] = usePDF({ document: <ServiceReportPDF program={program} stats={stats} /> });
+
+    // Force PDF regeneration specifically when stats change
+    React.useEffect(() => {
+        updatePdf(<ServiceReportPDF program={program} stats={stats} />);
+    }, [stats, program, updatePdf]);
 
     return (
         <div id="printable-area" className="max-w-6xl print:max-w-none mx-auto p-6 space-y-8 print:space-y-4 animate-in fade-in duration-500">
@@ -81,18 +88,21 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                         <Download size={14} />
                         Export CSV
                     </button>
-                    <PDFDownloadLink
-                        document={<ServiceReportPDF program={program} stats={stats} />}
-                        fileName={`kairon_service_report_${program.title.replace(/\s+/g, '_')}.pdf`}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold text-white shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
+                    <button
+                        onClick={() => {
+                            if (pdfInstance.url) {
+                                const link = document.createElement('a');
+                                link.href = pdfInstance.url;
+                                link.download = `kairon_service_report_${program.title.replace(/\s+/g, '_')}.pdf`;
+                                link.click();
+                            }
+                        }}
+                        disabled={pdfInstance.loading || !pdfInstance.url}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold text-white shadow-lg shadow-indigo-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {({ loading }) => (
-                            <>
-                                <Printer size={14} />
-                                {loading ? 'Generating PDF...' : 'Download PDF'}
-                            </>
-                        )}
-                    </PDFDownloadLink>
+                        <Printer size={14} />
+                        {pdfInstance.loading ? 'Generating PDF...' : 'Download PDF'}
+                    </button>
                 </div>
                 <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                     {program.date} • {program.startTime}
