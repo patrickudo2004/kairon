@@ -60,6 +60,14 @@ export const updateProgram = async (program: Program): Promise<void> => {
     });
 };
 
+export const updateSlot = async (programId: string, slotId: string, patch: Partial<Slot>): Promise<void> => {
+    await convex.mutation(api.programs.updateSlot, {
+        id: programId as any,
+        slotId,
+        patch
+    });
+};
+
 export const deleteProgram = async (id: string): Promise<void> => {
     await convex.mutation(api.programs.deleteProgram, { id: id as any });
 };

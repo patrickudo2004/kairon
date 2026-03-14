@@ -200,6 +200,28 @@ export const finalizeProgram = mutation({
     },
 });
 
+export const updateSlot = mutation({
+    args: {
+        id: v.string(),
+        slotId: v.string(),
+        patch: v.any(),
+    },
+    handler: async (ctx, args) => {
+        const program = await resolveProgram(ctx, args.id);
+        if (!program) throw new Error("Program not found");
+
+        if (program.status === "archived") {
+            throw new Error("Cannot modify an archived Service Report.");
+        }
+
+        const newSlots = program.slots.map((s: any) =>
+            s.id === args.slotId ? { ...s, ...args.patch } : s
+        );
+
+        await ctx.db.patch(program._id, { slots: newSlots });
+    },
+});
+
 export const deleteProgram = mutation({
     args: { id: v.string() },
     handler: async (ctx, args) => {
