@@ -159,40 +159,59 @@ export const migrateProgram = mutation({
 });
 
 
+// Internal helper to resolve a program document by either Convex ID or UUID
+async function resolveProgram(ctx: any, id: string) {
+    const normalizedId = ctx.db.normalizeId("programs", id);
+    if (normalizedId) {
+        const doc = await ctx.db.get(normalizedId);
+        if (doc) return doc;
+    }
+
+    const cleanUuid = id.replace('local-', '');
+    return await ctx.db
+        .query("programs")
+        .withIndex("by_uuid", (q: any) => q.eq("uuid", cleanUuid))
+        .first();
+}
+
 export const updateProgram = mutation({
     args: {
-        id: v.id("programs"),
+        id: v.string(), // Changed to v.string() for robustness
         patch: v.any(),
     },
     handler: async (ctx, args) => {
-        const program = await ctx.db.get(args.id);
-        if (program?.status === "archived") {
+        const program = await resolveProgram(ctx, args.id);
+        if (!program) throw new Error("Program not found");
+
+        if (program.status === "archived") {
             throw new Error("Cannot modify an archived Service Report.");
         }
-        await ctx.db.patch(args.id, args.patch);
+        await ctx.db.patch(program._id, args.patch);
     },
 });
 
 export const finalizeProgram = mutation({
-    args: { id: v.id("programs") },
+    args: { id: v.string() }, // Changed to v.string() for robustness
     handler: async (ctx, args) => {
-        const program = await ctx.db.get(args.id);
+        const program = await resolveProgram(ctx, args.id);
         if (!program) throw new Error("Program not found");
         if (program.status === "archived") throw new Error("Program is already archived");
-        await ctx.db.patch(args.id, { status: "archived" });
+        await ctx.db.patch(program._id, { status: "archived" });
     },
 });
 
 export const deleteProgram = mutation({
-    args: { id: v.id("programs") },
+    args: { id: v.string() },
     handler: async (ctx, args) => {
-        await ctx.db.delete(args.id);
+        const program = await resolveProgram(ctx, args.id);
+        if (!program) return;
+        await ctx.db.delete(program._id);
     },
 });
 
 export const updateTimerState = mutation({
     args: {
-        id: v.id("programs"),
+        id: v.string(),
         timerState: v.object({
             isTimerActive: v.boolean(),
             secondsElapsed: v.number(),
@@ -204,7 +223,9 @@ export const updateTimerState = mutation({
         }),
     },
     handler: async (ctx, args) => {
-        await ctx.db.patch(args.id, args.timerState);
+        const program = await resolveProgram(ctx, args.id);
+        if (!program) throw new Error("Program not found");
+        await ctx.db.patch(program._id, args.timerState);
     },
 });
 

@@ -121,7 +121,7 @@ export const getPublicProgram = async (slugOrId: string): Promise<Program | null
 };
 
 // Helper to transform Convex document to our Program type
-const transformProgram = (p: any): Program => ({
+export const transformProgram = (p: any): Program => ({
     id: p._id || p.id,
     title: p.title,
     subtitle: p.subtitle,
