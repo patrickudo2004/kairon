@@ -61,7 +61,6 @@ export default defineSchema({
                 actualDuration: v.optional(v.number()),
                 details: v.optional(v.string()),
                 productionNotes: v.optional(v.string()),
-                postMortemNote: v.optional(v.string()),
             })
         ),
         isManualMode: v.optional(v.boolean()),

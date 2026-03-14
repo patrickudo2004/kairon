@@ -46,9 +46,6 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
 
     const finalizeProgram = useMutation(api.programs.finalizeProgram);
     const [isFinalizing, setIsFinalizing] = React.useState(false);
-    
-    // Tracking active saves to prevent finalization race conditions
-    const [pendingSaves, setPendingSaves] = React.useState<Set<string>>(new Set());
 
     const [pdfInstance, updatePdf] = usePDF({ document: <ServiceReportPDF program={program} stats={stats} /> });
 
@@ -56,21 +53,6 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
     React.useEffect(() => {
         updatePdf(<ServiceReportPDF program={program} stats={stats} />);
     }, [stats, program, updatePdf]);
-
-    const handleNoteUpdate = async (slotId: string, note: string) => {
-        if (!onUpdateSlot) return;
-        
-        try {
-            setPendingSaves(prev => new Set(prev).add(slotId));
-            await onUpdateSlot(slotId, { postMortemNote: note });
-        } finally {
-            setPendingSaves(prev => {
-                const next = new Set(prev);
-                next.delete(slotId);
-                return next;
-            });
-        }
-    };
 
     return (
         <div id="printable-area" className="max-w-6xl print:max-w-none mx-auto p-6 space-y-8 print:space-y-4 animate-in fade-in duration-500">
@@ -80,22 +62,13 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                     <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
                         Service Report
                     </h1>
-                    <div className="flex items-center gap-2">
-                        <p className="text-slate-500 dark:text-slate-400 font-medium italic">
-                            Performance analytics for "{program.title}"
-                        </p>
-                        {pendingSaves.size > 0 && (
-                            <div className="flex items-center gap-2 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg animate-pulse">
-                                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping" />
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Saving...</span>
-                            </div>
-                        )}
-                    </div>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium italic">
+                        Performance analytics for "{program.title}"
+                    </p>
                 </div>
                 <div className="flex items-center gap-2 no-print">
                     <button
                         onClick={async () => {
-                            if (pendingSaves.size > 0) return;
                             if (!confirm("Are you sure you want to finalize this report? This will permanently lock the data and prevent further edits.")) return;
                             try {
                                 setIsFinalizing(true);
@@ -107,13 +80,11 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                                 setIsFinalizing(false);
                             }
                         }}
-                        disabled={isFinalizing || program.status === 'archived' || pendingSaves.size > 0}
+                        disabled={isFinalizing || program.status === 'archived'}
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
                             program.status === 'archived'
                             ? 'bg-emerald-100/50 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400 cursor-not-allowed border border-emerald-200/50 dark:border-emerald-800/50'
-                            : pendingSaves.size > 0 
-                                ? 'bg-slate-100 text-slate-400 cursor-wait'
-                                : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-400 dark:hover:bg-indigo-800/80 border border-indigo-200 dark:border-indigo-800/40'
+                            : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-400 dark:hover:bg-indigo-800/80 border border-indigo-200 dark:border-indigo-800/40'
                         }`}
                     >
                         {program.status === 'archived' ? (
@@ -124,20 +95,19 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                         ) : (
                             <>
                                 <Save size={14} />
-                                {pendingSaves.size > 0 ? 'Wait (Saving...)' : isFinalizing ? 'Finalizing...' : 'Finalize Report'}
+                                {isFinalizing ? 'Finalizing...' : 'Finalize Report'}
                             </>
                         )}
                     </button>
                     <button
                         onClick={() => {
-                            const headers = ['Title', 'Speaker', 'Planned Duration (m)', 'Actual Duration (m)', 'Variance (m)', 'Notes'];
+                            const headers = ['Title', 'Speaker', 'Planned Duration (m)', 'Actual Duration (m)', 'Variance (m)'];
                             const rows = stats.items.map(item => [
                                 `"${item.title}"`,
                                 `"${item.speaker || ''}"`,
                                 item.plannedVal,
                                 item.actualVal,
                                 item.variance,
-                                `"${item.postMortemNote || ''}"`
                             ]);
                             const csvContent = "data:text/csv;charset=utf-8," 
                                 + headers.join(",") + "\n" 
@@ -286,37 +256,6 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                                             </div>
                                         </td>
                                     </tr>
-                                    {(item.actualDuration > 0 || item.postMortemNote) && (
-                                        <tr key={`note-${idx}`} className="bg-slate-50/30 dark:bg-slate-800/20 no-print">
-                                            <td colSpan={5} className="px-6 py-3">
-                                                <div className="flex items-center gap-3">
-                                                    <MessageSquare size={14} className="text-slate-400 shrink-0" />
-                                                    {program.status === 'archived' ? (
-                                                        <span className="text-xs text-slate-500 italic">
-                                                            {item.postMortemNote || 'No post-mortem note recorded.'}
-                                                        </span>
-                                                    ) : (
-                                                    <input 
-                                                        type="text"
-                                                        placeholder="Add post-mortem note (e.g. 'Mic failure', 'Extended Q&A')..."
-                                                        defaultValue={item.postMortemNote || ''}
-                                                        onBlur={(e) => handleNoteUpdate(item.id, e.target.value)}
-                                                        className="w-full bg-transparent border-none outline-none text-xs text-slate-600 dark:text-slate-400 placeholder:text-slate-400 focus:ring-0"
-                                                    />
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}
-                                    {/* Print-only Notes row */}
-                                    {item.postMortemNote && (
-                                        <tr key={`print-note-${idx}`} className="hidden print:table-row">
-                                            <td colSpan={4} className="px-6 print:px-2 py-2 text-[10px] text-slate-500 italic">
-                                                Note: {item.postMortemNote}
-                                            </td>
-                                            <td className="no-print"></td>
-                                        </tr>
-                                    )}
                                 </React.Fragment>
                             ))}
                         </tbody>

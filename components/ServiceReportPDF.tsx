@@ -192,25 +192,6 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: '#cbd5e1',
   },
-  noteWrapper: {
-    flexDirection: 'row',
-    padding: '4 10',
-    backgroundColor: '#f8fafc',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  noteLabel: {
-    fontSize: 8,
-    fontWeight: 700,
-    color: '#64748b',
-    marginRight: 4,
-  },
-  noteText: {
-    fontSize: 8,
-    color: '#64748b',
-    fontStyle: 'italic',
-    flex: 1,
-  },
   insightWrapper: {
     backgroundColor: '#6366f1',
     borderRadius: 8,
@@ -366,12 +347,6 @@ const ServiceReportPDF: React.FC<ServiceReportPDFProps> = ({ program, stats }) =
                   )}
                 </View>
               </View>
-              {item.postMortemNote && (
-                <View style={styles.noteWrapper}>
-                  <Text style={styles.noteLabel}>Note:</Text>
-                  <Text style={styles.noteText}>{item.postMortemNote}</Text>
-                </View>
-              )}
             </View>
           ))}
         </View>
