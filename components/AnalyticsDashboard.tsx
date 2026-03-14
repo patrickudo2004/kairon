@@ -4,6 +4,8 @@ import { BarChart3, Clock, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown
 import { formatDuration } from '../utils/time';
 import { usePDF } from '@react-pdf/renderer';
 import ServiceReportPDF from './ServiceReportPDF';
+import { useMutation } from 'convex/react';
+import { api } from '../convex/_generated/api';
 
 interface AnalyticsDashboardProps {
     program: Program;
@@ -42,6 +44,9 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
         };
     }, [program]);
 
+    const finalizeProgram = useMutation(api.programs.finalizeProgram);
+    const [isFinalizing, setIsFinalizing] = React.useState(false);
+
     const [pdfInstance, updatePdf] = usePDF({ document: <ServiceReportPDF program={program} stats={stats} /> });
 
     // Force PDF regeneration specifically when stats change
@@ -62,6 +67,38 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                     </p>
                 </div>
                 <div className="flex items-center gap-2 no-print">
+                    <button
+                        onClick={async () => {
+                            if (!confirm("Are you sure you want to finalize this report? This will permanently lock the data and prevent further edits.")) return;
+                            try {
+                                setIsFinalizing(true);
+                                await finalizeProgram({ id: program.id as any });
+                            } catch (e) {
+                                console.error(e);
+                                alert("Failed to finalize report.");
+                            } finally {
+                                setIsFinalizing(false);
+                            }
+                        }}
+                        disabled={isFinalizing || program.status === 'archived'}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                            program.status === 'archived'
+                            ? 'bg-emerald-100/50 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400 cursor-not-allowed border border-emerald-200/50 dark:border-emerald-800/50'
+                            : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-400 dark:hover:bg-indigo-800/80 border border-indigo-200 dark:border-indigo-800/40'
+                        }`}
+                    >
+                        {program.status === 'archived' ? (
+                            <>
+                                <CheckCircle2 size={14} />
+                                Finalized
+                            </>
+                        ) : (
+                            <>
+                                <Save size={14} />
+                                {isFinalizing ? 'Finalizing...' : 'Finalize Report'}
+                            </>
+                        )}
+                    </button>
                     <button
                         onClick={() => {
                             const headers = ['Title', 'Speaker', 'Planned Duration (m)', 'Actual Duration (m)', 'Variance (m)', 'Notes'];
@@ -225,6 +262,11 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                                             <td colSpan={5} className="px-6 py-3">
                                                 <div className="flex items-center gap-3">
                                                     <MessageSquare size={14} className="text-slate-400 shrink-0" />
+                                                    {program.status === 'archived' ? (
+                                                        <span className="text-xs text-slate-500 italic">
+                                                            {item.postMortemNote || 'No post-mortem note recorded.'}
+                                                        </span>
+                                                    ) : (
                                                     <input 
                                                         type="text"
                                                         placeholder="Add post-mortem note (e.g. 'Mic failure', 'Extended Q&A')..."
@@ -236,6 +278,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                                                         }}
                                                         className="w-full bg-transparent border-none outline-none text-xs text-slate-600 dark:text-slate-400 placeholder:text-slate-400 focus:ring-0"
                                                     />
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

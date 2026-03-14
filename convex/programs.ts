@@ -165,7 +165,21 @@ export const updateProgram = mutation({
         patch: v.any(),
     },
     handler: async (ctx, args) => {
+        const program = await ctx.db.get(args.id);
+        if (program?.status === "archived") {
+            throw new Error("Cannot modify an archived Service Report.");
+        }
         await ctx.db.patch(args.id, args.patch);
+    },
+});
+
+export const finalizeProgram = mutation({
+    args: { id: v.id("programs") },
+    handler: async (ctx, args) => {
+        const program = await ctx.db.get(args.id);
+        if (!program) throw new Error("Program not found");
+        if (program.status === "archived") throw new Error("Program is already archived");
+        await ctx.db.patch(args.id, { status: "archived" });
     },
 });
 
@@ -186,7 +200,7 @@ export const updateTimerState = mutation({
             timerStartTimestamp: v.union(v.number(), v.null()),
             isOnHold: v.optional(v.boolean()),
             holdMessage: v.optional(v.string()),
-            status: v.optional(v.union(v.literal("draft"), v.literal("live"), v.literal("concluded"))),
+            status: v.optional(v.union(v.literal("draft"), v.literal("live"), v.literal("concluded"), v.literal("archived"))),
         }),
     },
     handler: async (ctx, args) => {
