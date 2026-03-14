@@ -9,7 +9,7 @@ import { ConvexAuthProvider, useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery as useConvexQuery, useMutation as useConvexMutation } from "convex/react";
 import { api } from "./convex/_generated/api";
 import { convex } from "./services/convexClient";
-import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService } from './services/programService';
+import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService, transformProgram } from './services/programService';
 import { getProfile } from './services/authService';
 import { getMyOrganizations, checkPendingInvites, getInviteDetails } from './services/orgService';
 import { rebalanceSchedule } from './services/geminiService';
@@ -65,26 +65,18 @@ import { Monitor, User as UserIcon, Building, MessageSquare, Bell, Clock, Crown,
 // --- Analytics Wrapper (Dedicated Component to avoid render loops) ---
 const AnalyticsWrapper: React.FC<{ onUpdateSlot?: (slotId: string, updates: Partial<Slot>) => void }> = ({ onUpdateSlot }) => {
   const { id } = useParams<{ id: string }>();
-  const [reportProgram, setReportProgram] = useState<Program | null>(null);
-  const [reportLoading, setReportLoading] = useState(true);
+  
+  const rawData = useConvexQuery(
+    api.programs.getProgramById,
+    id ? { id } : "skip"
+  );
 
-  useEffect(() => {
-    if (!id) return;
-    let isMounted = true;
-    void (async () => {
-      try {
-        const data = await getProgramById(id);
-        if (isMounted) setReportProgram(data);
-      } catch (err) {
-        console.error("Failed to load analytics data:", err);
-      } finally {
-        if (isMounted) setReportLoading(false);
-      }
-    })();
-    return () => { isMounted = false; };
-  }, [id]);
+  const reportProgram = useMemo(() => {
+    if (!rawData) return null;
+    return transformProgram(rawData);
+  }, [rawData]);
 
-  if (reportLoading) return <div className="flex h-screen items-center justify-center dark:bg-slate-950"><div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>;
+  if (rawData === undefined) return <div className="flex h-screen items-center justify-center dark:bg-slate-950"><div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>;
   if (!reportProgram) return <div className="p-12 text-center text-slate-500">Report not found.</div>;
 
   return <AnalyticsDashboard program={reportProgram} onUpdateSlot={onUpdateSlot} />;
