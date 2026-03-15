@@ -1,9 +1,22 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Program, Slot, SLOT_PRESETS } from '../types';
-import { Trash2, Plus, GripVertical, Sparkles, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, Users, Globe, Link as LinkIcon, Share2, Crown } from 'lucide-react';
-import { generateProgramDraft } from '../services/geminiService';
-import { EmbedSnippet } from './EmbedSnippet';
-
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  TouchSensor,
+  MouseSensor
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
+import { SortableSlot } from './SortableSlot';
 
 import { timeToMinutes, minutesToTime } from '../utils/time';
 
@@ -27,12 +40,23 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set());
 
-
-  // Drag and Drop Refs
-  const dragItem = useRef<number | null>(null);
-  const dragOverItem = useRef<number | null>(null);
-
-
+  // Sensors for DnD
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const handleSlotChange = (id: string, field: keyof Slot, value: any) => {
     const newSlots = program.slots.map(s => s.id === id ? { ...s, [field]: value } : s);
@@ -91,34 +115,14 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
     setIsGenerating(false);
   };
 
-  // Drag and Drop Handlers
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
-    dragItem.current = index;
-    e.dataTransfer.effectAllowed = 'move';
-    e.currentTarget.classList.add('opacity-50');
-  };
-
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, index: number) => {
-    if (dragItem.current === null || dragItem.current === index) return;
-
-    const newSlots = [...program.slots];
-    const draggedItemContent = newSlots[dragItem.current];
-
-    newSlots.splice(dragItem.current, 1);
-    newSlots.splice(index, 0, draggedItemContent);
-
-    dragItem.current = index;
-    onUpdate({ ...program, slots: newSlots });
-  };
-
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-    e.currentTarget.classList.remove('opacity-50');
-    dragItem.current = null;
-    dragOverItem.current = null;
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = program.slots.findIndex((s) => s.id === active.id);
+      const newIndex = program.slots.findIndex((s) => s.id === over.id);
+      const newSlots = arrayMove(program.slots, oldIndex, newIndex);
+      onUpdate({ ...program, slots: newSlots });
+    }
   };
 
 
@@ -316,132 +320,34 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
       </div>
 
       {/* Slots List */}
-      <div className="space-y-3">
-        {program.slots.map((slot, index) => (
-          <div
-            key={slot.id}
-            draggable={!isReadOnly}
-            onDragStart={(e) => !isReadOnly && handleDragStart(e, index)}
-            onDragEnter={(e) => !isReadOnly && handleDragEnter(e, index)}
-            onDragEnd={handleDragEnd}
-            onDragOver={handleDragOver}
-            className={`group flex flex-col bg-white dark:bg-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors ${!isReadOnly ? 'cursor-move md:cursor-default' : 'cursor-default'}`}
-          >
-            {/* Main Row */}
-            <div className="flex flex-col md:flex-row items-center gap-4 p-4">
-
-              {/* Time Column */}
-              <div className="md:w-24 flex flex-col items-center justify-center border-r border-slate-200 dark:border-slate-700 pr-4 mr-2 pointer-events-none">
-                <span className="text-xs font-mono text-slate-400 dark:text-slate-500">{getSlotStartTime(index)}</span>
-              </div>
-
-              {!isReadOnly && (
-                <div className="text-slate-400 dark:text-slate-600 hidden md:block cursor-move">
-                  <GripVertical size={20} />
-                </div>
-              )}
-
-              <div className="flex-1 grid grid-cols-12 gap-4 w-full items-center">
-                <div className="col-span-12 md:col-span-4 flex items-center gap-2">
-                  <button
-                    onClick={() => toggleSlotDetails(slot.id)}
-                    className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                    title={expandedSlots.has(slot.id) ? "Hide Details" : "Show Details"}
-                  >
-                    {expandedSlots.has(slot.id) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                  </button>
-                  <input
-                    type="text"
-                    value={slot.title}
-                    readOnly={isReadOnly}
-                    onChange={(e) => handleSlotChange(slot.id, 'title', e.target.value)}
-                    placeholder="Session Title"
-                    className={`w-full bg-transparent text-slate-900 dark:text-white font-medium focus:underline outline-none placeholder-slate-400 dark:placeholder-slate-600 ${isReadOnly ? 'cursor-default' : ''}`}
-                  />
-                </div>
-                <div className="col-span-12 md:col-span-3">
-                  <input
-                    type="text"
-                    value={slot.speaker}
-                    readOnly={isReadOnly}
-                    onChange={(e) => handleSlotChange(slot.id, 'speaker', e.target.value)}
-                    placeholder="Speaker Name"
-                    className={`w-full bg-transparent text-indigo-600 dark:text-indigo-300 text-sm focus:underline outline-none placeholder-slate-400 dark:placeholder-slate-600 ${isReadOnly ? 'cursor-default' : ''}`}
-                  />
-                </div>
-                <div className="col-span-6 md:col-span-2">
-                  <input
-                    list="slot-types"
-                    type="text"
-                    value={slot.type}
-                    readOnly={isReadOnly}
-                    onChange={(e) => handleSlotChange(slot.id, 'type', e.target.value)}
-                    className={`w-full bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 text-xs rounded px-2 py-1 border border-slate-200 dark:border-slate-700 outline-none ${isReadOnly ? 'cursor-default opacity-80' : ''}`}
-                    placeholder="Type..."
-                  />
-                </div>
-                <div className="col-span-6 md:col-span-2 flex items-center gap-2 justify-end">
-                  <input
-                    type="number"
-                    value={slot.durationMinutes}
-                    readOnly={isReadOnly}
-                    onChange={(e) => handleSlotChange(slot.id, 'durationMinutes', parseInt(e.target.value) || 0)}
-                    className={`w-16 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm rounded px-2 py-1 border border-slate-200 dark:border-slate-700 outline-none text-center focus:ring-1 focus:ring-indigo-500 ${isReadOnly ? 'cursor-default' : ''}`}
-                  />
-                  <span className="text-xs text-slate-500 w-6">min</span>
-                </div>
-              </div>
-
-              {!isReadOnly && (
-                <div className="flex items-center border-l border-slate-200 dark:border-slate-700 pl-2 ml-2 gap-1">
-                  <button
-                    onClick={() => duplicateSlot(index)}
-                    className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-2 rounded transition-colors"
-                    title="Duplicate Slot"
-                  >
-                    <Copy size={18} />
-                  </button>
-                  <button
-                    onClick={() => removeSlot(slot.id)}
-                    className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-500 p-2 rounded transition-colors"
-                    title="Remove Slot"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Details Section (Collapsible) */}
-            {expandedSlots.has(slot.id) && (
-              <div className="px-4 pb-4 pl-12 md:pl-36 space-y-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-wider">Public Details</label>
-                  <textarea
-                    value={slot.details || ''}
-                    readOnly={isReadOnly}
-                    onChange={(e) => handleSlotChange(slot.id, 'details', e.target.value)}
-                    placeholder="Add notes, abstract, or detailed description for this slot..."
-                    className={`w-full h-24 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 focus:ring-1 focus:ring-indigo-500 outline-none resize-none transition-colors ${isReadOnly ? 'cursor-default' : ''}`}
-                  />
-                </div>
-                <div className="pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
-                  <label className="block text-[10px] font-bold text-amber-500/80 uppercase mb-1 tracking-wider flex items-center gap-1">
-                    <AlertCircle size={10} /> Internal Production Cues (Staff Only)
-                  </label>
-                  <textarea
-                    value={slot.productionNotes || ''}
-                    readOnly={isReadOnly}
-                    onChange={(e) => handleSlotChange(slot.id, 'productionNotes', e.target.value)}
-                    placeholder="e.g. 'Ready acoustic guitar', 'Dim lights', 'Camera 2 focus on pulpit'..."
-                    className={`w-full h-20 bg-amber-500/[0.03] dark:bg-amber-500/[0.05] border border-amber-500/20 dark:border-amber-500/10 rounded-lg p-3 text-sm text-slate-800 dark:text-amber-100/90 placeholder-amber-900/30 dark:placeholder-amber-400/20 focus:ring-1 focus:ring-amber-500/50 outline-none resize-none transition-colors ${isReadOnly ? 'cursor-default' : ''}`}
-                  />
-                </div>
-              </div>
-            )}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+        modifiers={[restrictToVerticalAxis]}
+      >
+        <SortableContext
+          items={program.slots.map(s => s.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-3">
+            {program.slots.map((slot, index) => (
+              <SortableSlot
+                key={slot.id}
+                slot={slot}
+                index={index}
+                isReadOnly={isReadOnly}
+                isExpanded={expandedSlots.has(slot.id)}
+                onToggleDetails={toggleSlotDetails}
+                onSlotChange={handleSlotChange}
+                onDuplicate={duplicateSlot}
+                onRemove={removeSlot}
+                getSlotStartTime={getSlotStartTime}
+              />
+            ))}
           </div>
-        ))}
-      </div>
+        </SortableContext>
+      </DndContext>
 
       {!isReadOnly && (
         <button

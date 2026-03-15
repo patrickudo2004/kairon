@@ -66,31 +66,31 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
                         {organizations?.map((org) => (
                             <div
                                 key={org.id}
-                                className="w-full flex items-center justify-between p-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group"
+                                className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group"
                             >
                                 <div
                                     onClick={() => {
                                         onSelect(org.id);
                                         setIsOpen(false);
                                     }}
-                                    className="flex-1 flex items-center gap-3 p-1 cursor-pointer"
+                                    className="flex-1 flex items-center gap-4 p-1 cursor-pointer"
                                 >
                                     <div
-                                        className="w-8 h-8 rounded-md flex items-center justify-center text-white font-bold text-xs shrink-0"
+                                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-lg shadow-indigo-500/10"
                                         style={{ backgroundColor: org.brandColor || '#e11d48' }}
                                     >
                                         {org.name.substring(0, 1).toUpperCase()}
                                     </div>
                                     <div className="text-left min-w-0">
-                                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">
+                                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
                                             {org.name}
                                         </p>
-                                        <p className="text-[10px] text-slate-400 truncate">
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate">
                                             {org.subscriptionStatus === 'pro' ? 'Pro Plan' : 'Free Workspace'}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-1.5 px-2">
+                                <div className="flex items-center gap-2 px-2">
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -98,13 +98,13 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
                                             navigate('/admin');
                                             setIsOpen(false);
                                         }}
-                                        className="p-1.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                                        className="p-2.5 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                                         title="Workspace Settings"
                                     >
-                                        <Settings size={14} />
+                                        <Settings size={18} />
                                     </button>
                                     {org.id === activeOrg?.id && (
-                                        <Check size={16} className="text-rose-600 dark:text-rose-400 shrink-0" />
+                                        <Check size={18} className="text-rose-600 dark:text-rose-400 shrink-0" />
                                     )}
                                 </div>
                             </div>
