@@ -50,13 +50,13 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 10,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 250,
-        tolerance: 5,
+        delay: 300,
+        tolerance: 6,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -272,7 +272,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
       </div>
 
       {/* Public Access Panel */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden mb-8 shadow-xl transition-all duration-500">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden mb-8 shadow-xl transition-all duration-500 w-full flex flex-col">
         <div className="p-4 bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg">

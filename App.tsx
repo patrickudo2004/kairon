@@ -1290,7 +1290,7 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${user ? (isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64') : ''}`}>
+      <div className={`flex-1 flex flex-col min-h-screen pb-32 lg:pb-0 transition-all duration-300 ${user ? (isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64') : ''}`}>
         {/* Header (Simplified Top Bar) */}
         <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md transition-colors h-16 flex items-center shrink-0 no-print">
           <div className="w-full px-6 flex items-center justify-between">
