@@ -1,3 +1,9 @@
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Program, Slot, SLOT_PRESETS } from '../types';
+import { Trash2, Plus, GripVertical, Sparkles, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, Users, Globe, Link as LinkIcon, Share2, Crown } from 'lucide-react';
+import { generateProgramDraft } from '../services/geminiService';
+import { EmbedSnippet } from './EmbedSnippet';
+
 import {
   DndContext,
   closestCenter,
