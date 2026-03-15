@@ -158,7 +158,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
           {currentSlot.speaker}
         </p>
 
-        <div className={`text-[100px] md:text-[180px] font-mono font-bold leading-none tracking-tighter tabular-nums select-none transition-colors ${timeLeft < 0 ? 'text-rose-600 dark:text-rose-500 animate-pulse' : 'text-slate-900 dark:text-white'
+        <div className={`text-[25vw] sm:text-[20vw] lg:text-[180px] font-mono font-bold leading-none tracking-tighter tabular-nums select-none transition-colors ${timeLeft < 0 ? 'text-rose-600 dark:text-rose-500 animate-pulse' : 'text-slate-900 dark:text-white'
           }`}>
           {formatDuration(timeLeft)}
         </div>
@@ -214,46 +214,48 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
 
       {/* Controls - Hidden if readOnly */}
       {!readOnly && (
-        <div className="flex justify-center gap-6 mb-8">
-          <button
-            onClick={onPrev}
-            disabled={currentSlotIndex === 0}
-            className="flex items-center gap-3 px-6 py-5 rounded-2xl font-semibold text-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <SkipBack size={28} />
-          </button>
+        <div className="flex flex-col md:flex-row justify-center gap-4 md:gap-6 mb-8">
+          <div className="flex justify-center gap-4 flex-1">
+            <button
+              onClick={onPrev}
+              disabled={currentSlotIndex === 0}
+              className="flex-1 md:flex-initial flex items-center justify-center gap-3 px-6 py-5 rounded-2xl font-semibold text-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <SkipBack size={28} />
+            </button>
 
-          <button
-            onClick={onToggleTimer}
-            className={`flex items-center gap-3 px-8 md:px-12 py-5 rounded-2xl font-semibold text-xl transition-all transform hover:scale-105 active:scale-95 shadow-xl ${isTimerActive
-              ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
-              : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-500/30'
-              }`}
-          >
-            {isTimerActive ? <><Pause size={28} /> Pause</> : <><Play size={28} fill="currentColor" /> Start</>}
-          </button>
+            <button
+              onClick={onToggleTimer}
+              className={`flex-[2] md:flex-initial flex items-center justify-center gap-3 px-8 md:px-12 py-5 rounded-2xl font-semibold text-xl transition-all transform hover:scale-105 active:scale-95 shadow-xl ${isTimerActive
+                ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+                : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-500/30'
+                }`}
+            >
+              {isTimerActive ? <><Pause size={28} /> <span className="md:inline">Pause</span></> : <><Play size={28} fill="currentColor" /> <span className="md:inline">Start</span></>}
+            </button>
 
-          <button
-            onClick={onNext}
-            className={`flex items-center gap-3 px-8 md:px-10 py-5 rounded-2xl font-semibold text-xl border transition-all shadow-xl ${program.isManualMode && timeLeft <= 0
-                ? 'bg-amber-500 text-white border-amber-600 animate-pulse ring-4 ring-amber-500/20'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white border-slate-200 dark:border-slate-700'
-              }`}
-          >
-            <SkipForward size={28} />
-            Next
-          </button>
+            <button
+              onClick={onNext}
+              className={`flex-1 md:flex-initial flex items-center justify-center gap-3 px-6 md:px-10 py-5 rounded-2xl font-semibold text-xl border transition-all shadow-xl ${program.isManualMode && timeLeft <= 0
+                  ? 'bg-amber-500 text-white border-amber-600 animate-pulse ring-4 ring-amber-500/20'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white border-slate-200 dark:border-slate-700'
+                }`}
+            >
+              <SkipForward size={28} />
+              <span className="hidden md:inline">Next</span>
+            </button>
+          </div>
 
           <button
             onClick={onToggleHold}
-            className={`flex items-center gap-3 px-6 py-5 rounded-2xl font-semibold text-xl transition-all border ${program.isOnHold
+            className={`w-full md:w-auto flex items-center justify-center gap-3 px-6 py-5 rounded-2xl font-semibold text-xl transition-all border ${program.isOnHold
               ? 'bg-amber-500 text-white border-amber-600 shadow-amber-500/30'
               : 'bg-white dark:bg-slate-800 text-amber-600 border-amber-200 dark:border-amber-900 hover:bg-amber-50 dark:hover:bg-amber-900/20'
               }`}
             title="Hold for Cue"
           >
             <Pause size={24} />
-            <span className="hidden md:block">Hold</span>
+            <span>Hold for Cue</span>
           </button>
         </div>
       )}

@@ -200,13 +200,65 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                 </div>
             </div>
 
-            {/* Detailed Analysis Table */}
+            {/* Detailed Analysis Section */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xl print:shadow-none print:border-slate-300">
-                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3 print:border-slate-200">
-                    <ClipboardList className="text-indigo-500" size={20} />
-                    <h2 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">Slot Performance Breakdown</h2>
+                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between print:border-slate-200">
+                    <div className="flex items-center gap-3">
+                        <ClipboardList className="text-indigo-500" size={20} />
+                        <h2 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">Slot Performance Breakdown</h2>
+                    </div>
                 </div>
-                <div className="overflow-x-auto">
+
+                {/* Mobile Card View */}
+                <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                    {stats.items.map((item, idx) => (
+                        <div key={idx} className="p-4 space-y-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <div className="font-bold text-slate-900 dark:text-white">{item.title}</div>
+                                    <div className="text-xs text-slate-500">{item.speaker || 'No Speaker'}</div>
+                                </div>
+                                {item.actualVal > 0 && (
+                                    <span className={`text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest ${item.variance > 0 ? 'bg-rose-100 dark:bg-rose-500/10 text-rose-600' :
+                                        item.variance < 0 ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600' :
+                                            'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                    }`}>
+                                        {item.variance > 0 ? `+${item.variance}` : item.variance}m Variance
+                                    </span>
+                                )}
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Planned</div>
+                                    <div className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">{item.plannedVal}m</div>
+                                </div>
+                                <div className="bg-indigo-50/50 dark:bg-indigo-500/5 p-3 rounded-xl border border-indigo-100/50 dark:border-indigo-500/10">
+                                    <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Actual</div>
+                                    <div className="text-sm font-mono font-bold text-indigo-600 dark:text-indigo-400">{item.actualVal > 0 ? `${item.actualVal}m` : '---'}</div>
+                                </div>
+                            </div>
+
+                            {item.actualVal > 0 && (
+                                <div className="flex h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                    <div
+                                        className="bg-indigo-500 h-full border-r border-white/20"
+                                        style={{ width: `${Math.min(100, (item.plannedVal / Math.max(item.plannedVal, item.actualVal)) * 100)}%` }}
+                                    />
+                                    {item.variance > 0 && (
+                                        <div
+                                            className="bg-rose-500 h-full"
+                                            style={{ width: `${(item.variance / item.actualVal) * 100}%` }}
+                                        />
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-left">
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
@@ -219,44 +271,42 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {stats.items.map((item, idx) => (
-                                <React.Fragment key={idx}>
-                                    <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <td className="px-6 print:px-2 py-4 print:py-2">
-                                            <div className="font-bold text-slate-900 dark:text-white print:text-[12px]">{item.title}</div>
-                                            <div className="text-xs text-slate-500 print:text-[10px]">{item.speaker || 'No Speaker'}</div>
-                                        </td>
-                                        <td className="px-6 print:px-2 py-4 print:py-2 text-sm font-mono text-slate-500 print:text-[11px]">{item.plannedVal}m</td>
-                                        <td className="px-6 print:px-2 py-4 print:py-2 text-sm font-mono font-bold text-slate-900 dark:text-white print:text-[11px]">
-                                            {item.actualVal > 0 ? `${item.actualVal}m` : '---'}
-                                        </td>
-                                        <td className="px-6 print:px-2 py-4 print:py-2">
-                                            {item.actualVal > 0 ? (
-                                                <span className={`text-xs font-black px-2 py-1 rounded print:text-[11px] print:px-1 ${item.variance > 0 ? 'bg-rose-100 dark:bg-rose-500/10 text-rose-600' :
-                                                        item.variance < 0 ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600' :
-                                                            'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                                                    }`}>
-                                                    {item.variance > 0 ? `+${item.variance}` : item.variance}m
-                                                </span>
-                                            ) : (
-                                                <span className="text-xs text-slate-300 print:text-[10px]">N/A</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 no-print">
-                                            <div className="flex h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <td className="px-6 print:px-2 py-4 print:py-2">
+                                        <div className="font-bold text-slate-900 dark:text-white print:text-[12px]">{item.title}</div>
+                                        <div className="text-xs text-slate-500 print:text-[10px]">{item.speaker || 'No Speaker'}</div>
+                                    </td>
+                                    <td className="px-6 print:px-2 py-4 print:py-2 text-sm font-mono text-slate-500 print:text-[11px]">{item.plannedVal}m</td>
+                                    <td className="px-6 print:px-2 py-4 print:py-2 text-sm font-mono font-bold text-slate-900 dark:text-white print:text-[11px]">
+                                        {item.actualVal > 0 ? `${item.actualVal}m` : '---'}
+                                    </td>
+                                    <td className="px-6 print:px-2 py-4 print:py-2">
+                                        {item.actualVal > 0 ? (
+                                            <span className={`text-xs font-black px-2 py-1 rounded print:text-[11px] print:px-1 ${item.variance > 0 ? 'bg-rose-100 dark:bg-rose-500/10 text-rose-600' :
+                                                item.variance < 0 ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600' :
+                                                    'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                            }`}>
+                                                {item.variance > 0 ? `+${item.variance}` : item.variance}m
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs text-slate-300 print:text-[10px]">N/A</span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 no-print">
+                                        <div className="flex h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                            <div
+                                                className="bg-indigo-500 h-full border-r border-white/20"
+                                                style={{ width: `${Math.min(100, (item.plannedVal / Math.max(item.plannedVal, item.actualVal)) * 100)}%` }}
+                                            />
+                                            {item.variance > 0 && (
                                                 <div
-                                                    className="bg-indigo-500 h-full border-r border-white/20"
-                                                    style={{ width: `${Math.min(100, (item.plannedVal / Math.max(item.plannedVal, item.actualVal)) * 100)}%` }}
+                                                    className="bg-rose-500 h-full"
+                                                    style={{ width: `${(item.variance / item.actualVal) * 100}%` }}
                                                 />
-                                                {item.variance > 0 && (
-                                                    <div
-                                                        className="bg-rose-500 h-full"
-                                                        style={{ width: `${(item.variance / item.actualVal) * 100}%` }}
-                                                    />
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </React.Fragment>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
                             ))}
                         </tbody>
                     </table>
