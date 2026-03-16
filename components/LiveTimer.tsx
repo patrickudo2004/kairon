@@ -214,7 +214,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
 
       {/* Controls - Hidden if readOnly */}
       {!readOnly && (
-        <div className="flex flex-col md:flex-row justify-center gap-4 md:gap-6 mb-8">
+        <div className="flex flex-col md:flex-row justify-center gap-4 md:gap-6 mb-12 md:mb-8">
           <div className="flex justify-center gap-4 flex-1">
             <button
               onClick={onPrev}

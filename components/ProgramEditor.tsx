@@ -50,13 +50,13 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 10,
+        distance: 8,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 300,
-        tolerance: 6,
+        delay: 200, // Reduced for snappier feel
+        tolerance: 8, // Increased for finger jitter
       },
     }),
     useSensor(KeyboardSensor, {
@@ -150,7 +150,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6 pb-24">
+    <div className="max-w-5xl mx-auto p-4 md:p-6 pb-32 overflow-x-hidden">
 
       {/* Header Actions */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">

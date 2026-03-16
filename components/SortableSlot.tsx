@@ -62,7 +62,7 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
           <div 
             {...attributes} 
             {...listeners}
-            className="text-slate-400 dark:text-slate-600 cursor-grab active:cursor-grabbing p-4 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-colors md:p-2"
+            className="text-slate-400 dark:text-slate-600 cursor-grab active:cursor-grabbing p-4 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-colors md:p-2 touch-none"
           >
             <GripVertical size={24} className="md:w-5 md:h-5" />
           </div>
