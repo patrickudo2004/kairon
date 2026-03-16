@@ -81,15 +81,6 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                     <p className="text-slate-500 font-medium">Manage your secondary monitors and send instant cues to the stage.</p>
                 </div>
 
-                {isFlightBridgeSupported && (
-                    <button
-                        onClick={onLaunchFlightBridge}
-                        className="flex items-center gap-3 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-95 group shrink-0"
-                    >
-                        <ExternalLink size={18} className="group-hover:rotate-12 transition-transform" />
-                        Launch Flight Bridge
-                    </button>
-                )}
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
