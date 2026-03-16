@@ -30,21 +30,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     const { promptMessage } = useStageMessages(program.id);
     const currentSlot = program.slots[currentSlotIndex];
 
-    // Drift-Proof Local Ticker for smooth countdown
-    const [localSecondsElapsed, setLocalSecondsElapsed] = useState(secondsElapsed);
     const [isVisible, setIsVisible] = useState(false);
-
-    useEffect(() => {
-        setLocalSecondsElapsed(secondsElapsed);
-    }, [secondsElapsed]);
-
-    useEffect(() => {
-        if (!isTimerActive) return;
-        const interval = setInterval(() => {
-            setLocalSecondsElapsed(prev => prev + 1);
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [isTimerActive]);
 
     // Stage Messaging Expiry Logic
     useEffect(() => {
@@ -64,8 +50,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
         }
     }, [promptMessage]);
 
-    const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
-    const timeLeft = durationSeconds - localSecondsElapsed;
+    const timeLeft = (currentSlot ? currentSlot.durationMinutes * 60 : 0) - secondsElapsed;
 
     // Case 1: Program is concluded
     if (program.status === 'concluded') {

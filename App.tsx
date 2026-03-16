@@ -166,20 +166,27 @@ const AppContent: React.FC = () => {
   const userRole = myMembership?.role; // 'admin', 'manager', 'operator'
 
   // Permissions Logic
-  // 1. URL-based overrides
+  const isAdmin = userRole === 'admin';
+  const isManager = userRole === 'manager';
+  const isOperator = userRole === 'operator';
+
+  // 1. URL-based overrides (purely aesthetic for Admins/Managers)
   const isUrlReadOnly = mode === 'viewer' || mode === 'ReadOnly';
 
   // 2. Auth Resolution (Wait for Convex to settle)
   const isAuthResolved = !isConvexAuthLoading && (!isAuthenticated || (isAuthenticated && myMembership !== undefined));
 
-  // 3. Permission Evaluation
+  // 3. Permission Evaluation (POWER-BASED)
+  // Admins and Managers are NEVER restricted by mode, unless they choose to be viewers.
+  // Operators can control the live event but not edit the schedule.
   const isReadOnly = !isAuthResolved ? false : (
-    (isAuthenticated && (userRole === 'admin' || userRole === 'manager'))
-      ? (mode === 'viewer') // Admins/Managers only read-only if they explicitly chose it
-      : (isUrlReadOnly || (isAuthenticated && userRole === 'operator') || !isAuthenticated)
+    (isAdmin || isManager)
+      ? (mode === 'viewer') 
+      : true // Operators and Guests are read-only for structural edits
   );
 
-  const isCoEditor = (userRole === 'admin') || (userRole === 'manager') || (mode === 'coeditor');
+  const canControlLive = isAdmin || isManager || isOperator;
+  const isCoEditor = isAdmin || isManager || (mode === 'coeditor');
 
   const isReadOnlyRef = React.useRef(isReadOnly);
   useEffect(() => {
@@ -858,31 +865,34 @@ const AppContent: React.FC = () => {
     })();
   };
 
-  // Timer Tick Logic (Drift-Proof)
+  // Timer Tick Logic (Drift-Proof & Stateless)
   useEffect(() => {
     let interval: number | undefined;
 
     // We tick if the viewed program is active OR if any program is live (for HUD)
-    const activeTs = isTimerActive ? timerStartTimestamp : (liveProgramId ? timerStartTimestamp : null);
-
-    if (activeTs) {
+    // The source of truth is the timerStartTimestamp from the DB
+    if (isTimerActive && timerStartTimestamp) {
       interval = window.setInterval(() => {
         const now = Date.now();
-        const exactElapsed = Math.floor((now - activeTs) / 1000);
+        const exactElapsed = Math.floor((now - timerStartTimestamp) / 1000);
+        setSecondsElapsed(exactElapsed);
 
-        if (isTimerActive) {
-          setSecondsElapsed(exactElapsed);
-        }
-
-        if (liveProgramId) {
+        if (liveProgramId === program.id) {
           setLiveSecondsElapsed(exactElapsed);
         }
+      }, 200);
+    } else if (liveProgram && liveProgram.isTimerActive && liveProgram.timerStartTimestamp) {
+      // Background sync for HUD if viewing a different program
+      interval = window.setInterval(() => {
+        const now = Date.now();
+        const exactElapsed = Math.floor((now - liveProgram.timerStartTimestamp!) / 1000);
+        setLiveSecondsElapsed(exactElapsed);
       }, 200);
     } else {
       clearInterval(interval);
     }
     return () => clearInterval(interval);
-  }, [isTimerActive, liveProgramId, timerStartTimestamp]);
+  }, [isTimerActive, liveProgramId, timerStartTimestamp, liveProgram?.isTimerActive, liveProgram?.timerStartTimestamp]);
 
 
   const handleSlotComplete = (slotId: string, actualDuration: number) => {
@@ -1004,7 +1014,7 @@ const AppContent: React.FC = () => {
         timerSaveMutation.mutate({
           currentSlotIndex,
           isTimerActive: true,
-          secondsElapsed: 0,
+          // We don't send secondsElapsed when running (derived from timestamp)
           timerStartTimestamp: startTs,
           status: 'live'
         });
@@ -1041,7 +1051,7 @@ const AppContent: React.FC = () => {
       timerSaveMutation.mutate({
         currentSlotIndex,
         isTimerActive: true,
-        secondsElapsed,
+        // No secondsElapsed sent (derived from timestamp)
         timerStartTimestamp: shiftedStart,
         status: 'live'
       });
@@ -1056,7 +1066,7 @@ const AppContent: React.FC = () => {
       timerSaveMutation.mutate({
         currentSlotIndex,
         isTimerActive: false,
-        secondsElapsed,
+        secondsElapsed, // Frozen value sent on pause
         timerStartTimestamp: null
       });
     }
@@ -1396,6 +1406,16 @@ const AppContent: React.FC = () => {
 
                   {user && (
                     <>
+                      {canControlLive && isFlightBridgeSupported && (
+                        <button
+                          onClick={() => openFlightBridge()}
+                          className={`p-2 rounded-lg transition-colors ${pipWindow ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500'}`}
+                          title="Open Flight Bridge (Mini Player)"
+                        >
+                          <Zap size={18} className={pipWindow ? 'animate-pulse' : ''} />
+                        </button>
+                      )}
+
                       <button
                         onClick={() => window.open(`${window.location.origin}/tv`, '_blank')}
                         className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
@@ -1665,7 +1685,7 @@ const AppContent: React.FC = () => {
         </div>
       )}
 
-      {(!isReadOnly || userRole === 'operator') && liveProgramId && (
+      {canControlLive && liveProgramId && (
         <ProductionHUD
           isTimerActive={isTimerActive}
           isAdminOnline={isAdminOnline}
