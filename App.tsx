@@ -1014,7 +1014,7 @@ const AppContent: React.FC = () => {
         timerSaveMutation.mutate({
           currentSlotIndex,
           isTimerActive: true,
-          // We don't send secondsElapsed when running (derived from timestamp)
+          secondsElapsed: 0, // Required by schema
           timerStartTimestamp: startTs,
           status: 'live'
         });
@@ -1051,7 +1051,7 @@ const AppContent: React.FC = () => {
       timerSaveMutation.mutate({
         currentSlotIndex,
         isTimerActive: true,
-        // No secondsElapsed sent (derived from timestamp)
+        secondsElapsed, // Required by schema
         timerStartTimestamp: shiftedStart,
         status: 'live'
       });
