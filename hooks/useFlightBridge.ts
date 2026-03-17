@@ -27,24 +27,11 @@ export const useFlightBridge = () => {
             });
 
             // Copy all stylesheets from the main document to the PiP window
-            const allStyleSheets = Array.from(document.styleSheets);
-            allStyleSheets.forEach((styleSheet) => {
-                try {
-                    const cssRules = Array.from(styleSheet.cssRules)
-                        .map((rule) => rule.cssText)
-                        .join('');
-                    const style = document.createElement('style');
-                    style.textContent = cssRules;
-                    pip.document.head.appendChild(style);
-                } catch (e) {
-                    // Fallback for cross-origin stylesheets
-                    if (styleSheet.href) {
-                        const link = document.createElement('link');
-                        link.rel = 'stylesheet';
-                        link.href = styleSheet.href;
-                        pip.document.head.appendChild(link);
-                    }
-                }
+            // Robustly copy all stylesheets to support both dev (inline <style>) and prod (<link rel="stylesheet">)
+            const styles = document.querySelectorAll('style, link[rel="stylesheet"]');
+            styles.forEach((styleNode) => {
+                const clone = styleNode.cloneNode(true);
+                pip.document.head.appendChild(clone);
             });
 
             // Set title and body class for theme support
