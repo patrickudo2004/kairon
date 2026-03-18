@@ -1389,10 +1389,10 @@ const AppContent: React.FC = () => {
                     <span className="text-[10px] font-bold uppercase tracking-widest hidden lg:block">
                       {program.isManualMode ? 'Manual' : 'Auto'}
                     </span>
-                  </button>
                 </div>
               </div>
-            )}
+            );
+          })()}
 
             <div className="flex items-center gap-3">
               {/* Connection & Mode Indicator */}
@@ -1618,8 +1618,9 @@ const AppContent: React.FC = () => {
                     }}
                   />
                 } />
-              </Routes>
-            )}
+                  </Routes>
+                );
+              })()}
           </div>
         </main>
 
