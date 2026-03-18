@@ -13,6 +13,7 @@ interface HomeDashboardProps {
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
   onStopLive?: (id: string) => void;
+  onPlay?: (program: Program) => void;
 }
 
 interface ProgramCardProps {
@@ -26,9 +27,10 @@ interface ProgramCardProps {
   onDuplicate: (id: string) => void;
   onViewAnalytics: (id: string) => void;
   onStopLive?: (id: string) => void;
+  onPlay?: (program: Program) => void;
 }
 
-const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, isLive, onSelect, onPreview, onDelete, onDuplicate, onViewAnalytics, onStopLive }) => {
+const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, isLive, onSelect, onPreview, onDelete, onDuplicate, onViewAnalytics, onStopLive, onPlay }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -60,6 +62,11 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
   const handleAnalytics = (e: React.MouseEvent) => {
     e.stopPropagation();
     onViewAnalytics(program.id);
+  };
+
+  const handlePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onPlay) onPlay(program);
   };
 
   return (
@@ -150,9 +157,13 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
         >
           <Trash2 size={16} />
         </button>
-        <div className={`bg-indigo-600 p-2 rounded-full text-white shadow-lg ${isPast ? 'hidden' : 'block'}`}>
+        <button
+          onClick={handlePlay}
+          className={`bg-indigo-600 p-2 rounded-full text-white shadow-lg hover:bg-indigo-500 transition-colors ${isPast ? 'hidden' : 'block'}`}
+          title="Go Live"
+        >
           <Play size={16} fill="currentColor" />
-        </div>
+        </button>
       </div>
 
       {/* Delete Confirmation Modal */}
@@ -215,7 +226,8 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onDelete,
   onDuplicate,
   onViewAnalytics,
-  onStopLive
+  onStopLive,
+  onPlay
 }) => {
   const [previewProgram, setPreviewProgram] = useState<Program | null>(null);
 
@@ -266,6 +278,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 onDuplicate={onDuplicate}
                 onViewAnalytics={onViewAnalytics}
                 onStopLive={onStopLive}
+                onPlay={onPlay}
               />
             ))}
           </div>
@@ -297,6 +310,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 onDuplicate={onDuplicate}
                 onViewAnalytics={onViewAnalytics}
                 onStopLive={onStopLive}
+                onPlay={onPlay}
               />
             ))}
           </div>

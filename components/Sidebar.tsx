@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link, useLocation } from 'react-router-dom';
 // import { User as SupabaseUser } from '@supabase/supabase-js';
 import {
     LayoutDashboard,
@@ -28,14 +28,12 @@ import { ProfileDropdown } from './ProfileDropdown';
 interface SidebarProps {
     activeOrg: Organization | null;
     userOrganizations: Organization[];
-    setActiveOrgId: (id: string) => void;
-    profile: Profile | null;
-    user: { id: string, email?: string } | null;
-    onProfileUpdate: (profile: Profile) => void;
-    handleSignOut: () => void;
+    activeOrgId?: string | null;
     isOnline: boolean;
     programTitle: string;
+    programId: string | null;
     liveProgramTitle?: string;
+    liveProgramId?: string | null;
     isCollapsed: boolean;
     onToggle: (collapsed: boolean) => void;
     onCreateOrg: () => void;
@@ -52,20 +50,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
     handleSignOut,
     isOnline,
     programTitle,
+    programId,
     liveProgramTitle,
+    liveProgramId,
     isCollapsed,
     onToggle,
     onCreateOrg,
     onStopAllSessions
 }) => {
+    const location = useLocation();
+
+    // Helper to build links that preserve the current ID
+    const getLinkPath = (base: string) => {
+        const idToUse = liveProgramId || programId;
+        if (!idToUse || idToUse.startsWith('local-')) return base;
+        return `${base}?id=${idToUse}`;
+    };
 
     const navItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-        { icon: Edit3, label: 'Editor', path: '/editor' },
-        { icon: Play, label: 'Live', path: '/live' },
-        { icon: ClipboardList, label: 'List', path: '/list' },
-        { icon: Monitor, label: 'Monitors', path: '/monitors' },
-        { icon: Calendar, label: 'Calendar', path: '/calendar' },
+        { icon: Edit3, label: 'Editor', path: getLinkPath('/editor') },
+        { icon: Play, label: 'Live', path: getLinkPath('/live') },
+        { icon: ClipboardList, label: 'List', path: getLinkPath('/list') },
+        { icon: Monitor, label: 'Monitors', path: getLinkPath('/monitors') },
+        { icon: Calendar, label: 'Calendar', path: '/' }, // Calendar is a modal or dashboard filter usually
         { icon: FileText, label: 'User Guide', path: '/guide' },
         { icon: Settings, label: 'Workspace', path: '/admin' },
     ];
@@ -155,7 +163,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Live Event Indicator */}
                 {liveProgramTitle && (
-                    <div className={`p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-amber-900/20 group relative animate-in fade-in slide-in-from-bottom-2 ${isCollapsed ? 'flex justify-center' : ''}`}>
+                    <Link
+                        to={getLinkPath('/live')}
+                        className={`block p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-amber-900/20 group relative animate-in fade-in slide-in-from-bottom-2 ${isCollapsed ? 'flex justify-center' : ''}`}
+                    >
                         <div className="flex items-center justify-between gap-2 overflow-hidden">
                             <div className="flex items-center gap-2 min-w-0">
                                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
@@ -170,6 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 <button
                                     onClick={(e) => {
                                         e.preventDefault();
+                                        e.stopPropagation();
                                         onStopAllSessions();
                                     }}
                                     className="p-1.5 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-rose-400 hover:text-rose-600 rounded-lg transition-colors shrink-0"
@@ -184,7 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 Live: {liveProgramTitle}
                             </div>
                         )}
-                    </div>
+                    </Link>
                 )}
 
                 {/* Pro Teaser */}
