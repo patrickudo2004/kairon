@@ -1315,7 +1315,7 @@ const AppContent: React.FC = () => {
               ) : (
                 <>
                   <h2 className="font-bold text-slate-900 dark:text-white truncate max-w-[200px] lg:max-w-[400px]">
-                    {program.title}
+                    {(liveProgram && liveProgram.isTimerActive) ? liveProgram.title : program.title}
                   </h2>
                   {isReadOnly && (
                     <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-medium tracking-widest uppercase">Viewer</span>
@@ -1325,19 +1325,26 @@ const AppContent: React.FC = () => {
             </div>
 
             {/* Live Control Center & Timer (THE RESTORED PIECE) */}
-            {!isReadOnly && program.slots.length > 0 && (
-              <div className="hidden md:flex items-center gap-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-1.5 rounded-2xl shadow-sm">
-                <div className={`text-xl font-mono font-bold tabular-nums min-w-[80px] text-center ${isTimerActive ? (program.slots[currentSlotIndex] ? (program.slots[currentSlotIndex].durationMinutes * 60 - secondsElapsed < 0 ? 'text-rose-500' : 'text-indigo-600 dark:text-indigo-400') : 'text-slate-400') : 'text-slate-400'}`}>
-                  {program.slots[currentSlotIndex]
-                    ? formatDuration(program.slots[currentSlotIndex].durationMinutes * 60 - secondsElapsed)
-                    : '00:00'}
-                </div>
+            {(() => {
+              const isLiveEventActive = liveProgram && liveProgram.isTimerActive;
+              const displayProgram = isLiveEventActive ? liveProgram : program;
+              const displayCurrentSlotIndex = isLiveEventActive ? liveCurrentSlotIndex : currentSlotIndex;
+              const displaySecondsElapsed = isLiveEventActive ? liveSecondsElapsed : secondsElapsed;
+              const displayIsTimerActive = isLiveEventActive ? liveProgram.isTimerActive : isTimerActive;
 
-                <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
+              return !isReadOnly && displayProgram.slots.length > 0 && (
+                <div className="hidden md:flex items-center gap-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-1.5 rounded-2xl shadow-sm">
+                  <div className={`text-xl font-mono font-bold tabular-nums min-w-[80px] text-center ${displayIsTimerActive ? (displayProgram.slots[displayCurrentSlotIndex] ? (displayProgram.slots[displayCurrentSlotIndex].durationMinutes * 60 - displaySecondsElapsed < 0 ? 'text-rose-500' : 'text-indigo-600 dark:text-indigo-400') : 'text-slate-400') : 'text-slate-400'}`}>
+                    {displayProgram.slots[displayCurrentSlotIndex]
+                      ? formatDuration(displayProgram.slots[displayCurrentSlotIndex].durationMinutes * 60 - displaySecondsElapsed)
+                      : '00:00'}
+                  </div>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={handleToggleTimer}
+                  <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={handleToggleTimer}
                     className={`p-2 rounded-xl transition-all ${isTimerActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
                     title={isTimerActive ? "Pause Timer" : "Start Event"}
                   >
@@ -1489,100 +1496,112 @@ const AppContent: React.FC = () => {
             ) : !user ? (
               <Auth inviteDetails={effectiveInviteDetails} />
             ) : (
-              <Routes>
-                <Route path="/org" element={
-                  <OrganizationManager
-                    userId={user.id}
-                    activeOrgId={activeOrgId ?? undefined}
-                    onSelect={setActiveOrgId}
-                  />
-                } />
+              // Define Display Variables for Live/List views: 
+              // If there is an active live event playing in this workspace, we prioritize showing IT in the Live/List views.
+              // We only revert to showing the 'draft' program in Live/List if there is NO live event playing anywhere.
+              (() => {
+                const isLiveEventActive = liveProgram && liveProgram.isTimerActive;
+                const displayProgram = isLiveEventActive ? liveProgram : program;
+                const displayCurrentSlotIndex = isLiveEventActive ? liveCurrentSlotIndex : currentSlotIndex;
+                const displaySecondsElapsed = isLiveEventActive ? liveSecondsElapsed : secondsElapsed;
+                const displayIsTimerActive = isLiveEventActive ? liveProgram.isTimerActive : isTimerActive;
 
-                <Route path="/guide" element={<UserGuide />} />
+                return (
+                  <Routes>
+                    <Route path="/org" element={
+                      <OrganizationManager
+                        userId={user.id}
+                        activeOrgId={activeOrgId ?? undefined}
+                        onSelect={setActiveOrgId}
+                      />
+                    } />
 
-                {/* Main Views */}
-                <Route path="/" element={
-                  <HomeWrapper
-                    activeOrgId={activeOrgId ?? undefined}
-                    activeProgramId={program.id}
-                    liveProgramId={liveProgramId}
-                    loadProgram={loadProgram}
-                    createProgram={createProgram}
-                    deleteProgram={deleteProgram}
-                    duplicateProgram={duplicateProgram}
-                    mode={mode}
-                  />
-                } />
+                    <Route path="/guide" element={<UserGuide />} />
 
-                <Route path="/calendar" element={
-                  <CalendarWrapper
-                    activeOrgId={activeOrgId ?? undefined}
-                    activeProgramId={program.id}
-                    liveProgramId={liveProgramId}
-                    loadProgram={loadProgram}
-                    createProgram={createProgram}
-                    deleteProgram={deleteProgram}
-                    duplicateProgram={duplicateProgram}
-                    mode={mode}
-                  />
-                } />
+                    {/* Main Views */}
+                    <Route path="/" element={
+                      <HomeWrapper
+                        activeOrgId={activeOrgId ?? undefined}
+                        activeProgramId={program.id}
+                        liveProgramId={liveProgramId}
+                        loadProgram={loadProgram}
+                        createProgram={createProgram}
+                        deleteProgram={deleteProgram}
+                        duplicateProgram={duplicateProgram}
+                        mode={mode}
+                      />
+                    } />
 
-                <Route path="/admin" element={
-                  activeOrg ? (
-                    <AdminPanel organization={activeOrg} currentUserRole={userRole} currentUser={user} />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4">
-                      <Building size={48} className="opacity-20" />
-                      <p>Select a workspace from the sidebar to manage settings.</p>
-                    </div>
-                  )
-                } />
+                    <Route path="/calendar" element={
+                      <CalendarWrapper
+                        activeOrgId={activeOrgId ?? undefined}
+                        activeProgramId={program.id}
+                        liveProgramId={liveProgramId}
+                        loadProgram={loadProgram}
+                        createProgram={createProgram}
+                        deleteProgram={deleteProgram}
+                        duplicateProgram={duplicateProgram}
+                        mode={mode}
+                      />
+                    } />
 
-                <Route path="/monitors" element={
-                  <MonitorDashboard
-                    program={program}
-                    activeOrg={activeOrg}
-                    onLaunchFlightBridge={() => openFlightBridge()}
-                    isFlightBridgeSupported={isFlightBridgeSupported}
-                    isPro={isPro}
-                  />
-                } />
+                    <Route path="/admin" element={
+                      activeOrg ? (
+                        <AdminPanel organization={activeOrg} currentUserRole={userRole} currentUser={user} />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4">
+                          <Building size={48} className="opacity-20" />
+                          <p>Select a workspace from the sidebar to manage settings.</p>
+                        </div>
+                      )
+                    } />
 
-                <Route path="/analytics/:id" element={<AnalyticsWrapper onUpdateSlot={handleUpdateSlot} />} />
+                    <Route path="/monitors" element={
+                      <MonitorDashboard
+                        program={program}
+                        activeOrg={activeOrg}
+                        onLaunchFlightBridge={() => openFlightBridge()}
+                        isFlightBridgeSupported={isFlightBridgeSupported}
+                        isPro={isPro}
+                      />
+                    } />
 
-                <Route path="/live" element={
-                  <LiveTimer
-                    program={program}
-                    currentSlotIndex={currentSlotIndex}
-                    isTimerActive={isTimerActive}
-                    secondsElapsed={secondsElapsed}
-                    onToggleTimer={handleToggleTimer}
-                    onToggleHold={handleToggleHold}
-                    onNext={handleNext}
-                    onPrev={handlePrev}
-                    readOnly={isReadOnly && userRole !== 'operator'}
-                  />
-                } />
+                    <Route path="/analytics/:id" element={<AnalyticsWrapper onUpdateSlot={handleUpdateSlot} />} />
 
-                <Route path="/list" element={
-                  <ScheduleList
-                    program={program}
-                    currentSlotIndex={currentSlotIndex}
-                    secondsElapsed={secondsElapsed}
-                    isTimerActive={isTimerActive}
-                    readOnly={isReadOnly}
-                  />
-                } />
+                    <Route path="/live" element={
+                      <LiveTimer
+                        program={displayProgram}
+                        currentSlotIndex={displayCurrentSlotIndex}
+                        isTimerActive={displayIsTimerActive}
+                        secondsElapsed={displaySecondsElapsed}
+                        onToggleTimer={handleToggleTimer}
+                        onToggleHold={handleToggleHold}
+                        onNext={handleNext}
+                        onPrev={handlePrev}
+                        readOnly={isReadOnly && userRole !== 'operator'}
+                      />
+                    } />
 
-                <Route path="/editor" element={
-                  <ProgramEditor
-                    program={program}
-                    isReadOnly={isReadOnly}
-                    isCoEditor={isCoEditor}
-                    isAdminOnline={isAdminOnline}
-                    isTimerActive={isTimerActive}
-                    currentSlotIndex={currentSlotIndex}
-                    isPro={isPro}
+                    <Route path="/list" element={
+                      <ScheduleList
+                        program={displayProgram}
+                        currentSlotIndex={displayCurrentSlotIndex}
+                        secondsElapsed={displaySecondsElapsed}
+                        isTimerActive={displayIsTimerActive}
+                        readOnly={isReadOnly}
+                      />
+                    } />
+
+                    <Route path="/editor" element={
+                      <ProgramEditor
+                        program={program}
+                        isReadOnly={isReadOnly}
+                        isCoEditor={isCoEditor}
+                        isAdminOnline={isAdminOnline}
+                        isTimerActive={isTimerActive}
+                        currentSlotIndex={currentSlotIndex}
+                        isPro={isPro}
+
                     onEndEvent={handleEndEvent}
                     onNudge={handleNudge}
                     onUpdate={(p) => {
