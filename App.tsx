@@ -798,6 +798,17 @@ const AppContent: React.FC = () => {
     navigate(`/editor?id=${newProgram.id}`);
   };
 
+  const handlePlayProgram = (newProgram: Program) => {
+    setProgram(newProgram);
+    if (liveProgramId !== newProgram.id) {
+      setCurrentSlotIndex(0);
+      setSecondsElapsed(0);
+      setIsTimerActive(false);
+      setTimerStartTimestamp(null);
+    }
+    navigate(`/live?id=${newProgram.id}`);
+  };
+
   const createProgram = (date: string) => {
     if (isReadOnly) return;
     const newProgram: Program = {
@@ -1278,7 +1289,9 @@ const AppContent: React.FC = () => {
           handleSignOut={handleSignOut}
           isOnline={isOnline}
           programTitle={program.title}
+          programId={program.id}
           liveProgramTitle={liveProgram?.title}
+          liveProgramId={liveProgramId}
           isCollapsed={isSidebarCollapsed}
           onToggle={setIsSidebarCollapsed}
           onCreateOrg={() => setIsOnboardingManual(true)}
@@ -1501,11 +1514,11 @@ const AppContent: React.FC = () => {
               // If there is an active live event playing in this workspace, we prioritize showing IT in the Live/List views.
               // We only revert to showing the 'draft' program in Live/List if there is NO live event playing anywhere.
               (() => {
-                const isLiveEventActive = liveProgram && liveProgram.isTimerActive;
-                const displayProgram = isLiveEventActive ? liveProgram : program;
+                const isLiveEventActive = !!liveProgram;
+                const displayProgram = isLiveEventActive ? liveProgram! : program;
                 const displayCurrentSlotIndex = isLiveEventActive ? liveCurrentSlotIndex : currentSlotIndex;
                 const displaySecondsElapsed = isLiveEventActive ? liveSecondsElapsed : secondsElapsed;
-                const displayIsTimerActive = isLiveEventActive ? liveProgram.isTimerActive : isTimerActive;
+                const displayIsTimerActive = isLiveEventActive ? (liveProgram?.isTimerActive ?? false) : isTimerActive;
 
                 return (
                   <Routes>
@@ -1529,6 +1542,7 @@ const AppContent: React.FC = () => {
                         createProgram={createProgram}
                         deleteProgram={deleteProgram}
                         duplicateProgram={duplicateProgram}
+                        onPlay={handlePlayProgram}
                         mode={mode}
                       />
                     } />
@@ -1542,6 +1556,7 @@ const AppContent: React.FC = () => {
                         createProgram={createProgram}
                         deleteProgram={deleteProgram}
                         duplicateProgram={duplicateProgram}
+                        onPlay={handlePlayProgram}
                         mode={mode}
                       />
                     } />
