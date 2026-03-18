@@ -1389,6 +1389,7 @@ const AppContent: React.FC = () => {
                     <span className="text-[10px] font-bold uppercase tracking-widest hidden lg:block">
                       {program.isManualMode ? 'Manual' : 'Auto'}
                     </span>
+                  </button>
                 </div>
               </div>
             );
@@ -1620,7 +1621,8 @@ const AppContent: React.FC = () => {
                 } />
                   </Routes>
                 );
-              })()}
+              })()
+            )}
           </div>
         </main>
 
