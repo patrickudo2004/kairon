@@ -53,6 +53,7 @@ import StageWrapper from './components/wrappers/StageWrapper';
 import { MonitorDashboard } from './components/MonitorDashboard';
 import { ConfirmationModal } from './components/ConfirmationModal';
 import { CrewHUD } from './components/CrewHUD';
+import { MobileFlightBridge } from './components/MobileFlightBridge';
 
 import { MobileNav } from './components/MobileNav';
 
@@ -178,7 +179,10 @@ const AppContent: React.FC = () => {
 
   // 3. Permission Evaluation (POWER-BASED)
   // Admins and Managers are NEVER restricted by mode, unless they choose to be viewers.
-  // Operators can control the live event but not edit the schedule.
+  useEffect(() => {
+    document.title = "Kairon - Production Timer";
+  }, []);
+
   const isReadOnly = !isAuthResolved ? false : (
     (isAdmin || isManager)
       ? (mode === 'viewer') 
@@ -1759,7 +1763,6 @@ const AppContent: React.FC = () => {
         onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
       />
 
-      {/* Flight Bridge Portal */}
       {pipWindow && createPortal(
         <FlightBridge
           program={program}
@@ -1778,6 +1781,29 @@ const AppContent: React.FC = () => {
           onToggleManualMode={handleToggleManualMode}
         />,
         pipWindow.document.body
+      )}
+
+      {user && canControlLive && liveProgram && !pipWindow && (
+        <MobileFlightBridge
+          program={liveProgram}
+          currentSlotIndex={liveCurrentSlotIndex}
+          secondsElapsed={liveSecondsElapsed}
+          isTimerActive={liveProgram?.isTimerActive ?? false}
+          onToggleTimer={handleToggleTimer}
+          onNextSlot={handleNext}
+          onPrevSlot={handlePrev}
+          onToggleManualMode={handleToggleManualMode}
+          onToggleHold={handleToggleHold}
+        />
+      )}
+
+      {user && (
+        <MobileNav
+          activeOrg={activeOrg}
+          profile={profile}
+          user={user}
+          onSignOut={handleSignOut}
+        />
       )}
     </div>
   );
