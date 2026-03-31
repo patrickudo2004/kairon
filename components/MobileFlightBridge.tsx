@@ -78,7 +78,16 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
     return `${sign}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const remainingSeconds = currentSlot ? (currentSlot.durationMinutes * 60 - (isShowLive ? secondsElapsed : 0)) : 0;
+  // Use a local effect to reset display when the slot changes in a paused state
+  const [localSecondsElapsed, setLocalSecondsElapsed] = useState(secondsElapsed);
+
+  useEffect(() => {
+    setLocalSecondsElapsed(secondsElapsed);
+  }, [secondsElapsed, currentSlotIndex]);
+
+  const remainingSeconds = currentSlot 
+    ? (currentSlot.durationMinutes * 60 - (isShowLive ? localSecondsElapsed : 0)) 
+    : 0;
   const isOvertime = isShowLive && remainingSeconds < 0;
 
   if (!currentSlot && !isExpanded) return null;
