@@ -621,7 +621,8 @@ const AppContent: React.FC = () => {
       timerStartTimestamp: number | null;
       isOnHold?: boolean;
       holdMessage?: string;
-      status?: 'draft' | 'live' | 'concluded';
+      isManualMode?: boolean;
+      status?: 'draft' | 'live' | 'concluded' | 'archived';
     }) => {
       // CRITICAL GUARD: Never send timer state if program ID is local/placeholder
       if (program.id?.startsWith('local-')) {
@@ -1127,7 +1128,17 @@ const AppContent: React.FC = () => {
 
   const handleToggleManualMode = () => {
     if (isReadOnly) return;
-    setProgram(prev => ({ ...prev, isManualMode: !prev.isManualMode }));
+    const nextManualState = !program.isManualMode;
+    setProgram(prev => ({ ...prev, isManualMode: nextManualState }));
+
+    // PUSH TO CLOUD - Ensure HUDs update instantly
+    timerSaveMutation.mutate({
+      currentSlotIndex,
+      isTimerActive,
+      secondsElapsed,
+      timerStartTimestamp,
+      isManualMode: nextManualState
+    });
   };
 
 
@@ -1152,19 +1163,25 @@ const AppContent: React.FC = () => {
       })();
 
       if (currentSlotIndex < program.slots.length - 1) {
-        lastAdvanceTimeRef.current = Date.now();
+        // Continuous Playback Logic: Keep timer running if NOT in manual mode
+        const nextIsActive = !program.isManualMode;
+        const now = Date.now();
+        const nextStartTs = nextIsActive ? now : null;
+
+        lastAdvanceTimeRef.current = now;
         setCurrentSlotIndex(prev => prev + 1);
         setSecondsElapsed(0);
-        setIsTimerActive(false);
-        setTimerStartTimestamp(null);
+        setIsTimerActive(nextIsActive);
+        setTimerStartTimestamp(nextStartTs);
 
         // PUSH TO CLOUD IMMEDIATELY
         clearStageMessage();
         timerSaveMutation.mutate({
           currentSlotIndex: currentSlotIndex + 1,
-          isTimerActive: false,
+          isTimerActive: nextIsActive,
           secondsElapsed: 0,
-          timerStartTimestamp: null
+          timerStartTimestamp: nextStartTs,
+          isManualMode: program.isManualMode
         });
       } else {
         setCurrentSlotIndex(prev => prev + 1);
@@ -1187,18 +1204,24 @@ const AppContent: React.FC = () => {
   const handlePrev = () => {
     if (isReadOnly) return;
     if (currentSlotIndex > 0) {
+      // Continuous Playback Logic: Keep timer running if NOT in manual mode
+      const nextIsActive = !program.isManualMode;
+      const now = Date.now();
+      const nextStartTs = nextIsActive ? now : null;
+
       setCurrentSlotIndex(prev => prev - 1);
       setSecondsElapsed(0);
-      setIsTimerActive(false);
-      setTimerStartTimestamp(null);
+      setIsTimerActive(nextIsActive);
+      setTimerStartTimestamp(nextStartTs);
 
       // PUSH TO CLOUD IMMEDIATELY
       clearStageMessage();
       timerSaveMutation.mutate({
         currentSlotIndex: currentSlotIndex - 1,
-        isTimerActive: false,
+        isTimerActive: nextIsActive,
         secondsElapsed: 0,
-        timerStartTimestamp: null
+        timerStartTimestamp: nextStartTs,
+        isManualMode: program.isManualMode
       });
     }
   };
