@@ -301,7 +301,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
               <div className="flex-1 min-w-0">
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Public Link Active</h4>
                 <p className="text-xs text-slate-500 mb-3 sm:mb-4">Anyone with this link can view the live countdown.</p>
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-2 sm:p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 font-mono text-[10px] sm:text-xs text-indigo-600 dark:text-indigo-400 break-all">
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-2 sm:p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 font-mono text-[10px] sm:text-xs text-indigo-600 dark:text-indigo-400 break-all max-w-full overflow-hidden">
                   {window.location.origin.replace('http://', '').replace('https://', '')}/p/{program.id}
                 </div>
               </div>

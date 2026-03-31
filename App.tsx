@@ -1317,7 +1317,7 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      <div className={`flex-1 flex flex-col min-h-screen pb-32 lg:pb-0 transition-all duration-300 ${user ? (isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64') : ''}`}>
+      <div className={`flex-1 flex flex-col min-h-screen pb-32 lg:pb-0 transition-all duration-300 overflow-x-hidden ${user ? (isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64') : ''}`}>
         {/* Header (Simplified Top Bar) */}
         <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md transition-colors h-16 flex items-center shrink-0 no-print">
           <div className="w-full px-6 flex items-center justify-between">
@@ -1490,11 +1490,11 @@ const AppContent: React.FC = () => {
                 <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
             ) : networkError ? (
-              <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
-                <div className="w-16 h-16 bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mb-6">
+              <div className="flex flex-col items-center justify-center h-full max-w-sm mx-auto text-center p-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl">
+                <div className="w-16 h-16 bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mb-6 mx-auto">
                   <WifiOff size={32} />
                 </div>
-                <h2 className="text-2xl font-bold mb-2">Connection Issues</h2>
+                <h2 className="text-xl font-bold mb-2">Connection Issues</h2>
                 <p className="text-slate-500 dark:text-slate-400 mb-8">{networkError}</p>
                 <div className="flex flex-col gap-3 w-full">
                   <button
@@ -1809,6 +1809,10 @@ const AppContent: React.FC = () => {
           profile={profile}
           user={user}
           onSignOut={handleSignOut}
+          isDarkMode={isDarkMode}
+          onToggleTheme={toggleTheme}
+          organizations={userOrganizations}
+          onSelectOrg={setOrgId}
         />
       )}
     </div>
