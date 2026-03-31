@@ -1727,15 +1727,17 @@ const AppContent: React.FC = () => {
       )}
 
       {canControlLive && liveProgramId && (
-        <ProductionHUD
-          isTimerActive={isTimerActive}
-          isAdminOnline={isAdminOnline}
-          onEndEvent={handleEndEvent}
-          onNudge={handleNudge}
-          onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
-          currentSlotTitle={liveProgram?.slots[liveCurrentSlotIndex]?.title}
-          programId={liveProgramId}
-        />
+        <div className="hidden lg:block">
+          <ProductionHUD
+            isTimerActive={isTimerActive}
+            isAdminOnline={isAdminOnline}
+            onEndEvent={handleEndEvent}
+            onNudge={handleNudge}
+            onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
+            currentSlotTitle={liveProgram?.slots[liveCurrentSlotIndex]?.title}
+            programId={liveProgramId}
+          />
+        </div>
       )}
 
       <InterlockModal
@@ -1789,11 +1791,15 @@ const AppContent: React.FC = () => {
           currentSlotIndex={liveCurrentSlotIndex}
           secondsElapsed={liveSecondsElapsed}
           isTimerActive={liveProgram?.isTimerActive ?? false}
+          isAdminOnline={isAdminOnline}
           onToggleTimer={handleToggleTimer}
           onNextSlot={handleNext}
           onPrevSlot={handlePrev}
           onToggleManualMode={handleToggleManualMode}
           onToggleHold={handleToggleHold}
+          onNudge={handleNudge}
+          onEndEvent={handleEndEvent}
+          onViewAnalysis={(id) => navigate(`/analytics/${id}`)}
         />
       )}
 
