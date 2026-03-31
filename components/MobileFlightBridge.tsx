@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, Pause, SkipBack, SkipForward, ChevronDown, Clock, Zap, 
   MousePointerClick, Timer, Power, BarChart3, List, Settings2 
@@ -41,8 +41,21 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
   const [holdToEnd, setHoldToEnd] = useState(0);
   const [isEnding, setIsEnding] = useState(false);
 
-  const currentSlot = program.slots[currentSlotIndex] || program.slots[0];
-  const nextSlot = program.slots[currentSlotIndex + 1];
+  // OPTIMISTIC STATE for instant feedback
+  const [optimisticIndex, setOptimisticIndex] = useState(currentSlotIndex);
+  const [optimisticTimerActive, setOptimisticTimerActive] = useState(isTimerActive);
+  const [localSecondsOffset, setLocalSecondsOffset] = useState(0);
+  const lastPropsIndex = useRef(currentSlotIndex);
+
+  // Sync optimistic states when props arrive from the backend
+  useEffect(() => {
+    setOptimisticIndex(currentSlotIndex);
+    setOptimisticTimerActive(isTimerActive);
+    setLocalSecondsOffset(0); // Reset offset when real data arrives
+  }, [currentSlotIndex, isTimerActive]);
+
+  const currentSlot = program.slots[optimisticIndex] || program.slots[0];
+  const nextSlot = program.slots[optimisticIndex + 1];
 
   // A program is "Live" only if it has a status of 'live' or is formally active
   const isShowLive = program.status === 'live';
@@ -78,15 +91,33 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
     return `${sign}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Use a local effect to reset display when the slot changes in a paused state
-  const [localSecondsElapsed, setLocalSecondsElapsed] = useState(secondsElapsed);
+  // Optimistic Handlers
+  const handleNext = () => {
+    if (optimisticIndex < program.slots.length - 1) {
+      setOptimisticIndex(prev => prev + 1);
+      setLocalSecondsOffset(0);
+      // Predict continuous playback if in auto mode (not manual)
+      if (!program.isManualMode) setOptimisticTimerActive(true);
+      onNextSlot();
+    }
+  };
 
-  useEffect(() => {
-    setLocalSecondsElapsed(secondsElapsed);
-  }, [secondsElapsed, currentSlotIndex]);
+  const handlePrev = () => {
+    if (optimisticIndex > 0) {
+      setOptimisticIndex(prev => prev - 1);
+      setLocalSecondsOffset(0);
+      if (!program.isManualMode) setOptimisticTimerActive(true);
+      onPrevSlot();
+    }
+  };
+
+  const handleToggle = () => {
+    setOptimisticTimerActive(!optimisticTimerActive);
+    onToggleTimer();
+  };
 
   const remainingSeconds = currentSlot 
-    ? (currentSlot.durationMinutes * 60 - (isShowLive ? localSecondsElapsed : 0)) 
+    ? (currentSlot.durationMinutes * 60 - (isShowLive ? (secondsElapsed + localSecondsOffset) : 0)) 
     : 0;
   const isOvertime = isShowLive && remainingSeconds < 0;
 
@@ -114,8 +145,8 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
         <div className="flex items-center justify-between px-6 pb-4 h-full">
           <div className="flex flex-col min-w-0 flex-1 mr-4" onClick={() => setIsExpanded(true)}>
             <div className="flex items-center gap-2">
-              <span className={`text-[10px] font-black uppercase tracking-widest ${isShowLive ? (isTimerActive ? 'text-emerald-500' : 'text-slate-400') : 'text-indigo-500'}`}>
-                {isShowLive ? (isTimerActive ? 'Live' : 'Paused') : 'Ready'}
+              <span className={`text-[10px] font-black uppercase tracking-widest ${isShowLive ? (optimisticTimerActive ? 'text-emerald-500' : 'text-slate-400') : 'text-indigo-500'}`}>
+                {isShowLive ? (optimisticTimerActive ? 'Live' : 'Paused') : 'Ready'}
               </span>
               <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest truncate">
@@ -130,21 +161,21 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
           <div className="flex items-center gap-3">
              {!isShowLive ? (
                <button
-                  onClick={(e) => { e.stopPropagation(); onToggleTimer(); }}
+                  onClick={(e) => { e.stopPropagation(); handleToggle(); }}
                   className="px-6 h-12 rounded-full bg-indigo-600 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-500/30 transition-all active:scale-95"
                >
                   Start
                </button>
              ) : (
                 <button
-                  onClick={(e) => { e.stopPropagation(); onToggleTimer(); }}
+                  onClick={(e) => { e.stopPropagation(); handleToggle(); }}
                   className={`w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90 ${
-                    isTimerActive 
+                    optimisticTimerActive 
                       ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' 
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
                   }`}
                 >
-                  {isTimerActive ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
+                  {optimisticTimerActive ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
                 </button>
              )}
             <button
@@ -223,17 +254,17 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
                 {/* Primary Play/Next/Prev Controls */}
                 <div className="grid grid-cols-3 gap-6 items-center mb-10">
                   <button
-                    onClick={onPrevSlot}
-                    disabled={currentSlotIndex === 0}
+                    onClick={handlePrev}
+                    disabled={optimisticIndex === 0}
                     className="aspect-square rounded-[30px] flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 disabled:opacity-30 active:scale-95 transition-all"
                   >
                     <SkipBack size={32} />
                   </button>
 
                   <button
-                    onClick={onToggleTimer}
+                    onClick={handleToggle}
                     className={`aspect-square rounded-[40px] flex items-center justify-center transition-all active:scale-90 shadow-2xl ${
-                      isTimerActive 
+                      optimisticTimerActive 
                         ? 'bg-rose-600 text-white shadow-rose-500/30' 
                         : 'bg-indigo-600 text-white shadow-indigo-500/30 shadow-indigo-600/20'
                     }`}
@@ -241,12 +272,13 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
                     {!isShowLive ? (
                       <span className="text-xs font-black uppercase tracking-widest text-white">Start</span>
                     ) : (
-                      isTimerActive ? <Pause size={48} fill="currentColor" /> : <Play size={48} fill="currentColor" className="ml-2" />
+                      optimisticTimerActive ? <Pause size={48} fill="currentColor" /> : <Play size={48} fill="currentColor" className="ml-2" />
                     )}
                   </button>
 
                   <button
-                    onClick={onNextSlot}
+                    onClick={handleNext}
+                    disabled={optimisticIndex >= program.slots.length - 1}
                     className="aspect-square rounded-[30px] flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 active:scale-95 transition-all"
                   >
                     <SkipForward size={32} />
@@ -329,25 +361,25 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
                   <div 
                     key={slot.id}
                     className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${
-                      idx === currentSlotIndex 
+                      idx === optimisticIndex 
                         ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/30' 
                         : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'
                     }`}
                   >
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-mono font-bold text-sm ${
-                      idx === currentSlotIndex ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 dark:bg-slate-900 text-slate-400'
+                      idx === optimisticIndex ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 dark:bg-slate-900 text-slate-400'
                     }`}>
                       {idx + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className={`font-bold text-sm truncate ${idx === currentSlotIndex ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-900 dark:text-white'}`}>
+                      <div className={`font-bold text-sm truncate ${idx === optimisticIndex ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-900 dark:text-white'}`}>
                         {slot.title}
                       </div>
                       <div className="text-xs text-slate-500 font-medium">
                         {slot.durationMinutes} min • {slot.type}
                       </div>
                     </div>
-                    {idx === currentSlotIndex && isShowLive && (
+                    {idx === optimisticIndex && isShowLive && (
                       <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
                         <Zap size={14} fill="currentColor" />
                       </div>
