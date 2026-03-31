@@ -1785,12 +1785,12 @@ const AppContent: React.FC = () => {
         pipWindow.document.body
       )}
 
-      {user && canControlLive && liveProgram && !pipWindow && (
+      {user && canControlLive && (liveProgram || (program && program.slots.length > 0)) && !pipWindow && (
         <MobileFlightBridge
-          program={liveProgram}
-          currentSlotIndex={liveCurrentSlotIndex}
-          secondsElapsed={liveSecondsElapsed}
-          isTimerActive={liveProgram?.isTimerActive ?? false}
+          program={liveProgram || program}
+          currentSlotIndex={liveProgram ? liveCurrentSlotIndex : currentSlotIndex}
+          secondsElapsed={liveProgram ? liveSecondsElapsed : secondsElapsed}
+          isTimerActive={liveProgram ? (liveProgram.isTimerActive ?? false) : isTimerActive}
           isAdminOnline={isAdminOnline}
           onToggleTimer={handleToggleTimer}
           onNextSlot={handleNext}
