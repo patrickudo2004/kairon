@@ -273,47 +273,47 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
 
       {/* Public Access Panel */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden mb-8 shadow-xl transition-all duration-500 w-full flex flex-col">
-        <div className="p-4 bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg">
+        <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="p-2 bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg shrink-0">
               <Globe size={18} />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Public Access</h3>
-              <p className="text-xs text-slate-500 font-medium">Allow attendees to view the schedule via a public link.</p>
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider truncate">Public Access</h3>
+              <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate sm:whitespace-normal">Allow attendees to view the schedule via a public link.</p>
             </div>
           </div>
           <button
             onClick={() => onUpdate({ ...program, isPublic: !program.isPublic })}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ring-2 ring-offset-2 ring-transparent ${program.isPublic ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+            className={`relative inline-flex h-5 w-9 sm:h-6 sm:w-11 items-center rounded-full transition-colors focus:outline-none shrink-0 ${program.isPublic ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
               }`}
           >
             <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${program.isPublic ? 'translate-x-[26px]' : 'translate-x-[4px]'
+              className={`inline-block h-3 w-3 sm:h-4 sm:w-4 transform rounded-full bg-white transition-transform ${program.isPublic ? 'translate-x-[18px] sm:translate-x-[26px]' : 'translate-x-[2px] sm:translate-x-[4px]'
                 }`}
             />
           </button>
         </div>
 
         {program.isPublic && (
-          <div className="p-6 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex-1">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Your Public Link is Active</h4>
-                <p className="text-xs text-slate-500 mb-4">Anyone with this link can view the live schedule and countdown.</p>
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 font-mono text-xs text-indigo-600 dark:text-indigo-400 break-all">
-                  {window.location.origin}/p/{program.id}
+          <div className="p-4 sm:p-6 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 sm:gap-6">
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Public Link Active</h4>
+                <p className="text-xs text-slate-500 mb-3 sm:mb-4">Anyone with this link can view the live countdown.</p>
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-2 sm:p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 font-mono text-[10px] sm:text-xs text-indigo-600 dark:text-indigo-400 break-all">
+                  {window.location.origin.replace('http://', '').replace('https://', '')}/p/{program.id}
                 </div>
               </div>
-              <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <a
                   href={`/p/${program.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 text-slate-700 dark:text-slate-300 rounded-xl font-bold transition-all shadow-sm group"
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-sm group"
                 >
                   <Share2 size={16} className="group-hover:text-indigo-600" />
-                  Preview Portal
+                  Preview
                 </a>
               </div>
             </div>

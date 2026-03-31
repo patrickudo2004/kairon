@@ -41,8 +41,11 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
   const [holdToEnd, setHoldToEnd] = useState(0);
   const [isEnding, setIsEnding] = useState(false);
 
-  const currentSlot = program.slots[currentSlotIndex];
+  const currentSlot = program.slots[currentSlotIndex] || program.slots[0];
   const nextSlot = program.slots[currentSlotIndex + 1];
+
+  // A program is "Live" only if it has a status of 'live' or is formally active
+  const isShowLive = program.status === 'live';
 
   // Hold to end logic (matching ProductionHUD parity)
   useEffect(() => {
@@ -75,8 +78,8 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
     return `${sign}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const remainingSeconds = currentSlot ? (currentSlot.durationMinutes * 60 - secondsElapsed) : 0;
-  const isOvertime = remainingSeconds < 0;
+  const remainingSeconds = currentSlot ? (currentSlot.durationMinutes * 60 - (isShowLive ? secondsElapsed : 0)) : 0;
+  const isOvertime = isShowLive && remainingSeconds < 0;
 
   if (!currentSlot && !isExpanded) return null;
 
@@ -102,8 +105,8 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
         <div className="flex items-center justify-between px-6 pb-4 h-full">
           <div className="flex flex-col min-w-0 flex-1 mr-4" onClick={() => setIsExpanded(true)}>
             <div className="flex items-center gap-2">
-              <span className={`text-[10px] font-black uppercase tracking-widest ${isTimerActive ? 'text-emerald-500' : 'text-slate-400'}`}>
-                {isTimerActive ? 'Live' : 'Paused'}
+              <span className={`text-[10px] font-black uppercase tracking-widest ${isShowLive ? (isTimerActive ? 'text-emerald-500' : 'text-slate-400') : 'text-indigo-500'}`}>
+                {isShowLive ? (isTimerActive ? 'Live' : 'Paused') : 'Ready'}
               </span>
               <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest truncate">
@@ -111,21 +114,30 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
               </span>
             </div>
             <div className={`text-2xl font-mono font-bold tabular-nums leading-none mt-1 ${isOvertime ? 'text-rose-500 animate-pulse' : 'text-indigo-600 dark:text-indigo-400'}`}>
-              {formatDuration(remainingSeconds)}
+              {isShowLive ? formatDuration(remainingSeconds) : `${currentSlot?.durationMinutes}:00`}
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={(e) => { e.stopPropagation(); onToggleTimer(); }}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90 ${
-                isTimerActive 
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' 
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-              }`}
-            >
-              {isTimerActive ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
-            </button>
+             {!isShowLive ? (
+               <button
+                  onClick={(e) => { e.stopPropagation(); onToggleTimer(); }}
+                  className="px-6 h-12 rounded-full bg-indigo-600 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-500/30 transition-all active:scale-95"
+               >
+                  Start
+               </button>
+             ) : (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleTimer(); }}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                    isTimerActive 
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' 
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  {isTimerActive ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
+                </button>
+             )}
             <button
               onClick={(e) => { e.stopPropagation(); setIsExpanded(true); }}
               className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 active:scale-95"
@@ -143,7 +155,7 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
               <div className="flex items-center gap-2 mb-1">
                 <div className={`w-2 h-2 rounded-full ${isAdminOnline ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                 <h2 className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.25em]">
-                  {isAdminOnline ? 'Live Production Remote' : 'Sync Offline'}
+                  {isShowLive ? (isAdminOnline ? 'Live Production Remote' : 'Sync Offline') : 'Program Ready'}
                 </h2>
               </div>
               <h3 className="text-2xl font-bold text-slate-900 dark:text-white truncate pr-4">{program.title}</h3>
@@ -189,7 +201,7 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
                     {currentSlot?.title || 'Remaining Time'}
                   </span>
                   <div className={`text-7xl font-mono font-bold tabular-nums tracking-tighter ${isOvertime ? 'text-rose-500 animate-pulse' : 'text-slate-900 dark:text-white'}`}>
-                    {formatDuration(remainingSeconds)}
+                    {isShowLive ? formatDuration(remainingSeconds) : `${currentSlot?.durationMinutes}:00`}
                   </div>
                   {nextSlot && (
                     <div className="mt-6 flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm font-medium">
@@ -214,10 +226,14 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
                     className={`aspect-square rounded-[40px] flex items-center justify-center transition-all active:scale-90 shadow-2xl ${
                       isTimerActive 
                         ? 'bg-rose-600 text-white shadow-rose-500/30' 
-                        : 'bg-indigo-600 text-white shadow-indigo-500/30'
+                        : 'bg-indigo-600 text-white shadow-indigo-500/30 shadow-indigo-600/20'
                     }`}
                   >
-                    {isTimerActive ? <Pause size={48} fill="currentColor" /> : <Play size={48} fill="currentColor" className="ml-2" />}
+                    {!isShowLive ? (
+                      <span className="text-xs font-black uppercase tracking-widest text-white">Start</span>
+                    ) : (
+                      isTimerActive ? <Pause size={48} fill="currentColor" /> : <Play size={48} fill="currentColor" className="ml-2" />
+                    )}
                   </button>
 
                   <button
@@ -255,45 +271,47 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
                   </button>
                 </div>
 
-                {/* Production HUD Tools (Nudge/Analysis/End) */}
-                <div className="flex flex-col gap-4 p-6 bg-slate-50 dark:bg-slate-800/30 rounded-[32px] border border-slate-100 dark:border-slate-700/50">
-                   <div className="flex items-center justify-between">
-                     <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700">
-                        <button onClick={() => onNudge(-1)} className="p-3 text-slate-500 hover:text-indigo-500 active:scale-90"><Minus size={20} /></button>
-                        <div className="flex flex-col items-center px-4 border-x border-slate-100 dark:border-slate-800">
-                           <Timer size={14} className="text-indigo-500 mb-0.5" />
-                           <span className="text-[10px] font-black text-slate-400">NUDGE</span>
-                        </div>
-                        <button onClick={() => onNudge(1)} className="p-3 text-slate-500 hover:text-indigo-500 active:scale-90"><Plus size={20} /></button>
-                     </div>
+                {/* Production HUD Tools (Nudge/Analysis/End) - Only if live */}
+                {isShowLive && (
+                  <div className="flex flex-col gap-4 p-6 bg-slate-50 dark:bg-slate-800/30 rounded-[32px] border border-slate-100 dark:border-slate-700/50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700">
+                          <button onClick={() => onNudge(-1)} className="p-3 text-slate-500 hover:text-indigo-500 active:scale-90"><Minus size={20} /></button>
+                          <div className="flex flex-col items-center px-4 border-x border-slate-100 dark:border-slate-800">
+                            <Timer size={14} className="text-indigo-500 mb-0.5" />
+                            <span className="text-[10px] font-black text-slate-400">NUDGE</span>
+                          </div>
+                          <button onClick={() => onNudge(1)} className="p-3 text-slate-500 hover:text-indigo-500 active:scale-90"><Plus size={20} /></button>
+                      </div>
 
-                     <button 
-                       onClick={() => onViewAnalysis(program.id)}
-                       className="flex flex-col items-center justify-center gap-1 w-20 h-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 text-amber-500 active:scale-90"
-                     >
-                       <BarChart3 size={24} />
-                       <span className="text-[9px] font-black uppercase tracking-widest leading-none">Report</span>
-                     </button>
-                   </div>
+                      <button 
+                        onClick={() => onViewAnalysis(program.id)}
+                        className="flex flex-col items-center justify-center gap-1 w-20 h-20 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 text-amber-500 active:scale-90"
+                      >
+                        <BarChart3 size={24} />
+                        <span className="text-[9px] font-black uppercase tracking-widest leading-none">Report</span>
+                      </button>
+                    </div>
 
-                   <button
-                    onMouseDown={() => setIsEnding(true)}
-                    onMouseUp={() => setIsEnding(false)}
-                    onMouseLeave={() => setIsEnding(false)}
-                    onTouchStart={() => setIsEnding(true)}
-                    onTouchEnd={() => setIsEnding(false)}
-                    className="relative w-full h-16 group overflow-hidden bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 shadow-lg shadow-rose-500/20 active:scale-[0.98] transition-all"
-                  >
-                    <div
-                      className="absolute inset-0 bg-rose-950 opacity-40 origin-left transition-transform duration-75"
-                      style={{ transform: `scaleX(${holdToEnd / 100})` }}
-                    />
-                    <Power size={20} className="relative z-10" />
-                    <span className="relative z-10">
-                      {holdToEnd > 0 ? `Hold to Confirm (${Math.floor(holdToEnd)}%)` : 'End Production'}
-                    </span>
-                  </button>
-                </div>
+                    <button
+                      onMouseDown={() => setIsEnding(true)}
+                      onMouseUp={() => setIsEnding(false)}
+                      onMouseLeave={() => setIsEnding(false)}
+                      onTouchStart={() => setIsEnding(true)}
+                      onTouchEnd={() => setIsEnding(false)}
+                      className="relative w-full h-16 group overflow-hidden bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 shadow-lg shadow-rose-500/20 active:scale-[0.98] transition-all"
+                    >
+                      <div
+                        className="absolute inset-0 bg-rose-950 opacity-40 origin-left transition-transform duration-75"
+                        style={{ transform: `scaleX(${holdToEnd / 100})` }}
+                      />
+                      <Power size={20} className="relative z-10" />
+                      <span className="relative z-10">
+                        {holdToEnd > 0 ? `Hold to Confirm (${Math.floor(holdToEnd)}%)` : 'End Production'}
+                      </span>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               /* --- SCHEDULE TAB --- */
@@ -320,7 +338,7 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
                         {slot.durationMinutes} min • {slot.type}
                       </div>
                     </div>
-                    {idx === currentSlotIndex && (
+                    {idx === currentSlotIndex && isShowLive && (
                       <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
                         <Zap size={14} fill="currentColor" />
                       </div>
