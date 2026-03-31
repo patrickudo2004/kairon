@@ -59,8 +59,8 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
         return () => clearInterval(interval);
     }, [isEnding, holdToEnd, onEndEvent]);
 
-    // If timer is not active, we can show a 'Review Report' state if a program was recently active
-    if (!isTimerActive) return null;
+    // Ensure the HUD stays visible if a program is selected, even if the timer is paused
+    if (!programId) return null;
 
     return (
         <div className="fixed bottom-0 left-0 right-0 z-[60] p-4 bg-gradient-to-t from-slate-950 to-transparent pointer-events-none">

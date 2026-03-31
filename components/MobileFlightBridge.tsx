@@ -291,11 +291,11 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
                     onClick={onToggleManualMode}
                     className={`flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
                       program.isManualMode 
-                        ? 'bg-amber-100 text-amber-700 border border-amber-200' 
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border border-transparent'
+                        ? 'bg-amber-100 text-amber-700 border border-amber-200 shadow-sm' 
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border border-transparent opacity-70'
                     }`}
                   >
-                    {program.isManualMode ? <MousePointerClick size={16} /> : <Zap size={16} />}
+                    <MousePointerClick size={16} />
                     {program.isManualMode ? 'Manual Mode' : 'Auto Mode'}
                   </button>
 
@@ -303,12 +303,12 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
                     onClick={onToggleHold}
                     className={`flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
                       program.isOnHold 
-                        ? 'bg-orange-100 text-orange-700 border border-orange-200' 
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border border-transparent'
+                        ? 'bg-rose-100 text-rose-700 border border-rose-200 shadow-sm' 
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border border-transparent opacity-70'
                     }`}
                   >
-                    <Clock size={16} />
-                    {program.isOnHold ? 'ON HOLD' : 'ON TIME'}
+                    <Zap size={16} className={program.isOnHold ? 'animate-pulse' : ''} />
+                    {program.isOnHold ? 'HOLD FOR CUE' : 'RELEASE CUE'}
                   </button>
                 </div>
 

@@ -1049,6 +1049,9 @@ const AppContent: React.FC = () => {
     }
 
     const newState = !isTimerActive;
+    
+    // Optimistic Guard: Mark as transitioning to ignore conflicting syncs for 2s
+    lastAdvanceTimeRef.current = Date.now();
 
     // ATOMIC STATE HANDLING (Stopwatch Logic)
     if (newState) {
