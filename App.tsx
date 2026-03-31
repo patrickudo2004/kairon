@@ -1812,7 +1812,7 @@ const AppContent: React.FC = () => {
           isDarkMode={isDarkMode}
           onToggleTheme={toggleTheme}
           organizations={userOrganizations}
-          onSelectOrg={setOrgId}
+          onSelectOrg={setActiveOrgId}
         />
       )}
     </div>
