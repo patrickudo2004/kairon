@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Power, Timer, Plus, Minus, Wifi, WifiOff, BarChart3, Volume2, Lightbulb, Video } from 'lucide-react';
 import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
+import { useTimerSync } from '../hooks/useTimerSync';
+import { Timer as TimerIcon } from 'lucide-react';
 
 interface ProductionHUDProps {
     isTimerActive: boolean;
@@ -11,6 +11,8 @@ interface ProductionHUDProps {
     onViewAnalytics: (id: string) => void;
     currentSlotTitle?: string;
     programId?: string;
+    timerStartTimestamp: number | null;
+    secondsElapsed?: number;
 }
 
 export const ProductionHUD: React.FC<ProductionHUDProps> = ({
@@ -20,8 +22,11 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
     onNudge,
     onViewAnalytics,
     currentSlotTitle,
-    programId
+    programId,
+    timerStartTimestamp,
+    secondsElapsed = 0
 }) => {
+    const elapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
     const [holdToEnd, setHoldToEnd] = useState(0);
     const [isEnding, setIsEnding] = useState(false);
 
@@ -76,7 +81,15 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                     </div>
                     <div className="hidden md:flex flex-col min-w-0">
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Current Session</span>
-                        <span className="text-sm font-bold text-white truncate">{currentSlotTitle || 'No Session'}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-white truncate max-w-[150px]">{currentSlotTitle || 'No Session'}</span>
+                            {currentSlot && (
+                                <span className={`font-mono text-sm font-bold ${isTimerActive ? (currentSlot.durationMinutes * 60 - elapsed < 0 ? 'text-rose-500' : 'text-indigo-400') : 'text-slate-500'}`}>
+                                    {Math.floor((currentSlot.durationMinutes * 60 - elapsed) / 60)}:
+                                    {String(Math.abs((currentSlot.durationMinutes * 60 - elapsed) % 60)).padStart(2, '0')}
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     {/* Crew Feedback */}
