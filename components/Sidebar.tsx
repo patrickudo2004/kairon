@@ -73,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { icon: Play, label: 'Live', path: getLinkPath('/live') },
         { icon: ClipboardList, label: 'List', path: getLinkPath('/list') },
         { icon: Monitor, label: 'Monitors', path: getLinkPath('/monitors') },
-        { icon: Calendar, label: 'Calendar', path: '/' }, // Calendar is a modal or dashboard filter usually
+        { icon: Calendar, label: 'Calendar', path: '/calendar' }, // Opens the month view Wrapper
         { icon: FileText, label: 'User Guide', path: '/guide' },
         { icon: Settings, label: 'Workspace', path: '/admin' },
     ];

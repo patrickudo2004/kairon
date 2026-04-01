@@ -356,33 +356,17 @@ const AppContent: React.FC = () => {
   };
 
   const [isAdminOnline, setIsAdminOnline] = useState(true);
-  const [liveProgramId, setLiveProgramId] = useState<string | null>(null);
-  const [liveProgram, setLiveProgram] = useState<Program | null>(null);
-  const [liveCurrentSlotIndex, setLiveCurrentSlotIndex] = useState<number>(0);
-  const [liveSecondsElapsed, setLiveSecondsElapsed] = useState<number>(0);
   const [isInterlockOpen, setIsInterlockOpen] = useState(false);
   const lastAdvanceTimeRef = React.useRef<number>(0);
   const lastCorrectedIdRef = React.useRef<string | null>(null);
 
   // --- Reactive Global Live Channel ---
-  const globalLiveProgram = useConvexQuery(api.programs.getLiveProgram, {});
-
-  useEffect(() => {
-    if (globalLiveProgram === undefined) return;
-    if (globalLiveProgram === null) {
-      if (liveProgramId !== null) {
-        setLiveProgramId(null);
-        setLiveProgram(null);
-      }
-    } else {
-      const liveId = globalLiveProgram._id as string;
-      if (liveProgramId !== liveId) {
-        setLiveProgramId(liveId);
-        setLiveProgram({ ...(globalLiveProgram as any), id: liveId });
-        setLiveCurrentSlotIndex(globalLiveProgram.currentSlotIndex ?? 0);
-      }
-    }
-  }, [globalLiveProgram]);
+  const globalLiveProgramRaw = useConvexQuery(api.programs.getLiveProgram, {});
+  // Simple transformation of _id to id for the app
+  const globalLiveProgram = globalLiveProgramRaw ? {
+    ...(globalLiveProgramRaw as any),
+    id: (globalLiveProgramRaw as any)._id
+  } as Program : null;
 
   // Alert/Confirm Modal State
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -415,9 +399,19 @@ const AppContent: React.FC = () => {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [exportOptions, setExportOptions] = useState<ExportOptions>({ includeDetails: true, includeSpeakers: true });
 
-  useEffect(() => {
-    if (isReadOnly) setIsShareOpen(false);
-  }, [isReadOnly]);
+
+  // ---------------------------------------------------------
+  // THE BRAIN: Centralized Synchronization Logic
+  // Decides if we show the "Global Live" event or the "Local Draft" event.
+  // ---------------------------------------------------------
+  const isLiveEventActive = !!globalLiveProgram;
+  const displayProgram = isLiveEventActive ? globalLiveProgram! : program;
+  const displayCurrentSlotIndex = isLiveEventActive ? (globalLiveProgram?.currentSlotIndex ?? 0) : currentSlotIndex;
+  const displaySecondsElapsed = isLiveEventActive 
+    ? (globalLiveProgram?.isTimerActive ? Math.floor((Date.now() - (globalLiveProgram.timerStartTimestamp ?? Date.now())) / 1000) : (globalLiveProgram?.secondsElapsed ?? 0))
+    : secondsElapsed;
+  const displayIsTimerActive = isLiveEventActive ? (globalLiveProgram?.isTimerActive ?? false) : isTimerActive;
+  const displayTimerStartTimestamp = isLiveEventActive ? (globalLiveProgram?.timerStartTimestamp ?? null) : timerStartTimestamp;
 
 
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
@@ -432,8 +426,6 @@ const AppContent: React.FC = () => {
         type: 'info',
         onConfirm: () => {
           setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-          setActiveTab('branding'); // Take them to where they see the Pro badge
-          setMode('admin');
         }
       });
       return;
@@ -442,8 +434,6 @@ const AppContent: React.FC = () => {
     try {
       // Calculate how far off we are
       const totalPlanned = currentProgram.slots.reduce((acc, s) => acc + s.durationMinutes, 0);
-      const currentTimeInMinutes = timeToMinutes(currentProgram.startTime) + (secondsElapsed / 60);
-      // For simplicity, we just pass the remaining time needed to be shaved or added
       const suggestion = await rebalanceSchedule(currentProgram, totalPlanned);
       setAiSuggestion(suggestion);
     } catch (err) {
@@ -553,6 +543,7 @@ const AppContent: React.FC = () => {
               console.warn("Dirty/Stale Data Detected: Auto-correcting timer state in DB for:", fetchedProgram.title, isStale ? "(Stale Live Timer)" : "(Non-Live Timer)");
               lastCorrectedIdRef.current = fetchedProgram.id;
               timerSaveMutation.mutate({
+                id: fetchedProgram.id,
                 currentSlotIndex: 0, // Reset to beginning if stale
                 isTimerActive: false,
                 secondsElapsed: 0,
@@ -616,6 +607,7 @@ const AppContent: React.FC = () => {
 
   const timerSaveMutation = useMutation({
     mutationFn: (state: {
+      id: string; // EXPLICIT ID REQUIRED
       currentSlotIndex: number;
       isTimerActive: boolean;
       secondsElapsed: number;
@@ -625,12 +617,13 @@ const AppContent: React.FC = () => {
       isManualMode?: boolean;
       status?: 'draft' | 'live' | 'concluded' | 'archived';
     }) => {
-      // CRITICAL GUARD: Never send timer state if program ID is local/placeholder
-      if (program.id?.startsWith('local-')) {
+      const { id, ...timerState } = state;
+      // CRITICAL GUARD
+      if (id?.startsWith('local-')) {
         console.warn("Timer save blocked: Program ID is local.");
         return;
       }
-      return updateTimerStateService(program.id, state);
+      return updateTimerStateService(id, timerState);
     }
   });
 
@@ -657,71 +650,67 @@ const AppContent: React.FC = () => {
 
   const handleNudge = (minutes: number) => {
     if (isReadOnly) return;
-    const isPeeking = liveProgramId && liveProgramId !== program.id;
-    const targetProgram = isPeeking ? liveProgram : program;
-    if (!targetProgram) return;
-
-    const newSlots = [...targetProgram.slots];
-    const targetIndex = isPeeking ? liveCurrentSlotIndex : currentSlotIndex;
-    const currentSlot = newSlots[targetIndex];
+    
+    const newSlots = [...displayProgram.slots];
+    const currentSlot = newSlots[displayCurrentSlotIndex];
 
     if (currentSlot) {
       currentSlot.durationMinutes = Math.max(1, currentSlot.durationMinutes + minutes);
-      const updated = { ...targetProgram, slots: newSlots };
+      const updated = { ...displayProgram, slots: newSlots };
 
-      if (isPeeking) {
-        setLiveProgram(updated);
+      if (isLiveEventActive) {
+        // Live show nudge - broadcast via mutation
+        timerSaveMutation.mutate({
+          id: displayProgram.id,
+          currentSlotIndex: displayCurrentSlotIndex,
+          isTimerActive: displayIsTimerActive,
+          secondsElapsed: displaySecondsElapsed,
+          timerStartTimestamp: displayTimerStartTimestamp,
+          isManualMode: displayProgram.isManualMode
+        });
       } else {
         setProgram(updated);
       }
+      
+      // Persist the slot change
+      updateProgramService(updated);
     }
   };
 
   const handleEndEvent = () => {
     if (isReadOnly) return;
-    const isPeeking = liveProgramId && liveProgramId !== program.id;
-    const targetProgram = isPeeking ? liveProgram : program;
-    if (!targetProgram) return;
-
-    // CAPTURE FINAL SLOT DURATION before ending
-    const finalSlotIndex = isPeeking ? liveCurrentSlotIndex : currentSlotIndex;
-    const finalSlot = targetProgram.slots[finalSlotIndex];
-    let slotsWithFinalDuration = targetProgram.slots;
+    
+    // Capture final slot duration
+    const finalSlotIndex = displayCurrentSlotIndex;
+    const finalSlot = displayProgram.slots[finalSlotIndex];
+    let slotsWithFinalDuration = displayProgram.slots;
     
     if (finalSlot) {
-      // If we are ending early, we use the literal seconds elapsed. 
-      // Convert to minutes for the 'actualDuration' field.
-      const elapsedMinutes = Math.round((isPeeking ? liveSecondsElapsed : secondsElapsed) / 60);
-      slotsWithFinalDuration = targetProgram.slots.map((s, idx) => 
+      const elapsedMinutes = Math.round(displaySecondsElapsed / 60);
+      slotsWithFinalDuration = displayProgram.slots.map((s, idx) => 
         idx === finalSlotIndex ? { ...s, actualDuration: elapsedMinutes } : s
       );
     }
 
     const updatedProgram = { 
-      ...targetProgram, 
+      ...displayProgram, 
       slots: slotsWithFinalDuration,
       status: 'concluded' as const, 
       isTimerActive: false 
     };
 
-    if (isPeeking) {
-      setLiveProgram(null);
-      setLiveProgramId(null);
-      setLiveCurrentSlotIndex(0);
-      setLiveSecondsElapsed(0);
+    if (isLiveEventActive) {
+      // Logic for ending live show would go here if needed
     } else {
       setProgram(updatedProgram);
       setIsTimerActive(false);
       setTimerStartTimestamp(null);
       setSecondsElapsed(0);
-      setLiveProgramId(null);
-      setLiveProgram(null);
-      setLiveCurrentSlotIndex(0);
-      setLiveSecondsElapsed(0);
     }
 
     // Final save to DB - Explicitly clear timer state
     timerSaveMutation.mutate({
+      id: displayProgram.id,
       currentSlotIndex: 0,
       isTimerActive: false,
       secondsElapsed: 0,
@@ -791,7 +780,7 @@ const AppContent: React.FC = () => {
 
     // Safety: Only reset local viewer state if we are NOT loading the live program.
     // If loading the live program, we want to keep the current running pointers.
-    if (liveProgramId !== newProgram.id) {
+    if (globalLiveProgram?.id !== newProgram.id) {
       setCurrentSlotIndex(0);
       setSecondsElapsed(0);
       setIsTimerActive(false);
@@ -806,7 +795,7 @@ const AppContent: React.FC = () => {
 
   const handlePlayProgram = (newProgram: Program) => {
     setProgram(newProgram);
-    if (liveProgramId !== newProgram.id) {
+    if (globalLiveProgram?.id !== newProgram.id) {
       setCurrentSlotIndex(0);
       setSecondsElapsed(0);
       setIsTimerActive(false);
@@ -884,7 +873,7 @@ const AppContent: React.FC = () => {
 
   // THE PRODUCTION ENGINE: Background Ticking for Logic & Snapshots
   // While UI components (LiveTimer, HUD) tick autonomously for smoothness,
-  // App.tsx needs these derived values to trigger Auto-Advance and Analytics.
+  // App.tsx needs derived values to trigger Auto-Advance and Analytics.
   useEffect(() => {
     let interval: number | undefined;
 
@@ -893,30 +882,18 @@ const AppContent: React.FC = () => {
       
       // Update viewing program snapshot
       if (isTimerActive && timerStartTimestamp) {
-        const exactElapsed = Math.floor((now - timerStartTimestamp) / 1000);
-        setSecondsElapsed(exactElapsed);
-        
-        // If the current viewed program IS the live one, keep them in sync
-        if (liveProgramId === program.id) {
-          setLiveSecondsElapsed(exactElapsed);
-        }
-      }
-
-      // Update background live program snapshot (even if not currently viewing it)
-      if (liveProgram && liveProgram.isTimerActive && liveProgram.timerStartTimestamp) {
-        const liveExactElapsed = Math.floor((now - liveProgram.timerStartTimestamp!) / 1000);
-        setLiveSecondsElapsed(liveExactElapsed);
+        setSecondsElapsed(Math.floor((now - timerStartTimestamp) / 1000));
       }
     };
 
     // Low-frequency tick (500ms) for background logic to save CPU
-    if ((isTimerActive && timerStartTimestamp) || (liveProgram?.isTimerActive && liveProgram?.timerStartTimestamp)) {
+    if (isTimerActive && timerStartTimestamp) {
       tick(); // Initial sync
       interval = window.setInterval(tick, 500);
     }
 
     return () => clearInterval(interval);
-  }, [isTimerActive, liveProgramId, timerStartTimestamp, liveProgram?.isTimerActive, liveProgram?.timerStartTimestamp, program.id]);
+  }, [isTimerActive, timerStartTimestamp]);
 
 
   const handleSlotComplete = (slotId: string, actualDuration: number) => {
@@ -927,19 +904,17 @@ const AppContent: React.FC = () => {
   };
 
   const handleUpdateSlot = async (slotId: string, updates: Partial<Slot>) => {
-    const isLiveTarget = liveProgramId === program.id;
-    const targetProgram = isLiveTarget ? program : liveProgram;
-    if (!targetProgram) return;
-
-    const newSlots = targetProgram.slots.map(s => 
+    // We always act on the VIEWED program (Draft or Live)
+    // If viewing the live show, displayProgram is globalLiveProgram
+    const newSlots = displayProgram.slots.map(s => 
       s.id === slotId ? { ...s, ...updates } : s
     );
-    const updatedProgram = { ...targetProgram, slots: newSlots };
+    const updatedProgram = { ...displayProgram, slots: newSlots };
 
-    if (isLiveTarget) {
-      setProgram(updatedProgram);
+    if (isLiveEventActive && displayProgram.id === globalLiveProgram?.id) {
+      // It's the live show - Convex will broadcast this automatically if we mutation save it
     } else {
-      setLiveProgram(updatedProgram);
+      setProgram(updatedProgram);
     }
 
     try {
@@ -949,58 +924,52 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // Universal Auto-Advance Watcher
+  // Universal Auto-Advance Watcher (Corrected)
   useEffect(() => {
-    const isLiveTarget = liveProgramId === program.id;
-    const targetProgram = isLiveTarget ? program : liveProgram;
-    if (!targetProgram || !liveProgramId) return;
+    if (!displayProgram || !displayProgram.id) return;
+    if (displayProgram.isManualMode) return;
 
-    // Use live pointers for internal logic
-    const currentIdx = isLiveTarget ? currentSlotIndex : liveCurrentSlotIndex;
-    const elapsed = isLiveTarget ? secondsElapsed : liveSecondsElapsed;
-
-    const currentSlot = targetProgram.slots[currentIdx];
+    const currentIdx = displayCurrentSlotIndex;
+    const elapsed = displaySecondsElapsed;
+    const currentSlot = displayProgram.slots[currentIdx];
+    
     if (!currentSlot) return;
 
     const durationSeconds = currentSlot.durationMinutes * 60;
-    if (targetProgram.isManualMode) return;
 
     if (elapsed >= durationSeconds) {
       // Throttle Auto-Advance (Mutation Lock)
       if (Date.now() - lastAdvanceTimeRef.current < 2000) return;
       lastAdvanceTimeRef.current = Date.now();
 
-      console.log('AUTO-ADVANCE TRIGGERED FOR:', targetProgram.title);
+      console.log('AUTO-ADVANCE TRIGGERED FOR:', displayProgram.title);
       handleSlotComplete(currentSlot.id, currentSlot.durationMinutes);
 
-      if (currentIdx < targetProgram.slots.length - 1) {
+      if (currentIdx < displayProgram.slots.length - 1) {
         const nextIndex = currentIdx + 1;
         const nextStartTs = Date.now();
 
-        // Update Live State (HUD)
-        setLiveCurrentSlotIndex(nextIndex);
-        setLiveSecondsElapsed(0);
-        setTimerStartTimestamp(nextStartTs);
-
-        // Update Viewed State if on Live Program
-        if (isLiveTarget) {
-          setCurrentSlotIndex(nextIndex);
-          setSecondsElapsed(0);
-        }
-
         // Persist the new slot index to Convex immediately for auto-advance sync
         timerSaveMutation.mutate({
+          id: displayProgram.id, // Explicitly target the program being viewed
           currentSlotIndex: nextIndex,
           isTimerActive: true,
           secondsElapsed: 0,
           timerStartTimestamp: nextStartTs
         });
+
+        // Also update local state for smoothness if viewing draft
+        if (!isLiveEventActive) {
+          setCurrentSlotIndex(nextIndex);
+          setSecondsElapsed(0);
+          setTimerStartTimestamp(nextStartTs);
+        }
       } else {
         // End of event
         handleEndEvent();
       }
     }
-  }, [secondsElapsed, liveSecondsElapsed, isTimerActive, liveProgramId, program.id]);
+  }, [displaySecondsElapsed, displayIsTimerActive, displayProgram.id]);
 
   // Auto-Start Watcher (New Feature)
   useEffect(() => {
@@ -1036,6 +1005,7 @@ const AppContent: React.FC = () => {
 
         // PUSH TO CLOUD 
         timerSaveMutation.mutate({
+          id: program.id,
           currentSlotIndex,
           isTimerActive: true,
           secondsElapsed: 0, // Required by schema
@@ -1048,54 +1018,53 @@ const AppContent: React.FC = () => {
     return () => clearInterval(interval);
   }, [isTimerActive, isReadOnly, program.date, program.startTime, program.id]);
 
-  // Fix: Toggle Timer with Broadcast
+  // Fix: Toggle Timer with Unified Controls
   const handleToggleTimer = () => {
     // Safety Interlock Check
-    if (!isTimerActive && liveProgramId && liveProgramId !== program.id) {
+    if (!displayIsTimerActive && globalLiveProgram && globalLiveProgram.id !== displayProgram.id) {
       setIsInterlockOpen(true);
       return;
     }
 
-    const newState = !isTimerActive;
+    const newState = !displayIsTimerActive;
     
     // Optimistic Guard: Mark as transitioning to ignore conflicting syncs for 2s
     lastAdvanceTimeRef.current = Date.now();
 
-    // ATOMIC STATE HANDLING (Stopwatch Logic)
     if (newState) {
       const now = Date.now();
-      // Drift-proof resume: shift start timestamp back by already elapsed seconds
-      const shiftedStart = now - (secondsElapsed * 1000);
+      const shiftedStart = now - (displaySecondsElapsed * 1000);
 
-      setLiveProgramId(program.id);
-      setLiveProgram(program);
-      setLiveCurrentSlotIndex(currentSlotIndex);
-      // We don't reset secondsElapsed here - we pick up where we left off
-      setIsTimerActive(true);
-      setTimerStartTimestamp(shiftedStart);
-
-      // PUSH TO CLOUD IMMEDIATELY
+      // PUSH TO CLOUD IMMEDIATELY (Targeting the active view)
       timerSaveMutation.mutate({
-        currentSlotIndex,
+        id: displayProgram.id,
+        currentSlotIndex: displayCurrentSlotIndex,
         isTimerActive: true,
-        secondsElapsed, // Required by schema
+        secondsElapsed: displaySecondsElapsed, 
         timerStartTimestamp: shiftedStart,
         status: 'live'
       });
-      setProgram(prev => ({ ...prev, status: 'live' }));
-    } else {
-      // Pause: Capture current elapsed time and clear start timestamp
-      setIsTimerActive(false);
-      setTimerStartTimestamp(null);
-      // secondsElapsed remains in state at its current value from the last tick
 
-      // PUSH TO CLOUD IMMEDIATELY (Persist the pause position)
+      // Local update for smoothness on draft
+      if (!isLiveEventActive) {
+        setIsTimerActive(true);
+        setTimerStartTimestamp(shiftedStart);
+        setProgram(prev => ({ ...prev, status: 'live' }));
+      }
+    } else {
+      // Pause
       timerSaveMutation.mutate({
-        currentSlotIndex,
+        id: displayProgram.id,
+        currentSlotIndex: displayCurrentSlotIndex,
         isTimerActive: false,
-        secondsElapsed, // Frozen value sent on pause
+        secondsElapsed: displaySecondsElapsed, 
         timerStartTimestamp: null
       });
+
+      if (!isLiveEventActive) {
+        setIsTimerActive(false);
+        setTimerStartTimestamp(null);
+      }
     }
   };
 
@@ -1110,130 +1079,125 @@ const AppContent: React.FC = () => {
     }, 100);
   };
 
-  const handleToggleHold = () => {
+  const handleToggleHold = (nextHoldState?: boolean) => {
     if (isReadOnly) return;
-    const nextHoldState = !program.isOnHold;
+    const holdState = nextHoldState !== undefined ? nextHoldState : !displayProgram.isOnHold;
+    const msg = displayProgram.holdMessage || "ON HOLD: STANDBY";
 
-    // Coupled Logic: Entering Hold forces a Pause if running
-    let nextTimerActive = isTimerActive;
-    let nextStartTs = timerStartTimestamp;
-
-    if (nextHoldState && isTimerActive) {
-      nextTimerActive = false;
-      nextStartTs = null;
-      setIsTimerActive(false);
-      setTimerStartTimestamp(null);
-    }
-
-    setProgram(prev => ({ ...prev, isOnHold: nextHoldState }));
-
-    // Final persistence to DB - IMMEDIATE
+    // PUSH TO CLOUD - Ensure HUDs update instantly
     timerSaveMutation.mutate({
-      currentSlotIndex,
-      isTimerActive: nextTimerActive,
-      secondsElapsed,
-      timerStartTimestamp: nextStartTs,
-      isOnHold: nextHoldState
+      id: displayProgram.id,
+      currentSlotIndex: displayCurrentSlotIndex,
+      isTimerActive: displayIsTimerActive,
+      secondsElapsed: displaySecondsElapsed,
+      timerStartTimestamp: displayTimerStartTimestamp,
+      isOnHold: holdState,
+      holdMessage: msg
     });
+
+    // Local update for smoothness on draft
+    if (!isLiveEventActive) {
+      setProgram(prev => ({ ...prev, isOnHold: holdState, holdMessage: msg }));
+    }
   };
 
   const handleToggleManualMode = () => {
     if (isReadOnly) return;
-    const nextManualState = !program.isManualMode;
-    setProgram(prev => ({ ...prev, isManualMode: nextManualState }));
+    const nextManualState = !displayProgram.isManualMode;
 
     // PUSH TO CLOUD - Ensure HUDs update instantly
     timerSaveMutation.mutate({
-      currentSlotIndex,
-      isTimerActive,
-      secondsElapsed,
-      timerStartTimestamp,
+      id: displayProgram.id,
+      currentSlotIndex: displayCurrentSlotIndex,
+      isTimerActive: displayIsTimerActive,
+      secondsElapsed: displaySecondsElapsed,
+      timerStartTimestamp: displayTimerStartTimestamp,
       isManualMode: nextManualState
     });
+
+    if (!isLiveEventActive) {
+      setProgram(prev => ({ ...prev, isManualMode: nextManualState }));
+    }
   };
 
 
   const handleNext = () => {
     if (isReadOnly) return;
-    if (currentSlotIndex < program.slots.length) {
-      const currentSlot = program.slots[currentSlotIndex];
-      const actualDur = Math.round(secondsElapsed / 60);
+    if (displayCurrentSlotIndex < displayProgram.slots.length) {
+      const currentSlot = displayProgram.slots[displayCurrentSlotIndex];
+      const actualDur = Math.round(displaySecondsElapsed / 60);
       handleSlotComplete(currentSlot.id, actualDur);
 
       // Persist the slot's performance data immediately
       void (async () => {
         try {
-          // Prepare updated slots array for persistence
-          const updatedSlots = program.slots.map(s =>
+          const updatedSlots = displayProgram.slots.map(s =>
             s.id === currentSlot.id ? { ...s, actualDuration: actualDur } : s
           );
-          await updateProgramService({ ...program, slots: updatedSlots });
+          await updateProgramService({ ...displayProgram, slots: updatedSlots });
         } catch (err) {
           console.error("Failed to persist slot actual duration:", err);
         }
       })();
 
-      if (currentSlotIndex < program.slots.length - 1) {
+      if (displayCurrentSlotIndex < displayProgram.slots.length - 1) {
         // Continuous Playback Logic: Keep timer running if NOT in manual mode
-        const nextIsActive = !program.isManualMode;
+        const nextIndex = displayCurrentSlotIndex + 1;
+        const nextIsActive = !displayProgram.isManualMode;
         const now = Date.now();
         const nextStartTs = nextIsActive ? now : null;
 
         lastAdvanceTimeRef.current = now;
-        setCurrentSlotIndex(prev => prev + 1);
-        setSecondsElapsed(0);
-        setIsTimerActive(nextIsActive);
-        setTimerStartTimestamp(nextStartTs);
 
-        // PUSH TO CLOUD IMMEDIATELY
-        clearStageMessage();
+        // PUSH TO CLOUD 
         timerSaveMutation.mutate({
-          currentSlotIndex: currentSlotIndex + 1,
+          id: displayProgram.id,
+          currentSlotIndex: nextIndex,
           isTimerActive: nextIsActive,
           secondsElapsed: 0,
-          timerStartTimestamp: nextStartTs,
-          isManualMode: program.isManualMode
+          timerStartTimestamp: nextStartTs
         });
-      } else {
-        setCurrentSlotIndex(prev => prev + 1);
-        setIsTimerActive(false);
-        setTimerStartTimestamp(null);
 
-        // PUSH TO CLOUD IMMEDIATELY
-        clearStageMessage();
-        timerSaveMutation.mutate({
-          currentSlotIndex: currentSlotIndex + 1,
-          isTimerActive: false,
-          secondsElapsed: Math.round(secondsElapsed),
-          timerStartTimestamp: null,
-          status: 'concluded' // Mark as concluded if we finished the last slot
-        });
+        // Local update for smoothness on draft
+        if (!isLiveEventActive) {
+          setCurrentSlotIndex(nextIndex);
+          setSecondsElapsed(0);
+          setIsTimerActive(nextIsActive);
+          setTimerStartTimestamp(nextStartTs);
+        }
+      } else {
+        // End of event
+        handleEndEvent();
       }
     }
   };
 
   const handlePrev = () => {
     if (isReadOnly) return;
-    if (currentSlotIndex > 0) {
-      // Continuous Playback Logic: Keep timer running if NOT in manual mode
-      const nextIsActive = !program.isManualMode;
+    if (displayCurrentSlotIndex > 0) {
+      const nextIndex = displayCurrentSlotIndex - 1;
+      const nextIsActive = !displayProgram.isManualMode;
       const now = Date.now();
       const nextStartTs = nextIsActive ? now : null;
 
-      setCurrentSlotIndex(prev => prev - 1);
-      setSecondsElapsed(0);
-      setIsTimerActive(nextIsActive);
-      setTimerStartTimestamp(nextStartTs);
+      lastAdvanceTimeRef.current = now;
 
-      // PUSH TO CLOUD IMMEDIATELY
-      clearStageMessage();
+      // PUSH TO CLOUD
       timerSaveMutation.mutate({
-        currentSlotIndex: currentSlotIndex - 1,
+        id: displayProgram.id,
+        currentSlotIndex: nextIndex,
         isTimerActive: nextIsActive,
         secondsElapsed: 0,
-        timerStartTimestamp: nextStartTs,
-        isManualMode: program.isManualMode
+        timerStartTimestamp: nextStartTs
       });
+
+      // Local update for smoothness on draft
+      if (!isLiveEventActive) {
+        setCurrentSlotIndex(nextIndex);
+        setSecondsElapsed(0);
+        setIsTimerActive(nextIsActive);
+        setTimerStartTimestamp(nextStartTs);
+      }
     }
   };
 
@@ -1314,16 +1278,6 @@ const AppContent: React.FC = () => {
     return <StageWrapper />;
   }
 
-  // ---------------------------------------------------------
-  // THE BRAIN: Centralized Synchronization Logic
-  // Decides if we show the "Global Live" event or the "Local Draft" event.
-  // ---------------------------------------------------------
-  const isLiveEventActive = !!liveProgram;
-  const displayProgram = isLiveEventActive ? liveProgram! : program;
-  const displayCurrentSlotIndex = isLiveEventActive ? liveCurrentSlotIndex : currentSlotIndex;
-  const displaySecondsElapsed = isLiveEventActive ? liveSecondsElapsed : secondsElapsed;
-  const displayIsTimerActive = isLiveEventActive ? (liveProgram?.isTimerActive ?? false) : isTimerActive;
-  const displayTimerStartTimestamp = isLiveEventActive ? (liveProgram?.timerStartTimestamp ?? null) : timerStartTimestamp;
 
   // Header UI Sync (for the mini-timer)
   const headerElapsed = useTimerSync(displayTimerStartTimestamp, displayIsTimerActive, displaySecondsElapsed);
@@ -1342,10 +1296,8 @@ const AppContent: React.FC = () => {
           onProfileUpdate={setProfile}
           handleSignOut={handleSignOut}
           isOnline={isOnline}
-          programTitle={program.title}
-          programId={program.id}
-          liveProgramTitle={liveProgram?.title}
-          liveProgramId={liveProgramId}
+          programTitle={displayProgram.title}
+          programId={displayProgram.id}
           isCollapsed={isSidebarCollapsed}
           onToggle={setIsSidebarCollapsed}
           onCreateOrg={() => setIsOnboardingManual(true)}
@@ -1571,7 +1523,7 @@ const AppContent: React.FC = () => {
                       <HomeWrapper
                         activeOrgId={activeOrgId ?? undefined}
                         activeProgramId={program.id}
-                        liveProgramId={liveProgramId}
+                        liveProgramId={globalLiveProgram?.id}
                         loadProgram={loadProgram}
                         createProgram={createProgram}
                         deleteProgram={deleteProgram}
@@ -1704,20 +1656,11 @@ const AppContent: React.FC = () => {
         )}
       </div>
 
-      {user && (
-        <MobileNav 
-          activeOrg={activeOrg}
-          profile={profile}
-          user={user}
-          onSignOut={handleSignOut}
-        />
-      )}
-
-      <ShareDialog isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} program={program} isPro={isPro} />
+      <ShareDialog isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} program={displayProgram} isPro={isPro} />
       <ExportDialog
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}
-        program={program}
+        program={displayProgram}
         options={exportOptions}
         setOptions={setExportOptions}
       />
@@ -1771,13 +1714,13 @@ const AppContent: React.FC = () => {
         isOpen={isInterlockOpen}
         onClose={() => setIsInterlockOpen(false)}
         onConfirm={handleConfirmSwitch}
-        currentLiveEventTitle={liveProgram?.title || 'Unknown'}
+        currentLiveEventTitle={globalLiveProgram?.title || 'Unknown'}
         newTargetEventTitle={program.title}
       />
 
       {!location.pathname.startsWith('/analytics') && (
         <PrintableSchedule
-          program={program}
+          program={displayProgram}
           includeDetails={exportOptions.includeDetails}
           includeSpeakers={exportOptions.includeSpeakers}
         />
@@ -1794,10 +1737,10 @@ const AppContent: React.FC = () => {
 
       {pipWindow && createPortal(
         <FlightBridge
-          program={program}
-          currentSlotIndex={currentSlotIndex}
-          isTimerActive={isTimerActive}
-          timerStartTimestamp={timerStartTimestamp}
+          program={displayProgram}
+          currentSlotIndex={displayCurrentSlotIndex}
+          isTimerActive={displayIsTimerActive}
+          timerStartTimestamp={displayTimerStartTimestamp}
           isDarkMode={isDarkMode}
           onToggleTheme={toggleTheme}
           onToggleTimer={handleToggleTimer}
@@ -1806,18 +1749,18 @@ const AppContent: React.FC = () => {
           onPrev={handlePrev}
           onNudge={handleNudge}
           onEndEvent={handleEndEvent}
-          isManualMode={program.isManualMode}
+          isManualMode={displayProgram.isManualMode}
           onToggleManualMode={handleToggleManualMode}
         />,
         pipWindow.document.body
       )}
 
-      {user && canControlLive && (liveProgram || (program && program.slots.length > 0)) && !pipWindow && (
+      {user && canControlLive && (displayProgram && displayProgram.slots.length > 0) && !pipWindow && (
         <MobileFlightBridge
-          program={liveProgram || program}
-          currentSlotIndex={liveProgram ? liveCurrentSlotIndex : currentSlotIndex}
-          timerStartTimestamp={liveProgram ? (liveProgram.timerStartTimestamp ?? null) : (timerStartTimestamp ?? null)}
-          isTimerActive={liveProgram ? (liveProgram.isTimerActive ?? false) : isTimerActive}
+          program={displayProgram}
+          currentSlotIndex={displayCurrentSlotIndex}
+          timerStartTimestamp={displayTimerStartTimestamp}
+          isTimerActive={displayIsTimerActive}
           isAdminOnline={isAdminOnline}
           onToggleTimer={handleToggleTimer}
           onNextSlot={handleNext}
