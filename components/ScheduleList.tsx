@@ -1,11 +1,13 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Program } from '../types';
 import { Clock, ChevronRight, Play, ChevronDown, ChevronUp } from 'lucide-react';
+import { useTimerSync } from '../hooks/useTimerSync';
 
 interface ScheduleListProps {
   program: Program;
   currentSlotIndex: number;
-  secondsElapsed: number;
+  timerStartTimestamp: number | null;
+  secondsElapsed?: number;
   isTimerActive: boolean;
   readOnly?: boolean;
 }
@@ -13,12 +15,16 @@ interface ScheduleListProps {
 const ScheduleList: React.FC<ScheduleListProps> = ({
   program,
   currentSlotIndex,
-  secondsElapsed,
+  timerStartTimestamp,
+  secondsElapsed = 0,
   isTimerActive,
   readOnly = false
 }) => {
   const activeItemRef = useRef<HTMLDivElement>(null);
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set());
+
+  // Sync the timer heart-beat with the global anchor
+  const elapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
 
   // Time Helpers
   const timeToMinutes = (time: string): number => {
@@ -94,7 +100,7 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
           const isExpanded = expandedSlots.has(slot.id);
 
           const durationSeconds = slot.durationMinutes * 60;
-          const remainingSeconds = Math.max(0, durationSeconds - secondsElapsed);
+          const remainingSeconds = Math.max(0, durationSeconds - (isCurrent ? elapsed : 0));
 
           return (
             <div
