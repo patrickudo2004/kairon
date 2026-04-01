@@ -359,6 +359,7 @@ const AppContent: React.FC = () => {
   const [isInterlockOpen, setIsInterlockOpen] = useState(false);
   const lastAdvanceTimeRef = React.useRef<number>(0);
   const lastCorrectedIdRef = React.useRef<string | null>(null);
+  const currentTickingSecondsRef = React.useRef<number>(0);
 
   // --- Reactive Global Live Channel ---
   const globalLiveProgramRaw = useConvexQuery(api.programs.getLiveProgram, {});
@@ -664,7 +665,7 @@ const AppContent: React.FC = () => {
           id: displayProgram.id,
           currentSlotIndex: displayCurrentSlotIndex,
           isTimerActive: displayIsTimerActive,
-          secondsElapsed: displaySecondsElapsed,
+          secondsElapsed: currentTickingSecondsRef.current,
           timerStartTimestamp: displayTimerStartTimestamp,
           isManualMode: displayProgram.isManualMode
         });
@@ -686,7 +687,7 @@ const AppContent: React.FC = () => {
     let slotsWithFinalDuration = displayProgram.slots;
     
     if (finalSlot) {
-      const elapsedMinutes = Math.round(displaySecondsElapsed / 60);
+      const elapsedMinutes = Math.round(currentTickingSecondsRef.current / 60);
       slotsWithFinalDuration = displayProgram.slots.map((s, idx) => 
         idx === finalSlotIndex ? { ...s, actualDuration: elapsedMinutes } : s
       );
@@ -1040,7 +1041,7 @@ const AppContent: React.FC = () => {
         id: displayProgram.id,
         currentSlotIndex: displayCurrentSlotIndex,
         isTimerActive: true,
-        secondsElapsed: displaySecondsElapsed, 
+        secondsElapsed: currentTickingSecondsRef.current, 
         timerStartTimestamp: shiftedStart,
         status: 'live'
       });
@@ -1051,13 +1052,12 @@ const AppContent: React.FC = () => {
         setTimerStartTimestamp(shiftedStart);
         setProgram(prev => ({ ...prev, status: 'live' }));
       }
-    } else {
       // Pause
       timerSaveMutation.mutate({
         id: displayProgram.id,
         currentSlotIndex: displayCurrentSlotIndex,
         isTimerActive: false,
-        secondsElapsed: displaySecondsElapsed, 
+        secondsElapsed: currentTickingSecondsRef.current, 
         timerStartTimestamp: null
       });
 
@@ -1089,7 +1089,7 @@ const AppContent: React.FC = () => {
       id: displayProgram.id,
       currentSlotIndex: displayCurrentSlotIndex,
       isTimerActive: displayIsTimerActive,
-      secondsElapsed: displaySecondsElapsed,
+      secondsElapsed: currentTickingSecondsRef.current,
       timerStartTimestamp: displayTimerStartTimestamp,
       isOnHold: holdState,
       holdMessage: msg
@@ -1110,7 +1110,7 @@ const AppContent: React.FC = () => {
       id: displayProgram.id,
       currentSlotIndex: displayCurrentSlotIndex,
       isTimerActive: displayIsTimerActive,
-      secondsElapsed: displaySecondsElapsed,
+      secondsElapsed: currentTickingSecondsRef.current,
       timerStartTimestamp: displayTimerStartTimestamp,
       isManualMode: nextManualState
     });
@@ -1125,7 +1125,7 @@ const AppContent: React.FC = () => {
     if (isReadOnly) return;
     if (displayCurrentSlotIndex < displayProgram.slots.length) {
       const currentSlot = displayProgram.slots[displayCurrentSlotIndex];
-      const actualDur = Math.round(displaySecondsElapsed / 60);
+      const actualDur = Math.round(currentTickingSecondsRef.current / 60);
       handleSlotComplete(currentSlot.id, actualDur);
 
       // Persist the slot's performance data immediately
@@ -1283,6 +1283,11 @@ const AppContent: React.FC = () => {
   const headerElapsed = useTimerSync(displayTimerStartTimestamp, displayIsTimerActive, displaySecondsElapsed);
   const currentHeaderSlot = displayProgram.slots?.[displayCurrentSlotIndex];
   const headerTimeLeft = currentHeaderSlot ? (currentHeaderSlot.durationMinutes * 60 - headerElapsed) : 0;
+
+  // Sync the Ref for background mutations (handlers)
+  useEffect(() => {
+    currentTickingSecondsRef.current = headerElapsed;
+  }, [headerElapsed]);
 
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
@@ -1694,9 +1699,8 @@ const AppContent: React.FC = () => {
         </div>
       )}
 
-      {/* Production HUD (The Mobile Flight Bridge hybrid for Booth) */}
       {user && canControlLive && (displayProgram.slots.length > 0) && (
-        <div className="fixed bottom-24 right-6 md:bottom-8 md:right-8 z-[200]">
+        <div className="hidden md:block fixed md:bottom-8 md:right-8 z-[200]">
           <ProductionHUD
             isTimerActive={displayIsTimerActive}
             isAdminOnline={isAdminOnline}
@@ -1741,6 +1745,7 @@ const AppContent: React.FC = () => {
           currentSlotIndex={displayCurrentSlotIndex}
           isTimerActive={displayIsTimerActive}
           timerStartTimestamp={displayTimerStartTimestamp}
+          secondsElapsed={headerElapsed}
           isDarkMode={isDarkMode}
           onToggleTheme={toggleTheme}
           onToggleTimer={handleToggleTimer}
