@@ -882,9 +882,41 @@ const AppContent: React.FC = () => {
     })();
   };
 
-  // No global ticker needed in App.tsx! 
-  // Each component (HUD, Timer, Bridge) now uses useTimerSync autonomously 
-  // based on the database timestamp anchor.
+  // THE PRODUCTION ENGINE: Background Ticking for Logic & Snapshots
+  // While UI components (LiveTimer, HUD) tick autonomously for smoothness,
+  // App.tsx needs these derived values to trigger Auto-Advance and Analytics.
+  useEffect(() => {
+    let interval: number | undefined;
+
+    const tick = () => {
+      const now = Date.now();
+      
+      // Update viewing program snapshot
+      if (isTimerActive && timerStartTimestamp) {
+        const exactElapsed = Math.floor((now - timerStartTimestamp) / 1000);
+        setSecondsElapsed(exactElapsed);
+        
+        // If the current viewed program IS the live one, keep them in sync
+        if (liveProgramId === program.id) {
+          setLiveSecondsElapsed(exactElapsed);
+        }
+      }
+
+      // Update background live program snapshot (even if not currently viewing it)
+      if (liveProgram && liveProgram.isTimerActive && liveProgram.timerStartTimestamp) {
+        const liveExactElapsed = Math.floor((now - liveProgram.timerStartTimestamp!) / 1000);
+        setLiveSecondsElapsed(liveExactElapsed);
+      }
+    };
+
+    // Low-frequency tick (500ms) for background logic to save CPU
+    if ((isTimerActive && timerStartTimestamp) || (liveProgram?.isTimerActive && liveProgram?.timerStartTimestamp)) {
+      tick(); // Initial sync
+      interval = window.setInterval(tick, 500);
+    }
+
+    return () => clearInterval(interval);
+  }, [isTimerActive, liveProgramId, timerStartTimestamp, liveProgram?.isTimerActive, liveProgram?.timerStartTimestamp, program.id]);
 
 
   const handleSlotComplete = (slotId: string, actualDuration: number) => {
