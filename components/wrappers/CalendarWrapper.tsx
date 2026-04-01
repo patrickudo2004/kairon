@@ -1,9 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { getPrograms } from '../../services/programService';
+import { useQuery as useConvexQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import CalendarView from '../CalendarView';
 import { Program } from '../../types';
+import { transformProgram } from '../../services/programService';
 
 interface CalendarWrapperProps {
     activeOrgId: string | undefined;
@@ -28,11 +29,12 @@ const CalendarWrapper: React.FC<CalendarWrapperProps> = ({
 }) => {
     const navigate = useNavigate();
 
-    const { data: allPrograms = [], isLoading, isError, error } = useQuery({
-        queryKey: ['programs', activeOrgId],
-        queryFn: () => getPrograms(activeOrgId),
-        enabled: !!activeOrgId,
-    });
+    const convexPrograms = useConvexQuery(
+        api.programs.getPrograms,
+        activeOrgId ? { organizationId: activeOrgId as any } : "skip"
+    );
+
+    const isLoading = activeOrgId && convexPrograms === undefined;
 
     if (isLoading) {
         return (
@@ -45,19 +47,13 @@ const CalendarWrapper: React.FC<CalendarWrapperProps> = ({
         );
     }
 
-    if (isError) {
-        return (
-            <div className="flex items-center justify-center h-full text-rose-500">
-                <p>Error loading calendar: {(error as Error).message}</p>
-            </div>
-        );
-    }
+    const allPrograms = (convexPrograms || []).map(transformProgram);
 
     return (
         <CalendarView
             programs={allPrograms}
             activeProgramId={activeProgramId}
-            onSelectProgram={(p) => { loadProgram(p); navigate(`/live?id=${p.id}&mode=${mode}`); }}
+            onSelectProgram={(p) => { loadProgram(p); navigate(`/editor?mode=${mode}`); }}
             onCreateProgram={(date) => { createProgram(date); navigate(`/editor?mode=${mode}`); }}
             onDelete={deleteProgram}
             onDuplicate={duplicateProgram}
