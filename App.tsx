@@ -19,6 +19,7 @@ import { useUIStore } from './store/uiStore';
 import { useStageMessages } from './hooks/useStageMessages';
 import { useWakeLock } from './hooks/useWakeLock';
 import { useFlightBridge } from './hooks/useFlightBridge';
+import { useTimerSync } from './hooks/useTimerSync';
 
 // Components
 import { FlightBridge } from './components/FlightBridge';
