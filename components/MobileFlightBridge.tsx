@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Play, Pause, SkipBack, SkipForward, ChevronDown, Clock, Zap, 
   MousePointerClick, Timer, Power, BarChart3, List, Settings2 
 } from 'lucide-react';
 import { Program, Slot } from '../types';
+import { useTimerSync } from '../hooks/useTimerSync';
 
 interface MobileFlightBridgeProps {
   program: Program;
   currentSlotIndex: number;
-  secondsElapsed: number;
+  timerStartTimestamp: number | null;
   isTimerActive: boolean;
   isAdminOnline: boolean;
   onToggleTimer: () => void;
@@ -24,7 +25,7 @@ interface MobileFlightBridgeProps {
 export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
   program,
   currentSlotIndex,
-  secondsElapsed,
+  timerStartTimestamp,
   isTimerActive,
   isAdminOnline,
   onToggleTimer,
@@ -44,14 +45,14 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
   // OPTIMISTIC STATE for instant feedback
   const [optimisticIndex, setOptimisticIndex] = useState(currentSlotIndex);
   const [optimisticTimerActive, setOptimisticTimerActive] = useState(isTimerActive);
-  const [localSecondsOffset, setLocalSecondsOffset] = useState(0);
-  const lastPropsIndex = useRef(currentSlotIndex);
+  
+  // Use the Anchor Hook for perfectly synced autonomous ticking
+  const elapsed = useTimerSync(timerStartTimestamp, isTimerActive);
 
   // Sync optimistic states when props arrive from the backend
   useEffect(() => {
     setOptimisticIndex(currentSlotIndex);
     setOptimisticTimerActive(isTimerActive);
-    setLocalSecondsOffset(0); // Reset offset when real data arrives
   }, [currentSlotIndex, isTimerActive]);
 
   const currentSlot = program.slots[optimisticIndex] || program.slots[0];
@@ -95,7 +96,6 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
   const handleNext = () => {
     if (optimisticIndex < program.slots.length - 1) {
       setOptimisticIndex(prev => prev + 1);
-      setLocalSecondsOffset(0);
       // Predict continuous playback if in auto mode (not manual)
       if (!program.isManualMode) setOptimisticTimerActive(true);
       onNextSlot();
@@ -105,7 +105,6 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
   const handlePrev = () => {
     if (optimisticIndex > 0) {
       setOptimisticIndex(prev => prev - 1);
-      setLocalSecondsOffset(0);
       if (!program.isManualMode) setOptimisticTimerActive(true);
       onPrevSlot();
     }
@@ -117,7 +116,7 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
   };
 
   const remainingSeconds = currentSlot 
-    ? (currentSlot.durationMinutes * 60 - (isShowLive ? (secondsElapsed + localSecondsOffset) : 0)) 
+    ? (currentSlot.durationMinutes * 60 - (isShowLive ? elapsed : 0)) 
     : 0;
   const isOvertime = isShowLive && remainingSeconds < 0;
 

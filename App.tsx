@@ -881,34 +881,9 @@ const AppContent: React.FC = () => {
     })();
   };
 
-  // Timer Tick Logic (Drift-Proof & Stateless)
-  useEffect(() => {
-    let interval: number | undefined;
-
-    // We tick if the viewed program is active OR if any program is live (for HUD)
-    // The source of truth is the timerStartTimestamp from the DB
-    if (isTimerActive && timerStartTimestamp) {
-      interval = window.setInterval(() => {
-        const now = Date.now();
-        const exactElapsed = Math.floor((now - timerStartTimestamp) / 1000);
-        setSecondsElapsed(exactElapsed);
-
-        if (liveProgramId === program.id) {
-          setLiveSecondsElapsed(exactElapsed);
-        }
-      }, 200);
-    } else if (liveProgram && liveProgram.isTimerActive && liveProgram.timerStartTimestamp) {
-      // Background sync for HUD if viewing a different program
-      interval = window.setInterval(() => {
-        const now = Date.now();
-        const exactElapsed = Math.floor((now - liveProgram.timerStartTimestamp!) / 1000);
-        setLiveSecondsElapsed(exactElapsed);
-      }, 200);
-    } else {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [isTimerActive, liveProgramId, timerStartTimestamp, liveProgram?.isTimerActive, liveProgram?.timerStartTimestamp]);
+  // No global ticker needed in App.tsx! 
+  // Each component (HUD, Timer, Bridge) now uses useTimerSync autonomously 
+  // based on the database timestamp anchor.
 
 
   const handleSlotComplete = (slotId: string, actualDuration: number) => {
@@ -1619,7 +1594,7 @@ const AppContent: React.FC = () => {
                         program={displayProgram}
                         currentSlotIndex={displayCurrentSlotIndex}
                         isTimerActive={displayIsTimerActive}
-                        secondsElapsed={displaySecondsElapsed}
+                        timerStartTimestamp={displayTimerStartTimestamp}
                         onToggleTimer={handleToggleTimer}
                         onToggleHold={handleToggleHold}
                         onNext={handleNext}
@@ -1632,7 +1607,7 @@ const AppContent: React.FC = () => {
                       <ScheduleList
                         program={displayProgram}
                         currentSlotIndex={displayCurrentSlotIndex}
-                        secondsElapsed={displaySecondsElapsed}
+                        timerStartTimestamp={displayTimerStartTimestamp}
                         isTimerActive={displayIsTimerActive}
                         readOnly={isReadOnly}
                       />
@@ -1762,6 +1737,7 @@ const AppContent: React.FC = () => {
             onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
             currentSlotTitle={liveProgram?.slots[liveCurrentSlotIndex]?.title}
             programId={liveProgramId}
+            timerStartTimestamp={liveProgram?.timerStartTimestamp ?? null}
           />
         </div>
       )}
@@ -1796,7 +1772,7 @@ const AppContent: React.FC = () => {
           program={program}
           currentSlotIndex={currentSlotIndex}
           isTimerActive={isTimerActive}
-          secondsElapsed={secondsElapsed}
+          timerStartTimestamp={timerStartTimestamp}
           isDarkMode={isDarkMode}
           onToggleTheme={toggleTheme}
           onToggleTimer={handleToggleTimer}
@@ -1815,7 +1791,7 @@ const AppContent: React.FC = () => {
         <MobileFlightBridge
           program={liveProgram || program}
           currentSlotIndex={liveProgram ? liveCurrentSlotIndex : currentSlotIndex}
-          secondsElapsed={liveProgram ? liveSecondsElapsed : secondsElapsed}
+          timerStartTimestamp={liveProgram ? (liveProgram.timerStartTimestamp ?? null) : (timerStartTimestamp ?? null)}
           isTimerActive={liveProgram ? (liveProgram.isTimerActive ?? false) : isTimerActive}
           isAdminOnline={isAdminOnline}
           onToggleTimer={handleToggleTimer}

@@ -83,8 +83,9 @@ export const updateTimerState = async (programId: string, state: {
     secondsElapsed: number;
     timerStartTimestamp: number | null;
     isOnHold?: boolean;
+    isManualMode?: boolean;
     holdMessage?: string;
-    status?: 'draft' | 'live' | 'concluded';
+    status?: 'draft' | 'live' | 'concluded' | 'archived';
 }): Promise<void> => {
     const stateToSave: any = {
         currentSlotIndex: state.currentSlotIndex,
@@ -95,6 +96,7 @@ export const updateTimerState = async (programId: string, state: {
 
     // Only add optional fields if they are defined
     if (state.isOnHold !== undefined) stateToSave.isOnHold = state.isOnHold;
+    if (state.isManualMode !== undefined) stateToSave.isManualMode = state.isManualMode;
     if (state.holdMessage !== undefined) stateToSave.holdMessage = state.holdMessage;
     if (state.status !== undefined) stateToSave.status = state.status;
 

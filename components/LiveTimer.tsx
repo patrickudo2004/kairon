@@ -1,12 +1,14 @@
 import React from 'react';
 import { Program } from '../types';
 import { Play, Pause, SkipForward, SkipBack, Eye, CheckCircle, ClipboardList, MousePointerClick, Zap } from 'lucide-react';
+import { useTimerSync } from '../hooks/useTimerSync';
 
 interface LiveTimerProps {
   program: Program;
   currentSlotIndex: number;
   isTimerActive: boolean;
-  secondsElapsed: number;
+  timerStartTimestamp: number | null;
+  secondsElapsed?: number; // Optional legacy fallback if needed
   onToggleTimer: () => void;
   onToggleHold?: () => void;
   onNext: () => void;
@@ -20,7 +22,8 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
   program,
   currentSlotIndex,
   isTimerActive,
-  secondsElapsed,
+  timerStartTimestamp,
+  secondsElapsed = 0,
   onToggleTimer,
   onToggleHold,
   onNext,
@@ -30,11 +33,12 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
   const currentSlot = program.slots[currentSlotIndex];
   const nextSlot = program.slots[currentSlotIndex + 1];
 
-  // Time Helpers (Consolidated)
+  // Sync the timer heart-beat with the global anchor
+  const elapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
 
-  // Calculations
+  // Time Helpers (Consolidated)
   const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
-  const timeLeft = durationSeconds - secondsElapsed;
+  const timeLeft = durationSeconds - elapsed;
 
   const progressPercent = durationSeconds > 0
     ? Math.min(100, Math.max(0, (timeLeft / durationSeconds) * 100))

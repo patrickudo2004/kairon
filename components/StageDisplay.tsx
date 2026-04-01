@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Program, Organization } from '../types';
 import { CheckCircle } from 'lucide-react';
+import { useTimerSync } from '../hooks/useTimerSync';
 import { formatDuration } from '../utils/time';
 import { useStageMessages } from '../hooks/useStageMessages';
 import { useWakeLock } from '../hooks/useWakeLock';
 
 interface StageDisplayProps {
     program: Program;
-    secondsElapsed: number;
+    timerStartTimestamp: number | null;
+    secondsElapsed?: number;
     isTimerActive: boolean;
     currentSlotIndex: number;
     activeOrg?: Organization | null;
@@ -18,7 +20,8 @@ interface StageDisplayProps {
 
 const StageDisplay: React.FC<StageDisplayProps> = ({
     program,
-    secondsElapsed,
+    timerStartTimestamp,
+    secondsElapsed = 0,
     isTimerActive,
     currentSlotIndex,
     activeOrg,
@@ -50,7 +53,10 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
         }
     }, [promptMessage]);
 
-    const timeLeft = (currentSlot ? currentSlot.durationMinutes * 60 : 0) - secondsElapsed;
+    // Sync the timer heart-beat with the global anchor
+    const elapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
+
+    const timeLeft = (currentSlot ? currentSlot.durationMinutes * 60 : 0) - elapsed;
 
     // Case 1: Program is concluded
     if (program.status === 'concluded') {
