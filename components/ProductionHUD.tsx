@@ -1,7 +1,8 @@
+import React, { useState, useEffect } from 'react';
+import { Power, Timer, Plus, Minus, Wifi, WifiOff, BarChart3, Volume2, Lightbulb, Video, Timer as TimerIcon } from 'lucide-react';
 import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
 import { useTimerSync } from '../hooks/useTimerSync';
-import { Timer as TimerIcon } from 'lucide-react';
 
 interface ProductionHUDProps {
     isTimerActive: boolean;
