@@ -1314,6 +1314,22 @@ const AppContent: React.FC = () => {
     return <StageWrapper />;
   }
 
+  // ---------------------------------------------------------
+  // THE BRAIN: Centralized Synchronization Logic
+  // Decides if we show the "Global Live" event or the "Local Draft" event.
+  // ---------------------------------------------------------
+  const isLiveEventActive = !!liveProgram;
+  const displayProgram = isLiveEventActive ? liveProgram! : program;
+  const displayCurrentSlotIndex = isLiveEventActive ? liveCurrentSlotIndex : currentSlotIndex;
+  const displaySecondsElapsed = isLiveEventActive ? liveSecondsElapsed : secondsElapsed;
+  const displayIsTimerActive = isLiveEventActive ? (liveProgram?.isTimerActive ?? false) : isTimerActive;
+  const displayTimerStartTimestamp = isLiveEventActive ? (liveProgram?.timerStartTimestamp ?? null) : timerStartTimestamp;
+
+  // Header UI Sync (for the mini-timer)
+  const headerElapsed = useTimerSync(displayTimerStartTimestamp, displayIsTimerActive, displaySecondsElapsed);
+  const currentHeaderSlot = displayProgram.slots?.[displayCurrentSlotIndex];
+  const headerTimeLeft = currentHeaderSlot ? (currentHeaderSlot.durationMinutes * 60 - headerElapsed) : 0;
+
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
       {user && (
@@ -1366,7 +1382,7 @@ const AppContent: React.FC = () => {
               ) : (
                 <>
                   <h2 className="font-bold text-slate-900 dark:text-white truncate max-w-[200px] lg:max-w-[400px]">
-                    {(liveProgram && liveProgram.isTimerActive) ? liveProgram.title : program.title}
+                    {displayProgram.title}
                   </h2>
                   {isReadOnly && (
                     <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-medium tracking-widest uppercase">Viewer</span>
@@ -1375,41 +1391,28 @@ const AppContent: React.FC = () => {
               )}
             </div>
 
-            {/* Live Control Center & Timer (THE RESTORED PIECE) */}
-            {(() => {
-              const isLiveEventActive = liveProgram && liveProgram.isTimerActive;
-              const displayProgram = isLiveEventActive ? liveProgram : program;
-              const displayCurrentSlotIndex = isLiveEventActive ? liveCurrentSlotIndex : currentSlotIndex;
-              const displaySecondsElapsed = isLiveEventActive ? liveSecondsElapsed : secondsElapsed;
-              const displayIsTimerActive = isLiveEventActive ? liveProgram.isTimerActive : isTimerActive;
-              const displayTimerStartTimestamp = isLiveEventActive ? (liveProgram?.timerStartTimestamp ?? null) : timerStartTimestamp;
-
-              // Use the Anchor Hook for perfectly synced autonomous ticking in the header too
-              const elapsed = useTimerSync(displayTimerStartTimestamp, displayIsTimerActive, displaySecondsElapsed);
-
-              return !isReadOnly && displayProgram.slots.length > 0 && (
-                <div className="hidden md:flex items-center gap-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-1.5 rounded-2xl shadow-sm">
-                  <div className={`text-xl font-mono font-bold tabular-nums min-w-[80px] text-center ${displayIsTimerActive ? (displayProgram.slots[displayCurrentSlotIndex] ? (displayProgram.slots[displayCurrentSlotIndex].durationMinutes * 60 - elapsed < 0 ? 'text-rose-500' : 'text-indigo-600 dark:text-indigo-400') : 'text-slate-400') : 'text-slate-400'}`}>
-                    {displayProgram.slots[displayCurrentSlotIndex]
-                      ? formatDuration(displayProgram.slots[displayCurrentSlotIndex].durationMinutes * 60 - elapsed)
-                      : '00:00'}
-                  </div>
+            {/* Live Control Center & Timer (Unified Header UI) */}
+            {!isReadOnly && displayProgram.slots.length > 0 && (
+              <div className="hidden md:flex items-center gap-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-1.5 rounded-2xl shadow-sm">
+                <div className={`text-xl font-mono font-bold tabular-nums min-w-[80px] text-center ${displayIsTimerActive ? (headerTimeLeft < 0 ? 'text-rose-500' : 'text-indigo-600 dark:text-indigo-400') : 'text-slate-400'}`}>
+                  {currentHeaderSlot ? formatDuration(headerTimeLeft) : '00:00'}
+                </div>
 
                   <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
 
                   <div className="flex items-center gap-1">
                     <button
                       onClick={handleToggleTimer}
-                    className={`p-2 rounded-xl transition-all ${isTimerActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
-                    title={isTimerActive ? "Pause Timer" : "Start Event"}
+                    className={`p-2 rounded-xl transition-all ${displayIsTimerActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
+                    title={displayIsTimerActive ? "Pause Timer" : "Start Event"}
                   >
-                    {isTimerActive ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+                    {displayIsTimerActive ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
                   </button>
 
                   <button
                     onClick={handlePrev}
-                    disabled={currentSlotIndex === 0}
-                    className={`p-2 rounded-xl transition-all ${currentSlotIndex === 0 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
+                    disabled={displayCurrentSlotIndex === 0}
+                    className={`p-2 rounded-xl transition-all ${displayCurrentSlotIndex === 0 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
                     title="Previous Slot"
                   >
                     <SkipBack size={18} />
@@ -1417,7 +1420,8 @@ const AppContent: React.FC = () => {
 
                   <button
                     onClick={handleNext}
-                    className="p-2 rounded-xl text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500 transition-all"
+                    disabled={displayCurrentSlotIndex === displayProgram.slots.length - 1}
+                    className={`p-2 rounded-xl transition-all ${displayCurrentSlotIndex === displayProgram.slots.length - 1 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
                     title="Next Slot"
                   >
                     <SkipForward size={18} />
@@ -1425,7 +1429,7 @@ const AppContent: React.FC = () => {
 
                   <button
                     onClick={handleToggleHold}
-                    className={`p-2 rounded-xl transition-all ${program.isOnHold ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-amber-500'}`}
+                    className={`p-2 rounded-xl transition-all ${displayProgram.isOnHold ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-amber-500'}`}
                     title="Toggle Hold"
                   >
                     <Clock size={18} />
@@ -1435,20 +1439,19 @@ const AppContent: React.FC = () => {
 
                   <button
                     onClick={handleToggleManualMode}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all ${program.isManualMode
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all ${displayProgram.isManualMode
                       ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
                       : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
-                    title={program.isManualMode ? "Manual Mode (Manual Advance)" : "Auto-Mode (Auto Advance)"}
+                    title={displayProgram.isManualMode ? "Manual Mode (Manual Advance)" : "Auto-Mode (Auto Advance)"}
                   >
-                    {program.isManualMode ? <MousePointerClick size={16} /> : <Zap size={16} />}
+                    {displayProgram.isManualMode ? <MousePointerClick size={16} /> : <Zap size={16} />}
                     <span className="text-[10px] font-bold uppercase tracking-widest hidden lg:block">
-                      {program.isManualMode ? 'Manual' : 'Auto'}
+                      {displayProgram.isManualMode ? 'Manual' : 'Auto'}
                     </span>
                   </button>
                 </div>
               </div>
-            );
-          })()}
+            )}
 
             <div className="flex items-center gap-3">
               {/* Connection & Mode Indicator */}
@@ -1552,19 +1555,7 @@ const AppContent: React.FC = () => {
             ) : !user ? (
               <Auth inviteDetails={effectiveInviteDetails} />
             ) : (
-              // Define Display Variables for Live/List views: 
-              // If there is an active live event playing in this workspace, we prioritize showing IT in the Live/List views.
-              // We only revert to showing the 'draft' program in Live/List if there is NO live event playing anywhere.
-              (() => {
-                const isLiveEventActive = !!liveProgram;
-                const displayProgram = isLiveEventActive ? liveProgram! : program;
-                const displayCurrentSlotIndex = isLiveEventActive ? liveCurrentSlotIndex : currentSlotIndex;
-                const displaySecondsElapsed = isLiveEventActive ? liveSecondsElapsed : secondsElapsed;
-                const displayIsTimerActive = isLiveEventActive ? (liveProgram?.isTimerActive ?? false) : isTimerActive;
-                const displayTimerStartTimestamp = isLiveEventActive ? (liveProgram?.timerStartTimestamp ?? null) : timerStartTimestamp;
-
-                return (
-                  <Routes>
+              <Routes>
                     <Route path="/org" element={
                       <OrganizationManager
                         userId={user.id}
@@ -1594,7 +1585,6 @@ const AppContent: React.FC = () => {
                       <CalendarWrapper
                         activeOrgId={activeOrgId ?? undefined}
                         activeProgramId={program.id}
-                        liveProgramId={liveProgramId}
                         loadProgram={loadProgram}
                         createProgram={createProgram}
                         deleteProgram={deleteProgram}
@@ -1617,7 +1607,7 @@ const AppContent: React.FC = () => {
 
                     <Route path="/monitors" element={
                       <MonitorDashboard
-                        program={program}
+                        program={displayProgram}
                         activeOrg={activeOrg}
                         onLaunchFlightBridge={() => openFlightBridge()}
                         isFlightBridgeSupported={isFlightBridgeSupported}
@@ -1650,7 +1640,6 @@ const AppContent: React.FC = () => {
                         readOnly={isReadOnly}
                       />
                     } />
-
                     <Route path="/editor" element={
                       <ProgramEditor
                         program={program}
@@ -1660,27 +1649,24 @@ const AppContent: React.FC = () => {
                         isTimerActive={isTimerActive}
                         currentSlotIndex={currentSlotIndex}
                         isPro={isPro}
-
-                    onEndEvent={handleEndEvent}
-                    onNudge={handleNudge}
-                    onUpdate={(p) => {
-                      if ((p as any)._triggerRebalance) {
-                        handleAiRebalance(p);
-                        return;
-                      }
-                      setProgram(p);
-                      if (p.slots.length === 0) {
-                        setCurrentSlotIndex(0);
-                        setSecondsElapsed(0);
-                        setIsTimerActive(false);
-                      }
-                    }}
-                  />
-                } />
+                        onEndEvent={handleEndEvent}
+                        onNudge={handleNudge}
+                        onUpdate={(p) => {
+                          if ((p as any)._triggerRebalance) {
+                            handleAiRebalance(p);
+                            return;
+                          }
+                          setProgram(p);
+                          if (p.slots.length === 0) {
+                            setCurrentSlotIndex(0);
+                            setSecondsElapsed(0);
+                            setIsTimerActive(false);
+                          }
+                        }}
+                      />
+                    } />
                   </Routes>
-                );
-              })()
-            )}
+                )}
           </div>
         </main>
 
@@ -1765,17 +1751,18 @@ const AppContent: React.FC = () => {
         </div>
       )}
 
-      {canControlLive && liveProgramId && (
-        <div className="hidden lg:block">
+      {/* Production HUD (The Mobile Flight Bridge hybrid for Booth) */}
+      {user && canControlLive && (displayProgram.slots.length > 0) && (
+        <div className="fixed bottom-24 right-6 md:bottom-8 md:right-8 z-[200]">
           <ProductionHUD
-            isTimerActive={isTimerActive}
+            isTimerActive={displayIsTimerActive}
             isAdminOnline={isAdminOnline}
             onEndEvent={handleEndEvent}
             onNudge={handleNudge}
             onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
-            currentSlotTitle={liveProgram?.slots[liveCurrentSlotIndex]?.title}
-            programId={liveProgramId}
-            timerStartTimestamp={liveProgram?.timerStartTimestamp ?? null}
+            currentSlotTitle={displayProgram?.slots[displayCurrentSlotIndex]?.title}
+            programId={displayProgram.id}
+            timerStartTimestamp={displayTimerStartTimestamp}
           />
         </div>
       )}
