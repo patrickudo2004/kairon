@@ -14,6 +14,7 @@ interface ProductionHUDProps {
     programId?: string;
     timerStartTimestamp: number | null;
     secondsElapsed?: number;
+    isVertical?: boolean;
 }
 
 export const ProductionHUD: React.FC<ProductionHUDProps> = ({
@@ -25,7 +26,8 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
     currentSlotTitle,
     programId,
     timerStartTimestamp,
-    secondsElapsed = 0
+    secondsElapsed = 0,
+    isVertical = false
 }) => {
     const elapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
     const [holdToEnd, setHoldToEnd] = useState(0);
@@ -33,9 +35,6 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
 
     const acks = useQuery(api.programs.getAcknowledgements, programId ? { programId: programId as any } : "skip") || [];
 
-    // Get current slot ID from program (this is a bit tricky since HUD only has title)
-    // Actually, we should probably pass the current slot ID to the HUD or fetch the full program.
-    // For now, let's fetch the program data to be sure.
     const program = useQuery(api.programs.getProgramById, programId ? { id: programId as any } : "skip");
     const currentSlot = program?.slots[program?.currentSlotIndex ?? 0];
 
@@ -43,7 +42,6 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
         return acks.some(a => a.slotId === currentSlot?.id && a.role === role);
     };
 
-    // Hold to end logic
     useEffect(() => {
         let interval: number;
         if (isEnding && holdToEnd < 100) {
@@ -65,8 +63,89 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
         return () => clearInterval(interval);
     }, [isEnding, holdToEnd, onEndEvent]);
 
-    // Ensure the HUD stays visible if a program is selected, even if the timer is paused
     if (!programId) return null;
+
+    if (isVertical) {
+        return (
+            <div className="h-full w-20 bg-slate-900 border-r border-slate-800 shadow-2xl flex flex-col items-center py-6 gap-8 pointer-events-auto animate-in slide-in-from-left-8 duration-500 overflow-y-auto no-scrollbar">
+                {/* Status Section */}
+                <div className="flex flex-col items-center gap-4">
+                    <div className="relative group">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isAdminOnline ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
+                            <span className={`w-2 h-2 rounded-full absolute -top-1 -right-1 border-2 border-slate-900 ${isAdminOnline ? 'bg-indigo-500 animate-pulse' : 'bg-rose-500'}`} />
+                            <Wifi size={18} />
+                        </div>
+                        <div className="absolute left-full ml-4 px-2 py-1 bg-slate-800 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                            {isAdminOnline ? 'Live Broadcast' : 'Sync Offline'}
+                        </div>
+                    </div>
+
+                    <div className="w-[1px] h-8 bg-slate-800" />
+
+                    {/* Crew Feedback (Vertical Stack) */}
+                    <div className="flex flex-col items-center gap-3">
+                        <div className={`p-2 rounded-xl transition-all ${isAcked('sound') ? 'bg-emerald-500/20 text-emerald-500 shadow-lg shadow-emerald-500/10' : 'bg-slate-800/50 text-slate-600 opacity-30 hover:opacity-100'}`} title="Sound ACK">
+                            <Volume2 size={16} />
+                        </div>
+                        <div className={`p-2 rounded-xl transition-all ${isAcked('lighting') ? 'bg-emerald-500/20 text-emerald-500 shadow-lg shadow-emerald-500/10' : 'bg-slate-800/50 text-slate-600 opacity-30 hover:opacity-100'}`} title="Lighting ACK">
+                            <Lightbulb size={16} />
+                        </div>
+                        <div className={`p-2 rounded-xl transition-all ${isAcked('video') ? 'bg-emerald-500/20 text-emerald-500 shadow-lg shadow-emerald-500/10' : 'bg-slate-800/50 text-slate-600 opacity-30 hover:opacity-100'}`} title="Video ACK">
+                            <Video size={16} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Control Section */}
+                <div className="mt-auto flex flex-col items-center gap-6 pb-4">
+                    {/* Nudge Controls (Vertical) */}
+                    <div className="flex flex-col items-center bg-slate-800/50 rounded-2xl p-1 gap-1 border border-slate-700/30">
+                        <button
+                            onClick={() => onNudge(1)}
+                            className="p-3 hover:bg-slate-700 text-indigo-400 hover:text-white rounded-xl transition-all active:scale-90"
+                            title="Nudge +1 min"
+                        >
+                            <Plus size={20} />
+                        </button>
+                        <div className="h-[1px] w-8 bg-slate-700" />
+                        <button
+                            onClick={() => onNudge(-1)}
+                            className="p-3 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition-all active:scale-90"
+                            title="Nudge -1 min"
+                        >
+                            <Minus size={20} />
+                        </button>
+                    </div>
+
+                    {programId && (
+                        <button
+                            onClick={() => onViewAnalytics(programId)}
+                            className="p-3 bg-slate-800/50 hover:bg-slate-800 text-amber-500 rounded-2xl transition-all hover:scale-105 active:scale-95 border border-slate-700/30"
+                            title="View Service Report"
+                        >
+                            <BarChart3 size={20} />
+                        </button>
+                    )}
+
+                    {/* End Event (Square vertical reveal) */}
+                    <button
+                        onMouseDown={() => setIsEnding(true)}
+                        onMouseUp={() => setIsEnding(false)}
+                        onMouseLeave={() => setIsEnding(false)}
+                        onTouchStart={() => setIsEnding(true)}
+                        onTouchEnd={() => setIsEnding(false)}
+                        className="relative group overflow-hidden bg-rose-600 hover:bg-rose-700 text-white w-14 h-14 rounded-2xl flex items-center justify-center transition-all active:scale-90 select-none shadow-lg shadow-rose-900/20"
+                    >
+                        <div
+                            className="absolute bottom-0 left-0 right-0 bg-rose-950 opacity-50 origin-bottom transition-transform duration-75"
+                            style={{ transform: `scaleY(${holdToEnd / 100})` }}
+                        />
+                        <Power size={20} className="relative z-10" />
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-4xl mx-auto bg-slate-900 border border-slate-800 shadow-2xl rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 pointer-events-auto animate-in slide-in-from-bottom-8 duration-500">

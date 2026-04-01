@@ -1046,12 +1046,12 @@ const AppContent: React.FC = () => {
         status: 'live'
       });
 
-      // Local update for smoothness on draft
       if (!isLiveEventActive) {
         setIsTimerActive(true);
         setTimerStartTimestamp(shiftedStart);
         setProgram(prev => ({ ...prev, status: 'live' }));
       }
+    } else {
       // Pause
       timerSaveMutation.mutate({
         id: displayProgram.id,
@@ -1700,7 +1700,7 @@ const AppContent: React.FC = () => {
       )}
 
       {user && canControlLive && (displayProgram.slots.length > 0) && (
-        <div className="hidden md:block fixed md:bottom-8 md:right-8 z-[200]">
+        <div className={`hidden md:block fixed top-16 bottom-0 z-[100] transition-all duration-300 ${isSidebarCollapsed ? 'left-20' : 'left-64'}`}>
           <ProductionHUD
             isTimerActive={displayIsTimerActive}
             isAdminOnline={isAdminOnline}
@@ -1710,6 +1710,7 @@ const AppContent: React.FC = () => {
             currentSlotTitle={displayProgram?.slots[displayCurrentSlotIndex]?.title}
             programId={displayProgram.id}
             timerStartTimestamp={displayTimerStartTimestamp}
+            isVertical={true}
           />
         </div>
       )}
