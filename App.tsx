@@ -1349,12 +1349,16 @@ const AppContent: React.FC = () => {
               const displayCurrentSlotIndex = isLiveEventActive ? liveCurrentSlotIndex : currentSlotIndex;
               const displaySecondsElapsed = isLiveEventActive ? liveSecondsElapsed : secondsElapsed;
               const displayIsTimerActive = isLiveEventActive ? liveProgram.isTimerActive : isTimerActive;
+              const displayTimerStartTimestamp = isLiveEventActive ? (liveProgram?.timerStartTimestamp ?? null) : timerStartTimestamp;
+
+              // Use the Anchor Hook for perfectly synced autonomous ticking in the header too
+              const elapsed = useTimerSync(displayTimerStartTimestamp, displayIsTimerActive, displaySecondsElapsed);
 
               return !isReadOnly && displayProgram.slots.length > 0 && (
                 <div className="hidden md:flex items-center gap-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-1.5 rounded-2xl shadow-sm">
-                  <div className={`text-xl font-mono font-bold tabular-nums min-w-[80px] text-center ${displayIsTimerActive ? (displayProgram.slots[displayCurrentSlotIndex] ? (displayProgram.slots[displayCurrentSlotIndex].durationMinutes * 60 - displaySecondsElapsed < 0 ? 'text-rose-500' : 'text-indigo-600 dark:text-indigo-400') : 'text-slate-400') : 'text-slate-400'}`}>
+                  <div className={`text-xl font-mono font-bold tabular-nums min-w-[80px] text-center ${displayIsTimerActive ? (displayProgram.slots[displayCurrentSlotIndex] ? (displayProgram.slots[displayCurrentSlotIndex].durationMinutes * 60 - elapsed < 0 ? 'text-rose-500' : 'text-indigo-600 dark:text-indigo-400') : 'text-slate-400') : 'text-slate-400'}`}>
                     {displayProgram.slots[displayCurrentSlotIndex]
-                      ? formatDuration(displayProgram.slots[displayCurrentSlotIndex].durationMinutes * 60 - displaySecondsElapsed)
+                      ? formatDuration(displayProgram.slots[displayCurrentSlotIndex].durationMinutes * 60 - elapsed)
                       : '00:00'}
                   </div>
 
@@ -1524,6 +1528,7 @@ const AppContent: React.FC = () => {
                 const displayCurrentSlotIndex = isLiveEventActive ? liveCurrentSlotIndex : currentSlotIndex;
                 const displaySecondsElapsed = isLiveEventActive ? liveSecondsElapsed : secondsElapsed;
                 const displayIsTimerActive = isLiveEventActive ? (liveProgram?.isTimerActive ?? false) : isTimerActive;
+                const displayTimerStartTimestamp = isLiveEventActive ? (liveProgram?.timerStartTimestamp ?? null) : timerStartTimestamp;
 
                 return (
                   <Routes>
