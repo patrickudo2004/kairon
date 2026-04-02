@@ -13,10 +13,14 @@ interface LiveTimerProps {
   onToggleHold?: () => void;
   onNext: () => void;
   onPrev: () => void;
+  onEndEvent?: () => void;
+  onNudge?: (minutes: number) => void;
   readOnly?: boolean;
 }
 
 import { formatDuration } from '../utils/time';
+import { useState, useEffect } from 'react';
+import { Minus, Plus, Power } from 'lucide-react';
 
 const LiveTimer: React.FC<LiveTimerProps> = ({
   program,
@@ -28,6 +32,8 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
   onToggleHold,
   onNext,
   onPrev,
+  onEndEvent,
+  onNudge,
   readOnly = false
 }) => {
   const currentSlot = program.slots[currentSlotIndex];
@@ -35,6 +41,31 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
 
   // Sync the timer heart-beat with the global anchor
   const elapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
+
+  // Safety Hold logic for End Event
+  const [holdToEnd, setHoldToEnd] = useState(0);
+  const [isEnding, setIsEnding] = useState(false);
+
+  useEffect(() => {
+    let interval: number;
+    if (isEnding && holdToEnd < 100) {
+      interval = window.setInterval(() => {
+        setHoldToEnd((prev) => Math.min(100, prev + 5));
+      }, 50);
+    } else if (!isEnding && holdToEnd > 0) {
+      interval = window.setInterval(() => {
+        setHoldToEnd((prev) => Math.max(0, prev - 10));
+      }, 50);
+    }
+
+    if (holdToEnd >= 100 && onEndEvent) {
+      onEndEvent();
+      setHoldToEnd(0);
+      setIsEnding(false);
+    }
+
+    return () => clearInterval(interval);
+  }, [isEnding, holdToEnd, onEndEvent]);
 
   // Time Helpers (Consolidated)
   const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
@@ -205,49 +236,96 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
 
       {/* Controls - Hidden if readOnly */}
       {!readOnly && (
-        <div className="flex flex-col md:flex-row justify-center gap-4 md:gap-6 mb-12 md:mb-8">
-          <div className="flex justify-center gap-4 flex-1">
-            <button
-              onClick={onPrev}
-              disabled={currentSlotIndex === 0}
-              className="flex-1 md:flex-initial flex items-center justify-center gap-3 px-6 py-5 rounded-2xl font-semibold text-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <SkipBack size={28} />
-            </button>
+        <div className="flex flex-col items-center gap-8 mb-12">
+          {/* Main Command Bar */}
+          <div className="flex flex-col md:flex-row items-center gap-6 w-full max-w-4xl justify-center">
+            
+            {/* Override Group (Left) */}
+            <div className="flex items-center gap-4 order-2 md:order-1">
+              <button
+                onClick={onToggleHold}
+                className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-bold text-sm transition-all border shadow-lg ${program.isOnHold
+                  ? 'bg-amber-500 text-white border-amber-600'
+                  : 'bg-white dark:bg-slate-800 text-amber-600 border-amber-200 dark:border-amber-900 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                  }`}
+              >
+                <Pause size={20} />
+                <span className="uppercase tracking-widest">Hold for Cue</span>
+              </button>
 
-            <button
-              onClick={onToggleTimer}
-              className={`flex-[2] md:flex-initial flex items-center justify-center gap-3 px-8 md:px-12 py-5 rounded-2xl font-semibold text-xl transition-all transform hover:scale-105 active:scale-95 shadow-xl ${isTimerActive
-                ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
-                : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-500/30'
-                }`}
-            >
-              {isTimerActive ? <><Pause size={28} /> <span className="md:inline">Pause</span></> : <><Play size={28} fill="currentColor" /> <span className="md:inline">Start</span></>}
-            </button>
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-2xl p-1 border border-slate-200 dark:border-slate-700 shadow-lg">
+                <button
+                  onClick={() => onNudge?.(-1)}
+                  className="p-3 hover:bg-white dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-indigo-600 rounded-xl transition-all"
+                >
+                  <Minus size={20} />
+                </button>
+                <div className="px-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter">Nudge</div>
+                <button
+                  onClick={() => onNudge?.(1)}
+                  className="p-3 hover:bg-white dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-indigo-600 rounded-xl transition-all"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+            </div>
 
-            <button
-              onClick={onNext}
-              className={`flex-1 md:flex-initial flex items-center justify-center gap-3 px-6 md:px-10 py-5 rounded-2xl font-semibold text-xl border transition-all shadow-xl ${program.isManualMode && timeLeft <= 0
-                  ? 'bg-amber-500 text-white border-amber-600 animate-pulse ring-4 ring-amber-500/20'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white border-slate-200 dark:border-slate-700'
-                }`}
-            >
-              <SkipForward size={28} />
-              <span className="hidden md:inline">Next</span>
-            </button>
+            {/* Core Navigation (Center) */}
+            <div className="flex items-center gap-4 order-1 md:order-2">
+              <button
+                onClick={onPrev}
+                disabled={currentSlotIndex === 0}
+                className="w-16 h-16 flex items-center justify-center rounded-2xl bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 transition-all shadow-lg active:scale-95 disabled:opacity-30"
+              >
+                <SkipBack size={28} />
+              </button>
+
+              <button
+                onClick={onToggleTimer}
+                className={`w-24 h-24 flex items-center justify-center rounded-3xl transition-all transform hover:scale-105 active:scale-95 shadow-2xl ${isTimerActive
+                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border-2 border-indigo-500/50'
+                  : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-500/40'
+                  }`}
+              >
+                {isTimerActive ? <Pause size={40} fill="currentColor" /> : <Play size={40} fill="currentColor" className="ml-1" />}
+              </button>
+
+              <button
+                onClick={onNext}
+                className={`w-16 h-16 flex items-center justify-center rounded-2xl transition-all shadow-lg active:scale-95 border ${program.isManualMode && timeLeft <= 0
+                    ? 'bg-amber-500 text-white border-amber-600 animate-pulse ring-4 ring-amber-500/20'
+                    : 'bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white border-slate-200 dark:border-slate-700'
+                  }`}
+              >
+                <SkipForward size={28} />
+              </button>
+            </div>
+
+            {/* Critical Action (Right) */}
+            <div className="order-3 flex items-center">
+              <button
+                onMouseDown={() => setIsEnding(true)}
+                onMouseUp={() => setIsEnding(false)}
+                onMouseLeave={() => setIsEnding(false)}
+                onTouchStart={() => setIsEnding(true)}
+                onTouchEnd={() => setIsEnding(false)}
+                className="relative group overflow-hidden bg-rose-600 hover:bg-rose-700 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 transition-all active:scale-95 select-none shadow-lg shadow-rose-900/20"
+              >
+                <div
+                    className="absolute inset-0 bg-rose-950 opacity-50 origin-left transition-transform duration-75"
+                    style={{ transform: `scaleX(${holdToEnd / 100})` }}
+                />
+                <Power size={20} className="relative z-10" />
+                <span className="relative z-10 uppercase tracking-widest text-sm">
+                  {holdToEnd > 0 ? 'Holding...' : 'End Event'}
+                </span>
+              </button>
+            </div>
           </div>
 
-          <button
-            onClick={onToggleHold}
-            className={`w-full md:w-auto flex items-center justify-center gap-3 px-6 py-5 rounded-2xl font-semibold text-xl transition-all border ${program.isOnHold
-              ? 'bg-amber-500 text-white border-amber-600 shadow-amber-500/30'
-              : 'bg-white dark:bg-slate-800 text-amber-600 border-amber-200 dark:border-amber-900 hover:bg-amber-50 dark:hover:bg-amber-900/20'
-              }`}
-            title="Hold for Cue"
-          >
-            <Pause size={24} />
-            <span>Hold for Cue</span>
-          </button>
+          <div className="mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-50">
+            Control Deck • Unified Operator Interface
+          </div>
         </div>
       )}
 
