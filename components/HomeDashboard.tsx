@@ -6,7 +6,7 @@ import { PreviewDrawer } from './PreviewDrawer';
 interface HomeDashboardProps {
   programs: Program[];
   activeProgramId: string;
-  liveProgramId: string | null;
+  activeSessions: Program[];
   onSelectProgram: (program: Program) => void;
   onViewAnalytics: (id: string) => void;
   onCreateNew: () => void;
@@ -220,7 +220,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
 const HomeDashboard: React.FC<HomeDashboardProps> = ({
   programs,
   activeProgramId,
-  liveProgramId,
+  activeSessions,
   onSelectProgram,
   onCreateNew,
   onDelete,
@@ -271,7 +271,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 key={program.id}
                 program={program}
                 isActive={program.id === activeProgramId}
-                isLive={program.id === liveProgramId}
+                isLive={activeSessions.some(as => as.id === program.id)}
                 onSelect={onSelectProgram}
                 onPreview={setPreviewProgram}
                 onDelete={onDelete}
@@ -303,7 +303,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 program={program}
                 isPast={true}
                 isActive={program.id === activeProgramId}
-                isLive={program.id === liveProgramId}
+                isLive={activeSessions.some(as => as.id === program.id)}
                 onSelect={onSelectProgram}
                 onPreview={setPreviewProgram}
                 onDelete={onDelete}

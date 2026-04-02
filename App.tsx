@@ -86,6 +86,36 @@ const AnalyticsWrapper: React.FC<{ onUpdateSlot?: (slotId: string, updates: Part
   return <AnalyticsDashboard program={reportProgram} onUpdateSlot={onUpdateSlot} />;
 };
 
+// --- Mobile Venue Dock (Pill Switcher) ---
+const MobileVenueDock: React.FC<{
+  activeSessions: Program[];
+  selectedLiveId: string | null;
+  onSelect: (id: string) => void;
+}> = ({ activeSessions, selectedLiveId, onSelect }) => {
+  if (activeSessions.length <= 1) return null;
+
+  return (
+    <div className="lg:hidden sticky top-16 z-30 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 overflow-x-auto no-scrollbar flex items-center gap-2">
+      <div className="flex items-center gap-2 min-w-max">
+        {activeSessions.map((session) => (
+          <button
+            key={session.id}
+            onClick={() => onSelect(session.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border ${
+              selectedLiveId === session.id
+                ? 'bg-indigo-600 text-white border-indigo-500 ring-2 ring-indigo-500/20'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800'
+            }`}
+          >
+            <div className={`w-1.5 h-1.5 rounded-full ${session.isTimerActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+            {session.title}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // --- App Content Component ---
 const AppContent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1048,8 +1078,8 @@ const AppContent: React.FC = () => {
 
   // Fix: Toggle Timer with Unified Controls
   const handleToggleTimer = () => {
-    // Safety Interlock Check
-    if (!displayIsTimerActive && globalLiveProgram && globalLiveProgram.id !== displayProgram.id) {
+    // Safety Interlock Check: If we are starting a NEW event while another is already LIVE
+    if (!displayIsTimerActive && activeSessions.some(s => s.id !== displayProgram.id)) {
       setIsInterlockOpen(true);
       return;
     }
@@ -1095,11 +1125,12 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const handleConfirmSwitch = () => {
-    // 1. End old event
-    handleEndEvent();
-
-    // 2. Start new event
+  const handleConfirmSwitch = (stopOther: boolean = false) => {
+    if (stopOther) {
+      handleEndEvent();
+    }
+ 
+    // Start new event
     setIsInterlockOpen(false);
     setTimeout(() => {
       handleToggleTimer();
@@ -1539,7 +1570,26 @@ const AppContent: React.FC = () => {
                   </button>
                 </div>
               </div>
-            ) : !user ? (
+            ) : null}
+
+            {/* Mobile Venue Dock (Shows when 2+ sessions are live) */}
+            <MobileVenueDock 
+              activeSessions={activeSessions}
+              selectedLiveId={selectedLiveId}
+              onSelect={setSelectedLiveId}
+            />
+            <ConfirmationModal
+              isOpen={isInterlockOpen}
+              title="Concurrent Event Detected"
+              message="Another event is currently live. Do you want to start this as a concurrent session or replace the current one?"
+              confirmText="Start Concurrent"
+              cancelText="Replace Current"
+              onConfirm={() => handleConfirmSwitch(false)}
+              onClose={() => handleConfirmSwitch(true)}
+              type="warning"
+            />
+
+            {!user ? (
               <Auth inviteDetails={effectiveInviteDetails} />
             ) : (
               <Routes>
@@ -1558,7 +1608,7 @@ const AppContent: React.FC = () => {
                       <HomeWrapper
                         activeOrgId={activeOrgId ?? undefined}
                         activeProgramId={program.id}
-                        liveProgramId={globalLiveProgram?.id}
+                        activeSessions={activeSessions}
                         loadProgram={loadProgram}
                         createProgram={createProgram}
                         deleteProgram={deleteProgram}
@@ -1572,6 +1622,7 @@ const AppContent: React.FC = () => {
                       <CalendarWrapper
                         activeOrgId={activeOrgId ?? undefined}
                         activeProgramId={program.id}
+                        activeSessions={activeSessions}
                         loadProgram={loadProgram}
                         createProgram={createProgram}
                         deleteProgram={deleteProgram}

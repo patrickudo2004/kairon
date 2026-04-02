@@ -9,7 +9,7 @@ import { ConfirmationModal } from '../ConfirmationModal';
 interface HomeWrapperProps {
     activeOrgId: string | undefined;
     activeProgramId: string;
-    liveProgramId: string | null;
+    activeSessions: Program[];
     loadProgram: (p: Program) => void;
     createProgram: (date: string) => void;
     deleteProgram: (id: string) => void;
@@ -20,7 +20,7 @@ interface HomeWrapperProps {
 const HomeWrapper: React.FC<HomeWrapperProps> = ({
     activeOrgId,
     activeProgramId,
-    liveProgramId,
+    activeSessions,
     loadProgram,
     createProgram,
     deleteProgram,
@@ -78,7 +78,7 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
             <HomeDashboard
                 programs={transformedPrograms}
                 activeProgramId={activeProgramId}
-                liveProgramId={liveProgramId}
+                activeSessions={activeSessions}
                 onSelectProgram={(p) => { loadProgram(p); navigate(`/editor?id=${p.id}&mode=${mode}`); }}
                 onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
                 onStopLive={(id) => setConfirmStopId(id)}
