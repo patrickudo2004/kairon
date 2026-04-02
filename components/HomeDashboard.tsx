@@ -271,7 +271,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 key={program.id}
                 program={program}
                 isActive={program.id === activeProgramId}
-                isLive={activeSessions.some(as => as.id === program.id)}
+                isLive={activeSessions.some(as => String(as.id) === String(program.id))}
                 onSelect={onSelectProgram}
                 onPreview={setPreviewProgram}
                 onDelete={onDelete}
@@ -303,7 +303,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 program={program}
                 isPast={true}
                 isActive={program.id === activeProgramId}
-                isLive={activeSessions.some(as => as.id === program.id)}
+                isLive={activeSessions.some(as => String(as.id) === String(program.id))}
                 onSelect={onSelectProgram}
                 onPreview={setPreviewProgram}
                 onDelete={onDelete}

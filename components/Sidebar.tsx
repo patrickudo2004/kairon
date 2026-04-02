@@ -21,9 +21,11 @@ import {
     Edit3,
     Monitor
 } from 'lucide-react';
-import { Organization, Profile, Slot } from '../types';
+import { Organization, Profile, Slot, Program } from '../types';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import { ProfileDropdown } from './ProfileDropdown';
+import { useTimerSync } from '../hooks/useTimerSync';
+import { formatDuration } from '../utils/time';
 
 interface SidebarProps {
     activeOrg: Organization | null;

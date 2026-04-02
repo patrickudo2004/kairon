@@ -66,16 +66,10 @@ export const getProgramById = query({
 export const getActiveSessions = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
-        const today = new Date().toISOString().split('T')[0];
         return await ctx.db
             .query("programs")
             .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
-            .filter((q) => 
-                q.and(
-                    q.eq(q.field("status"), "live"),
-                    q.eq(q.field("date"), today)
-                )
-            )
+            .filter((q) => q.eq(q.field("status"), "live"))
             .collect();
     },
 });
