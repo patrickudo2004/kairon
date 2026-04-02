@@ -21,7 +21,7 @@ import {
     Edit3,
     Monitor
 } from 'lucide-react';
-import { Organization, Profile } from '../types';
+import { Organization, Profile, Slot } from '../types';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import { ProfileDropdown } from './ProfileDropdown';
 
@@ -29,16 +29,66 @@ interface SidebarProps {
     activeOrg: Organization | null;
     userOrganizations: Organization[];
     activeOrgId?: string | null;
+    setActiveOrgId: (id: string) => void;
+    profile: Profile | null;
+    user: { id: string, email?: string } | null;
+    onProfileUpdate: (p: Profile) => void;
+    handleSignOut: () => void;
     isOnline: boolean;
     programTitle: string;
     programId: string | null;
-    liveProgramTitle?: string;
-    liveProgramId?: string | null;
+    activeSessions: Program[];
+    selectedLiveId: string | null;
+    onSelectLive: (id: string) => void;
     isCollapsed: boolean;
     onToggle: (collapsed: boolean) => void;
     onCreateOrg: () => void;
     onStopAllSessions?: () => void;
 }
+
+const LiveSessionItem: React.FC<{ 
+    session: Program; 
+    isSelected: boolean; 
+    onSelect: (id: string) => void; 
+    isCollapsed: boolean;
+}> = ({ session, isSelected, onSelect, isCollapsed }) => {
+    // Mini-timer for sidebar glanceability
+    const elapsed = useTimerSync(session.timerStartTimestamp, session.isTimerActive || false, session.secondsElapsed || 0);
+    const currentSlot = session.slots[session.currentSlotIndex || 0];
+    const timeLeft = currentSlot ? (currentSlot.durationMinutes * 60 - elapsed) : 0;
+
+    return (
+        <button
+            onClick={() => onSelect(session.id)}
+            className={`w-full p-3 rounded-xl transition-all group relative animate-in fade-in slide-in-from-left-2 mb-2 border ${
+                isSelected 
+                    ? 'bg-emerald-500/10 border-emerald-500/30 shadow-lg shadow-emerald-500/5' 
+                    : 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800 hover:border-emerald-500/20'
+            }`}
+        >
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${session.isTimerActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                    {!isCollapsed && (
+                        <div className="flex flex-col items-start min-w-0">
+                            <span className={`text-[10px] font-bold uppercase tracking-widest ${isSelected ? 'text-emerald-600' : 'text-slate-500'}`}>
+                                {session.title}
+                            </span>
+                            <span className="text-[10px] font-mono font-bold text-slate-400">
+                                {formatDuration(timeLeft)}
+                            </span>
+                        </div>
+                    )}
+                </div>
+            </div>
+            {isCollapsed && (
+                <div className="absolute left-full ml-3 px-2 py-1 bg-slate-900 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-[100] shadow-xl border border-slate-800">
+                    {session.title} • {formatDuration(timeLeft)}
+                </div>
+            )}
+        </button>
+    );
+};
 
 export const Sidebar: React.FC<SidebarProps> = ({
     activeOrg,
@@ -51,8 +101,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     isOnline,
     programTitle,
     programId,
-    liveProgramTitle,
-    liveProgramId,
+    activeSessions,
+    selectedLiveId,
+    onSelectLive,
     isCollapsed,
     onToggle,
     onCreateOrg,
@@ -62,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     // Helper to build links that preserve the current ID
     const getLinkPath = (base: string) => {
-        const idToUse = liveProgramId || programId;
+        const idToUse = selectedLiveId || programId;
         if (!idToUse || idToUse.startsWith('local-')) return base;
         return `${base}?id=${idToUse}`;
     };
@@ -161,42 +212,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     )}
                 </div>
 
-                {/* Live Event Indicator */}
-                {liveProgramTitle && (
-                    <Link
-                        to={getLinkPath('/live')}
-                        className={`block p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-amber-900/20 group relative animate-in fade-in slide-in-from-bottom-2 ${isCollapsed ? 'flex justify-center' : ''}`}
-                    >
-                        <div className="flex items-center justify-between gap-2 overflow-hidden">
-                            <div className="flex items-center gap-2 min-w-0">
-                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                                {!isCollapsed && (
-                                    <div className="flex flex-col min-w-0">
-                                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Live Now</span>
-                                        <span className="text-[10px] text-emerald-700/70 dark:text-emerald-400/50 truncate font-semibold">{liveProgramTitle}</span>
-                                    </div>
+                {/* Venue Dock: Active Sessions */}
+                {activeSessions.length > 0 && (
+                    <div className="space-y-1">
+                        {!isCollapsed && (
+                            <div className="flex items-center justify-between gap-2 px-3 mb-2">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Venues</span>
+                                {onStopAllSessions && (
+                                    <button
+                                        onClick={onStopAllSessions}
+                                        className="text-[10px] text-rose-500 hover:text-rose-600 font-bold uppercase tracking-tight"
+                                        title="Stop all live sessions"
+                                    >
+                                        End All
+                                    </button>
                                 )}
                             </div>
-                            {!isCollapsed && onStopAllSessions && (
-                                <button
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        onStopAllSessions();
-                                    }}
-                                    className="p-1.5 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-rose-400 hover:text-rose-600 rounded-lg transition-colors shrink-0"
-                                    title="Stop all live sessions"
-                                >
-                                    <WifiOff size={14} />
-                                </button>
-                            )}
-                        </div>
-                        {isCollapsed && (
-                            <div className="absolute left-full ml-2 px-2 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-[100] shadow-lg">
-                                Live: {liveProgramTitle}
-                            </div>
                         )}
-                    </Link>
+                        {activeSessions.map(session => (
+                            <LiveSessionItem 
+                                key={session.id}
+                                session={session}
+                                isSelected={selectedLiveId === session.id}
+                                onSelect={onSelectLive}
+                                isCollapsed={isCollapsed}
+                            />
+                        ))}
+                    </div>
                 )}
 
                 {/* Pro Teaser */}

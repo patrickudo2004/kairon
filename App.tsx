@@ -361,13 +361,40 @@ const AppContent: React.FC = () => {
   const lastCorrectedIdRef = React.useRef<string | null>(null);
   const currentTickingSecondsRef = React.useRef<number>(0);
 
-  // --- Reactive Global Live Channel ---
-  const globalLiveProgramRaw = useConvexQuery(api.programs.getLiveProgram, {});
-  // Simple transformation of _id to id for the app
-  const globalLiveProgram = globalLiveProgramRaw ? {
-    ...(globalLiveProgramRaw as any),
-    id: (globalLiveProgramRaw as any)._id
-  } as Program : null;
+  // --- Reactive Global Live Channels (Multi-Track) ---
+  const [selectedLiveId, setSelectedLiveId] = useState<string | null>(null);
+  
+  const activeSessionsRaw = useConvexQuery(
+    api.programs.getActiveSessions, 
+    activeOrgId ? { organizationId: activeOrgId as any } : "skip"
+  );
+
+  const activeSessions = useMemo(() => {
+    if (!activeSessionsRaw) return [];
+    return activeSessionsRaw.map(s => ({
+      ...s,
+      id: s._id
+    })) as Program[];
+  }, [activeSessionsRaw]);
+
+  // Auto-selection & Cleanup logic
+  useEffect(() => {
+    if (activeSessions.length === 1) {
+      // Auto-select if only one is live
+      setSelectedLiveId(activeSessions[0].id);
+    } else if (activeSessions.length === 0) {
+      // Clear if none are live
+      setSelectedLiveId(null);
+    } else if (selectedLiveId && !activeSessions.find(s => s.id === selectedLiveId)) {
+      // Clear if our selected session ended
+      setSelectedLiveId(activeSessions[0]?.id || null);
+    }
+  }, [activeSessions, selectedLiveId]);
+
+  const globalLiveProgram = useMemo(() => {
+    if (!selectedLiveId) return null;
+    return activeSessions.find(s => s.id === selectedLiveId) || null;
+  }, [activeSessions, selectedLiveId]);
 
   // Alert/Confirm Modal State
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -1303,6 +1330,9 @@ const AppContent: React.FC = () => {
           isOnline={isOnline}
           programTitle={displayProgram.title}
           programId={displayProgram.id}
+          activeSessions={activeSessions}
+          selectedLiveId={selectedLiveId}
+          onSelectLive={setSelectedLiveId}
           isCollapsed={isSidebarCollapsed}
           onToggle={setIsSidebarCollapsed}
           onCreateOrg={() => setIsOnboardingManual(true)}

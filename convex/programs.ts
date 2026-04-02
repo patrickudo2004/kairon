@@ -1,6 +1,31 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { Doc, Id } from "./_generated/dataModel";
+
+// Internal helper to verify user has required role in an organization
+async function checkPermissions(ctx: any, organizationId: Id<"organizations">, minimumRole: "admin" | "manager" | "operator") {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Unauthorized: Not logged in");
+
+    const membership = await ctx.db
+        .query("members")
+        .withIndex("by_org", (q: any) => q.eq("organizationId", organizationId))
+        .filter((q: any) => q.eq(q.field("userId"), userId))
+        .unique();
+
+    if (!membership) throw new Error("Unauthorized: Not a member of this organization");
+
+    const roles = ["operator", "manager", "admin"];
+    const memberLevel = roles.indexOf(membership.role);
+    const requiredLevel = roles.indexOf(minimumRole);
+
+    if (memberLevel < requiredLevel) {
+        throw new Error(`Unauthorized: Insufficient permissions. Required: ${minimumRole}, Current: ${membership.role}`);
+    }
+
+    return { userId, role: membership.role };
+}
 
 export const getPrograms = query({
     args: { organizationId: v.optional(v.id("organizations")) },
@@ -38,14 +63,38 @@ export const getProgramById = query({
     },
 });
 
-export const getLiveProgram = query({
-    args: {},
-    handler: async (ctx) => {
+export const getActiveSessions = query({
+    args: { organizationId: v.id("organizations") },
+    handler: async (ctx, args) => {
         const today = new Date().toISOString().split('T')[0];
         return await ctx.db
             .query("programs")
-            .withIndex("by_status", (q) => q.eq("status", "live"))
-            .filter((q) => q.eq(q.field("date"), today))
+            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+            .filter((q) => 
+                q.and(
+                    q.eq(q.field("status"), "live"),
+                    q.eq(q.field("date"), today)
+                )
+            )
+            .collect();
+    },
+});
+
+// Legacy single-fetch for backward compatibility during transition
+export const getLiveProgram = query({
+    args: { organizationId: v.optional(v.id("organizations")) },
+    handler: async (ctx, args) => {
+        if (!args.organizationId) return null;
+        const today = new Date().toISOString().split('T')[0];
+        return await ctx.db
+            .query("programs")
+            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId!))
+            .filter((q) => 
+                q.and(
+                    q.eq(q.field("status"), "live"),
+                    q.eq(q.field("date"), today)
+                )
+            )
             .first();
     },
 });
@@ -88,9 +137,12 @@ export const createProgram = mutation({
         organizationId: v.id("organizations"),
         slots: v.array(v.any()),
         uuid: v.optional(v.string()),
-        isPublic: v.optional(v.boolean()), // Added isPublic to args
+        isPublic: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
+        // Verify permissions
+        await checkPermissions(ctx, args.organizationId, "manager");
+
         if (args.uuid) {
             const existing = await ctx.db
                 .query("programs")
@@ -183,20 +235,13 @@ export const updateProgram = mutation({
         const program = await resolveProgram(ctx, args.id);
         if (!program) throw new Error("Program not found");
 
+        // Verify permissions
+        await checkPermissions(ctx, program.organizationId, "operator");
+
         if (program.status === "archived") {
             throw new Error("Cannot modify an archived Service Report.");
         }
         await ctx.db.patch(program._id, args.patch);
-    },
-});
-
-export const finalizeProgram = mutation({
-    args: { id: v.string() }, // Changed to v.string() for robustness
-    handler: async (ctx, args) => {
-        const program = await resolveProgram(ctx, args.id);
-        if (!program) throw new Error("Program not found");
-        if (program.status === "archived") throw new Error("Program is already archived");
-        await ctx.db.patch(program._id, { status: "archived" });
     },
 });
 
@@ -205,7 +250,25 @@ export const deleteProgram = mutation({
     handler: async (ctx, args) => {
         const program = await resolveProgram(ctx, args.id);
         if (!program) return;
+
+        // Verify permissions - Only managers/admins can delete
+        await checkPermissions(ctx, program.organizationId, "manager");
+
         await ctx.db.delete(program._id);
+    },
+});
+
+export const finalizeProgram = mutation({
+    args: { id: v.string() },
+    handler: async (ctx, args) => {
+        const program = await resolveProgram(ctx, args.id);
+        if (!program) throw new Error("Program not found");
+
+        // Verify permissions - Finalizing a report is a manager action
+        await checkPermissions(ctx, program.organizationId, "manager");
+
+        if (program.status === "archived") throw new Error("Program is already archived");
+        await ctx.db.patch(program._id, { status: "archived" });
     },
 });
 
@@ -226,6 +289,10 @@ export const updateTimerState = mutation({
     handler: async (ctx, args) => {
         const program = await resolveProgram(ctx, args.id);
         if (!program) throw new Error("Program not found");
+
+        // Verify permissions - Operators can control the timer
+        await checkPermissions(ctx, program.organizationId, "operator");
+
         await ctx.db.patch(program._id, args.timerState);
     },
 });
