@@ -67,81 +67,100 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
 
     if (isVertical) {
         return (
-            <div className="h-full w-20 bg-slate-900 border-r border-slate-800 shadow-2xl flex flex-col items-center py-6 gap-8 pointer-events-auto animate-in slide-in-from-left-8 duration-500 overflow-y-auto no-scrollbar">
+            <div className="h-full w-28 bg-slate-900 border-r border-slate-800 shadow-2xl flex flex-col items-center py-6 gap-6 pointer-events-auto animate-in slide-in-from-left-8 duration-500 overflow-y-auto no-scrollbar">
+                {/* Header: Time Left & Session */}
+                <div className="px-2 w-full flex flex-col items-center text-center gap-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Time Left</span>
+                    {currentSlot ? (
+                        <div className={`font-mono text-xl font-black ${isTimerActive ? (currentSlot.durationMinutes * 60 - elapsed < 0 ? 'text-rose-500 animate-pulse' : 'text-indigo-400') : 'text-slate-600'}`}>
+                            {Math.floor((currentSlot.durationMinutes * 60 - elapsed) / 60)}:
+                            {String(Math.abs((currentSlot.durationMinutes * 60 - elapsed) % 60)).padStart(2, '0')}
+                        </div>
+                    ) : (
+                        <div className="text-slate-700 font-mono text-xl">--:--</div>
+                    )}
+                    <div className="mt-1 px-2 py-0.5 bg-slate-800 rounded-md max-w-full">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase truncate w-20">
+                            {currentSlotTitle || 'No Session'}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="w-8 h-[1px] bg-slate-800/50" />
+
                 {/* Status Section */}
-                <div className="flex flex-col items-center gap-4">
-                    <div className="relative group">
+                <div className="flex flex-col items-center gap-4 w-full">
+                    <div className="flex flex-col items-center gap-1">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isAdminOnline ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
-                            <span className={`w-2 h-2 rounded-full absolute -top-1 -right-1 border-2 border-slate-900 ${isAdminOnline ? 'bg-indigo-500 animate-pulse' : 'bg-rose-500'}`} />
                             <Wifi size={18} />
                         </div>
-                        <div className="absolute left-full ml-4 px-2 py-1 bg-slate-800 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
-                            {isAdminOnline ? 'Live Broadcast' : 'Sync Offline'}
-                        </div>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">
+                            {isAdminOnline ? 'Live' : 'Offline'}
+                        </span>
                     </div>
 
-                    <div className="w-[1px] h-8 bg-slate-800" />
-
                     {/* Crew Feedback (Vertical Stack) */}
-                    <div className="flex flex-col items-center gap-3">
-                        <div className={`p-2 rounded-xl transition-all ${isAcked('sound') ? 'bg-emerald-500/20 text-emerald-500 shadow-lg shadow-emerald-500/10' : 'bg-slate-800/50 text-slate-600 opacity-30 hover:opacity-100'}`} title="Sound ACK">
-                            <Volume2 size={16} />
-                        </div>
-                        <div className={`p-2 rounded-xl transition-all ${isAcked('lighting') ? 'bg-emerald-500/20 text-emerald-500 shadow-lg shadow-emerald-500/10' : 'bg-slate-800/50 text-slate-600 opacity-30 hover:opacity-100'}`} title="Lighting ACK">
-                            <Lightbulb size={16} />
-                        </div>
-                        <div className={`p-2 rounded-xl transition-all ${isAcked('video') ? 'bg-emerald-500/20 text-emerald-500 shadow-lg shadow-emerald-500/10' : 'bg-slate-800/50 text-slate-600 opacity-30 hover:opacity-100'}`} title="Video ACK">
-                            <Video size={16} />
+                    <div className="flex flex-col items-center gap-2 w-full px-4">
+                        <div className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-slate-800/30 border border-slate-700/30 grayscale">
+                            <Volume2 size={12} className={isAcked('sound') ? 'text-emerald-500 opacity-100' : 'text-slate-600 opacity-30'} />
+                            <Lightbulb size={12} className={isAcked('lighting') ? 'text-emerald-500 opacity-100' : 'text-slate-600 opacity-30'} />
+                            <Video size={12} className={isAcked('video') ? 'text-emerald-500 opacity-100' : 'text-slate-600 opacity-30'} />
                         </div>
                     </div>
                 </div>
 
                 {/* Control Section */}
-                <div className="mt-auto flex flex-col items-center gap-6 pb-4">
-                    {/* Nudge Controls (Vertical) */}
-                    <div className="flex flex-col items-center bg-slate-800/50 rounded-2xl p-1 gap-1 border border-slate-700/30">
+                <div className="mt-auto flex flex-col items-center gap-6 pb-4 w-full px-2">
+                    {/* Nudge Controls (Vertical with Labels) */}
+                    <div className="flex flex-col items-center bg-slate-800/50 rounded-2xl w-full p-1 gap-1 border border-slate-700/30">
                         <button
                             onClick={() => onNudge(1)}
-                            className="p-3 hover:bg-slate-700 text-indigo-400 hover:text-white rounded-xl transition-all active:scale-90"
+                            className="w-full aspect-square flex items-center justify-center hover:bg-slate-700 text-indigo-400 hover:text-white rounded-xl transition-all active:scale-90"
                             title="Nudge +1 min"
                         >
                             <Plus size={20} />
                         </button>
-                        <div className="h-[1px] w-8 bg-slate-700" />
+                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Nudge</span>
                         <button
                             onClick={() => onNudge(-1)}
-                            className="p-3 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition-all active:scale-90"
+                            className="w-full aspect-square flex items-center justify-center hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition-all active:scale-90"
                             title="Nudge -1 min"
                         >
                             <Minus size={20} />
                         </button>
                     </div>
 
-                    {programId && (
-                        <button
-                            onClick={() => onViewAnalytics(programId)}
-                            className="p-3 bg-slate-800/50 hover:bg-slate-800 text-amber-500 rounded-2xl transition-all hover:scale-105 active:scale-95 border border-slate-700/30"
-                            title="View Service Report"
-                        >
-                            <BarChart3 size={20} />
-                        </button>
-                    )}
+                    <div className="flex flex-col items-center gap-1">
+                        {programId && (
+                            <button
+                                onClick={() => onViewAnalytics(programId)}
+                                className="p-3 bg-slate-800/50 hover:bg-slate-800 text-amber-500 rounded-2xl transition-all hover:scale-105 active:scale-95 border border-slate-700/30 w-14 h-14 flex items-center justify-center shadow-lg shadow-amber-950/10"
+                                title="View Service Report"
+                            >
+                                <BarChart3 size={20} />
+                            </button>
+                        )}
+                        <span className="text-[8px] font-black text-amber-500/50 uppercase tracking-widest">Report</span>
+                    </div>
 
                     {/* End Event (Square vertical reveal) */}
-                    <button
-                        onMouseDown={() => setIsEnding(true)}
-                        onMouseUp={() => setIsEnding(false)}
-                        onMouseLeave={() => setIsEnding(false)}
-                        onTouchStart={() => setIsEnding(true)}
-                        onTouchEnd={() => setIsEnding(false)}
-                        className="relative group overflow-hidden bg-rose-600 hover:bg-rose-700 text-white w-14 h-14 rounded-2xl flex items-center justify-center transition-all active:scale-90 select-none shadow-lg shadow-rose-900/20"
-                    >
-                        <div
-                            className="absolute bottom-0 left-0 right-0 bg-rose-950 opacity-50 origin-bottom transition-transform duration-75"
-                            style={{ transform: `scaleY(${holdToEnd / 100})` }}
-                        />
-                        <Power size={20} className="relative z-10" />
-                    </button>
+                    <div className="flex flex-col items-center gap-2">
+                        <button
+                            onMouseDown={() => setIsEnding(true)}
+                            onMouseUp={() => setIsEnding(false)}
+                            onMouseLeave={() => setIsEnding(false)}
+                            onTouchStart={() => setIsEnding(true)}
+                            onTouchEnd={() => setIsEnding(false)}
+                            className="relative group overflow-hidden bg-rose-600 hover:bg-rose-700 text-white w-14 h-14 rounded-2xl flex items-center justify-center transition-all active:scale-90 select-none shadow-lg shadow-rose-900/20"
+                        >
+                            <div
+                                className="absolute bottom-0 left-0 right-0 bg-rose-950 opacity-50 origin-bottom transition-transform duration-75"
+                                style={{ transform: `scaleY(${holdToEnd / 100})` }}
+                            />
+                            <Power size={20} className="relative z-10" />
+                        </button>
+                        <span className="text-[8px] font-black text-rose-500/50 uppercase tracking-widest">End Event</span>
+                    </div>
                 </div>
             </div>
         );
