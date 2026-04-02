@@ -9,6 +9,7 @@ interface CalendarViewProps {
   onCreateProgram: (date: string) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
+  activeSessions: Program[];
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({ 
@@ -17,7 +18,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   onSelectProgram, 
   onCreateProgram,
   onDelete,
-  onDuplicate
+  onDuplicate,
+  activeSessions
 }) => {
   // Initialize with local date string to match grid generation
   const now = new Date();

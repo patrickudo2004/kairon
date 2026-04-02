@@ -9,7 +9,7 @@ import { transformProgram } from '../../services/programService';
 interface CalendarWrapperProps {
     activeOrgId: string | undefined;
     activeProgramId: string;
-    liveProgramId: string | null;
+    activeSessions: Program[];
     loadProgram: (p: Program) => void;
     createProgram: (date: string) => void;
     deleteProgram: (id: string) => void;
@@ -20,7 +20,7 @@ interface CalendarWrapperProps {
 const CalendarWrapper: React.FC<CalendarWrapperProps> = ({
     activeOrgId,
     activeProgramId,
-    liveProgramId,
+    activeSessions,
     loadProgram,
     createProgram,
     deleteProgram,
@@ -53,6 +53,7 @@ const CalendarWrapper: React.FC<CalendarWrapperProps> = ({
         <CalendarView
             programs={allPrograms}
             activeProgramId={activeProgramId}
+            activeSessions={activeSessions}
             onSelectProgram={(p) => { loadProgram(p); navigate(`/editor?mode=${mode}`); }}
             onCreateProgram={(date) => { createProgram(date); navigate(`/editor?mode=${mode}`); }}
             onDelete={deleteProgram}
