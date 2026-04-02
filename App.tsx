@@ -1584,6 +1584,8 @@ const AppContent: React.FC = () => {
                         onToggleHold={handleToggleHold}
                         onNext={handleNext}
                         onPrev={handlePrev}
+                        onEndEvent={handleEndEvent}
+                        onNudge={handleNudge}
                         readOnly={isReadOnly && userRole !== 'operator'}
                       />
                     } />
