@@ -1700,7 +1700,7 @@ const AppContent: React.FC = () => {
       )}
 
       {user && canControlLive && (displayProgram.slots.length > 0) && (
-        <div className={`hidden md:block fixed top-16 bottom-0 z-[100] transition-all duration-300 ${isSidebarCollapsed ? 'left-20' : 'left-64'}`}>
+        <div className={`hidden md:block fixed top-16 bottom-0 z-[100] transition-all duration-300 ${isSidebarCollapsed ? 'left-20' : 'left-64'} h-[calc(100vh-64px)]`}>
           <ProductionHUD
             isTimerActive={displayIsTimerActive}
             isAdminOnline={isAdminOnline}
