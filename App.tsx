@@ -403,7 +403,8 @@ const AppContent: React.FC = () => {
     if (!activeSessionsRaw) return [];
     return activeSessionsRaw.map(s => ({
       ...s,
-      id: s._id
+      // CRITICAL: Force string normalization for ID comparisons (prevents object-vs-string mismatch)
+      id: String(s._id)
     })) as Program[];
   }, [activeSessionsRaw]);
 
@@ -415,8 +416,8 @@ const AppContent: React.FC = () => {
     } else if (activeSessions.length === 0) {
       // Clear if none are live
       setSelectedLiveId(null);
-    } else if (selectedLiveId && !activeSessions.find(s => s.id === selectedLiveId)) {
-      // Clear if our selected session ended
+    } else if (selectedLiveId && !activeSessions.some(s => String(s.id) === String(selectedLiveId))) {
+      // Clear if our selected session ended - using ID-safe comparison
       setSelectedLiveId(activeSessions[0]?.id || null);
     }
   }, [activeSessions, selectedLiveId]);
@@ -1101,6 +1102,10 @@ const AppContent: React.FC = () => {
         secondsElapsed: currentTickingSecondsRef.current, 
         timerStartTimestamp: shiftedStart,
         status: 'live'
+      }, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: [api.programs.getActiveSessions] });
+        }
       });
 
       if (!isLiveEventActive) {
@@ -1125,13 +1130,16 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const handleConfirmSwitch = (stopOther: boolean = false) => {
-    if (stopOther) {
+  const handleConfirmStart = (mode: 'concurrent' | 'replace' | 'cancel') => {
+    setIsInterlockOpen(false);
+
+    if (mode === 'cancel') return;
+
+    if (mode === 'replace') {
       handleEndEvent();
     }
  
-    // Start new event
-    setIsInterlockOpen(false);
+    // Wait for end event to settle, then start the new one
     setTimeout(() => {
       handleToggleTimer();
     }, 100);
@@ -1581,11 +1589,12 @@ const AppContent: React.FC = () => {
             <ConfirmationModal
               isOpen={isInterlockOpen}
               title="Concurrent Event Detected"
-              message="Another event is currently live. Do you want to start this as a concurrent session or replace the current one?"
+              message="Another event is currently live. Would you like to start this as an additional concurrent session, or replace the existing one?"
               confirmText="Start Concurrent"
               cancelText="Replace Current"
-              onConfirm={() => handleConfirmSwitch(false)}
-              onClose={() => handleConfirmSwitch(true)}
+              onConfirm={() => handleConfirmStart('concurrent')}
+              onClose={() => setIsInterlockOpen(false)} // Safe Cancel
+              onAction={() => handleConfirmStart('replace')} // We'll use a custom button if needed, but for now let's map onClose to Cancel and provide a 'Replace' option in the message or modal
               type="warning"
             />
 
@@ -1798,13 +1807,6 @@ const AppContent: React.FC = () => {
         </div>
       )}
 
-      <InterlockModal
-        isOpen={isInterlockOpen}
-        onClose={() => setIsInterlockOpen(false)}
-        onConfirm={handleConfirmSwitch}
-        currentLiveEventTitle={globalLiveProgram?.title || 'Unknown'}
-        newTargetEventTitle={program.title}
-      />
 
       {!location.pathname.startsWith('/analytics') && (
         <PrintableSchedule

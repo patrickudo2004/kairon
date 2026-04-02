@@ -70,7 +70,7 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
     // CRITICAL: Transform Convex _id to id for the rest of the app
     const transformedPrograms = (allPrograms || []).map((p: any) => ({
         ...p,
-        id: p._id || p.id
+        id: String(p._id || p.id)
     }));
 
     return (
