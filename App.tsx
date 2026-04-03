@@ -95,7 +95,7 @@ const MobileVenueDock: React.FC<{
   if (activeSessions.length <= 1) return null;
 
   return (
-    <div className="lg:hidden sticky top-16 z-30 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 overflow-x-auto no-scrollbar flex items-center gap-2">
+    <div className="lg:hidden sticky top-16 z-30 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-3 py-1 overflow-x-auto no-scrollbar flex items-center gap-2">
       <div className="flex items-center gap-2 min-w-max">
         {activeSessions.map((session) => (
           <button
@@ -1407,12 +1407,14 @@ const AppContent: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  <h2 className="font-bold text-slate-900 dark:text-white truncate max-w-[200px] lg:max-w-[400px]">
-                    {displayProgram.title}
-                  </h2>
-                  {isReadOnly && (
-                    <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-medium tracking-widest uppercase">Viewer</span>
-                  )}
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <h2 className="font-bold text-slate-900 dark:text-white truncate max-w-full">
+                      {displayProgram.title}
+                    </h2>
+                    {isReadOnly && (
+                      <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-medium tracking-widest uppercase">Viewer</span>
+                    )}
+                  </div>
                 </>
               )}
             </div>
