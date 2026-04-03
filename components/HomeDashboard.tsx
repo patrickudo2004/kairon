@@ -77,7 +77,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
         ${isLive
           ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-500/50 ring-1 ring-emerald-500/30'
           : isActive
-            ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500/50 ring-1 ring-indigo-500/30 shadow-md'
+            ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500/50 ring-2 ring-indigo-500 shadow-xl'
             : isPast
               ? 'bg-slate-100 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800'
               : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-600 shadow-lg dark:shadow-none hover:shadow-xl'
@@ -152,15 +152,25 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
           <span className="text-[9px] font-black uppercase tracking-widest">Edit</span>
         </button>
         
-        {/* Mega Central Pillar: Play */}
+        {/* Status-Aware Mega Central Pillar */}
         {!isPast && (
-          <button
-            onClick={handlePlay}
-            className="flex-[2] bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-          >
-            <Play size={16} fill="currentColor" />
-            <span className="text-[10px] font-black uppercase tracking-tight">Start Live</span>
-          </button>
+          isLive ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onSelect(program); }}
+              className="flex-[2] bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(79,70,229,0.3)] animate-pulse"
+            >
+              <LayoutDashboard size={16} fill="currentColor" />
+              <span className="text-[10px] font-black uppercase tracking-tight">Manage Live</span>
+            </button>
+          ) : (
+            <button
+              onClick={handlePlay}
+              className="flex-[2] bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+            >
+              <Play size={16} fill="currentColor" />
+              <span className="text-[10px] font-black uppercase tracking-tight">Start Live</span>
+            </button>
+          )
         )}
         
         {/* Primary Pillar: Preview */}
