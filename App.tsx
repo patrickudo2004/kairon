@@ -1081,7 +1081,7 @@ const AppContent: React.FC = () => {
   }, [isTimerActive, isReadOnly, program.date, program.startTime, program.id]);
 
   // Fix: Toggle Timer with Unified Controls (Simplified for Multi-Track)
-  const handleToggleTimer = (targetProgramOverride?: Program) => {
+  const handleToggleTimer = (targetProgramOverride?: Program, force: boolean = false) => {
     // Determine the ACTUAL target program for this toggle action
     const target = targetProgramOverride || displayProgram;
     const targetIsActive = targetProgramOverride 
@@ -1089,7 +1089,7 @@ const AppContent: React.FC = () => {
       : displayIsTimerActive;
 
     // Safety Interlock Check
-    if (!targetIsActive && activeSessions.some(s => String(s.id) !== String(target.id))) {
+    if (!force && !targetIsActive && activeSessions.some(s => String(s.id) !== String(target.id))) {
       setInterlockTargetProgram(target);
       setIsInterlockOpen(true);
       return;
@@ -1123,16 +1123,16 @@ const AppContent: React.FC = () => {
         navigate(`/editor?id=${target.id}&mode=live`);
       }
     } else {
-      // Pause
+      // Pause - Explicit Targeting
       timerSaveMutation.mutate({
-        id: displayProgram.id,
-        currentSlotIndex: displayCurrentSlotIndex,
+        id: target.id,
+        currentSlotIndex: targetProgramOverride ? 0 : displayCurrentSlotIndex,
         isTimerActive: false,
         secondsElapsed: currentTickingSecondsRef.current, 
         timerStartTimestamp: null
       });
 
-      if (!isLiveEventActive) {
+      if (target.id === program.id) {
         setIsTimerActive(false);
         setTimerStartTimestamp(null);
       }
@@ -1155,7 +1155,7 @@ const AppContent: React.FC = () => {
     setTimeout(() => {
       // Use the specific target that triggered this interlock
       const target = interlockTargetProgram || displayProgram;
-      handleToggleTimer(target);
+      handleToggleTimer(target, true); // PASS FORCE FLAG to skip loop
       setInterlockTargetProgram(null);
     }, 150);
   };
