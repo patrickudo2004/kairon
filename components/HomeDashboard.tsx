@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Program } from '../types';
-import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy, AlertTriangle, X, Eye, BarChart3 } from 'lucide-react';
+import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy, AlertTriangle, X, Eye, BarChart3, Edit3 } from 'lucide-react';
 import { PreviewDrawer } from './PreviewDrawer';
 
 interface HomeDashboardProps {
@@ -114,7 +114,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
         ) : null}
       </div>
 
-      <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-500 mt-4">
+      <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-500 mt-3 mb-6">
         <div className="flex items-center gap-1.5">
           <Calendar size={14} className={isPast ? "text-slate-400 dark:text-slate-600" : "text-indigo-500 dark:text-indigo-400"} />
           <span>{new Date(program.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
@@ -128,48 +128,58 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
         </div>
       </div>
 
-      {/* Sliding Action Tray (Mobile: on Select, Desktop: on Hover) */}
+      {/* Slim Tactical Tray (Mobile: on Select, Desktop: on Hover) */}
       <div className={`
-        absolute bottom-0 left-0 w-full bg-indigo-600 dark:bg-indigo-500 h-16
-        transition-transform duration-300 ease-out flex items-stretch border-t border-indigo-400/30
+        absolute bottom-0 left-0 w-full bg-slate-900 dark:bg-indigo-950 h-12
+        transition-transform duration-300 ease-out flex items-stretch border-t border-white/10
         ${isActive ? 'translate-y-0' : 'translate-y-full md:group-hover:translate-y-0'}
       `}>
+        {/* secondary actions: left edge */}
         <button
-          onClick={handlePreview}
-          className="flex-1 flex flex-col items-center justify-center gap-1 hover:bg-white/10 text-white transition-colors border-r border-white/10"
+          onClick={handleDuplicate}
+          className="w-10 flex items-center justify-center hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+          title="Duplicate"
         >
-          <Eye size={18} />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Edit</span>
+          <Copy size={14} />
+        </button>
+
+        {/* Primary Pillar: Edit */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onSelect(program); }}
+          className="flex-1 flex items-center justify-center gap-2 hover:bg-white/10 text-white transition-colors border-x border-white/5"
+        >
+          <Edit3 size={16} />
+          <span className="text-[9px] font-black uppercase tracking-widest">Edit</span>
         </button>
         
+        {/* Mega Central Pillar: Play */}
         {!isPast && (
           <button
             onClick={handlePlay}
-            className="flex-[1.5] bg-emerald-500 hover:bg-emerald-400 text-white flex flex-col items-center justify-center gap-1 transition-colors"
+            className="flex-[2] bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)]"
           >
-            <div className="flex items-center gap-2">
-              <Play size={18} fill="currentColor" />
-              <span className="text-xs font-black uppercase tracking-tighter">Start Live</span>
-            </div>
+            <Play size={16} fill="currentColor" />
+            <span className="text-[10px] font-black uppercase tracking-tight">Start Live</span>
           </button>
         )}
         
-        <div className="flex shrink-0">
-          <button
-            onClick={handleDuplicate}
-            className="w-12 flex items-center justify-center hover:bg-white/10 text-white/70 transition-colors border-l border-white/10"
-            title="Duplicate"
-          >
-            <Copy size={16} />
-          </button>
-          <button
-            onClick={handleDelete}
-            className="w-12 flex items-center justify-center hover:bg-rose-500 text-white/70 hover:text-white transition-colors border-l border-white/10"
-            title="Delete"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
+        {/* Primary Pillar: Preview */}
+        <button
+          onClick={handlePreview}
+          className="flex-1 flex items-center justify-center gap-2 hover:bg-white/10 text-white transition-colors border-x border-white/5"
+        >
+          <Eye size={16} />
+          <span className="text-[9px] font-black uppercase tracking-widest">Preview</span>
+        </button>
+
+        {/* secondary actions: right edge */}
+        <button
+          onClick={handleDelete}
+          className="w-10 flex items-center justify-center hover:bg-rose-600 text-white/50 hover:text-white transition-colors"
+          title="Delete"
+        >
+          <Trash2 size={14} />
+        </button>
       </div>
 
       {/* Delete Confirmation Modal */}
