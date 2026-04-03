@@ -14,6 +14,7 @@ interface HomeWrapperProps {
     createProgram: (date: string) => void;
     deleteProgram: (id: string) => void;
     duplicateProgram: (p: Program) => void;
+    onPlay: (p: Program) => void;
     mode: string;
 }
 
@@ -25,6 +26,7 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
     createProgram,
     deleteProgram,
     duplicateProgram,
+    onPlay,
     mode
 }) => {
     const navigate = useNavigate();
@@ -79,12 +81,13 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
                 programs={transformedPrograms}
                 activeProgramId={activeProgramId}
                 activeSessions={activeSessions}
-                onSelectProgram={(p) => { loadProgram(p); navigate(`/editor?id=${p.id}&mode=${mode}`); }}
+                onSelectProgram={(p) => { loadProgram(p); }}
                 onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
                 onStopLive={(id) => setConfirmStopId(id)}
                 onCreateNew={() => { createProgram(new Date().toISOString().split('T')[0]); }}
                 onDelete={deleteProgram}
                 onDuplicate={duplicateProgram}
+                onPlay={onPlay}
             />
 
             <ConfirmationModal
