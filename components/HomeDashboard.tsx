@@ -156,25 +156,23 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
           <span className="text-[9px] font-black uppercase tracking-widest">Edit</span>
         </button>
         
-        {/* Status-Aware Mega Central Pillar */}
-        {!isPast && (
-          isLive ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); onSelect(program); }}
-              className="flex-[2] bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(79,70,229,0.3)] animate-pulse"
-            >
-              <LayoutDashboard size={16} fill="currentColor" />
-              <span className="text-[10px] font-black uppercase tracking-tight">Manage Live</span>
-            </button>
-          ) : (
-            <button
-              onClick={handlePlay}
-              className="flex-[2] bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-            >
-              <Play size={16} fill="currentColor" />
-              <span className="text-[10px] font-black uppercase tracking-tight">Start Live</span>
-            </button>
-          )
+        {/* Status-Aware Mega Central Pillar - Unconditionally Visible */}
+        {isLive ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); onSelect(program); }}
+            className="flex-[2] min-w-[120px] px-6 bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)] animate-pulse"
+          >
+            <LayoutDashboard size={16} fill="currentColor" />
+            <span className="text-[10px] font-black uppercase tracking-tight">Manage Live</span>
+          </button>
+        ) : (
+          <button
+            onClick={handlePlay}
+            className="flex-[2] min-w-[120px] px-6 bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+          >
+            <Play size={16} fill="currentColor" />
+            <span className="text-[10px] font-black uppercase tracking-tight">Start Live</span>
+          </button>
         )}
         
         {/* Primary Pillar: Preview */}
