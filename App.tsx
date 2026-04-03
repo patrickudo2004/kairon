@@ -387,6 +387,7 @@ const AppContent: React.FC = () => {
 
   const [isAdminOnline, setIsAdminOnline] = useState(true);
   const [isInterlockOpen, setIsInterlockOpen] = useState(false);
+  const [interlockTargetProgram, setInterlockTargetProgram] = useState<Program | null>(null);
   const lastAdvanceTimeRef = React.useRef<number>(0);
   const lastCorrectedIdRef = React.useRef<string | null>(null);
   const currentTickingSecondsRef = React.useRef<number>(0);
@@ -853,14 +854,15 @@ const AppContent: React.FC = () => {
   };
 
   const handlePlayProgram = (newProgram: Program) => {
-    // 1. Load the program but DO NOT navigate yet
+    // 1. Set the interlock target specifically to this new program
+    setInterlockTargetProgram(newProgram);
+    
+    // 2. Load it but DO NOT navigate yet
     setProgram(newProgram);
     
-    // 2. Trigger the timer toggle (this will check if another session is already live)
-    // We use a small delay to ensure the program state has settled in the hooks 
-    // that determine the 'displayProgram' (the target for the start action)
+    // 3. Trigger the timer toggle for this specific target
     setTimeout(() => {
-      handleToggleTimer();
+      handleToggleTimer(newProgram);
     }, 50);
   };
 
@@ -1078,29 +1080,34 @@ const AppContent: React.FC = () => {
     return () => clearInterval(interval);
   }, [isTimerActive, isReadOnly, program.date, program.startTime, program.id]);
 
-  // Fix: Toggle Timer with Unified Controls
-  const handleToggleTimer = () => {
-    // Safety Interlock Check: If we are starting a NEW event while another is already LIVE
-    if (!displayIsTimerActive && activeSessions.some(s => s.id !== displayProgram.id)) {
+  // Fix: Toggle Timer with Unified Controls (Simplified for Multi-Track)
+  const handleToggleTimer = (targetProgramOverride?: Program) => {
+    // Determine the ACTUAL target program for this toggle action
+    const target = targetProgramOverride || displayProgram;
+    const targetIsActive = targetProgramOverride 
+      ? activeSessions.some(as => String(as.id) === String(targetProgramOverride.id))
+      : displayIsTimerActive;
+
+    // Safety Interlock Check
+    if (!targetIsActive && activeSessions.some(s => String(s.id) !== String(target.id))) {
+      setInterlockTargetProgram(target);
       setIsInterlockOpen(true);
       return;
     }
 
-    const newState = !displayIsTimerActive;
-    
-    // Optimistic Guard: Mark as transitioning to ignore conflicting syncs for 2s
+    const newState = !targetIsActive;
     lastAdvanceTimeRef.current = Date.now();
 
     if (newState) {
       const now = Date.now();
-      const shiftedStart = now - (displaySecondsElapsed * 1000);
+      const secondsElapsed = targetProgramOverride ? 0 : displaySecondsElapsed;
+      const shiftedStart = now - (secondsElapsed * 1000);
 
-      // PUSH TO CLOUD IMMEDIATELY (Targeting the active view)
       timerSaveMutation.mutate({
-        id: displayProgram.id,
-        currentSlotIndex: displayCurrentSlotIndex,
+        id: target.id,
+        currentSlotIndex: targetProgramOverride ? 0 : displayCurrentSlotIndex,
         isTimerActive: true,
-        secondsElapsed: currentTickingSecondsRef.current, 
+        secondsElapsed: 0, 
         timerStartTimestamp: shiftedStart,
         status: 'live'
       }, {
@@ -1109,12 +1116,11 @@ const AppContent: React.FC = () => {
         }
       });
 
-      if (!isLiveEventActive) {
+      if (target.id === program.id) {
         setIsTimerActive(true);
         setTimerStartTimestamp(shiftedStart);
         setProgram(prev => ({ ...prev, status: 'live' }));
-        // If we just started a local draft as live, navigate to the live console
-        navigate(`/editor?id=${displayProgram.id}&mode=live`);
+        navigate(`/editor?id=${target.id}&mode=live`);
       }
     } else {
       // Pause
@@ -1136,7 +1142,10 @@ const AppContent: React.FC = () => {
   const handleConfirmStart = (mode: 'concurrent' | 'replace' | 'cancel') => {
     setIsInterlockOpen(false);
 
-    if (mode === 'cancel') return;
+    if (mode === 'cancel') {
+      setInterlockTargetProgram(null);
+      return;
+    }
 
     if (mode === 'replace') {
       handleEndEvent();
@@ -1144,9 +1153,10 @@ const AppContent: React.FC = () => {
  
     // Wait for end event to settle, then start the new one
     setTimeout(() => {
-      handleToggleTimer();
-      // Navigate to the live console (mode=live) after starting
-      navigate(`/editor?id=${displayProgram.id}&mode=live`);
+      // Use the specific target that triggered this interlock
+      const target = interlockTargetProgram || displayProgram;
+      handleToggleTimer(target);
+      setInterlockTargetProgram(null);
     }, 150);
   };
 
