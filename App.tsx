@@ -853,14 +853,15 @@ const AppContent: React.FC = () => {
   };
 
   const handlePlayProgram = (newProgram: Program) => {
+    // 1. Load the program but DO NOT navigate yet
     setProgram(newProgram);
-    if (globalLiveProgram?.id !== newProgram.id) {
-      setCurrentSlotIndex(0);
-      setSecondsElapsed(0);
-      setIsTimerActive(false);
-      setTimerStartTimestamp(null);
-    }
-    navigate(`/live?id=${newProgram.id}`);
+    
+    // 2. Trigger the timer toggle (this will check if another session is already live)
+    // We use a small delay to ensure the program state has settled in the hooks 
+    // that determine the 'displayProgram' (the target for the start action)
+    setTimeout(() => {
+      handleToggleTimer();
+    }, 50);
   };
 
   const createProgram = (date: string) => {
@@ -1112,6 +1113,8 @@ const AppContent: React.FC = () => {
         setIsTimerActive(true);
         setTimerStartTimestamp(shiftedStart);
         setProgram(prev => ({ ...prev, status: 'live' }));
+        // If we just started a local draft as live, navigate to the live console
+        navigate(`/editor?id=${displayProgram.id}&mode=live`);
       }
     } else {
       // Pause
@@ -1142,7 +1145,9 @@ const AppContent: React.FC = () => {
     // Wait for end event to settle, then start the new one
     setTimeout(() => {
       handleToggleTimer();
-    }, 100);
+      // Navigate to the live console (mode=live) after starting
+      navigate(`/editor?id=${displayProgram.id}&mode=live`);
+    }, 150);
   };
 
   const handleToggleHold = (nextHoldState?: boolean) => {
