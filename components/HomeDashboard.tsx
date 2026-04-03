@@ -128,42 +128,48 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
         </div>
       </div>
 
-      <div className={`absolute right-4 bottom-4 flex gap-2 transition-opacity ${isPast ? 'opacity-0 group-hover:opacity-100' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100'}`}>
+      {/* Sliding Action Tray (Mobile: on Select, Desktop: on Hover) */}
+      <div className={`
+        absolute bottom-0 left-0 w-full bg-indigo-600 dark:bg-indigo-500 h-16
+        transition-transform duration-300 ease-out flex items-stretch border-t border-indigo-400/30
+        ${isActive ? 'translate-y-0' : 'translate-y-full md:group-hover:translate-y-0'}
+      `}>
         <button
           onClick={handlePreview}
-          className="bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-400 hover:text-emerald-600 p-2 rounded-full shadow-lg transition-colors border border-slate-200 dark:border-slate-800"
-          title="Quick Preview"
+          className="flex-1 flex flex-col items-center justify-center gap-1 hover:bg-white/10 text-white transition-colors border-r border-white/10"
         >
-          <Eye size={16} />
+          <Eye size={18} />
+          <span className="text-[10px] font-bold uppercase tracking-widest">Edit</span>
         </button>
-        <button
-          onClick={handleDuplicate}
-          className="bg-slate-100 dark:bg-slate-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-slate-400 hover:text-indigo-600 p-2 rounded-full shadow-lg transition-colors border border-slate-200 dark:border-slate-800"
-          title="Duplicate Program"
-        >
-          <Copy size={16} />
-        </button>
-        <button
-          onClick={handleAnalytics}
-          className="bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-900/30 text-slate-400 hover:text-amber-600 p-2 rounded-full shadow-lg transition-colors border border-slate-200 dark:border-slate-800"
-          title="Service Report (Analytics)"
-        >
-          <BarChart3 size={16} />
-        </button>
-        <button
-          onClick={handleDelete}
-          className="bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-slate-400 hover:text-rose-600 p-2 rounded-full shadow-lg transition-colors border border-slate-200 dark:border-slate-800"
-          title="Delete Program"
-        >
-          <Trash2 size={16} />
-        </button>
-        <button
-          onClick={handlePlay}
-          className={`bg-indigo-600 p-2 rounded-full text-white shadow-lg hover:bg-indigo-500 transition-colors ${isPast ? 'hidden' : 'block'}`}
-          title="Go Live"
-        >
-          <Play size={16} fill="currentColor" />
-        </button>
+        
+        {!isPast && (
+          <button
+            onClick={handlePlay}
+            className="flex-[1.5] bg-emerald-500 hover:bg-emerald-400 text-white flex flex-col items-center justify-center gap-1 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Play size={18} fill="currentColor" />
+              <span className="text-xs font-black uppercase tracking-tighter">Start Live</span>
+            </div>
+          </button>
+        )}
+        
+        <div className="flex shrink-0">
+          <button
+            onClick={handleDuplicate}
+            className="w-12 flex items-center justify-center hover:bg-white/10 text-white/70 transition-colors border-l border-white/10"
+            title="Duplicate"
+          >
+            <Copy size={16} />
+          </button>
+          <button
+            onClick={handleDelete}
+            className="w-12 flex items-center justify-center hover:bg-rose-500 text-white/70 hover:text-white transition-colors border-l border-white/10"
+            title="Delete"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Delete Confirmation Modal */}
