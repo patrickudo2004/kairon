@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Program } from '../types';
 import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy, AlertTriangle, X, Eye, BarChart3, Edit3 } from 'lucide-react';
 import { PreviewDrawer } from './PreviewDrawer';
@@ -32,6 +33,9 @@ interface ProgramCardProps {
 
 const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, isLive, onSelect, onPreview, onDelete, onDuplicate, onViewAnalytics, onStopLive, onPlay }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const mode = searchParams.get('mode') || 'editor';
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -143,9 +147,9 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
           <Copy size={14} />
         </button>
 
-        {/* Primary Pillar: Edit */}
+        {/* Primary Pillar: Edit/Workspace */}
         <button
-          onClick={(e) => { e.stopPropagation(); onSelect(program); }}
+          onClick={(e) => { e.stopPropagation(); navigate(`/editor?id=${program.id}&mode=${mode}`); }}
           className="flex-1 flex items-center justify-center gap-2 hover:bg-white/10 text-white transition-colors border-x border-white/5"
         >
           <Edit3 size={16} />
@@ -248,21 +252,31 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
   activeProgramId,
   activeSessions,
   onSelectProgram,
+  onViewAnalytics,
   onCreateNew,
   onDelete,
   onDuplicate,
-  onViewAnalytics,
   onStopLive,
   onPlay
 }) => {
   const [previewProgram, setPreviewProgram] = useState<Program | null>(null);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(activeProgramId);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const mode = searchParams.get('mode') || 'editor';
+
+  // Sync selected card when activeProgramId changes
+  useEffect(() => {
+    if (activeProgramId) setSelectedCardId(activeProgramId);
+  }, [activeProgramId]);
 
   // Sort programs: Newest date first
   const sortedPrograms = [...programs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const today = new Date().toISOString().split('T')[0];
-  const upcoming = sortedPrograms.filter(p => p.date >= today);
-  const past = sortedPrograms.filter(p => p.date < today);
+  // Use local-safe date calculation (YYYY-MM-DD)
+  const today = new Date().toLocaleDateString('en-CA');
+  const upcoming = sortedPrograms.filter(p => (p.date || '') >= today);
+  const past = sortedPrograms.filter(p => (p.date || '') < today);
 
   return (
     <div className="max-w-4xl mx-auto p-6 pb-24">
@@ -296,9 +310,9 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
               <ProgramCard
                 key={program.id}
                 program={program}
-                isActive={program.id === activeProgramId}
+                isActive={program.id === selectedCardId}
                 isLive={activeSessions.some(as => String(as.id) === String(program.id))}
-                onSelect={onSelectProgram}
+                onSelect={(p) => { setSelectedCardId(p.id); onSelectProgram(p); }}
                 onPreview={setPreviewProgram}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
@@ -328,9 +342,9 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 key={program.id}
                 program={program}
                 isPast={true}
-                isActive={program.id === activeProgramId}
+                isActive={program.id === selectedCardId}
                 isLive={activeSessions.some(as => String(as.id) === String(program.id))}
-                onSelect={onSelectProgram}
+                onSelect={(p) => { setSelectedCardId(p.id); onSelectProgram(p); }}
                 onPreview={setPreviewProgram}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
