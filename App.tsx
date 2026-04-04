@@ -96,7 +96,7 @@ const VenueDock: React.FC<{
   if (activeSessions.length <= 1) return null;
 
   return (
-    <div className="lg:hidden sticky top-16 z-30 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-3 py-0 relative min-h-[40px] flex items-center gap-2 transition-all">
+    <div className="lg:hidden sticky top-0 z-30 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-3 py-0 min-h-[40px] flex items-center gap-2 transition-all">
       <div className="flex-1 overflow-x-auto no-scrollbar py-1">
         <div className="flex items-center gap-2 min-w-max px-1">
         {activeSessions.map((session) => (
@@ -1608,7 +1608,7 @@ const AppContent: React.FC = () => {
             selectedLiveId={selectedLiveId}
             onSelect={setSelectedLiveId}
           />
-          <div className="max-w-7xl mx-auto px-4 pb-4 pt-2 md:p-8 h-full">
+          <div className="max-w-7xl mx-auto px-4 pb-4 pt-1 md:p-8 h-full">
             {/* Invitation Banner for Unauthenticated Users */}
 
             {effectiveAuthLoading ? (
