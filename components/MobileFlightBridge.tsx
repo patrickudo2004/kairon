@@ -12,7 +12,7 @@ interface MobileFlightBridgeProps {
   timerStartTimestamp: number | null;
   isTimerActive: boolean;
   isAdminOnline: boolean;
-  onToggleTimer: () => void;
+  onToggleTimer: (target?: Program, force?: boolean, seconds?: number) => void;
   onNextSlot: () => void;
   onPrevSlot: () => void;
   onToggleManualMode: () => void;
@@ -112,7 +112,9 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
 
   const handleToggle = () => {
     setOptimisticTimerActive(!optimisticTimerActive);
-    onToggleTimer();
+    // CRITICAL: Pass the local program and the independently tracked elapsed time
+    // This ensures that when pausing, the EXACT current duration is saved to the cloud.
+    onToggleTimer(program, false, elapsed);
   };
 
   const remainingSeconds = currentSlot 

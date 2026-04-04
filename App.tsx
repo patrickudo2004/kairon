@@ -95,13 +95,13 @@ const MobileVenueDock: React.FC<{
   if (activeSessions.length <= 1) return null;
 
   return (
-    <div className="lg:hidden sticky top-16 z-30 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-3 py-1 overflow-x-auto no-scrollbar flex items-center gap-2">
+    <div className="lg:hidden sticky top-16 z-30 bg-white/10 dark:bg-slate-950/20 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-3 py-0 relative min-h-[48px] overflow-x-auto no-scrollbar flex items-center gap-2 transition-all">
       <div className="flex items-center gap-2 min-w-max">
         {activeSessions.map((session) => (
           <button
             key={session.id}
             onClick={() => onSelect(session.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-sm border ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm border ${
               selectedLiveId === session.id
                 ? 'bg-indigo-600 text-white border-indigo-500 ring-2 ring-indigo-500/20'
                 : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800'
@@ -574,7 +574,7 @@ const AppContent: React.FC = () => {
       // 1. Try DB Hydration (Reactive)
       if (fetchedProgram) {
         const isNewProgram = fetchedProgram.id !== program.id && !program.id?.startsWith('local-');
-        const isTransitioning = Date.now() - lastAdvanceTimeRef.current < 5000;
+        const isTransitioning = Date.now() - lastAdvanceTimeRef.current < 10000;
 
         if (isNewProgram || program.id?.startsWith('local-')) {
           if (fetchedProgram.id !== program.id) {
@@ -737,46 +737,48 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const handleEndEvent = () => {
+  const handleEndEvent = (targetProgramId?: string) => {
     if (isReadOnly) return;
+    const targetId = targetProgramId || displayProgram.id;
+    const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
+    const targetIdx = targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0);
     
     // Capture final slot duration
-    const finalSlotIndex = displayCurrentSlotIndex;
-    const finalSlot = displayProgram.slots[finalSlotIndex];
-    let slotsWithFinalDuration = displayProgram.slots;
+    const finalSlot = targetProg.slots[targetIdx];
+    let slotsWithFinalDuration = targetProg.slots;
     
     if (finalSlot) {
-      const elapsedMinutes = Math.round(currentTickingSecondsRef.current / 60);
-      slotsWithFinalDuration = displayProgram.slots.map((s, idx) => 
-        idx === finalSlotIndex ? { ...s, actualDuration: elapsedMinutes } : s
+      const elapsedMinutes = targetId === displayProgram.id ? Math.round(currentTickingSecondsRef.current / 60) : Math.round((targetProg.secondsElapsed || 0) / 60);
+      slotsWithFinalDuration = targetProg.slots.map((s, idx) => 
+        idx === targetIdx ? { ...s, actualDuration: elapsedMinutes } : s
       );
     }
 
     const updatedProgram = { 
-      ...displayProgram, 
+      ...targetProg, 
       slots: slotsWithFinalDuration,
       status: 'concluded' as const, 
       isTimerActive: false 
     };
 
-    if (isLiveEventActive) {
-      // Logic for ending live show would go here if needed
-    } else {
-      setProgram(updatedProgram);
-      setIsTimerActive(false);
-      setTimerStartTimestamp(null);
-      setSecondsElapsed(0);
-    }
-
-    // Final save to DB - Explicitly clear timer state
+    // PUSH TO CLOUD
     timerSaveMutation.mutate({
-      id: displayProgram.id,
-      currentSlotIndex: 0,
+      id: targetId,
+      currentSlotIndex: targetIdx,
       isTimerActive: false,
       secondsElapsed: 0,
       timerStartTimestamp: null,
       status: 'concluded'
     });
+
+    if (!isLiveEventActive && targetId === program.id) {
+      setProgram(updatedProgram);
+      setIsTimerActive(false);
+      setTimerStartTimestamp(null);
+      setSecondsElapsed(0);
+    }
+    
+    // Final save to DB - Explicitly clear timer state for this venue
     updateProgramService(updatedProgram);
   };
 
@@ -853,16 +855,16 @@ const AppContent: React.FC = () => {
     navigate(`/editor?id=${newProgram.id}`);
   };
 
-  const handlePlayProgram = (newProgram: Program) => {
+  const handlePlayProgram = (newProgram: Program, seconds?: number) => {
     // 1. Set the interlock target specifically to this new program
     setInterlockTargetProgram(newProgram);
     
     // 2. Load it but DO NOT navigate yet
     setProgram(newProgram);
     
-    // 3. Trigger the timer toggle for this specific target
+    // 3. Trigger the timer toggle for this specific target, passing any local duration
     setTimeout(() => {
-      handleToggleTimer(newProgram);
+      handleToggleTimer(newProgram, false, seconds);
     }, 50);
   };
 
@@ -1095,6 +1097,7 @@ const AppContent: React.FC = () => {
     const isTargetAuthorized = target.status === 'live';
     const hasOtherLiveSessions = activeSessions.some(s => String(s.id) !== String(target.id) && s.isTimerActive);
 
+    // If forcing (from confirm modal) or target is already authorized, bypass
     if (!force && !isTargetAuthorized && !targetIsActive && hasOtherLiveSessions) {
       setInterlockTargetProgram(target);
       setIsInterlockOpen(true);
@@ -1172,71 +1175,84 @@ const AppContent: React.FC = () => {
     }, 150);
   };
 
-  const handleToggleHold = (nextHoldState?: boolean) => {
+  const handleToggleHold = (nextHoldState?: boolean, targetProgramId?: string) => {
     if (isReadOnly) return;
-    const holdState = nextHoldState !== undefined ? nextHoldState : !displayProgram.isOnHold;
-    const msg = displayProgram.holdMessage || "ON HOLD: STANDBY";
+    const targetId = targetProgramId || displayProgram.id;
+    const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
+    
+    const holdState = nextHoldState !== undefined ? nextHoldState : !targetProg.isOnHold;
+    const msg = targetProg.holdMessage || "ON HOLD: STANDBY";
 
     // PUSH TO CLOUD - Ensure HUDs update instantly
     timerSaveMutation.mutate({
-      id: displayProgram.id,
-      currentSlotIndex: displayCurrentSlotIndex,
-      isTimerActive: displayIsTimerActive,
-      secondsElapsed: currentTickingSecondsRef.current,
-      timerStartTimestamp: displayTimerStartTimestamp,
+      id: targetId,
+      currentSlotIndex: targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0),
+      isTimerActive: targetId === displayProgram.id ? displayIsTimerActive : (targetProg.isTimerActive || false),
+      secondsElapsed: targetId === displayProgram.id ? currentTickingSecondsRef.current : (targetProg.secondsElapsed || 0),
+      timerStartTimestamp: targetId === displayProgram.id ? displayTimerStartTimestamp : (targetProg.timerStartTimestamp || null),
       isOnHold: holdState,
       holdMessage: msg
     });
 
     // Local update for smoothness on draft
-    if (!isLiveEventActive) {
+    if (!isLiveEventActive && targetId === program.id) {
       setProgram(prev => ({ ...prev, isOnHold: holdState, holdMessage: msg }));
     }
   };
 
-  const handleToggleManualMode = () => {
+  const handleToggleManualMode = (targetProgramId?: string) => {
     if (isReadOnly) return;
-    const nextManualState = !displayProgram.isManualMode;
+    const targetId = targetProgramId || displayProgram.id;
+    const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
+    
+    const nextManualState = !targetProg.isManualMode;
 
     // PUSH TO CLOUD - Ensure HUDs update instantly
     timerSaveMutation.mutate({
-      id: displayProgram.id,
-      currentSlotIndex: displayCurrentSlotIndex,
-      isTimerActive: displayIsTimerActive,
-      secondsElapsed: currentTickingSecondsRef.current,
-      timerStartTimestamp: displayTimerStartTimestamp,
+      id: targetId,
+      currentSlotIndex: targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0),
+      isTimerActive: targetId === displayProgram.id ? displayIsTimerActive : (targetProg.isTimerActive || false),
+      secondsElapsed: targetId === displayProgram.id ? currentTickingSecondsRef.current : (targetProg.secondsElapsed || 0),
+      timerStartTimestamp: targetId === displayProgram.id ? displayTimerStartTimestamp : (targetProg.timerStartTimestamp || null),
       isManualMode: nextManualState
     });
 
-    if (!isLiveEventActive) {
+    if (!isLiveEventActive && targetId === program.id) {
       setProgram(prev => ({ ...prev, isManualMode: nextManualState }));
     }
   };
 
 
-  const handleNext = () => {
+  const handleNext = (targetProgramId?: string) => {
     if (isReadOnly) return;
-    if (displayCurrentSlotIndex < displayProgram.slots.length) {
-      const currentSlot = displayProgram.slots[displayCurrentSlotIndex];
-      const actualDur = Math.round(currentTickingSecondsRef.current / 60);
+    const targetId = targetProgramId || displayProgram.id;
+    const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
+    const targetIdx = targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0);
+
+    if (targetIdx < targetProg.slots.length) {
+      const currentSlot = targetProg.slots[targetIdx];
+      const actualDur = targetId === displayProgram.id 
+        ? Math.round(currentTickingSecondsRef.current / 60) 
+        : Math.round((targetProg.secondsElapsed || 0) / 60);
+      
       handleSlotComplete(currentSlot.id, actualDur);
 
       // Persist the slot's performance data immediately
       void (async () => {
         try {
-          const updatedSlots = displayProgram.slots.map(s =>
+          const updatedSlots = targetProg.slots.map(s =>
             s.id === currentSlot.id ? { ...s, actualDuration: actualDur } : s
           );
-          await updateProgramService({ ...displayProgram, slots: updatedSlots });
+          await updateProgramService({ ...targetProg, slots: updatedSlots });
         } catch (err) {
           console.error("Failed to persist slot actual duration:", err);
         }
       })();
 
-      if (displayCurrentSlotIndex < displayProgram.slots.length - 1) {
+      if (targetIdx < targetProg.slots.length - 1) {
         // Continuous Playback Logic: Keep timer running if NOT in manual mode
-        const nextIndex = displayCurrentSlotIndex + 1;
-        const nextIsActive = !displayProgram.isManualMode;
+        const nextIndex = targetIdx + 1;
+        const nextIsActive = !targetProg.isManualMode;
         const now = Date.now();
         const nextStartTs = nextIsActive ? now : null;
 
@@ -1244,7 +1260,7 @@ const AppContent: React.FC = () => {
 
         // PUSH TO CLOUD 
         timerSaveMutation.mutate({
-          id: displayProgram.id,
+          id: targetId,
           currentSlotIndex: nextIndex,
           isTimerActive: nextIsActive,
           secondsElapsed: 0,
@@ -1252,7 +1268,7 @@ const AppContent: React.FC = () => {
         });
 
         // Local update for smoothness on draft
-        if (!isLiveEventActive) {
+        if (!isLiveEventActive && targetId === program.id) {
           setCurrentSlotIndex(nextIndex);
           setSecondsElapsed(0);
           setIsTimerActive(nextIsActive);
@@ -1260,16 +1276,20 @@ const AppContent: React.FC = () => {
         }
       } else {
         // End of event
-        handleEndEvent();
+        handleEndEvent(targetId);
       }
     }
   };
 
-  const handlePrev = () => {
+  const handlePrev = (targetProgramId?: string) => {
     if (isReadOnly) return;
-    if (displayCurrentSlotIndex > 0) {
-      const nextIndex = displayCurrentSlotIndex - 1;
-      const nextIsActive = !displayProgram.isManualMode;
+    const targetId = targetProgramId || displayProgram.id;
+    const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
+    const targetIdx = targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0);
+
+    if (targetIdx > 0) {
+      const nextIndex = targetIdx - 1;
+      const nextIsActive = !targetProg.isManualMode;
       const now = Date.now();
       const nextStartTs = nextIsActive ? now : null;
 
@@ -1277,7 +1297,7 @@ const AppContent: React.FC = () => {
 
       // PUSH TO CLOUD
       timerSaveMutation.mutate({
-        id: displayProgram.id,
+        id: targetId,
         currentSlotIndex: nextIndex,
         isTimerActive: nextIsActive,
         secondsElapsed: 0,
@@ -1285,7 +1305,7 @@ const AppContent: React.FC = () => {
       });
 
       // Local update for smoothness on draft
-      if (!isLiveEventActive) {
+      if (!isLiveEventActive && targetId === program.id) {
         setCurrentSlotIndex(nextIndex);
         setSecondsElapsed(0);
         setIsTimerActive(nextIsActive);
@@ -1578,7 +1598,13 @@ const AppContent: React.FC = () => {
         )}
 
         <main className="flex-1 overflow-y-auto pb-20 md:pb-0 relative custom-scrollbar">
-          <div className="max-w-7xl mx-auto p-4 md:p-8 h-full">
+          {/* Mobile Venue Dock (Shows when 2+ sessions are live) */}
+          <MobileVenueDock 
+            activeSessions={activeSessions}
+            selectedLiveId={selectedLiveId}
+            onSelect={setSelectedLiveId}
+          />
+          <div className="max-w-7xl mx-auto px-4 pb-4 pt-2 md:p-8 h-full">
             {/* Invitation Banner for Unauthenticated Users */}
 
             {effectiveAuthLoading ? (
@@ -1609,12 +1635,6 @@ const AppContent: React.FC = () => {
               </div>
             ) : null}
 
-            {/* Mobile Venue Dock (Shows when 2+ sessions are live) */}
-            <MobileVenueDock 
-              activeSessions={activeSessions}
-              selectedLiveId={selectedLiveId}
-              onSelect={setSelectedLiveId}
-            />
             <ConfirmationModal
               isOpen={isInterlockOpen}
               title="Concurrent Event Detected"
@@ -1825,8 +1845,9 @@ const AppContent: React.FC = () => {
           <ProductionHUD
             isTimerActive={displayIsTimerActive}
             isAdminOnline={isAdminOnline}
-            onEndEvent={handleEndEvent}
+            onEndEvent={() => handleEndEvent(displayProgram.id)}
             onNudge={handleNudge}
+            onToggleTimer={handleToggleTimer}
             onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
             currentSlotTitle={displayProgram?.slots[displayCurrentSlotIndex]?.title}
             programId={displayProgram.id}
@@ -1883,12 +1904,12 @@ const AppContent: React.FC = () => {
           isTimerActive={displayIsTimerActive}
           isAdminOnline={isAdminOnline}
           onToggleTimer={handleToggleTimer}
-          onNextSlot={handleNext}
-          onPrevSlot={handlePrev}
-          onToggleManualMode={handleToggleManualMode}
-          onToggleHold={handleToggleHold}
+          onNextSlot={() => handleNext(displayProgram.id)}
+          onPrevSlot={() => handlePrev(displayProgram.id)}
+          onToggleManualMode={() => handleToggleManualMode(displayProgram.id)}
+          onToggleHold={() => handleToggleHold(undefined, displayProgram.id)}
           onNudge={handleNudge}
-          onEndEvent={handleEndEvent}
+          onEndEvent={() => handleEndEvent(displayProgram.id)}
           onViewAnalysis={(id) => navigate(`/analytics/${id}`)}
         />
       )}

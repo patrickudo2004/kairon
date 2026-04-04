@@ -13,12 +13,12 @@ interface FlightBridgeProps {
     secondsElapsed: number;
     isDarkMode: boolean;
     onToggleTheme: () => void;
-    onToggleTimer: () => void;
-    onToggleHold: () => void;
-    onNext: () => void;
-    onPrev: () => void;
+    onToggleTimer: (target?: Program, force?: boolean, seconds?: number) => void;
+    onToggleHold: (nextState?: boolean, targetId?: string) => void;
+    onNext: (targetId?: string) => void;
+    onPrev: (targetId?: string) => void;
     onNudge: (minutes: number) => void;
-    onEndEvent: () => void;
+    onEndEvent: (targetId?: string) => void;
     isManualMode: boolean;
     onToggleManualMode: () => void;
 }
@@ -65,7 +65,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
             setHoldToEndProgress(progress);
             if (progress >= 100) {
                 if (holdTimerRef.current) clearInterval(holdTimerRef.current);
-                onEndEvent();
+                onEndEvent(program.id);
                 setHoldToEndProgress(0);
             }
         }, 50);
@@ -172,7 +172,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
             <div className="px-4 pb-4 shrink-0 z-10">
                 <div className="flex justify-center items-center gap-6 mb-4">
                     <button
-                        onClick={onPrev}
+                        onClick={() => onPrev(program.id)}
                         disabled={currentSlotIndex === 0}
                         className={`p-4 ${isDarkMode ? 'bg-slate-900 border-slate-800 hover:bg-slate-800' : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700'} rounded-2xl border transition-all disabled:opacity-20`}
                     >
@@ -180,14 +180,14 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                     </button>
 
                     <button
-                        onClick={onToggleTimer}
+                        onClick={() => onToggleTimer(program, false, secondsElapsed)}
                         className={`w-20 h-20 rounded-full flex items-center justify-center transition-all bg-indigo-600 hover:bg-indigo-500 shadow-xl shadow-indigo-500/20 active:scale-90`}
                     >
                         {isTimerActive ? <Pause size={40} fill="currentColor" /> : <Play size={40} className="ml-1" fill="currentColor" />}
                     </button>
 
                     <button
-                        onClick={onNext}
+                        onClick={() => onNext(program.id)}
                         className={`p-4 ${isDarkMode ? 'bg-slate-900 border-slate-800 hover:bg-slate-800' : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700'} rounded-2xl border transition-all`}
                     >
                         <SkipForward size={24} fill="currentColor" stroke="none" />
@@ -207,7 +207,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                 {/* Sub-controls: Row 2 - Hold & End */}
                 <div className="flex gap-2 mb-2 w-full">
                     <button
-                        onClick={onToggleHold}
+                        onClick={() => onToggleHold(undefined, program.id)}
                         className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all shadow-sm ${program.isOnHold ? 'bg-amber-600 border-amber-500 text-white' : (isDarkMode ? 'bg-slate-900 border-slate-800 text-amber-500 hover:bg-slate-800' : 'bg-slate-50 border-slate-200 text-amber-600 hover:bg-slate-100')}`}
                     >
                         <Clock size={16} />
