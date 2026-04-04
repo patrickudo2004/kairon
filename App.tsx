@@ -87,7 +87,8 @@ const AnalyticsWrapper: React.FC<{ onUpdateSlot?: (slotId: string, updates: Part
 };
 
 // --- Mobile Venue Dock (Pill Switcher) ---
-const MobileVenueDock: React.FC<{
+// --- Venue Dock (Pill Switcher) ---
+const VenueDock: React.FC<{
   activeSessions: Program[];
   selectedLiveId: string | null;
   onSelect: (id: string) => void;
@@ -95,8 +96,9 @@ const MobileVenueDock: React.FC<{
   if (activeSessions.length <= 1) return null;
 
   return (
-    <div className="lg:hidden sticky top-16 z-30 bg-white/10 dark:bg-slate-950/20 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-3 py-0 relative min-h-[48px] overflow-x-auto no-scrollbar flex items-center gap-2 transition-all">
-      <div className="flex items-center gap-2 min-w-max">
+    <div className="sticky top-16 md:top-20 z-30 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-3 py-0 relative min-h-[40px] flex items-center gap-2 transition-all">
+      <div className="flex-1 overflow-x-auto no-scrollbar py-1">
+        <div className="flex items-center gap-2 min-w-max px-1">
         {activeSessions.map((session) => (
           <button
             key={session.id}
@@ -111,6 +113,7 @@ const MobileVenueDock: React.FC<{
             {session.title}
           </button>
         ))}
+        </div>
       </div>
     </div>
   );
@@ -1598,8 +1601,8 @@ const AppContent: React.FC = () => {
         )}
 
         <main className="flex-1 overflow-y-auto pb-20 md:pb-0 relative custom-scrollbar">
-          {/* Mobile Venue Dock (Shows when 2+ sessions are live) */}
-          <MobileVenueDock 
+          {/* Venue Dock (Pill Switcher) */}
+          <VenueDock 
             activeSessions={activeSessions}
             selectedLiveId={selectedLiveId}
             onSelect={setSelectedLiveId}
