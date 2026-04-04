@@ -214,9 +214,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     )}
                 </div>
 
-                {/* Venue Dock: Active Sessions */}
+                {/* Profile */}
+                <ProfileDropdown
+                    user={user!}
+                    profile={profile}
+                    onProfileUpdate={onProfileUpdate}
+                    isCollapsed={isCollapsed}
+                />
+
+                {/* Venue Dock (Bottom Left) */}
                 {activeSessions.length > 0 && (
-                    <div className="space-y-1">
+                    <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800">
                         {!isCollapsed && (
                             <div className="flex items-center justify-between gap-2 px-3 mb-2">
                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Venues</span>
@@ -242,25 +250,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         ))}
                     </div>
                 )}
-
-                {/* Pro Teaser */}
-                {!isCollapsed && activeOrg?.subscriptionStatus !== 'pro' && (
-                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Crown size={14} className="text-amber-500 fill-amber-500" />
-                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Kairon Pro</span>
-                        </div>
-                        <p className="text-[10px] text-amber-700/70 dark:text-amber-400/50 leading-tight">Unlock AI rebalancing & branding.</p>
-                    </div>
-                )}
-
-                {/* Profile */}
-                <ProfileDropdown
-                    user={user!}
-                    profile={profile}
-                    onProfileUpdate={onProfileUpdate}
-                    isCollapsed={isCollapsed}
-                />
             </div>
         </aside>
     );

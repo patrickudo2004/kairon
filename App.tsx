@@ -119,33 +119,6 @@ const VenueDock: React.FC<{
   );
 };
 
-// --- Desktop Venue Dropdown ---
-const VenueDropdown: React.FC<{
-  activeSessions: Program[];
-  selectedLiveId: string | null;
-  onSelect: (id: string) => void;
-}> = ({ activeSessions, selectedLiveId, onSelect }) => {
-  if (activeSessions.length <= 1) return null;
-  
-  return (
-    <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-indigo-500/50 transition-all group relative">
-      <select 
-        value={selectedLiveId || ''} 
-        onChange={(e) => onSelect(e.target.value)}
-        className="bg-transparent text-[11px] font-black uppercase tracking-tight text-slate-600 dark:text-slate-300 outline-none cursor-pointer appearance-none pr-6 z-10"
-      >
-        {activeSessions.map(s => (
-          <option key={s.id} value={s.id} className="dark:bg-slate-900">
-            {s.title} {s.isTimerActive ? ' (LIVE)' : ''}
-          </option>
-        ))}
-      </select>
-      <div className="absolute right-3 pointer-events-none text-slate-400 group-hover:text-indigo-500 transition-colors">
-         <AlignLeft size={14} />
-      </div>
-    </div>
-  );
-};
 
 // --- App Content Component ---
 const AppContent: React.FC = () => {
@@ -1486,22 +1459,12 @@ const AppContent: React.FC = () => {
               ) : (
                 <>
                   <div className="flex-1 min-w-0 overflow-hidden">
-                   <div className="flex items-center gap-4">
-                     <div className="flex-1 min-w-0 overflow-hidden">
-                       <h2 className="font-bold text-slate-900 dark:text-white truncate max-w-[200px]">
-                         {displayProgram.title}
-                       </h2>
-                       {isReadOnly && (
-                         <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-medium tracking-widest uppercase">Viewer</span>
-                       )}
-                     </div>
-
-                     <VenueDropdown 
-                        activeSessions={activeSessions}
-                        selectedLiveId={selectedLiveId}
-                        onSelect={setSelectedLiveId}
-                     />
-                   </div>
+                    <h2 className="font-bold text-slate-900 dark:text-white truncate max-w-full">
+                      {displayProgram.title}
+                    </h2>
+                    {isReadOnly && (
+                      <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-medium tracking-widest uppercase">Viewer</span>
+                    )}
                   </div>
                 </>
               )}
