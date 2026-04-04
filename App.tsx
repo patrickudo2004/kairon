@@ -138,6 +138,7 @@ const AppContent: React.FC = () => {
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const queryClient = useQueryClient();
+  const recentlyToggledRef = React.useRef<boolean>(false);
 
 
   // Main State
@@ -1097,20 +1098,25 @@ const AppContent: React.FC = () => {
   // Fix: Toggle Timer with Unified Controls (Simplified for Multi-Track)
   const handleToggleTimer = (targetProgramOverride?: Program, force: boolean = false, localSecondsOverride?: number) => {
     // Determine the ACTUAL target program for this toggle action
-    const target = targetProgramOverride || displayProgram;
+    const displayTarget = targetProgramOverride || displayProgram;
     
+    // Safety Lookup: Always get the absolute latest state from activeSessions if it exists
+    // This ensures we have the most accurate timerStartTimestamp for calculations
+    const latestTarget = activeSessions.find(s => String(s.id) === String(displayTarget.id)) || displayTarget;
+    const target = latestTarget;
+
     // CRITICAL: We check the LIVE state of the TARGET specifically
     const targetIsActive = targetProgramOverride 
       ? activeSessions.some(as => String(as.id) === String(targetProgramOverride.id) && as.isTimerActive)
-      : displayIsTimerActive;
+      : (target.id === globalLiveProgram?.id ? (globalLiveProgram?.isTimerActive ?? false) : isTimerActive);
 
     // Safety Interlock Check: If we are starting a NEW event while others are already LIVE
     // FIX: We ONLY show this if the target is NOT already authorised as 'live'
     const isTargetAuthorized = target.status === 'live';
     const hasOtherLiveSessions = activeSessions.some(s => String(s.id) !== String(target.id) && s.isTimerActive);
 
-    // If forcing (from confirm modal) or target is already authorized, bypass
-    if (!force && !isTargetAuthorized && !targetIsActive && hasOtherLiveSessions) {
+    // SUPPRESSION: Ignore concurrent warnings if we just toggled something (database sync window)
+    if (!force && !isTargetAuthorized && !targetIsActive && hasOtherLiveSessions && !recentlyToggledRef.current) {
       setInterlockTargetProgram(target);
       setIsInterlockOpen(true);
       return;
@@ -1118,9 +1124,14 @@ const AppContent: React.FC = () => {
 
     const newState = !targetIsActive;
     lastAdvanceTimeRef.current = Date.now();
+    
+    // Set suppression window
+    recentlyToggledRef.current = true;
+    setTimeout(() => { recentlyToggledRef.current = false; }, 2000);
 
     if (newState) {
       const now = Date.now();
+      // For PLAY: Use localSecondsOverride (from manual start) or existing display elapsed
       const secondsToUse = localSecondsOverride !== undefined 
         ? localSecondsOverride 
         : (target.id === displayProgram.id ? displaySecondsElapsed : 0);
@@ -1153,13 +1164,15 @@ const AppContent: React.FC = () => {
         }
       }
     } else {
-      // Pause - High-Precision Capturing
+      // Pause - ABSOLUTE WALL-CLOCK AUTHORITY
+      // We explicitly calculate the delta from the anchor to prevent 'Stale 0' resets
       const now = Date.now();
       const wallDelta = target.timerStartTimestamp ? Math.floor((now - target.timerStartTimestamp) / 1000) : (target.secondsElapsed || 0);
       
-      const secondsToSave = localSecondsOverride !== undefined 
-        ? localSecondsOverride 
-        : (target.id === displayProgram.id ? Math.max(wallDelta, currentTickingSecondsRef.current) : wallDelta);
+      // We ignore component-passed localSecondsOverride for LIVE events to ensure server-side precision
+      const secondsToSave = (target.status === 'live' && target.timerStartTimestamp)
+        ? Math.max(wallDelta, currentTickingSecondsRef.current)
+        : (localSecondsOverride !== undefined ? localSecondsOverride : wallDelta);
 
       timerSaveMutation.mutate({
         id: target.id,
@@ -1173,7 +1186,7 @@ const AppContent: React.FC = () => {
       if (target.id === program.id) {
         setIsTimerActive(false);
         setTimerStartTimestamp(null);
-        setSecondsElapsed(secondsToSave); // Ensure local draft state holds the pause point
+        setSecondsElapsed(secondsToSave); 
       }
     }
   };

@@ -281,7 +281,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
               </button>
 
               <button
-                onClick={() => onToggleTimer(program, false, elapsed)}
+                onClick={() => onToggleTimer(program)}
                 className={`w-24 h-24 flex items-center justify-center rounded-3xl transition-all transform hover:scale-105 active:scale-95 shadow-2xl ${isTimerActive
                   ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border-2 border-indigo-500/50'
                   : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-500/40'
