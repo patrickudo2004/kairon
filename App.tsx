@@ -948,16 +948,22 @@ const AppContent: React.FC = () => {
     const tick = () => {
       const now = Date.now();
       
-      // Update viewing program snapshot
-      if (isTimerActive && timerStartTimestamp) {
-        const elapsed = Math.floor((now - timerStartTimestamp) / 1000);
-        setSecondsElapsed(elapsed);
+      // Update the correctly viewed program snapshot (Live OR Draft)
+      if (displayIsTimerActive && displayTimerStartTimestamp) {
+        const elapsed = Math.floor((now - displayTimerStartTimestamp) / 1000);
+        
+        // Only update local state if we aren't in live mode (Live mode is driven by Convex)
+        if (!isLiveEventActive) {
+          setSecondsElapsed(elapsed);
+        }
+        
+        // ALWAYS update the high-precision ref for pause capturing
         currentTickingSecondsRef.current = elapsed;
       }
     };
 
     // Low-frequency tick (500ms) for background logic to save CPU
-    if (isTimerActive && timerStartTimestamp) {
+    if (displayIsTimerActive && displayTimerStartTimestamp) {
       tick(); // Initial sync
       interval = window.setInterval(tick, 500);
     }
@@ -1115,9 +1121,10 @@ const AppContent: React.FC = () => {
 
     if (newState) {
       const now = Date.now();
-      // If we are given an override (e.g., from the Dashboard), use it.
-      // Otherwise, fallback to the displaySeconds.
-      const secondsToUse = localSecondsOverride !== undefined ? localSecondsOverride : (targetProgramOverride ? 0 : displaySecondsElapsed);
+      const secondsToUse = localSecondsOverride !== undefined 
+        ? localSecondsOverride 
+        : (target.id === displayProgram.id ? displaySecondsElapsed : 0);
+      
       const shiftedStart = now - (secondsToUse * 1000);
 
       timerSaveMutation.mutate({
@@ -1137,17 +1144,22 @@ const AppContent: React.FC = () => {
         setIsTimerActive(true);
         setTimerStartTimestamp(shiftedStart);
         setProgram(prev => ({ ...prev, status: 'live' }));
-        navigate(`/editor?id=${target.id}&mode=live`);
+        
+        // REDIRECT FIX: Only navigate to Editor if starting from a non-production view
+        const currentPath = window.location.pathname;
+        const isProductionView = currentPath.includes('/live') || currentPath.includes('/editor') || currentPath.includes('/monitors');
+        if (!isProductionView) {
+          navigate(`/editor?id=${target.id}&mode=live`);
+        }
       }
     } else {
-      // Pause - Explicit Targeting
-      // Calculate absolute delta from start anchor for maximum precision
+      // Pause - High-Precision Capturing
       const now = Date.now();
-      const wallDelta = target.timerStartTimestamp ? Math.floor((now - target.timerStartTimestamp) / 1000) : 0;
+      const wallDelta = target.timerStartTimestamp ? Math.floor((now - target.timerStartTimestamp) / 1000) : (target.secondsElapsed || 0);
       
       const secondsToSave = localSecondsOverride !== undefined 
         ? localSecondsOverride 
-        : (target.id === displayProgram.id ? Math.max(wallDelta, currentTickingSecondsRef.current) : 0);
+        : (target.id === displayProgram.id ? Math.max(wallDelta, currentTickingSecondsRef.current) : wallDelta);
 
       timerSaveMutation.mutate({
         id: target.id,
@@ -1155,12 +1167,13 @@ const AppContent: React.FC = () => {
         isTimerActive: false,
         secondsElapsed: secondsToSave, 
         timerStartTimestamp: null,
-        status: 'live' // HARDEN: Explicitly maintain live status even when paused
+        status: 'live' 
       });
 
       if (target.id === program.id) {
         setIsTimerActive(false);
         setTimerStartTimestamp(null);
+        setSecondsElapsed(secondsToSave); // Ensure local draft state holds the pause point
       }
     }
   };
