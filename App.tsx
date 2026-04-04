@@ -1081,15 +1081,18 @@ const AppContent: React.FC = () => {
   }, [isTimerActive, isReadOnly, program.date, program.startTime, program.id]);
 
   // Fix: Toggle Timer with Unified Controls (Simplified for Multi-Track)
-  const handleToggleTimer = (targetProgramOverride?: Program, force: boolean = false) => {
+  const handleToggleTimer = (targetProgramOverride?: Program, force: boolean = false, localSecondsOverride?: number) => {
     // Determine the ACTUAL target program for this toggle action
     const target = targetProgramOverride || displayProgram;
+    
+    // CRITICAL: We check the LIVE state of the TARGET specifically
     const targetIsActive = targetProgramOverride 
-      ? activeSessions.some(as => String(as.id) === String(targetProgramOverride.id))
+      ? activeSessions.some(as => String(as.id) === String(targetProgramOverride.id) && as.isTimerActive)
       : displayIsTimerActive;
 
-    // Safety Interlock Check
-    if (!force && !targetIsActive && activeSessions.some(s => String(s.id) !== String(target.id))) {
+    // Safety Interlock Check: If we are starting a NEW event while another is already LIVE
+    // We only check this if NOT forced and NOT transitioning
+    if (!force && !targetIsActive && activeSessions.some(s => String(s.id) !== String(target.id) && s.isTimerActive)) {
       setInterlockTargetProgram(target);
       setIsInterlockOpen(true);
       return;
@@ -1100,14 +1103,16 @@ const AppContent: React.FC = () => {
 
     if (newState) {
       const now = Date.now();
-      const secondsElapsed = targetProgramOverride ? 0 : displaySecondsElapsed;
-      const shiftedStart = now - (secondsElapsed * 1000);
+      // If we are given an override (e.g., from the Dashboard), use it.
+      // Otherwise, fallback to the displaySeconds.
+      const secondsToUse = localSecondsOverride !== undefined ? localSecondsOverride : (targetProgramOverride ? 0 : displaySecondsElapsed);
+      const shiftedStart = now - (secondsToUse * 1000);
 
       timerSaveMutation.mutate({
         id: target.id,
         currentSlotIndex: targetProgramOverride ? 0 : displayCurrentSlotIndex,
         isTimerActive: true,
-        secondsElapsed: 0, 
+        secondsElapsed: secondsToUse, 
         timerStartTimestamp: shiftedStart,
         status: 'live'
       }, {
@@ -1124,11 +1129,14 @@ const AppContent: React.FC = () => {
       }
     } else {
       // Pause - Explicit Targeting
+      // Using the localSecondsOverride (passed from card) or falling back to currently ticking Ref
+      const secondsToSave = localSecondsOverride !== undefined ? localSecondsOverride : (target.id === displayProgram.id ? currentTickingSecondsRef.current : 0);
+
       timerSaveMutation.mutate({
         id: target.id,
         currentSlotIndex: targetProgramOverride ? 0 : displayCurrentSlotIndex,
         isTimerActive: false,
-        secondsElapsed: currentTickingSecondsRef.current, 
+        secondsElapsed: secondsToSave, 
         timerStartTimestamp: null
       });
 
