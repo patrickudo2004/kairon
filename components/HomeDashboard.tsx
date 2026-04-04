@@ -8,13 +8,13 @@ interface HomeDashboardProps {
   programs: Program[];
   activeProgramId: string;
   activeSessions: Program[];
-  onSelectProgram: (program: Program) => void;
+  onSelectProgram: (program: Program, seconds?: number) => void;
   onViewAnalytics: (id: string) => void;
   onCreateNew: () => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
   onStopLive?: (id: string) => void;
-  onPlay?: (program: Program) => void;
+  onPlay?: (program: Program, seconds?: number) => void;
 }
 
 interface ProgramCardProps {
@@ -22,13 +22,13 @@ interface ProgramCardProps {
   isPast?: boolean;
   isActive: boolean;
   isLive: boolean;
-  onSelect: (program: Program) => void;
+  onSelect: (program: Program, seconds?: number) => void;
   onPreview: (program: Program) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
   onViewAnalytics: (id: string) => void;
   onStopLive?: (id: string) => void;
-  onPlay?: (program: Program) => void;
+  onPlay?: (program: Program, seconds?: number) => void;
 }
 
 const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, isLive, onSelect, onPreview, onDelete, onDuplicate, onViewAnalytics, onStopLive, onPlay }) => {
@@ -68,9 +68,28 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
     onViewAnalytics(program.id);
   };
 
+  // LOCAL TRACKING: Each card manages its own time state to prevent global leakage
+  const [localSeconds, setLocalSeconds] = useState(program.secondsElapsed || 0);
+
+  useEffect(() => {
+    let interval: number | undefined;
+    if (program.isTimerActive && program.timerStartTimestamp) {
+      const tick = () => {
+        const now = Date.now();
+        const elapsed = Math.floor((now - program.timerStartTimestamp!) / 1000);
+        setLocalSeconds(elapsed);
+      };
+      tick();
+      interval = window.setInterval(tick, 1000);
+    } else {
+      setLocalSeconds(program.secondsElapsed || 0);
+    }
+    return () => clearInterval(interval);
+  }, [program.isTimerActive, program.timerStartTimestamp, program.secondsElapsed]);
+
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (onPlay) onPlay(program);
+    if (onPlay) onPlay(program, localSeconds);
   };
 
   return (
@@ -159,7 +178,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
         {/* Status-Aware Mega Central Pillar - Unconditionally Visible */}
         {isLive ? (
           <button
-            onClick={(e) => { e.stopPropagation(); onSelect(program); }}
+            onClick={(e) => { e.stopPropagation(); onSelect(program, localSeconds); }}
             className="flex-[2] min-w-[120px] px-6 bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)] animate-pulse"
           >
             <LayoutDashboard size={16} fill="currentColor" />
@@ -310,13 +329,13 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 program={program}
                 isActive={program.id === selectedCardId}
                 isLive={activeSessions.some(as => String(as.id) === String(program.id))}
-                onSelect={(p) => { setSelectedCardId(p.id); onSelectProgram(p); }}
+                onSelect={(p, s) => { setSelectedCardId(p.id); onSelectProgram(p, s); }}
                 onPreview={setPreviewProgram}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
                 onViewAnalytics={onViewAnalytics}
                 onStopLive={onStopLive}
-                onPlay={onPlay}
+                onPlay={(p, s) => onPlay?.(p, s)}
               />
             ))}
           </div>
@@ -342,13 +361,13 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 isPast={true}
                 isActive={program.id === selectedCardId}
                 isLive={activeSessions.some(as => String(as.id) === String(program.id))}
-                onSelect={(p) => { setSelectedCardId(p.id); onSelectProgram(p); }}
+                onSelect={(p, s) => { setSelectedCardId(p.id); onSelectProgram(p, s); }}
                 onPreview={setPreviewProgram}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
                 onViewAnalytics={onViewAnalytics}
                 onStopLive={onStopLive}
-                onPlay={onPlay}
+                onPlay={(p, s) => onPlay?.(p, s)}
               />
             ))}
           </div>

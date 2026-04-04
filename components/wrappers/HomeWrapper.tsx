@@ -14,7 +14,7 @@ interface HomeWrapperProps {
     createProgram: (date: string) => void;
     deleteProgram: (id: string) => void;
     duplicateProgram: (p: Program) => void;
-    onPlay: (p: Program) => void;
+    onPlay: (p: Program, seconds?: number) => void;
     mode: string;
 }
 
@@ -81,7 +81,7 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
                 programs={transformedPrograms}
                 activeProgramId={activeProgramId}
                 activeSessions={activeSessions}
-                onSelectProgram={(p) => { loadProgram(p); }}
+                onSelectProgram={(p, s) => { loadProgram(p); if (s !== undefined) onPlay(p, s); }}
                 onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
                 onStopLive={(id) => setConfirmStopId(id)}
                 onCreateNew={() => { createProgram(new Date().toISOString().split('T')[0]); }}
