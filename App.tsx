@@ -574,7 +574,7 @@ const AppContent: React.FC = () => {
       // 1. Try DB Hydration (Reactive)
       if (fetchedProgram) {
         const isNewProgram = fetchedProgram.id !== program.id && !program.id?.startsWith('local-');
-        const isTransitioning = Date.now() - lastAdvanceTimeRef.current < 2000;
+        const isTransitioning = Date.now() - lastAdvanceTimeRef.current < 5000;
 
         if (isNewProgram || program.id?.startsWith('local-')) {
           if (fetchedProgram.id !== program.id) {
@@ -1090,9 +1090,12 @@ const AppContent: React.FC = () => {
       ? activeSessions.some(as => String(as.id) === String(targetProgramOverride.id) && as.isTimerActive)
       : displayIsTimerActive;
 
-    // Safety Interlock Check: If we are starting a NEW event while another is already LIVE
-    // We only check this if NOT forced and NOT transitioning
-    if (!force && !targetIsActive && activeSessions.some(s => String(s.id) !== String(target.id) && s.isTimerActive)) {
+    // Safety Interlock Check: If we are starting a NEW event while others are already LIVE
+    // FIX: We ONLY show this if the target is NOT already authorised as 'live'
+    const isTargetAuthorized = target.status === 'live';
+    const hasOtherLiveSessions = activeSessions.some(s => String(s.id) !== String(target.id) && s.isTimerActive);
+
+    if (!force && !isTargetAuthorized && !targetIsActive && hasOtherLiveSessions) {
       setInterlockTargetProgram(target);
       setIsInterlockOpen(true);
       return;
@@ -1137,7 +1140,8 @@ const AppContent: React.FC = () => {
         currentSlotIndex: targetProgramOverride ? 0 : displayCurrentSlotIndex,
         isTimerActive: false,
         secondsElapsed: secondsToSave, 
-        timerStartTimestamp: null
+        timerStartTimestamp: null,
+        status: 'live' // HARDEN: Explicitly maintain live status even when paused
       });
 
       if (target.id === program.id) {
