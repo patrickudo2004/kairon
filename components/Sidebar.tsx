@@ -1,27 +1,24 @@
 import React, { useState } from 'react';
-import { NavLink, Link, useLocation } from 'react-router-dom';
-// import { User as SupabaseUser } from '@supabase/supabase-js';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard,
     Settings,
-    Users,
     Calendar,
+    ChevronDown,
     ChevronLeft,
     ChevronRight,
+    Check,
     Building,
-    LogOut,
     Mic,
-    Palette,
     Wifi,
     WifiOff,
-    Crown,
     Play,
     ClipboardList,
     FileText,
     Edit3,
     Monitor
 } from 'lucide-react';
-import { Organization, Profile, Slot, Program } from '../types';
+import { Organization, Profile, Program } from '../types';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import { ProfileDropdown } from './ProfileDropdown';
 import { useTimerSync } from '../hooks/useTimerSync';
@@ -54,7 +51,6 @@ const LiveSessionItem: React.FC<{
     onSelect: (id: string) => void; 
     isCollapsed: boolean;
 }> = ({ session, isSelected, onSelect, isCollapsed }) => {
-    // Mini-timer for sidebar glanceability
     const elapsed = useTimerSync(session.timerStartTimestamp, session.isTimerActive || false, session.secondsElapsed || 0);
     const currentSlot = session.slots[session.currentSlotIndex || 0];
     const timeLeft = currentSlot ? (currentSlot.durationMinutes * 60 - elapsed) : 0;
@@ -62,33 +58,103 @@ const LiveSessionItem: React.FC<{
     return (
         <button
             onClick={() => onSelect(session.id)}
-            className={`w-full p-3 rounded-xl transition-all group relative animate-in fade-in slide-in-from-left-2 mb-2 border ${
-                isSelected 
-                    ? 'bg-emerald-500/10 border-emerald-500/30 shadow-lg shadow-emerald-500/5' 
-                    : 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800 hover:border-emerald-500/20'
-            }`}
+            className={`w-full p-2.5 rounded-lg transition-all cursor-pointer group flex items-center justify-between gap-3 mb-1
+                ${isSelected 
+                    ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' 
+                    : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'}
+            `}
         >
-            <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${session.isTimerActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                    {!isCollapsed && (
-                        <div className="flex flex-col items-start min-w-0">
-                            <span className={`text-[10px] font-bold uppercase tracking-widest ${isSelected ? 'text-emerald-600' : 'text-slate-500'}`}>
-                                {session.title}
-                            </span>
-                            <span className="text-[10px] font-mono font-bold text-slate-400">
-                                {formatDuration(timeLeft)}
-                            </span>
-                        </div>
+            <div className="flex items-center gap-2 min-w-0">
+                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${session.isTimerActive ? (isSelected ? 'bg-indigo-500' : 'bg-emerald-500') : 'bg-slate-400'}`} />
+                <span className="text-xs font-bold truncate tracking-tight">{session.title}</span>
+            </div>
+            <span className="text-[10px] font-mono font-bold opacity-60">
+                {formatDuration(timeLeft)}
+            </span>
+            {isSelected && <Check size={14} />}
+        </button>
+    );
+};
+
+const VenueSwitcher: React.FC<{
+    activeSessions: Program[];
+    selectedLiveId: string | null;
+    onSelect: (id: string) => void;
+    isCollapsed: boolean;
+    onStopAllSessions?: () => void;
+}> = ({ activeSessions, selectedLiveId, onSelect, isCollapsed, onStopAllSessions }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = React.useRef<HTMLDivElement>(null);
+    const selectedSession = activeSessions.find(s => s.id === selectedLiveId) || activeSessions[0];
+
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    if (activeSessions.length === 0) return null;
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            {!isCollapsed && (
+                <div className="flex items-center justify-between gap-2 px-3 mb-2">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Live Venues</span>
+                    {onStopAllSessions && (
+                        <button
+                            onClick={onStopAllSessions}
+                            className="text-[10px] text-rose-500 hover:text-rose-600 font-bold tracking-tight transition-colors"
+                        >
+                            End All
+                        </button>
                     )}
                 </div>
-            </div>
-            {isCollapsed && (
-                <div className="absolute left-full ml-3 px-2 py-1 bg-slate-900 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-[100] shadow-xl border border-slate-800">
-                    {session.title} • {formatDuration(timeLeft)}
+            )}
+
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={`flex items-center gap-2 rounded-xl transition-all border group
+                    ${selectedLiveId === selectedSession?.id ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-100 dark:border-indigo-500/30' : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-indigo-500/30'}
+                    ${isCollapsed ? 'w-10 h-10 justify-center p-0' : 'w-full px-3 py-2'}
+                `}
+                title={isCollapsed ? (selectedSession?.title || 'Switch Venue') : ''}
+            >
+                <div className={`w-2 h-2 rounded-full shrink-0 ${selectedSession?.isTimerActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                {!isCollapsed && (
+                    <>
+                        <span className="text-xs font-bold truncate flex-1 text-left text-slate-700 dark:text-slate-200">
+                            {selectedSession?.title || 'Switch Venue'}
+                        </span>
+                        <ChevronDown size={14} className={`text-slate-400 group-hover:text-indigo-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                    </>
+                )}
+            </button>
+
+            {isOpen && (
+                <div className={`absolute bottom-full left-0 mb-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200
+                    ${isCollapsed ? 'w-48 ml-1' : 'w-full'}
+                `}>
+                    <div className="p-1 max-h-[300px] overflow-y-auto no-scrollbar">
+                        {activeSessions.map((session) => (
+                            <LiveSessionItem 
+                                key={session.id}
+                                session={session}
+                                isSelected={selectedLiveId === session.id}
+                                onSelect={(id) => {
+                                    onSelect(id);
+                                    setIsOpen(false);
+                                }}
+                                isCollapsed={isCollapsed}
+                            />
+                        ))}
+                    </div>
                 </div>
             )}
-        </button>
+        </div>
     );
 };
 
@@ -101,15 +167,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onProfileUpdate,
     handleSignOut,
     isOnline,
-    programTitle,
-    programId,
     activeSessions,
     selectedLiveId,
     onSelectLive,
     isCollapsed,
     onToggle,
     onCreateOrg,
-    onStopAllSessions
+    onStopAllSessions,
+    programId
 }) => {
     const location = useLocation();
 
@@ -126,15 +191,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { icon: Play, label: 'Live', path: getLinkPath('/live') },
         { icon: ClipboardList, label: 'List', path: getLinkPath('/list') },
         { icon: Monitor, label: 'Monitors', path: getLinkPath('/monitors') },
-        { icon: Calendar, label: 'Calendar', path: '/calendar' }, // Opens the month view Wrapper
+        { icon: Calendar, label: 'Calendar', path: '/calendar' },
         { icon: FileText, label: 'User Guide', path: '/guide' },
         { icon: Settings, label: 'Workspace', path: '/admin' },
     ];
 
     return (
         <aside
-            className={`fixed left-0 top-0 h-full bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 z-50 flex flex-col no-print hidden lg:flex ${isCollapsed ? 'w-20' : 'w-64'
-                }`}
+            className={`fixed left-0 top-0 h-full bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 z-50 flex flex-col no-print hidden lg:flex ${isCollapsed ? 'w-20' : 'w-64'}`}
         >
             {/* Brand / Logo Section */}
             <div className="p-4 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
@@ -171,18 +235,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {/* Navigation Items */}
-            <nav className="flex-1 px-3 space-y-1 py-4 overflow-y-auto">
+            <nav className="flex-1 px-3 space-y-1 py-4 overflow-y-auto custom-scrollbar">
                 {navItems.map((item) => (
                     <NavLink
                         key={item.label}
                         to={item.path}
                         className={({ isActive }) => `
-              flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group
-              ${isActive
+                            flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group
+                            ${isActive
                                 ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20'
                                 : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-100'
                             }
-            `}
+                        `}
                         title={isCollapsed ? item.label : ''}
                     >
                         {({ isActive }) => (
@@ -222,32 +286,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     isCollapsed={isCollapsed}
                 />
 
-                {/* Venue Dock (Bottom Left) */}
+                {/* Venue Switcher (Bottom Left Dropdown) */}
                 {activeSessions.length > 0 && (
-                    <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800">
-                        {!isCollapsed && (
-                            <div className="flex items-center justify-between gap-2 px-3 mb-2">
-                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Venues</span>
-                                {onStopAllSessions && (
-                                    <button
-                                        onClick={onStopAllSessions}
-                                        className="text-[10px] text-rose-500 hover:text-rose-600 font-bold uppercase tracking-tight"
-                                        title="Stop all live sessions"
-                                    >
-                                        End All
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                        {activeSessions.map(session => (
-                            <LiveSessionItem 
-                                key={session.id}
-                                session={session}
-                                isSelected={selectedLiveId === session.id}
-                                onSelect={onSelectLive}
-                                isCollapsed={isCollapsed}
-                            />
-                        ))}
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <VenueSwitcher 
+                            activeSessions={activeSessions}
+                            selectedLiveId={selectedLiveId}
+                            onSelect={onSelectLive}
+                            isCollapsed={isCollapsed}
+                            onStopAllSessions={onStopAllSessions}
+                        />
                     </div>
                 )}
             </div>
