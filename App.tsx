@@ -950,7 +950,9 @@ const AppContent: React.FC = () => {
       
       // Update viewing program snapshot
       if (isTimerActive && timerStartTimestamp) {
-        setSecondsElapsed(Math.floor((now - timerStartTimestamp) / 1000));
+        const elapsed = Math.floor((now - timerStartTimestamp) / 1000);
+        setSecondsElapsed(elapsed);
+        currentTickingSecondsRef.current = elapsed;
       }
     };
 
@@ -1139,8 +1141,13 @@ const AppContent: React.FC = () => {
       }
     } else {
       // Pause - Explicit Targeting
-      // Using the localSecondsOverride (passed from card) or falling back to currently ticking Ref
-      const secondsToSave = localSecondsOverride !== undefined ? localSecondsOverride : (target.id === displayProgram.id ? currentTickingSecondsRef.current : 0);
+      // Calculate absolute delta from start anchor for maximum precision
+      const now = Date.now();
+      const wallDelta = target.timerStartTimestamp ? Math.floor((now - target.timerStartTimestamp) / 1000) : 0;
+      
+      const secondsToSave = localSecondsOverride !== undefined 
+        ? localSecondsOverride 
+        : (target.id === displayProgram.id ? Math.max(wallDelta, currentTickingSecondsRef.current) : 0);
 
       timerSaveMutation.mutate({
         id: target.id,
