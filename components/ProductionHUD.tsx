@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Power, Timer, Plus, Minus, Wifi, WifiOff, BarChart3, Volume2, Lightbulb, Video, Timer as TimerIcon } from 'lucide-react';
+import { Power, Timer, Plus, Minus, Wifi, WifiOff, BarChart3, Volume2, Lightbulb, Video, Timer as TimerIcon, Play } from 'lucide-react';
 import { useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
 import { useTimerSync } from '../hooks/useTimerSync';
@@ -10,6 +10,7 @@ interface ProductionHUDProps {
     onEndEvent: () => void;
     onNudge: (minutes: number) => void;
     onViewAnalytics: (id: string) => void;
+    onToggleTimer?: (target?: any, force?: boolean, seconds?: number) => void;
     currentSlotTitle?: string;
     programId?: string;
     timerStartTimestamp: number | null;
@@ -23,6 +24,7 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
     onEndEvent,
     onNudge,
     onViewAnalytics,
+    onToggleTimer,
     currentSlotTitle,
     programId,
     timerStartTimestamp,
@@ -106,6 +108,18 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                             <Lightbulb size={12} className={isAcked('lighting') ? 'text-emerald-500 opacity-100' : 'text-slate-600 opacity-30'} />
                             <Video size={12} className={isAcked('video') ? 'text-emerald-500 opacity-100' : 'text-slate-600 opacity-30'} />
                         </div>
+                    </div>
+                    {/* Play/Pause Control (Centralized for Mobile) */}
+                    <div className="flex flex-col items-center gap-1">
+                        <button
+                            onClick={() => onToggleTimer?.(program, false, elapsed)}
+                            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all active:scale-90 shadow-lg ${isTimerActive ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30' : 'bg-emerald-600 text-white shadow-emerald-900/20'}`}
+                        >
+                            {isTimerActive ? <TimerIcon size={24} /> : <Play size={24} />}
+                        </button>
+                        <span className={`text-[8px] font-black uppercase tracking-widest ${isTimerActive ? 'text-amber-500' : 'text-emerald-500'}`}>
+                            {isTimerActive ? 'Pause' : 'Play'}
+                        </span>
                     </div>
                 </div>
 
@@ -238,6 +252,19 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                 )}
 
                 <div className="w-[1px] h-8 bg-slate-800 mx-2" />
+ 
+                {/* Play/Pause Control (Main HUD) */}
+                <div className="flex flex-col items-center gap-1 mr-2 border-r border-slate-800 pr-4">
+                    <button
+                        onClick={() => onToggleTimer?.(program, false, elapsed)}
+                        className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isTimerActive ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'}`}
+                    >
+                        {isTimerActive ? <TimerIcon size={20} /> : <Play size={20} />}
+                    </button>
+                    <span className={`text-[8px] font-black uppercase tracking-widest ${isTimerActive ? 'text-amber-500/50' : 'text-emerald-500'}`}>
+                        {isTimerActive ? 'Pause' : 'Resume'}
+                    </span>
+                </div>
 
                 <button
                     onMouseDown={() => setIsEnding(true)}

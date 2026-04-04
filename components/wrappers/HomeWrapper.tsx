@@ -87,7 +87,7 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
                 onCreateNew={() => { createProgram(new Date().toISOString().split('T')[0]); }}
                 onDelete={deleteProgram}
                 onDuplicate={duplicateProgram}
-                onPlay={onPlay}
+                onPlay={(p, s) => onPlay(p, s)}
             />
 
             <ConfirmationModal

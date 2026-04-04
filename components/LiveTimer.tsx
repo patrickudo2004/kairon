@@ -9,11 +9,11 @@ interface LiveTimerProps {
   isTimerActive: boolean;
   timerStartTimestamp: number | null;
   secondsElapsed?: number; // Optional legacy fallback if needed
-  onToggleTimer: () => void;
-  onToggleHold?: () => void;
-  onNext: () => void;
-  onPrev: () => void;
-  onEndEvent?: () => void;
+  onToggleTimer: (target?: Program, force?: boolean, seconds?: number) => void;
+  onToggleHold?: (nextState?: boolean, targetId?: string) => void;
+  onNext: (targetId?: string) => void;
+  onPrev: (targetId?: string) => void;
+  onEndEvent?: (targetId?: string) => void;
   onNudge?: (minutes: number) => void;
   readOnly?: boolean;
 }
@@ -59,7 +59,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
     }
 
     if (holdToEnd >= 100 && onEndEvent) {
-      onEndEvent();
+      onEndEvent(program.id);
       setHoldToEnd(0);
       setIsEnding(false);
     }
@@ -109,7 +109,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
 
         {!readOnly && (
           <button
-            onClick={onPrev}
+            onClick={() => onPrev(program.id)}
             className="flex items-center gap-3 px-8 py-4 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 shadow-lg hover:shadow-xl transition-all group"
           >
             <SkipBack size={24} className="group-hover:-translate-x-1 transition-transform" />
@@ -131,7 +131,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
         <p className="text-slate-500 dark:text-slate-400 mb-8">This live program currently has no schedule items.</p>
         {!readOnly && (
           <button
-            onClick={onToggleTimer}
+            onClick={() => onToggleTimer(program, false, elapsed)}
             className="px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200"
           >
             Stop Session
@@ -243,7 +243,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             {/* Override Group (Left) */}
             <div className="flex items-center gap-4 order-2 md:order-1">
               <button
-                onClick={onToggleHold}
+                onClick={() => onToggleHold?.(undefined, program.id)}
                 className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-bold text-sm transition-all border shadow-lg ${program.isOnHold
                   ? 'bg-amber-500 text-white border-amber-600'
                   : 'bg-white dark:bg-slate-800 text-amber-600 border-amber-200 dark:border-amber-900 hover:bg-amber-50 dark:hover:bg-amber-900/20'
@@ -273,7 +273,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             {/* Core Navigation (Center) */}
             <div className="flex items-center gap-4 order-1 md:order-2">
               <button
-                onClick={onPrev}
+                onClick={() => onPrev(program.id)}
                 disabled={currentSlotIndex === 0}
                 className="w-16 h-16 flex items-center justify-center rounded-2xl bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 transition-all shadow-lg active:scale-95 disabled:opacity-30"
               >
@@ -281,7 +281,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
               </button>
 
               <button
-                onClick={onToggleTimer}
+                onClick={() => onToggleTimer(program, false, elapsed)}
                 className={`w-24 h-24 flex items-center justify-center rounded-3xl transition-all transform hover:scale-105 active:scale-95 shadow-2xl ${isTimerActive
                   ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border-2 border-indigo-500/50'
                   : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-500/40'
@@ -291,7 +291,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
               </button>
 
               <button
-                onClick={onNext}
+                onClick={() => onNext(program.id)}
                 className={`w-16 h-16 flex items-center justify-center rounded-2xl transition-all shadow-lg active:scale-95 border ${program.isManualMode && timeLeft <= 0
                     ? 'bg-amber-500 text-white border-amber-600 animate-pulse ring-4 ring-amber-500/20'
                     : 'bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-900 dark:hover:text-white border-slate-200 dark:border-slate-700'
