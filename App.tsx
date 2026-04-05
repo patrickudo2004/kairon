@@ -470,16 +470,25 @@ const AppContent: React.FC = () => {
   // Decides if we show the "Global Live" event or the "Local Draft" event.
   // ---------------------------------------------------------
   const isLiveEventActive = !!globalLiveProgram;
+  const isTargetSameAsLocal = isLiveEventActive && String(globalLiveProgram?.id) === String(program.id);
+
   const displayProgram = isLiveEventActive ? globalLiveProgram! : program;
   const displayCurrentSlotIndex = isLiveEventActive ? (globalLiveProgram?.currentSlotIndex ?? 0) : currentSlotIndex;
+  
+  const displayIsTimerActive = isLiveEventActive 
+    ? (isTargetSameAsLocal ? isTimerActive : (globalLiveProgram?.isTimerActive ?? false)) 
+    : isTimerActive;
+
+  const displayTimerStartTimestamp = isLiveEventActive 
+    ? (isTargetSameAsLocal ? timerStartTimestamp : (globalLiveProgram?.timerStartTimestamp ?? null)) 
+    : timerStartTimestamp;
+
   const displaySecondsElapsed = isLiveEventActive 
-    ? (globalLiveProgram?.isTimerActive 
-        ? Math.floor((Date.now() - (globalLiveProgram.timerStartTimestamp ?? Date.now())) / 1000) 
+    ? (displayIsTimerActive 
+        ? Math.floor((Date.now() - (displayTimerStartTimestamp ?? Date.now())) / 1000) 
         // OPTIMISTIC FIX: Prioritize local 'secondsElapsed' if it's the same program to avoid "Pause Resets"
-        : (String(globalLiveProgram?.id) === String(program.id) ? secondsElapsed : (globalLiveProgram?.secondsElapsed ?? 0)))
+        : (isTargetSameAsLocal ? secondsElapsed : (globalLiveProgram?.secondsElapsed ?? 0)))
     : secondsElapsed;
-  const displayIsTimerActive = isLiveEventActive ? (globalLiveProgram?.isTimerActive ?? false) : isTimerActive;
-  const displayTimerStartTimestamp = isLiveEventActive ? (globalLiveProgram?.timerStartTimestamp ?? null) : timerStartTimestamp;
 
 
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
