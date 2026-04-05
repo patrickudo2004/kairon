@@ -473,7 +473,10 @@ const AppContent: React.FC = () => {
   const displayProgram = isLiveEventActive ? globalLiveProgram! : program;
   const displayCurrentSlotIndex = isLiveEventActive ? (globalLiveProgram?.currentSlotIndex ?? 0) : currentSlotIndex;
   const displaySecondsElapsed = isLiveEventActive 
-    ? (globalLiveProgram?.isTimerActive ? Math.floor((Date.now() - (globalLiveProgram.timerStartTimestamp ?? Date.now())) / 1000) : (globalLiveProgram?.secondsElapsed ?? 0))
+    ? (globalLiveProgram?.isTimerActive 
+        ? Math.floor((Date.now() - (globalLiveProgram.timerStartTimestamp ?? Date.now())) / 1000) 
+        // OPTIMISTIC FIX: Prioritize local 'secondsElapsed' if it's the same program to avoid "Pause Resets"
+        : (String(globalLiveProgram?.id) === String(program.id) ? secondsElapsed : (globalLiveProgram?.secondsElapsed ?? 0)))
     : secondsElapsed;
   const displayIsTimerActive = isLiveEventActive ? (globalLiveProgram?.isTimerActive ?? false) : isTimerActive;
   const displayTimerStartTimestamp = isLiveEventActive ? (globalLiveProgram?.timerStartTimestamp ?? null) : timerStartTimestamp;
@@ -1097,23 +1100,22 @@ const AppContent: React.FC = () => {
 
   // Fix: Toggle Timer with Unified Controls (Simplified for Multi-Track)
   const handleToggleTimer = (targetProgramOverride?: Program, force: boolean = false, localSecondsOverride?: number) => {
-    // Determine the ACTUAL target program for this toggle action
+    // Determine the ACTUAL target program for this toggle action (Unified for Header + Bridge + List)
     const displayTarget = targetProgramOverride || displayProgram;
+    const targetIdStr = String(displayTarget.id);
     
     // Safety Lookup: Always get the absolute latest state from activeSessions if it exists
-    // This ensures we have the most accurate timerStartTimestamp for calculations
-    const latestTarget = activeSessions.find(s => String(s.id) === String(displayTarget.id)) || displayTarget;
+    const latestTarget = activeSessions.find(s => String(s.id) === targetIdStr) || displayTarget;
     const target = latestTarget;
 
-    // CRITICAL: We check the LIVE state of the TARGET specifically
-    const targetIsActive = targetProgramOverride 
-      ? activeSessions.some(as => String(as.id) === String(targetProgramOverride.id) && as.isTimerActive)
-      : (target.id === globalLiveProgram?.id ? (globalLiveProgram?.isTimerActive ?? false) : isTimerActive);
+    // CRITICAL (ID NORMALIZATION FIX): Use string-safe comparisons for active state
+    // We check both activeSessions (Cloud) and fallback to local state if missing from sessions
+    const targetIsActive = activeSessions.some(as => String(as.id) === targetIdStr && as.isTimerActive) || 
+                          (targetIdStr === String(program.id) ? isTimerActive : false);
 
     // Safety Interlock Check: If we are starting a NEW event while others are already LIVE
-    // FIX: We ONLY show this if the target is NOT already authorised as 'live'
     const isTargetAuthorized = target.status === 'live';
-    const hasOtherLiveSessions = activeSessions.some(s => String(s.id) !== String(target.id) && s.isTimerActive);
+    const hasOtherLiveSessions = activeSessions.some(s => String(s.id) !== targetIdStr && s.isTimerActive);
 
     // SUPPRESSION: Ignore concurrent warnings if we just toggled something (database sync window)
     if (!force && !isTargetAuthorized && !targetIsActive && hasOtherLiveSessions && !recentlyToggledRef.current) {
@@ -1129,18 +1131,24 @@ const AppContent: React.FC = () => {
     recentlyToggledRef.current = true;
     setTimeout(() => { recentlyToggledRef.current = false; }, 2000);
 
+    // INDEX PRESERVATION FIX:
+    // We prioritize using the display state for existing sessions to prevent 'Jump to Slot 0' resets.
+    const indexToUse = (targetIdStr === String(displayProgram.id)) 
+      ? displayCurrentSlotIndex 
+      : (target.currentSlotIndex || 0);
+
     if (newState) {
       const now = Date.now();
       // For PLAY: Use localSecondsOverride (from manual start) or existing display elapsed
       const secondsToUse = localSecondsOverride !== undefined 
         ? localSecondsOverride 
-        : (target.id === displayProgram.id ? displaySecondsElapsed : 0);
+        : (targetIdStr === String(displayProgram.id) ? displaySecondsElapsed : 0);
       
       const shiftedStart = now - (secondsToUse * 1000);
 
       timerSaveMutation.mutate({
         id: target.id,
-        currentSlotIndex: targetProgramOverride ? 0 : displayCurrentSlotIndex,
+        currentSlotIndex: indexToUse,
         isTimerActive: true,
         secondsElapsed: secondsToUse, 
         timerStartTimestamp: shiftedStart,
@@ -1151,7 +1159,7 @@ const AppContent: React.FC = () => {
         }
       });
 
-      if (target.id === program.id) {
+      if (targetIdStr === String(program.id)) {
         setIsTimerActive(true);
         setTimerStartTimestamp(shiftedStart);
         setProgram(prev => ({ ...prev, status: 'live' }));
@@ -1165,25 +1173,23 @@ const AppContent: React.FC = () => {
       }
     } else {
       // Pause - ABSOLUTE WALL-CLOCK AUTHORITY
-      // We explicitly calculate the delta from the anchor to prevent 'Stale 0' resets
       const now = Date.now();
       const wallDelta = target.timerStartTimestamp ? Math.floor((now - target.timerStartTimestamp) / 1000) : (target.secondsElapsed || 0);
       
-      // We ignore component-passed localSecondsOverride for LIVE events to ensure server-side precision
       const secondsToSave = (target.status === 'live' && target.timerStartTimestamp)
         ? Math.max(wallDelta, currentTickingSecondsRef.current)
         : (localSecondsOverride !== undefined ? localSecondsOverride : wallDelta);
 
       timerSaveMutation.mutate({
         id: target.id,
-        currentSlotIndex: targetProgramOverride ? 0 : displayCurrentSlotIndex,
+        currentSlotIndex: indexToUse,
         isTimerActive: false,
         secondsElapsed: secondsToSave, 
         timerStartTimestamp: null,
         status: 'live' 
       });
 
-      if (target.id === program.id) {
+      if (targetIdStr === String(program.id)) {
         setIsTimerActive(false);
         setTimerStartTimestamp(null);
         setSecondsElapsed(secondsToSave); 
