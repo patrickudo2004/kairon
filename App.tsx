@@ -1771,6 +1771,7 @@ const AppContent: React.FC = () => {
                         currentSlotIndex={displayCurrentSlotIndex}
                         isTimerActive={displayIsTimerActive}
                         timerStartTimestamp={displayTimerStartTimestamp}
+                        secondsElapsed={displaySecondsElapsed}
                         onToggleTimer={handleToggleTimer}
                         onToggleHold={handleToggleHold}
                         onNext={handleNext}
@@ -1904,6 +1905,7 @@ const AppContent: React.FC = () => {
             currentSlotTitle={displayProgram?.slots[displayCurrentSlotIndex]?.title}
             programId={displayProgram.id}
             timerStartTimestamp={displayTimerStartTimestamp}
+            secondsElapsed={displaySecondsElapsed}
             isVertical={true}
           />
         </div>
@@ -1954,6 +1956,7 @@ const AppContent: React.FC = () => {
           currentSlotIndex={displayCurrentSlotIndex}
           timerStartTimestamp={displayTimerStartTimestamp}
           isTimerActive={displayIsTimerActive}
+          secondsElapsed={displaySecondsElapsed}
           isAdminOnline={isAdminOnline}
           onToggleTimer={handleToggleTimer}
           onNextSlot={() => handleNext(displayProgram.id)}
