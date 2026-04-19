@@ -864,6 +864,12 @@ const AppContent: React.FC = () => {
       setSecondsElapsed(0);
       setIsTimerActive(false);
       setTimerStartTimestamp(null);
+    } else {
+      // Even if loading the same program, ensure it's synced to the global state
+      setCurrentSlotIndex(globalLiveProgram.currentSlotIndex || 0);
+      setSecondsElapsed(globalLiveProgram.secondsElapsed || 0);
+      setIsTimerActive(globalLiveProgram.isTimerActive || false);
+      setTimerStartTimestamp(globalLiveProgram.timerStartTimestamp || null);
     }
 
     // Clear persisted state for safety when explicitly switching/loading
@@ -878,6 +884,11 @@ const AppContent: React.FC = () => {
     
     // 2. Load it but DO NOT navigate yet
     setProgram(newProgram);
+    
+    // RESET Viewer State to prevent index leakage from previously viewed programs
+    setCurrentSlotIndex(0);
+    setSecondsElapsed(0);
+    setTimerStartTimestamp(null);
     
     // 3. Trigger the timer toggle for this specific target, passing any local duration
     setTimeout(() => {
