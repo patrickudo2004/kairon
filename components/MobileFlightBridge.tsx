@@ -20,6 +20,7 @@ interface MobileFlightBridgeProps {
   onNudge: (minutes: number) => void;
   onEndEvent: () => void;
   onViewAnalysis: (id: string) => void;
+  secondsElapsed?: number;
 }
 
 export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
@@ -35,7 +36,8 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
   onToggleHold,
   onNudge,
   onEndEvent,
-  onViewAnalysis
+  onViewAnalysis,
+  secondsElapsed = 0
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<'controls' | 'schedule'>('controls');
@@ -47,7 +49,7 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
   const [optimisticTimerActive, setOptimisticTimerActive] = useState(isTimerActive);
   
   // Use the Anchor Hook for perfectly synced autonomous ticking
-  const elapsed = useTimerSync(timerStartTimestamp, isTimerActive);
+  const elapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
 
   // Sync optimistic states when props arrive from the backend
   useEffect(() => {
