@@ -631,8 +631,14 @@ const AppContent: React.FC = () => {
           }
 
           // Apply to local state
-          if (targetSlotIndex !== currentSlotIndex) {
+          // Option C: Only restore slot index from DB when the program is actively live.
+          // For draft/concluded programs, always start at slot 0 so opening a previously-run
+          // program in the editor doesn't jump to a stale mid-service slot.
+          const shouldRestoreSlotIndex = fetchedProgram.status === 'live';
+          if (shouldRestoreSlotIndex && targetSlotIndex !== currentSlotIndex) {
             setCurrentSlotIndex(targetSlotIndex);
+          } else if (!shouldRestoreSlotIndex) {
+            setCurrentSlotIndex(0);
           }
           if (targetIsActive !== isTimerActive) {
             setIsTimerActive(targetIsActive);
