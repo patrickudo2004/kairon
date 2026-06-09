@@ -1385,21 +1385,6 @@ const AppContent: React.FC = () => {
 
   // Wrappers (Replaced with external components)
 
-  // Redirect if ReadOnly user tries to access restricted routes
-  // Redirect if ReadOnly user tries to access restricted routes
-
-  useEffect(() => {
-    // Only enforce redirect gating once auth has resolved
-    if (isAuthResolved && isReadOnly) {
-      const restrictedPaths = ['/', '/editor', '/calendar'];
-      if (restrictedPaths.includes(location.pathname)) {
-        // Preserve import data if redirecting
-        const importParam = importData ? `&import=${importData}` : '';
-        navigate(`/live?mode=viewer${importParam}`, { replace: true });
-      }
-    }
-  }, [isAuthResolved, isReadOnly, location.pathname, navigate, importData]);
-
   // --- Public Path Logic ---
   const isPublicPath =
     location.pathname.includes('/p/') ||
