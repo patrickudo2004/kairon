@@ -194,14 +194,14 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
         <div className="flex flex-col h-full overflow-hidden">
           {/* Header */}
           <div className="flex justify-between items-start px-8 pt-2 mb-6">
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <div className={`w-2 h-2 rounded-full ${isAdminOnline ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                <h2 className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.25em]">
+                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isAdminOnline ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                <h2 className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.25em] truncate">
                   {isShowLive ? (isAdminOnline ? 'Live Production Remote' : 'Sync Offline') : 'Program Ready'}
                 </h2>
               </div>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white truncate pr-4">{program.title}</h3>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate">{program.title}</h3>
             </div>
             <button 
               onClick={() => setIsExpanded(false)}
