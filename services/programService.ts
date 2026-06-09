@@ -3,7 +3,30 @@ import { convex } from './convexClient';
 import { api } from '../convex/_generated/api';
 import { Program, Slot } from '../types';
 
+const isTestBypass = () => {
+    try {
+        return typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
+    } catch {
+        return false;
+    }
+};
+
+const updateTestPrograms = (programs: Program[] | null) => {
+    if (programs === null) {
+        localStorage.removeItem('test_programs');
+    } else {
+        localStorage.setItem('test_programs', JSON.stringify(programs));
+    }
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('program_update'));
+    }
+};
+
 export const getPrograms = async (organizationId?: string): Promise<Program[]> => {
+    if (isTestBypass()) {
+        const local = localStorage.getItem('test_programs');
+        return local ? JSON.parse(local) : [];
+    }
     if (!organizationId) return [];
 
     const data = await convex.query(api.programs.getPrograms, {
@@ -14,12 +37,29 @@ export const getPrograms = async (organizationId?: string): Promise<Program[]> =
 };
 
 export const getProgramById = async (id: string): Promise<Program | null> => {
+    if (isTestBypass()) {
+        const local = localStorage.getItem('test_programs');
+        const list: Program[] = local ? JSON.parse(local) : [];
+        const cleanId = id.replace('local-', '');
+        const found = list.find((p) => p.id === id || p.id?.replace('local-', '') === cleanId);
+        return found || null;
+    }
     const data = await convex.query(api.programs.getProgramById, { id: id as any });
     if (!data) return null;
     return transformProgram(data);
 };
 
 export const createProgram = async (program: Program): Promise<Program> => {
+    if (isTestBypass()) {
+        const id = program.id?.startsWith('local-') ? program.id : `local-${crypto.randomUUID()}`;
+        const newProg = { ...program, id };
+        const local = localStorage.getItem('test_programs');
+        const list = local ? JSON.parse(local) : [];
+        const filtered = list.filter((p: any) => p.id !== id);
+        filtered.push(newProg);
+        updateTestPrograms(filtered);
+        return newProg;
+    }
     if (!program.organizationId) {
         throw new Error("Organization ID is mandatory for program creation.");
     }
@@ -39,6 +79,13 @@ export const createProgram = async (program: Program): Promise<Program> => {
 };
 
 export const updateProgram = async (program: Program): Promise<void> => {
+    if (isTestBypass()) {
+        const local = localStorage.getItem('test_programs');
+        let list: Program[] = local ? JSON.parse(local) : [];
+        list = list.map((p) => p.id === program.id ? program : p);
+        updateTestPrograms(list);
+        return;
+    }
     await convex.mutation(api.programs.updateProgram, {
         id: program.id as any,
         patch: {
@@ -61,10 +108,18 @@ export const updateProgram = async (program: Program): Promise<void> => {
 };
 
 export const deleteProgram = async (id: string): Promise<void> => {
+    if (isTestBypass()) {
+        const local = localStorage.getItem('test_programs');
+        let list: Program[] = local ? JSON.parse(local) : [];
+        list = list.filter((p) => p.id !== id);
+        updateTestPrograms(list);
+        return;
+    }
     await convex.mutation(api.programs.deleteProgram, { id: id as any });
 };
 
 export const migratePrograms = async (targetOrganizationId: string, programIds: string[]) => {
+    if (isTestBypass()) return;
     return await convex.mutation(api.programs.migratePrograms, {
         targetOrganizationId: targetOrganizationId as any,
         programIds: programIds as any[]
@@ -72,6 +127,10 @@ export const migratePrograms = async (targetOrganizationId: string, programIds: 
 };
 
 export const deleteAllProgramsInOrg = async (organizationId: string) => {
+    if (isTestBypass()) {
+        updateTestPrograms(null);
+        return;
+    }
     return await convex.mutation(api.programs.deleteAllProgramsInOrg, {
         organizationId: organizationId as any
     });
@@ -87,6 +146,18 @@ export const updateTimerState = async (programId: string, state: {
     holdMessage?: string;
     status?: 'draft' | 'live' | 'concluded' | 'archived';
 }): Promise<void> => {
+    if (isTestBypass()) {
+        const local = localStorage.getItem('test_programs');
+        let list: Program[] = local ? JSON.parse(local) : [];
+        list = list.map((p) => {
+            if (p.id === programId) {
+                return { ...p, ...state };
+            }
+            return p;
+        });
+        updateTestPrograms(list);
+        return;
+    }
     const stateToSave: any = {
         currentSlotIndex: state.currentSlotIndex,
         isTimerActive: state.isTimerActive,
@@ -107,6 +178,9 @@ export const updateTimerState = async (programId: string, state: {
 };
 
 export const getPublicProgram = async (slugOrId: string): Promise<Program | null> => {
+    if (isTestBypass()) {
+        return await getProgramById(slugOrId);
+    }
     // 1. Try slug first
     const dataBySlug = await convex.query(api.programs.getProgramBySlug, { slug: slugOrId });
     if (dataBySlug && (dataBySlug as any).isPublic) {

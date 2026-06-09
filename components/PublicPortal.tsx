@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery, useConvex } from 'convex/react';
+import { useQuery, useConvex } from '../hooks/useConvexMock';
 import { api } from '../convex/_generated/api';
 import { Program } from '../types';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
@@ -51,12 +51,12 @@ export const PublicPortal: React.FC = () => {
     } as Program : null;
 
 
-    // Use a simple ticker to force re-render every second for the countdown
-    // const [, setTick] = useState(0);
-    // useEffect(() => {
-    //     const interval = window.setInterval(() => setTick(t => t + 1), 1000);
-    //     return () => clearInterval(interval);
-    // }, []);
+    // Tick every second to keep countdown live between Convex subscription updates
+    const [, setTick] = useState(0);
+    useEffect(() => {
+        const interval = window.setInterval(() => setTick(t => t + 1), 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     const nowTime = Date.now();
     const derivedSecondsElapsed = (program?.isTimerActive && program?.timerStartTimestamp)

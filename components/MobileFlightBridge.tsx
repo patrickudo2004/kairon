@@ -311,7 +311,7 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
                     }`}
                   >
                     <Zap size={16} className={program.isOnHold ? 'animate-pulse' : ''} />
-                    {program.isOnHold ? 'HOLD FOR CUE' : 'RELEASE CUE'}
+                    {program.isOnHold ? 'RELEASE HOLD' : 'HOLD FOR CUE'}
                   </button>
                 </div>
 

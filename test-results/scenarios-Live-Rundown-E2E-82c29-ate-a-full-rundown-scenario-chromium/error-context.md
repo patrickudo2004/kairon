@@ -1,0 +1,166 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e11]: KAIRON
+      - button [ref=e12] [cursor=pointer]:
+        - img [ref=e13]
+    - button "Test Organization" [ref=e17] [cursor=pointer]:
+      - img [ref=e19]
+      - generic [ref=e22]: Test Organization
+      - img [ref=e23]
+    - navigation [ref=e25]:
+      - link "Dashboard" [ref=e26] [cursor=pointer]:
+        - /url: /
+        - img [ref=e27]
+        - generic [ref=e32]: Dashboard
+      - link "Editor" [ref=e33] [cursor=pointer]:
+        - /url: /editor
+        - img [ref=e34]
+        - generic [ref=e36]: Editor
+      - link "Live" [ref=e37] [cursor=pointer]:
+        - /url: /live
+        - img [ref=e38]
+        - generic [ref=e40]: Live
+      - link "List" [ref=e41] [cursor=pointer]:
+        - /url: /list
+        - img [ref=e42]
+        - generic [ref=e45]: List
+      - link "Monitors" [ref=e46] [cursor=pointer]:
+        - /url: /monitors
+        - img [ref=e47]
+        - generic [ref=e49]: Monitors
+      - link "Calendar" [ref=e50] [cursor=pointer]:
+        - /url: /calendar
+        - img [ref=e51]
+        - generic [ref=e53]: Calendar
+      - link "User Guide" [ref=e54] [cursor=pointer]:
+        - /url: /guide
+        - img [ref=e55]
+        - generic [ref=e58]: User Guide
+      - link "Workspace" [ref=e59] [cursor=pointer]:
+        - /url: /admin
+        - img [ref=e60]
+        - generic [ref=e63]: Workspace
+    - generic [ref=e64]:
+      - generic [ref=e65]:
+        - img [ref=e66]
+        - generic [ref=e70]: Live Sync
+      - button "t User Profile test@kairon.app" [ref=e72] [cursor=pointer]:
+        - generic [ref=e74]: t
+        - generic [ref=e75]:
+          - paragraph [ref=e76]: User Profile
+          - paragraph [ref=e77]: test@kairon.app
+      - generic [ref=e79]:
+        - generic [ref=e80]:
+          - generic [ref=e81]: Live Venues
+          - button "End All" [ref=e82] [cursor=pointer]
+        - button "Sunday Morning Service" [ref=e83] [cursor=pointer]:
+          - generic [ref=e85]: Sunday Morning Service
+          - img [ref=e86]
+  - generic [ref=e88]:
+    - banner [ref=e89]:
+      - generic [ref=e90]:
+        - heading "Sunday Morning Service" [level=2] [ref=e93]
+        - generic [ref=e94]:
+          - generic [ref=e95]: "-00:10"
+          - generic [ref=e97]:
+            - button "Pause Timer" [ref=e98] [cursor=pointer]:
+              - img [ref=e99]
+            - button "Previous Slot" [disabled] [ref=e102]:
+              - img [ref=e103]
+            - button "Next Slot" [ref=e105] [cursor=pointer]:
+              - img [ref=e106]
+            - button "Toggle Hold" [ref=e108] [cursor=pointer]:
+              - img [ref=e109]
+            - button "Auto" [ref=e113] [cursor=pointer]:
+              - img [ref=e114]
+              - generic [ref=e116]: Auto
+        - generic [ref=e117]:
+          - generic [ref=e118]:
+            - img [ref=e119]
+            - text: Synced
+          - button "Switch to Dark Mode" [ref=e123] [cursor=pointer]:
+            - img [ref=e124]
+          - button "Open Flight Bridge (Mini Player)" [ref=e126] [cursor=pointer]:
+            - img [ref=e127]
+          - button "Launch Projector (TV View)" [ref=e129] [cursor=pointer]:
+            - img [ref=e130]
+          - button "Export PDF" [ref=e132] [cursor=pointer]:
+            - img [ref=e133]
+          - button "Share" [ref=e136] [cursor=pointer]:
+            - img [ref=e137]
+            - text: Share
+    - main [ref=e143]:
+      - generic [ref=e145]:
+        - generic [ref=e146]:
+          - generic [ref=e147]:
+            - generic [ref=e148]: Talk
+            - generic [ref=e149]: Current Session
+          - generic [ref=e150]:
+            - text: "Next:"
+            - generic [ref=e151]: Sermon - Pastor John
+        - generic [ref=e152]:
+          - heading "Opening Praise & Worship" [level=1] [ref=e153]
+          - paragraph [ref=e154]: Worship Team
+          - generic [ref=e155]: "-00:10"
+        - generic [ref=e157]:
+          - generic [ref=e158]:
+            - generic [ref=e159]:
+              - button "Hold for Cue" [ref=e160] [cursor=pointer]:
+                - img [ref=e161]
+                - generic [ref=e164]: Hold for Cue
+              - generic [ref=e165]:
+                - button "Nudge Down" [ref=e166] [cursor=pointer]:
+                  - img [ref=e167]
+                - generic [ref=e168]: Nudge
+                - button "Nudge Up" [ref=e169] [cursor=pointer]:
+                  - img [ref=e170]
+            - generic [ref=e171]:
+              - button [disabled] [ref=e172]:
+                - img [ref=e173]
+              - button [active] [ref=e175] [cursor=pointer]:
+                - img [ref=e176]
+              - button [ref=e179] [cursor=pointer]:
+                - img [ref=e180]
+            - button "End Event" [ref=e183] [cursor=pointer]:
+              - img [ref=e184]
+              - generic [ref=e186]: End Event
+          - generic [ref=e187]: Control Deck • Unified Operator Interface
+  - generic [ref=e189]:
+    - generic [ref=e190]:
+      - generic [ref=e191]: Time Left
+      - generic [ref=e192]: "-1:10"
+      - paragraph [ref=e194]: Opening Praise & Worship
+    - generic [ref=e195]:
+      - generic [ref=e196]:
+        - img [ref=e198]
+        - generic [ref=e202]: Live
+      - generic [ref=e204]:
+        - img [ref=e205]
+        - img [ref=e209]
+        - img [ref=e211]
+      - generic [ref=e214]:
+        - button [ref=e215] [cursor=pointer]:
+          - img [ref=e216]
+        - generic [ref=e219]: Pause
+    - generic [ref=e220]:
+      - generic [ref=e221]:
+        - button "Nudge +1 min" [ref=e222] [cursor=pointer]:
+          - img [ref=e223]
+        - generic [ref=e224]: Nudge
+        - button "Nudge -1 min" [ref=e225] [cursor=pointer]:
+          - img [ref=e226]
+      - generic [ref=e227]:
+        - button "View Service Report" [ref=e228] [cursor=pointer]:
+          - img [ref=e229]
+        - generic [ref=e231]: Report
+      - generic [ref=e232]:
+        - button [ref=e233] [cursor=pointer]:
+          - img [ref=e234]
+        - generic [ref=e236]: End Event
+```

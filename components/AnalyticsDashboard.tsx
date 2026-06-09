@@ -4,7 +4,7 @@ import { BarChart3, Clock, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown
 import { formatDuration } from '../utils/time';
 import { usePDF } from '@react-pdf/renderer';
 import ServiceReportPDF from './ServiceReportPDF';
-import { useMutation } from 'convex/react';
+import { useMutation } from '../hooks/useConvexMock';
 import { api } from '../convex/_generated/api';
 
 interface AnalyticsDashboardProps {

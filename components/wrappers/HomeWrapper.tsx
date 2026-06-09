@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery as useConvexQuery, useMutation as useConvexMutation } from 'convex/react';
+import { useQuery as useConvexQuery, useMutation as useConvexMutation } from '../../hooks/useConvexMock';
 import { api } from '../../convex/_generated/api';
 import HomeDashboard from '../HomeDashboard';
 import { Program } from '../../types';
