@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from 'convex/react';
+import { useQuery } from '../../hooks/useConvexMock';
 import { api } from '../../convex/_generated/api';
 import { Program, Organization } from '../../types';
 import { AlertCircle, RefreshCw } from 'lucide-react';

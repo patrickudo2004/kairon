@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from 'convex/react';
+import { useQuery } from '../../hooks/useConvexMock';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import { Program, Organization } from '../../types';
@@ -133,6 +133,7 @@ const TVWrapper: React.FC = () => {
             currentSlotIndex={program.currentSlotIndex ?? 0}
             isTimerActive={program.isTimerActive ?? false}
             secondsElapsed={derivedSecondsElapsed}
+            timerStartTimestamp={program.timerStartTimestamp ?? null}
             isDarkMode={isDarkMode}
             toggleTheme={toggleTheme}
             activeOrg={activeOrg}

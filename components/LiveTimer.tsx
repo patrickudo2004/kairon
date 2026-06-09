@@ -256,6 +256,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
               <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-2xl p-1 border border-slate-200 dark:border-slate-700 shadow-lg">
                 <button
                   onClick={() => onNudge?.(-1)}
+                  title="Nudge Down"
                   className="p-3 hover:bg-white dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-indigo-600 rounded-xl transition-all"
                 >
                   <Minus size={20} />
@@ -263,6 +264,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
                 <div className="px-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter">Nudge</div>
                 <button
                   onClick={() => onNudge?.(1)}
+                  title="Nudge Up"
                   className="p-3 hover:bg-white dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-indigo-600 rounded-xl transition-all"
                 >
                   <Plus size={20} />

@@ -4,12 +4,14 @@ import { Maximize, Minimize, Sun, Moon, Timer } from 'lucide-react';
 import { formatDuration } from '../utils/time';
 import { useStageMessages } from '../hooks/useStageMessages';
 import { useWakeLock } from '../hooks/useWakeLock';
+import { useTimerSync } from '../hooks/useTimerSync';
 
 interface TVViewProps {
     program: Program;
     currentSlotIndex: number;
     isTimerActive: boolean;
     secondsElapsed: number;
+    timerStartTimestamp?: number | null;
     onToggleTimer?: () => void; // Optional, maybe for testing
     isDarkMode?: boolean;
     toggleTheme?: () => void;
@@ -22,6 +24,7 @@ const TVView: React.FC<TVViewProps> = ({
     currentSlotIndex,
     isTimerActive,
     secondsElapsed,
+    timerStartTimestamp = null,
     isDarkMode = true, // Default to dark if not provided
     toggleTheme,
     activeOrg,
@@ -55,20 +58,8 @@ const TVView: React.FC<TVViewProps> = ({
         }
     }, [promptMessage]);
 
-    // Drift-Proof Local Ticker for smooth countdown
-    const [localSecondsElapsed, setLocalSecondsElapsed] = useState(secondsElapsed);
-
-    useEffect(() => {
-        setLocalSecondsElapsed(secondsElapsed);
-    }, [secondsElapsed]);
-
-    useEffect(() => {
-        if (!isTimerActive) return;
-        const interval = setInterval(() => {
-            setLocalSecondsElapsed(prev => prev + 1);
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [isTimerActive]);
+    // Drift-Proof Wall-Clock Timer (uses anchor timestamp — no drift)
+    const localSecondsElapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
 
     // Screen Wake Lock
     useWakeLock(true);
@@ -136,7 +127,7 @@ const TVView: React.FC<TVViewProps> = ({
                     </div>
                     <h1 className="text-6xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-6">Stand By</h1>
                     <p className="text-2xl md:text-4xl text-slate-500 dark:text-slate-400 font-medium max-w-2xl mb-12">
-                        Thank you for attending **{program.title}**.
+                        Thank you for attending <strong>{program.title}</strong>.
                     </p>
                     <div className="px-8 py-3 bg-indigo-600 text-white rounded-full font-bold uppercase tracking-[0.3em] animate-pulse">
                         Stand By for Next Event

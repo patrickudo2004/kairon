@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery as useConvexQuery } from 'convex/react';
+import { useQuery as useConvexQuery } from '../../hooks/useConvexMock';
 import { api } from '../../convex/_generated/api';
 import CalendarView from '../CalendarView';
 import { Program } from '../../types';

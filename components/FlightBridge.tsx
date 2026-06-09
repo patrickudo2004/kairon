@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipForward, SkipBack, Clock, ChevronDown, ChevronUp, AlertCircle, Sun, Moon } from 'lucide-react';
 import { Program, Slot } from '../types';
 import { formatDuration } from '../utils/time';
-import { useQuery } from 'convex/react';
+import { useQuery } from '../hooks/useConvexMock';
 import { api } from '../convex/_generated/api';
 import { Volume2, Lightbulb, Video } from 'lucide-react';
 
