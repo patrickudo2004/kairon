@@ -32,7 +32,8 @@ import CalendarView from './components/CalendarView';
 import HomeDashboard from './components/HomeDashboard';
 import PrintableSchedule from './components/PrintableSchedule';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
-import ShareDialog from './components/ShareDialog';
+
+
 import TVView from './components/TVView';
 import { Auth } from './components/Auth';
 import { OrganizationManager } from './components/OrganizationManager';
@@ -171,7 +172,8 @@ const AppContent: React.FC = () => {
       timerStartTimestamp
     };
   }, [program.id, isTimerActive, currentSlotIndex, secondsElapsed, timerStartTimestamp]);
-  const [isShareOpen, setIsShareOpen] = useState(false);
+
+
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
 
   // --- Auth & Org State ---
@@ -1535,7 +1537,7 @@ const AppContent: React.FC = () => {
 
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={handleToggleTimer}
+                      onClick={() => handleToggleTimer()}
                     className={`p-2 rounded-xl transition-all ${displayIsTimerActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
                     title={displayIsTimerActive ? "Pause Timer" : "Start Event"}
                   >
@@ -1631,13 +1633,8 @@ const AppContent: React.FC = () => {
                         <Download size={18} />
                       </button>
 
-                      <button
-                        onClick={() => setIsShareOpen(true)}
-                        className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-md shadow-indigo-500/20 transition-all active:scale-95 flex items-center gap-2"
-                      >
-                        <Share2 size={14} />
-                        Share
-                      </button>
+
+
                     </>
                   )}
                 </>
@@ -1861,7 +1858,8 @@ const AppContent: React.FC = () => {
         )}
       </div>
 
-      <ShareDialog isOpen={isShareOpen} onClose={() => setIsShareOpen(false)} program={displayProgram} isPro={isPro} />
+
+
       <ExportDialog
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}

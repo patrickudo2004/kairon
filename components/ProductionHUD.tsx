@@ -112,7 +112,7 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                     {/* Play/Pause Control (Centralized for Mobile) */}
                     <div className="flex flex-col items-center gap-1">
                         <button
-                            onClick={() => onToggleTimer?.(program, false, elapsed)}
+                            onClick={() => onToggleTimer?.({ ...program, id: programId } as any, false, elapsed)}
                             className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all active:scale-90 shadow-lg ${isTimerActive ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30' : 'bg-emerald-600 text-white shadow-emerald-900/20'}`}
                         >
                             {isTimerActive ? <TimerIcon size={24} /> : <Play size={24} />}
@@ -256,7 +256,7 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                 {/* Play/Pause Control (Main HUD) */}
                 <div className="flex flex-col items-center gap-1 mr-2 border-r border-slate-800 pr-4">
                     <button
-                        onClick={() => onToggleTimer?.(program, false, elapsed)}
+                        onClick={() => onToggleTimer?.({ ...program, id: programId } as any, false, elapsed)}
                         className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isTimerActive ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'}`}
                     >
                         {isTimerActive ? <TimerIcon size={20} /> : <Play size={20} />}

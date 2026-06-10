@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Program, Organization } from '../types';
-import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap, Activity, Crown } from 'lucide-react';
+import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap, Activity, Crown, Copy, Check, QrCode } from 'lucide-react';
 import { useStageMessages } from '../hooks/useStageMessages';
+import QRCode from 'react-qr-code';
 
 interface MonitorDashboardProps {
     program: Program;
@@ -21,13 +22,32 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
     const { sendStageMessage, clearStageMessage } = useStageMessages(program.id);
     const [customMessage, setCustomMessage] = useState('');
     const [isStrobe, setIsStrobe] = useState(false);
+    const [copiedPath, setCopiedPath] = useState<string | null>(null);
+    const [openQrCodes, setOpenQrCodes] = useState<Record<string, boolean>>({});
+
+    const handleCopyLink = (path: string, key: string) => {
+        const fullUrl = window.location.origin + path;
+        navigator.clipboard.writeText(fullUrl).then(() => {
+            setCopiedPath(key);
+            setTimeout(() => setCopiedPath(null), 2000);
+        }).catch(err => {
+            console.error('Failed to copy link: ', err);
+        });
+    };
+
+    const handleToggleQr = (key: string) => {
+        setOpenQrCodes(prev => ({
+            ...prev,
+            [key]: !prev[key]
+        }));
+    };
 
     const quickCues = [
-        { label: '5 Mins Left', text: '5 MINUTES REMAINING', type: 'alert' },
-        { label: 'Wrap Up', text: 'PLEASE WRAP UP', type: 'alert' },
-        { label: 'Mic Closer', text: 'BRING MIC CLOSER', type: 'info' },
+        { label: '5 Mins Left', text: '5 MINS LEFT', type: 'alert' },
+        { label: 'Wrap Up', text: 'WRAP UP', type: 'alert' },
+        { label: 'Mic Close', text: 'MIC CLOSE', type: 'info' },
         { label: 'Wait for Cue', text: 'WAIT FOR CUE', type: 'info' },
-        { label: 'Next Ready', text: 'DRAMA CREW READY', type: 'info' },
+        { label: 'Next Ready', text: 'NEXT READY', type: 'info' },
     ];
 
     const handleSendQuick = (text: string, type: string) => {
@@ -104,19 +124,47 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                             </div>
                                         )}
                                     </div>
-                                    <button
-                                        onClick={() => {
-                                            if (isLocked) {
-                                                window.location.href = '/admin?tab=branding';
-                                                return;
-                                            }
-                                            window.open(opt.path, '_blank');
-                                        }}
-                                        className={`p-2 rounded-xl transition-colors ${isLocked ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-600'}`}
-                                        title={isLocked ? "Unlock with Pro" : "Open in new tab"}
-                                    >
-                                        {isLocked ? <Crown size={18} /> : <ExternalLink size={18} />}
-                                    </button>
+                                    <div className="flex items-center gap-1.5">
+                                        {!isLocked && (
+                                            <>
+                                                <button
+                                                    onClick={() => handleCopyLink(opt.path, opt.title)}
+                                                    className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl transition-all active:scale-95 flex items-center justify-center"
+                                                    title="Copy Sharing Link"
+                                                >
+                                                    {copiedPath === opt.title ? (
+                                                        <Check size={18} className="text-emerald-500" />
+                                                    ) : (
+                                                        <Copy size={18} />
+                                                    )}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleToggleQr(opt.title)}
+                                                    className={`p-2 rounded-xl transition-all active:scale-95 border flex items-center justify-center ${
+                                                        openQrCodes[opt.title]
+                                                            ? 'bg-indigo-600 text-white border-indigo-600'
+                                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 border-transparent'
+                                                    }`}
+                                                    title="Toggle QR Code"
+                                                >
+                                                    <QrCode size={18} />
+                                                </button>
+                                            </>
+                                        )}
+                                        <button
+                                            onClick={() => {
+                                                if (isLocked) {
+                                                    window.location.href = '/admin?tab=branding';
+                                                    return;
+                                                }
+                                                window.open(opt.path, '_blank');
+                                            }}
+                                            className={`p-2 rounded-xl transition-colors ${isLocked ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-600'}`}
+                                            title={isLocked ? "Unlock with Pro" : "Open in new tab"}
+                                        >
+                                            {isLocked ? <Crown size={18} /> : <ExternalLink size={18} />}
+                                        </button>
+                                    </div>
                                 </div>
                                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{opt.title}</h3>
                                 <p className="text-sm text-slate-500 mb-6">{opt.description}</p>
@@ -149,6 +197,25 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Slide-Down QR Panel */}
+                                {!isLocked && openQrCodes[opt.title] && (
+                                    <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center animate-in fade-in slide-in-from-top-4 duration-300">
+                                        <div className="bg-white p-3 rounded-xl shadow-md border border-slate-100">
+                                            <QRCode value={window.location.origin + opt.path} size={130} />
+                                        </div>
+                                        <p className="mt-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 text-center">
+                                            Scan to open on tablet/phone
+                                        </p>
+                                        {window.location.hostname === 'localhost' && (
+                                            <div className="mt-2 text-center max-w-[240px]">
+                                                <p className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold leading-normal">
+                                                    ⚠️ Localhost detected. Scan using your PC's local LAN IP or the production domain so other devices can resolve the link.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
