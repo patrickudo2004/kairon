@@ -43,7 +43,7 @@ const TVWrapper: React.FC = () => {
     // Use a simple ticker to force re-render every second for the countdown
     const [, setTick] = useState(0);
 
-    // BroadcastChannel Display Telemetry
+    // BroadcastChannel Display Telemetry & Remote Actions
     useEffect(() => {
         // Detect if inside an iframe or in thumbnail mode
         const isThumbnail = new URLSearchParams(window.location.search).get('mode') === 'thumbnail';
@@ -51,6 +51,14 @@ const TVWrapper: React.FC = () => {
         if (isThumbnail || isIframe) return;
 
         const channel = new BroadcastChannel('kairon_displays');
+        
+        const handleMessage = (event: MessageEvent) => {
+            const { type, tabId: targetTabId } = event.data;
+            if (type === 'toggle_theme' && targetTabId === 'tv') {
+                toggleTheme();
+            }
+        };
+        channel.addEventListener('message', handleMessage);
         
         const sendHeartbeat = () => {
             const isBrowserFullscreen = Math.abs(window.screen.width - window.innerWidth) <= 1 && 
@@ -77,9 +85,10 @@ const TVWrapper: React.FC = () => {
         
         return () => {
             clearInterval(interval);
+            channel.removeEventListener('message', handleMessage);
             channel.close();
         };
-    }, []);
+    }, [toggleTheme]);
     useEffect(() => {
         const interval = window.setInterval(() => setTick(t => t + 1), 1000);
         return () => clearInterval(interval);

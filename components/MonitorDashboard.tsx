@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Program, Organization } from '../types';
-import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap, Activity, Crown, Copy, Check, QrCode } from 'lucide-react';
+import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap, Activity, Crown, Copy, Check, QrCode, AppWindow, Moon } from 'lucide-react';
 import { useStageMessages } from '../hooks/useStageMessages';
 import QRCode from 'react-qr-code';
 
@@ -44,6 +44,27 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
         }));
     };
 
+    const handleRemoteToggleTheme = (tabId: string) => {
+        const channel = new BroadcastChannel('kairon_displays');
+        channel.postMessage({
+            type: 'toggle_theme',
+            tabId
+        });
+        channel.close();
+    };
+
+    const handleOpenAsWindow = (path: string) => {
+        const width = 1280;
+        const height = 720;
+        const left = (window.screen.width - width) / 2;
+        const top = (window.screen.height - height) / 2;
+        window.open(
+            path,
+            '_blank',
+            `width=${width},height=${height},left=${left},top=${top},menubar=no,status=no,toolbar=no,location=no`
+        );
+    };
+
     const quickCues = [
         { label: '5 Mins Left', text: '5 MINS LEFT', type: 'alert' },
         { label: 'Wrap Up', text: 'WRAP UP', type: 'alert' },
@@ -85,7 +106,8 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
             icon: Smartphone,
             description: 'Attendee view for mobile phones.',
             path: `/p/${program.slug || program.id}`,
-            color: 'bg-indigo-500'
+            color: 'bg-indigo-500',
+            tabId: 'public'
         },
         {
             title: 'Crew Tactical HUD',
@@ -174,9 +196,18 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                             })()
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
                                         {!isLocked && (
                                             <>
+                                                {opt.tabId && (
+                                                    <button
+                                                        onClick={() => handleRemoteToggleTheme(opt.tabId)}
+                                                        className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl transition-all active:scale-95 flex items-center justify-center"
+                                                        title="Toggle Remote Display Theme"
+                                                    >
+                                                        <Moon size={18} />
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={() => handleCopyLink(opt.path, opt.title)}
                                                     className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl transition-all active:scale-95 flex items-center justify-center"
@@ -198,6 +229,13 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                                     title="Toggle QR Code"
                                                 >
                                                     <QrCode size={18} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleOpenAsWindow(opt.path)}
+                                                    className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl transition-all active:scale-95 flex items-center justify-center"
+                                                    title="Open as Standalone Window"
+                                                >
+                                                    <AppWindow size={18} />
                                                 </button>
                                             </>
                                         )}

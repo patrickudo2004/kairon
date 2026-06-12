@@ -141,6 +141,7 @@ const AppContent: React.FC = () => {
   const queryClient = useQueryClient();
   const recentlyToggledRef = React.useRef<boolean>(false);
   const lastAdvancedIndexRef = React.useRef<number>(-1);
+  const lastProcessedIndexRef = React.useRef<number>(-1);
   const [displayStatuses, setDisplayStatuses] = useState<Record<string, { isFullscreen: boolean; isOnSecondary: boolean; timestamp: number }>>({});
 
   useEffect(() => {
@@ -907,6 +908,7 @@ const AppContent: React.FC = () => {
 
   const loadProgram = (newProgram: Program) => {
     lastAdvancedIndexRef.current = -1;
+    lastProcessedIndexRef.current = -1;
     setProgram(newProgram);
 
     // Safety: Only reset local viewer state if we are NOT loading the live program.
@@ -932,6 +934,7 @@ const AppContent: React.FC = () => {
 
   const handlePlayProgram = (newProgram: Program, seconds?: number) => {
     lastAdvancedIndexRef.current = -1;
+    lastProcessedIndexRef.current = -1;
     // 1. Set the interlock target specifically to this new program
     setInterlockTargetProgram(newProgram);
     
@@ -1084,6 +1087,16 @@ const AppContent: React.FC = () => {
 
     const currentIdx = displayCurrentSlotIndex;
     const elapsed = displaySecondsElapsed;
+
+    // Transition Settle Lock: Ignore stale elapsed values immediately following a transition
+    if (lastProcessedIndexRef.current !== currentIdx) {
+      if (elapsed > 2) {
+        console.log('Ignoring stale elapsed time during slot transition:', elapsed, 'for slot index:', currentIdx);
+        return;
+      }
+      lastProcessedIndexRef.current = currentIdx;
+    }
+
     const currentSlot = displayProgram.slots[currentIdx];
     
     if (!currentSlot) return;
@@ -1215,6 +1228,7 @@ const AppContent: React.FC = () => {
       const now = Date.now();
       if (targetIdStr === String(displayProgram.id)) {
         lastAdvancedIndexRef.current = -1;
+        lastProcessedIndexRef.current = -1;
       }
       // For PLAY: Use localSecondsOverride (from manual start) or existing display elapsed
       const secondsToUse = localSecondsOverride !== undefined 
