@@ -140,6 +140,45 @@ const AppContent: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const queryClient = useQueryClient();
   const recentlyToggledRef = React.useRef<boolean>(false);
+  const lastAdvancedIndexRef = React.useRef<number>(-1);
+  const [displayStatuses, setDisplayStatuses] = useState<Record<string, { isFullscreen: boolean; timestamp: number }>>({});
+
+  useEffect(() => {
+    const channel = new BroadcastChannel('kairon_displays');
+    
+    const handleMessage = (event: MessageEvent) => {
+      const { type, tabId, isFullscreen } = event.data;
+      if (type === 'heartbeat' && tabId) {
+        setDisplayStatuses(prev => ({
+          ...prev,
+          [tabId]: { isFullscreen, timestamp: Date.now() }
+        }));
+      }
+    };
+    
+    channel.addEventListener('message', handleMessage);
+    
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setDisplayStatuses(prev => {
+        let changed = false;
+        const next = { ...prev };
+        for (const [key, value] of Object.entries(next)) {
+          if (now - value.timestamp > 3000) {
+            delete next[key];
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, 1000);
+    
+    return () => {
+      channel.removeEventListener('message', handleMessage);
+      channel.close();
+      clearInterval(interval);
+    };
+  }, []);
 
 
   // Main State
@@ -867,6 +906,7 @@ const AppContent: React.FC = () => {
 
 
   const loadProgram = (newProgram: Program) => {
+    lastAdvancedIndexRef.current = -1;
     setProgram(newProgram);
 
     // Safety: Only reset local viewer state if we are NOT loading the live program.
@@ -891,6 +931,7 @@ const AppContent: React.FC = () => {
   };
 
   const handlePlayProgram = (newProgram: Program, seconds?: number) => {
+    lastAdvancedIndexRef.current = -1;
     // 1. Set the interlock target specifically to this new program
     setInterlockTargetProgram(newProgram);
     
@@ -1049,7 +1090,8 @@ const AppContent: React.FC = () => {
 
     const durationSeconds = currentSlot.durationMinutes * 60;
 
-    if (elapsed >= durationSeconds) {
+    if (elapsed >= durationSeconds && lastAdvancedIndexRef.current !== currentIdx) {
+      lastAdvancedIndexRef.current = currentIdx; // Lock it!
       // Throttle Auto-Advance (Mutation Lock)
       if (Date.now() - lastAdvanceTimeRef.current < 2000) return;
       lastAdvanceTimeRef.current = Date.now();
@@ -1171,6 +1213,9 @@ const AppContent: React.FC = () => {
 
     if (newState) {
       const now = Date.now();
+      if (targetIdStr === String(displayProgram.id)) {
+        lastAdvancedIndexRef.current = -1;
+      }
       // For PLAY: Use localSecondsOverride (from manual start) or existing display elapsed
       const secondsToUse = localSecondsOverride !== undefined 
         ? localSecondsOverride 
@@ -1763,6 +1808,7 @@ const AppContent: React.FC = () => {
                         onLaunchFlightBridge={() => openFlightBridge()}
                         isFlightBridgeSupported={isFlightBridgeSupported}
                         isPro={isPro}
+                        displayStatuses={displayStatuses}
                       />
                     } />
 
