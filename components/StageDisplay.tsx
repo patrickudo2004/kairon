@@ -104,13 +104,13 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     if (program.status === 'concluded') {
         return (
             <div className={isDarkMode ? 'dark' : ''}>
-                <div className="w-screen h-screen bg-black flex flex-col items-center justify-center p-12 text-center">
+                <div className={`w-screen h-screen ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'} flex flex-col items-center justify-center p-12 text-center transition-colors duration-500`}>
                     <div className="w-24 h-24 mb-12 flex items-center justify-center relative">
                         <div className="absolute inset-0 bg-emerald-500/10 rounded-full blur-2xl animate-pulse"></div>
                         <CheckCircle size={80} className="text-emerald-500 relative z-10" />
                     </div>
-                    <h1 className="text-white text-[10vw] font-black uppercase tracking-tighter leading-none mb-4">Stand By</h1>
-                    <p className="text-slate-500 text-3xl font-medium uppercase tracking-[0.2em]">Session Finished</p>
+                    <h1 className={`text-[10vw] font-black uppercase tracking-tighter leading-none mb-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Stand By</h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-3xl font-medium uppercase tracking-[0.2em]">Session Finished</p>
                 </div>
             </div>
         );
@@ -120,10 +120,10 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     if (program.status === 'draft' || !currentSlot) {
         return (
             <div className={isDarkMode ? 'dark' : ''}>
-                <div className="w-screen h-screen bg-black flex flex-col items-center justify-center p-12 text-center">
-                    <h1 className="text-white text-[12vw] font-black uppercase tracking-tighter leading-none mb-8">Stand By</h1>
+                <div className={`w-screen h-screen ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'} flex flex-col items-center justify-center p-12 text-center transition-colors duration-500`}>
+                    <h1 className={`text-[12vw] font-black uppercase tracking-tighter leading-none mb-8 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Stand By</h1>
                     <div className="w-24 h-1 bg-indigo-500/50 rounded-full animate-pulse" />
-                    <p className="text-slate-600 text-2xl font-bold uppercase tracking-widest mt-12">{program.title}</p>
+                    <p className="text-slate-600 dark:text-slate-400 text-2xl font-bold uppercase tracking-widest mt-12">{program.title}</p>
                 </div>
             </div>
         );
