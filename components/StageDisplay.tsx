@@ -169,14 +169,14 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                 {/* Stage Title */}
                 <div className="absolute top-8 left-8 right-8 flex justify-between items-start z-10">
                     <div className="max-w-[70%]">
-                        <h2 className={`text-3xl md:text-4xl font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-300'} mb-2`}>Current Item</h2>
+                        <h2 className={`text-3xl md:text-4xl font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-500'} mb-2`}>Current Item</h2>
                         <h1 className="text-5xl md:text-7xl font-black uppercase leading-none tracking-tighter">
                             {currentSlot.title}
                         </h1>
                     </div>
                     <div className="text-right">
-                        <h2 className={`text-3xl md:text-4xl font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-300'} mb-2`}>Status</h2>
-                        <div className={`text-4xl font-black uppercase ${isTimerActive ? 'text-emerald-500' : isDarkMode ? 'text-slate-600' : 'text-slate-300'}`} style={isTimerActive && activeOrg?.brandColor ? { color: activeOrg.brandColor } : {}}>
+                        <h2 className={`text-3xl md:text-4xl font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-500'} mb-2`}>Status</h2>
+                        <div className={`text-4xl font-black uppercase ${isTimerActive ? 'text-emerald-500' : isDarkMode ? 'text-slate-600' : 'text-slate-500'}`} style={isTimerActive && activeOrg?.brandColor ? { color: activeOrg.brandColor } : {}}>
                             {isTimerActive ? 'Running' : 'Paused'}
                         </div>
                     </div>
@@ -224,7 +224,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                 {/* Bottom Meta */}
                 <div className={`absolute bottom-12 w-full px-12 flex justify-between items-end border-t ${isDarkMode ? 'border-white/10' : 'border-slate-200'} pt-8`}>
                     <div className="flex-1">
-                        <span className={`text-2xl font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-300'} block mb-2`}>Duration</span>
+                        <span className={`text-2xl font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-500'} block mb-2`}>Duration</span>
                         <span className="text-4xl font-black">{currentSlot.durationMinutes}m Planned</span>
                     </div>
 
@@ -239,7 +239,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                     )}
 
                     <div className="flex-1 text-right">
-                        <span className={`text-2xl font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-300'} block mb-2`}>Event</span>
+                        <span className={`text-2xl font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-500'} block mb-2`}>Event</span>
                         <span className="text-4xl font-black">{program.title}</span>
                     </div>
                 </div>

@@ -200,7 +200,7 @@ const TVView: React.FC<TVViewProps> = ({
                             {program.title}
                         </h2>
                         {program.subtitle && (
-                            <h3 className="text-xl sm:text-2xl text-slate-400 dark:text-slate-500 mb-6 font-light">
+                            <h3 className="text-xl sm:text-2xl text-slate-600 dark:text-slate-400 mb-6 font-light">
                                 {program.subtitle}
                             </h3>
                         )}
@@ -208,7 +208,7 @@ const TVView: React.FC<TVViewProps> = ({
                             {currentSlot.title}
                         </h1>
                         {currentSlot.speaker && (
-                            <p className="text-3xl sm:text-4xl md:text-5xl text-slate-500 dark:text-slate-300 mt-4 sm:mt-6 font-light">
+                            <p className="text-3xl sm:text-4xl md:text-5xl text-slate-600 dark:text-slate-300 mt-4 sm:mt-6 font-light">
                                 {currentSlot.speaker}
                             </p>
                         )}
@@ -260,13 +260,13 @@ const TVView: React.FC<TVViewProps> = ({
                         <div className="text-center pb-8 sm:pb-16 min-h-[100px]">
                             {nextSlot ? (
                                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                    <span className="text-2xl sm:text-3xl text-slate-400 dark:text-slate-500 uppercase font-bold tracking-widest mr-4">Up Next:</span>
-                                    <span className="text-3xl sm:text-4xl md:text-5xl text-slate-700 dark:text-white font-medium">
+                                    <span className="text-2xl sm:text-3xl text-slate-500 dark:text-slate-400 uppercase font-bold tracking-widest mr-4">Up Next:</span>
+                                    <span className="text-3xl sm:text-4xl md:text-5xl text-slate-800 dark:text-slate-200 font-medium">
                                         {nextSlot.title}
                                     </span>
                                 </div>
                             ) : (
-                                <div className="text-3xl text-slate-400 dark:text-slate-600 font-medium">
+                                <div className="text-3xl text-slate-500 dark:text-slate-500 font-medium">
                                     End of Program
                                 </div>
                             )}

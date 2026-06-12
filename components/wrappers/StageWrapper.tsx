@@ -10,8 +10,10 @@ import StageDisplay from '../StageDisplay';
 const StageWrapper: React.FC = () => {
     const [searchParams] = useSearchParams();
     const programId = searchParams.get('id');
+    const themeParam = searchParams.get('theme');
 
-    const isDarkMode = useUIStore((state) => state.isDarkMode);
+    const globalDarkMode = useUIStore((state) => state.isDarkMode);
+    const isDarkMode = themeParam ? (themeParam === 'dark') : globalDarkMode;
     const toggleTheme = useUIStore((state) => state.toggleTheme);
 
     const specificProgram = useQuery(
@@ -75,7 +77,8 @@ const StageWrapper: React.FC = () => {
                 type: 'heartbeat',
                 tabId: 'stage',
                 isFullscreen,
-                isOnSecondary
+                isOnSecondary,
+                isDarkMode
             });
         };
         
@@ -87,7 +90,7 @@ const StageWrapper: React.FC = () => {
             channel.removeEventListener('message', handleMessage);
             channel.close();
         };
-    }, [toggleTheme]);
+    }, [toggleTheme, isDarkMode]);
     useEffect(() => {
         const interval = window.setInterval(() => setTick(t => t + 1), 1000);
         return () => clearInterval(interval);

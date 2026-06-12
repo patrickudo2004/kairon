@@ -52,9 +52,27 @@ export const getProgramById = async (id: string): Promise<Program | null> => {
 export const createProgram = async (program: Program): Promise<Program> => {
     if (isTestBypass()) {
         const id = program.id?.startsWith('local-') ? program.id : `local-${crypto.randomUUID()}`;
-        const newProg = { ...program, id };
         const local = localStorage.getItem('test_programs');
-        const list = local ? JSON.parse(local) : [];
+        const list: Program[] = local ? JSON.parse(local) : [];
+        const existing = list.find((p: any) => p.id === id);
+        // CRITICAL: If an existing record is found, preserve timer-managed fields.
+        // The React 'program' state does NOT contain currentSlotIndex/isTimerActive etc.
+        // (those are separate React states), so a naive overwrite would clobber timer
+        // state written by timerSaveMutation and reset displays to slot 0.
+        // This mirrors the production updateProgram Convex patch which NEVER touches timer fields.
+        const newProg = existing
+            ? {
+                ...existing,      // base: preserve timer state from localStorage
+                ...program,       // overlay: update content fields (title, slots, isManualMode, etc.)
+                id,
+                // Explicitly restore timer fields from localStorage so they aren't lost:
+                currentSlotIndex: existing.currentSlotIndex,
+                isTimerActive: existing.isTimerActive,
+                timerStartTimestamp: existing.timerStartTimestamp,
+                secondsElapsed: existing.secondsElapsed,
+                status: existing.status,
+              }
+            : { ...program, id };
         const filtered = list.filter((p: any) => p.id !== id);
         filtered.push(newProg);
         updateTestPrograms(filtered);
@@ -82,7 +100,21 @@ export const updateProgram = async (program: Program): Promise<void> => {
     if (isTestBypass()) {
         const local = localStorage.getItem('test_programs');
         let list: Program[] = local ? JSON.parse(local) : [];
-        list = list.map((p) => p.id === program.id ? program : p);
+        list = list.map((p) => {
+            if (p.id === program.id) {
+                // Preserve timer-managed fields from localStorage (same reason as createProgram above)
+                return {
+                    ...p,
+                    ...program,
+                    currentSlotIndex: p.currentSlotIndex,
+                    isTimerActive: p.isTimerActive,
+                    timerStartTimestamp: p.timerStartTimestamp,
+                    secondsElapsed: p.secondsElapsed,
+                    status: p.status,
+                };
+            }
+            return p;
+        });
         updateTestPrograms(list);
         return;
     }

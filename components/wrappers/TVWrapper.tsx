@@ -11,8 +11,10 @@ import TVView from '../TVView';
 const TVWrapper: React.FC = () => {
     const [searchParams] = useSearchParams();
     const programId = searchParams.get('id');
+    const themeParam = searchParams.get('theme');
 
-    const isDarkMode = useUIStore((state) => state.isDarkMode);
+    const globalDarkMode = useUIStore((state) => state.isDarkMode);
+    const isDarkMode = themeParam ? (themeParam === 'dark') : globalDarkMode;
     const toggleTheme = useUIStore((state) => state.toggleTheme);
 
     const specificProgram = useQuery(
@@ -76,7 +78,8 @@ const TVWrapper: React.FC = () => {
                 type: 'heartbeat',
                 tabId: 'tv',
                 isFullscreen,
-                isOnSecondary
+                isOnSecondary,
+                isDarkMode
             });
         };
         
@@ -88,7 +91,7 @@ const TVWrapper: React.FC = () => {
             channel.removeEventListener('message', handleMessage);
             channel.close();
         };
-    }, [toggleTheme]);
+    }, [toggleTheme, isDarkMode]);
     useEffect(() => {
         const interval = window.setInterval(() => setTick(t => t + 1), 1000);
         return () => clearInterval(interval);

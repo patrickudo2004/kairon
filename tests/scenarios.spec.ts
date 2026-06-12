@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Live Rundown E2E Scenarios', () => {
   test('should simulate a full rundown scenario', async ({ page, context }) => {
+    // This is a complex multi-page E2E scenario with 741 simulated seconds of clock
+    // fast-forwards and a second browser page - needs more than the 30s default.
+    test.setTimeout(120000);
+
     page.on('console', msg => console.log('PAGE LOG:', msg.text()));
     page.on('pageerror', msg => console.log('PAGE ERROR:', msg));
 
@@ -67,34 +71,50 @@ test.describe('Live Rundown E2E Scenarios', () => {
     await expect(timerDisplay).toContainText('00:30');
 
     // 7. Test Nudge functionality
+    const autoManualToggle = page.locator('[title*="Advance"]').first();
+    await expect(autoManualToggle).toBeVisible();
+
+    // Switch to Manual Mode so subtracting 1 minute goes to overtime instead of auto-advancing
+    await autoManualToggle.click();
+    await page.clock.fastForward(1000);
+
     const minusNudgeBtn = page.locator('button[title="Nudge Down"]').first();
     const plusNudgeBtn = page.locator('button[title="Nudge Up"]').first();
 
     // Subtract 1 minute
     await minusNudgeBtn.click();
-    await page.clock.fastForward(100); // Small tick to trigger state update
+    await page.clock.fastForward(1000); // Tick to trigger state update
     // Countdown should now go into overtime
     await expect(timerDisplay).toHaveText(/-00:\d\d/);
 
     // Add 1 minute
     await plusNudgeBtn.click();
-    await page.clock.fastForward(100);
+    await page.clock.fastForward(1000);
     // Countdown should return to positive
     await expect(timerDisplay).toHaveText(/00:\d\d/);
 
+    // Switch back to Auto-Advance mode
+    await autoManualToggle.click();
+    await page.clock.fastForward(1000);
+
+    // Wait 3 seconds to let the debounced auto-save mutation complete, avoiding database write races
+    await page.clock.fastForward(3000);
+
     // 8. Test Timer pausing
-    const pausedTime = await timerDisplay.textContent();
     await playPauseBtn.click();
+    await page.clock.fastForward(1000); // Let pause mutation and state settle
+    const pausedTime = await timerDisplay.textContent();
     await page.clock.fastForward(30000); // 30 seconds pass
     // Countdown should remain paused at the exact same value
     await expect(timerDisplay).toHaveText(pausedTime || '');
 
     // Resume the timer
     await playPauseBtn.click();
-    await page.clock.fastForward(100);
+    await page.clock.fastForward(1000); // Let resume mutation and state settle
 
     // 9. Test Auto-Advance behavior (Slot 1 ends after remaining time)
-    await page.clock.fastForward(35000); // 35 seconds
+    await page.clock.fastForward(25000); // remaining time + buffer to pass 1 min total
+    await page.clock.fastForward(1000); // Let auto-advance settle
     // Active slot should auto-advance to index 1 ("Sermon - Pastor John")
     await expect(page.locator('h1').first()).toContainText('Sermon - Pastor John');
     await expect(page.locator('p').filter({ hasText: 'Pastor John' }).first()).toBeVisible();
@@ -102,13 +122,23 @@ test.describe('Live Rundown E2E Scenarios', () => {
 
     // 10. Test Manual Mode behavior
     // Toggle manual advance mode
-    const autoManualToggle = page.locator('[title*="Advance"]').first();
     await expect(autoManualToggle).toBeVisible();
     await autoManualToggle.click();
-    await page.clock.fastForward(100);
+    await page.clock.fastForward(1000);
 
-    // Fast-forward 10 minutes and 30 seconds (630,000 ms)
-    await page.clock.fastForward(630000);
+    // CRITICAL: Wait for the "Manual" badge to appear in the UI. This confirms that
+    // isManualMode has propagated all the way through the localStorage → activeSessions
+    // → globalLiveProgram → displayProgram.isManualMode chain before we do the big jump.
+    // Without this, the auto-advance watcher fires with stale isManualMode=false and
+    // calls handleEndEvent(), concluding the event and resetting to slot 0.
+    await expect(page.locator('button[title="Manual Mode (Manual Advance)"]').first()).toBeVisible({ timeout: 5000 });
+
+    // Wait 3 seconds to let the manual toggle auto-save complete, avoiding database write races
+    await page.clock.fastForward(3000);
+
+    // Fast-forward remaining 10 minutes and 27 seconds (627,000 ms)
+    await page.clock.fastForward(627000);
+    await page.clock.fastForward(1000); // Let manual mode overtime and UI settle
 
     // In Manual Mode, it must NOT auto-advance.
     // It should stay on "Sermon - Pastor John" and display negative overtime countdown.

@@ -142,17 +142,17 @@ const AppContent: React.FC = () => {
   const recentlyToggledRef = React.useRef<boolean>(false);
   const lastAdvancedIndexRef = React.useRef<number>(-1);
   const lastProcessedIndexRef = React.useRef<number>(-1);
-  const [displayStatuses, setDisplayStatuses] = useState<Record<string, { isFullscreen: boolean; isOnSecondary: boolean; timestamp: number }>>({});
+  const [displayStatuses, setDisplayStatuses] = useState<Record<string, { isFullscreen: boolean; isOnSecondary: boolean; timestamp: number; isDarkMode?: boolean }>>({});
 
   useEffect(() => {
     const channel = new BroadcastChannel('kairon_displays');
     
     const handleMessage = (event: MessageEvent) => {
-      const { type, tabId, isFullscreen, isOnSecondary } = event.data;
+      const { type, tabId, isFullscreen, isOnSecondary, isDarkMode } = event.data;
       if (type === 'heartbeat' && tabId) {
         setDisplayStatuses(prev => ({
           ...prev,
-          [tabId]: { isFullscreen, isOnSecondary: !!isOnSecondary, timestamp: Date.now() }
+          [tabId]: { isFullscreen, isOnSecondary: !!isOnSecondary, timestamp: Date.now(), isDarkMode }
         }));
       }
     };
@@ -797,9 +797,8 @@ const AppContent: React.FC = () => {
           timerStartTimestamp: displayTimerStartTimestamp,
           isManualMode: displayProgram.isManualMode
         });
-      } else {
-        setProgram(updated);
       }
+      setProgram(updated);
       
       // Persist the slot change
       updateProgramService(updated);
@@ -884,7 +883,7 @@ const AppContent: React.FC = () => {
       // CRITICAL: If we just created a new program (transitioning from local- ID), 
       // we must update our local state with the actual Convex ID returned.
       const savedProgram = mutation.data as Program | void;
-      if (savedProgram && savedProgram.id && program.id?.startsWith('local-')) {
+      if (savedProgram && savedProgram.id && program.id !== savedProgram.id && program.id?.startsWith('local-')) {
         console.log("Syncing local ID to Convex ID:", savedProgram.id);
         setProgram(prev => ({ ...prev, id: (savedProgram as Program).id }));
         // Also update URL to prevent "stale local" state on refresh
@@ -1088,13 +1087,10 @@ const AppContent: React.FC = () => {
     const currentIdx = displayCurrentSlotIndex;
     const elapsed = displaySecondsElapsed;
 
-    // Transition Settle Lock: Ignore stale elapsed values immediately following a transition
+    // State-Based Settle Lock: Reset settle state when index changes
     if (lastProcessedIndexRef.current !== currentIdx) {
-      if (elapsed > 2) {
-        console.log('Ignoring stale elapsed time during slot transition:', elapsed, 'for slot index:', currentIdx);
-        return;
-      }
       lastProcessedIndexRef.current = currentIdx;
+      return; // Skip evaluation on the first render run of a new slot index to let state settle
     }
 
     const currentSlot = displayProgram.slots[currentIdx];
@@ -1136,7 +1132,7 @@ const AppContent: React.FC = () => {
         handleEndEvent();
       }
     }
-  }, [displaySecondsElapsed, displayIsTimerActive, displayProgram.id]);
+  }, [displaySecondsElapsed, displayIsTimerActive, displayProgram.id, displayCurrentSlotIndex, displayProgram.slots, displayProgram.isManualMode]);
 
   // Auto-Start Watcher (New Feature)
   useEffect(() => {
@@ -1315,7 +1311,7 @@ const AppContent: React.FC = () => {
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     
     const holdState = nextHoldState !== undefined ? nextHoldState : !targetProg.isOnHold;
-    const msg = targetProg.holdMessage || "ON HOLD: STANDBY";
+    const msg = targetProg.holdMessage || "";
 
     // PUSH TO CLOUD - Ensure HUDs update instantly
     timerSaveMutation.mutate({
