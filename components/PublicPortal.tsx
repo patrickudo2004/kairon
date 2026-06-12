@@ -20,6 +20,27 @@ export const PublicPortal: React.FC = () => {
     const isDarkMode = useUIStore((state) => state.isDarkMode);
     const toggleTheme = useUIStore((state) => state.toggleTheme);
 
+    // Remote Theme Control Listener
+    useEffect(() => {
+        const isThumbnail = new URLSearchParams(window.location.search).get('mode') === 'thumbnail';
+        const isIframe = window.self !== window.top;
+        if (isThumbnail || isIframe) return;
+
+        const channel = new BroadcastChannel('kairon_displays');
+        const handleMessage = (event: MessageEvent) => {
+            const { type, tabId: targetTabId } = event.data;
+            if (type === 'toggle_theme' && targetTabId === 'public') {
+                toggleTheme();
+            }
+        };
+        channel.addEventListener('message', handleMessage);
+        
+        return () => {
+            channel.removeEventListener('message', handleMessage);
+            channel.close();
+        };
+    }, [toggleTheme]);
+
     // Convex Reactive Query
     const programData = useQuery(
         api.programs.getProgramBySlug,

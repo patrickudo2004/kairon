@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Program, Organization } from '../types';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Sun, Moon, Maximize, Minimize } from 'lucide-react';
 import { useTimerSync } from '../hooks/useTimerSync';
 import { formatDuration } from '../utils/time';
 import { useStageMessages } from '../hooks/useStageMessages';
@@ -30,6 +30,48 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     isThumbnail = false
 }) => {
     useWakeLock(true);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+
+    const toggleFullscreen = async () => {
+        try {
+            const doc = window.document as any;
+            const docEl = doc.documentElement as any;
+
+            const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+            const cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+            const isFullScreen = doc.fullscreenElement || doc.mozFullScreenElement || doc.webkitFullScreenElement || doc.msFullscreenElement;
+
+            if (!isFullScreen) {
+                await requestFullScreen.call(docEl);
+            } else {
+                await cancelFullScreen.call(doc);
+            }
+        } catch (err) {
+            console.error("Error toggling fullscreen:", err);
+            alert(`Fullscreen failed: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    };
+
+    // Listen for fullscreen change events (ESC key etc)
+    useEffect(() => {
+        const handleFsChange = () => {
+            const doc = document as any;
+            const isFs = !!(doc.fullscreenElement || doc.mozFullScreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement);
+            setIsFullscreen(isFs);
+        };
+
+        document.addEventListener('fullscreenchange', handleFsChange);
+        document.addEventListener('webkitfullscreenchange', handleFsChange);
+        document.addEventListener('mozfullscreenchange', handleFsChange);
+        document.addEventListener('MSFullscreenChange', handleFsChange);
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFsChange);
+            document.removeEventListener('webkitfullscreenchange', handleFsChange);
+            document.removeEventListener('mozfullscreenchange', handleFsChange);
+            document.removeEventListener('MSFullscreenChange', handleFsChange);
+        };
+    }, []);
     const { promptMessage } = useStageMessages(program.id);
     const currentSlot = program.slots[currentSlotIndex];
 
@@ -91,17 +133,27 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
         <div className={isDarkMode ? 'dark' : ''}>
             <div className={`w-screen h-screen ${isDarkMode ? 'dark bg-black text-white' : 'bg-white text-slate-900'} overflow-hidden flex flex-col items-center justify-center font-sans select-none transition-colors duration-500`}>
 
-                {/* Controls Overlay */}
-                <div className="absolute bottom-8 right-8 z-[120] flex items-center gap-4 opacity-10 hover:opacity-100 transition-opacity">
-                    {toggleTheme && (
+                {/* Controls Container */}
+                {!isThumbnail && (
+                    <div className="absolute top-4 right-4 z-50 flex items-center gap-2 opacity-20 hover:opacity-100 transition-opacity p-4 rounded-xl">
+                        {toggleTheme && (
+                            <button
+                                onClick={toggleTheme}
+                                className="p-3 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 transition-colors shadow-lg"
+                                title="Toggle Theme"
+                            >
+                                {isDarkMode ? <Sun size={24} /> : <Moon size={24} />}
+                            </button>
+                        )}
                         <button
-                            onClick={toggleTheme}
-                            className={`p-4 rounded-2xl ${isDarkMode ? 'bg-slate-900 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-500 hover:text-black'} transition-all`}
+                            onClick={toggleFullscreen}
+                            className="p-3 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 transition-colors shadow-lg"
+                            title="Toggle Fullscreen"
                         >
-                            {isDarkMode ? <span className="font-bold">LIGHT</span> : <span className="font-bold">DARK</span>}
+                            {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
                         </button>
-                    )}
-                </div>
+                    </div>
+                )}
 
                 {/* High Contrast Background Signal */}
                 <div className={`absolute inset-0 transition-colors duration-500 ${timeLeft < 0 ? 'bg-rose-950/20' : timeLeft < 60 ? 'bg-amber-950/10' : ''
