@@ -141,17 +141,17 @@ const AppContent: React.FC = () => {
   const queryClient = useQueryClient();
   const recentlyToggledRef = React.useRef<boolean>(false);
   const lastAdvancedIndexRef = React.useRef<number>(-1);
-  const [displayStatuses, setDisplayStatuses] = useState<Record<string, { isFullscreen: boolean; timestamp: number }>>({});
+  const [displayStatuses, setDisplayStatuses] = useState<Record<string, { isFullscreen: boolean; isOnSecondary: boolean; timestamp: number }>>({});
 
   useEffect(() => {
     const channel = new BroadcastChannel('kairon_displays');
     
     const handleMessage = (event: MessageEvent) => {
-      const { type, tabId, isFullscreen } = event.data;
+      const { type, tabId, isFullscreen, isOnSecondary } = event.data;
       if (type === 'heartbeat' && tabId) {
         setDisplayStatuses(prev => ({
           ...prev,
-          [tabId]: { isFullscreen, timestamp: Date.now() }
+          [tabId]: { isFullscreen, isOnSecondary: !!isOnSecondary, timestamp: Date.now() }
         }));
       }
     };
@@ -839,7 +839,7 @@ const AppContent: React.FC = () => {
       status: 'concluded'
     });
 
-    if (!isLiveEventActive && targetId === program.id) {
+    if (targetId === program.id) {
       setProgram(updatedProgram);
       setIsTimerActive(false);
       setTimerStartTimestamp(null);
@@ -1113,7 +1113,7 @@ const AppContent: React.FC = () => {
         });
 
         // Also update local state for smoothness if viewing draft
-        if (!isLiveEventActive) {
+        if (!isLiveEventActive || displayProgram.id === program.id) {
           setCurrentSlotIndex(nextIndex);
           setSecondsElapsed(0);
           setTimerStartTimestamp(nextStartTs);
@@ -1315,7 +1315,7 @@ const AppContent: React.FC = () => {
     });
 
     // Local update for smoothness on draft
-    if (!isLiveEventActive && targetId === program.id) {
+    if (targetId === program.id) {
       setProgram(prev => ({ ...prev, isOnHold: holdState, holdMessage: msg }));
     }
   };
@@ -1337,7 +1337,7 @@ const AppContent: React.FC = () => {
       isManualMode: nextManualState
     });
 
-    if (!isLiveEventActive && targetId === program.id) {
+    if (targetId === program.id) {
       setProgram(prev => ({ ...prev, isManualMode: nextManualState }));
     }
   };
@@ -1388,7 +1388,7 @@ const AppContent: React.FC = () => {
         });
 
         // Local update for smoothness on draft
-        if (!isLiveEventActive && targetId === program.id) {
+        if (targetId === program.id) {
           setCurrentSlotIndex(nextIndex);
           setSecondsElapsed(0);
           setIsTimerActive(nextIsActive);
@@ -1425,7 +1425,7 @@ const AppContent: React.FC = () => {
       });
 
       // Local update for smoothness on draft
-      if (!isLiveEventActive && targetId === program.id) {
+      if (targetId === program.id) {
         setCurrentSlotIndex(nextIndex);
         setSecondsElapsed(0);
         setIsTimerActive(nextIsActive);

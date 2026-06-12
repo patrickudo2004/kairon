@@ -92,7 +92,8 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
             icon: Activity,
             description: 'Staff-only view with production cues.',
             path: `/p/${program.slug || program.id}/crew`,
-            color: 'bg-amber-500'
+            color: 'bg-amber-500',
+            tabId: 'crew'
         }
     ];
 
@@ -138,20 +139,38 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                                         </div>
                                                     );
                                                 }
-                                                if (status.isFullscreen) {
+                                                const displayOnSecondary = status.isOnSecondary;
+                                                if (displayOnSecondary) {
+                                                    if (status.isFullscreen) {
+                                                        return (
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/30">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                                Active
+                                                            </div>
+                                                        );
+                                                    }
                                                     return (
-                                                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/30">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                                            Active
+                                                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/30">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                                            Windowed
+                                                        </div>
+                                                    );
+                                                } else {
+                                                    if (status.isFullscreen) {
+                                                        return (
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/30" title="Fullscreen on local screen">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                                Active (Local)
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/30" title="Open locally on laptop">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                                            Windowed (Local)
                                                         </div>
                                                     );
                                                 }
-                                                return (
-                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/30">
-                                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                                                        Windowed
-                                                    </div>
-                                                );
                                             })()
                                         )}
                                     </div>

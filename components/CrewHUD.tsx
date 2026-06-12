@@ -11,6 +11,44 @@ export const CrewHUD: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
     const [tick, setTick] = useState(0);
 
+    // BroadcastChannel Display Telemetry
+    useEffect(() => {
+        // Detect if inside an iframe or in thumbnail mode
+        const isThumbnail = new URLSearchParams(window.location.search).get('mode') === 'thumbnail';
+        const isIframe = window.self !== window.top;
+        if (isThumbnail || isIframe) return;
+
+        const channel = new BroadcastChannel('kairon_displays');
+        
+        const sendHeartbeat = () => {
+            const isBrowserFullscreen = Math.abs(window.screen.width - window.innerWidth) <= 1 && 
+                                         Math.abs(window.screen.height - window.innerHeight) <= 1;
+            const isFullscreen = !!(
+                document.fullscreenElement ||
+                (document as any).webkitFullscreenElement ||
+                (document as any).mozFullScreenElement ||
+                (document as any).msFullscreenElement ||
+                isBrowserFullscreen
+            );
+            const isOnSecondary = Math.abs(window.screenX) >= 100 || Math.abs(window.screenY) >= 100;
+
+            channel.postMessage({
+                type: 'heartbeat',
+                tabId: 'crew',
+                isFullscreen,
+                isOnSecondary
+            });
+        };
+        
+        sendHeartbeat();
+        const interval = setInterval(sendHeartbeat, 1000);
+        
+        return () => {
+            clearInterval(interval);
+            channel.close();
+        };
+    }, []);
+
     // Convex Reactive Query
     const programData = useQuery(
         api.programs.getProgramBySlug,
