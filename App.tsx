@@ -1545,7 +1545,7 @@ const AppContent: React.FC = () => {
                   </button>
 
                   <button
-                    onClick={handlePrev}
+                    onClick={() => handlePrev()}
                     disabled={displayCurrentSlotIndex === 0}
                     className={`p-2 rounded-xl transition-all ${displayCurrentSlotIndex === 0 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
                     title="Previous Slot"
@@ -1554,7 +1554,7 @@ const AppContent: React.FC = () => {
                   </button>
 
                   <button
-                    onClick={handleNext}
+                    onClick={() => handleNext()}
                     disabled={displayCurrentSlotIndex === displayProgram.slots.length - 1}
                     className={`p-2 rounded-xl transition-all ${displayCurrentSlotIndex === displayProgram.slots.length - 1 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
                     title="Next Slot"
@@ -1563,7 +1563,7 @@ const AppContent: React.FC = () => {
                   </button>
 
                   <button
-                    onClick={handleToggleHold}
+                    onClick={() => handleToggleHold()}
                     className={`p-2 rounded-xl transition-all ${displayProgram.isOnHold ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-amber-500'}`}
                     title="Toggle Hold"
                   >
@@ -1573,7 +1573,7 @@ const AppContent: React.FC = () => {
                   <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
 
                   <button
-                    onClick={handleToggleManualMode}
+                    onClick={() => handleToggleManualMode()}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all ${displayProgram.isManualMode
                       ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
                       : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
