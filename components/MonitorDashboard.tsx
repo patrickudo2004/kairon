@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Program, Organization } from '../types';
-import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap, Activity, Crown, Copy, Check, QrCode, AppWindow, Moon } from 'lucide-react';
+import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap, Activity, Crown, Copy, Check, QrCode, AppWindow, Moon, Sun } from 'lucide-react';
 import { useStageMessages } from '../hooks/useStageMessages';
 import QRCode from 'react-qr-code';
 
@@ -10,7 +10,7 @@ interface MonitorDashboardProps {
     onLaunchFlightBridge: () => void;
     isFlightBridgeSupported: boolean;
     isPro?: boolean;
-    displayStatuses?: Record<string, { isFullscreen: boolean; timestamp: number }>;
+    displayStatuses?: Record<string, { isFullscreen: boolean; isOnSecondary: boolean; timestamp: number; isDarkMode?: boolean }>;
 }
 
 export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
@@ -26,6 +26,11 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
     const [isStrobe, setIsStrobe] = useState(false);
     const [copiedPath, setCopiedPath] = useState<string | null>(null);
     const [openQrCodes, setOpenQrCodes] = useState<Record<string, boolean>>({});
+    const [localThemes, setLocalThemes] = useState<Record<string, 'dark' | 'light'>>({
+        stage: 'dark',
+        tv: 'dark',
+        public: 'dark'
+    });
 
     const handleCopyLink = (path: string, key: string) => {
         const fullUrl = window.location.origin + path;
@@ -45,6 +50,16 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
     };
 
     const handleRemoteToggleTheme = (tabId: string) => {
+        const currentTheme = displayStatuses?.[tabId]?.isDarkMode !== undefined
+            ? (displayStatuses[tabId].isDarkMode ? 'dark' : 'light')
+            : localThemes[tabId];
+        const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+        setLocalThemes(prev => ({
+            ...prev,
+            [tabId]: nextTheme
+        }));
+
         const channel = new BroadcastChannel('kairon_displays');
         channel.postMessage({
             type: 'toggle_theme',
@@ -199,14 +214,25 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                     <div className="flex items-center gap-1.5 flex-wrap justify-end">
                                         {!isLocked && (
                                             <>
-                                                {opt.tabId && (
-                                                    <button
-                                                        onClick={() => handleRemoteToggleTheme(opt.tabId)}
-                                                        className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl transition-all active:scale-95 flex items-center justify-center"
-                                                        title="Toggle Remote Display Theme"
-                                                    >
-                                                        <Moon size={18} />
-                                                    </button>
+                                                {opt.tabId && opt.tabId !== 'crew' && (
+                                                    (() => {
+                                                        const activeTheme = displayStatuses?.[opt.tabId]?.isDarkMode !== undefined
+                                                            ? (displayStatuses[opt.tabId].isDarkMode ? 'dark' : 'light')
+                                                            : localThemes[opt.tabId];
+                                                        return (
+                                                            <button
+                                                                onClick={() => handleRemoteToggleTheme(opt.tabId)}
+                                                                className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl transition-all active:scale-95 flex items-center justify-center animate-in fade-in duration-300"
+                                                                title={`Remote display is currently in ${activeTheme.toUpperCase()} mode. Click to toggle theme.`}
+                                                            >
+                                                                {activeTheme === 'dark' ? (
+                                                                    <Moon size={18} className="text-indigo-600 dark:text-indigo-400" fill="currentColor" />
+                                                                ) : (
+                                                                    <Sun size={18} className="text-amber-500 animate-pulse" />
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })()
                                                 )}
                                                 <button
                                                     onClick={() => handleCopyLink(opt.path, opt.title)}
@@ -259,18 +285,25 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
 
                                 <div className={`aspect-video bg-slate-100 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 relative transition-colors ${!isLocked ? 'group-hover:border-indigo-500/30' : ''}`}>
                                     <div className={`w-full h-full ${isLocked ? 'blur-sm grayscale' : ''}`} style={{ overflow: 'hidden' }}>
-                                        <iframe
-                                            src={`${opt.path}${opt.path.includes('?') ? '&' : '?'}mode=thumbnail`}
-                                            className="pointer-events-none opacity-80"
-                                            title={opt.title}
-                                            style={{
-                                                width: '1920px',
-                                                height: '1080px',
-                                                transform: 'scale(0.1666)',
-                                                transformOrigin: 'top left',
-                                                border: 'none'
-                                            }}
-                                        />
+                                        {(() => {
+                                            const activeTheme = displayStatuses?.[opt.tabId]?.isDarkMode !== undefined
+                                                ? (displayStatuses[opt.tabId].isDarkMode ? 'dark' : 'light')
+                                                : localThemes[opt.tabId];
+                                            return (
+                                                <iframe
+                                                    src={`${opt.path}${opt.path.includes('?') ? '&' : '?'}mode=thumbnail&theme=${activeTheme}`}
+                                                    className="pointer-events-none opacity-80"
+                                                    title={opt.title}
+                                                    style={{
+                                                        width: '1920px',
+                                                        height: '1080px',
+                                                        transform: 'scale(0.1666)',
+                                                        transformOrigin: 'top left',
+                                                        border: 'none'
+                                                    }}
+                                                />
+                                            );
+                                        })()}
                                     </div>
                                     {!isLocked ? (
                                         <div className="absolute inset-0 bg-transparent flex items-center justify-center backdrop-blur-[1px]">
