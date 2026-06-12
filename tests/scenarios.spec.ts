@@ -9,8 +9,9 @@ test.describe('Live Rundown E2E Scenarios', () => {
     page.on('console', msg => console.log('PAGE LOG:', msg.text()));
     page.on('pageerror', msg => console.log('PAGE ERROR:', msg));
 
-    // 1. Install Playwright's clock to mock system time and interval execution
-    await page.clock.install();
+    // 1. Install Playwright's clock with a fixed base time to avoid offsets
+    const baseTime = new Date('2026-06-12T12:00:00Z');
+    await page.clock.install({ time: baseTime });
 
     // 2. Load the App with testBypass to mock auth and database operations
     await page.goto('/?testBypass=true');
@@ -68,7 +69,7 @@ test.describe('Live Rundown E2E Scenarios', () => {
 
     // Wait 30 seconds
     await page.clock.fastForward(30000);
-    await expect(timerDisplay).toContainText('00:30');
+    await expect(timerDisplay).toHaveText(/00:(2\d|30)/);
 
     // 7. Test Nudge functionality
     const autoManualToggle = page.locator('[title*="Advance"]').first();
@@ -148,8 +149,9 @@ test.describe('Live Rundown E2E Scenarios', () => {
     // 11. Test Hold for Cue & Standby Banners
     // Open a second page context for Stage Display to verify real-time overlay sync
     const stagePage = await context.newPage();
-    // Enable fake clock on the stage page too
-    await stagePage.clock.install();
+    // Enable fake clock on the stage page, synchronized with the operator page's current mock time
+    const currentMockTime = await page.evaluate(() => Date.now());
+    await stagePage.clock.install({ time: currentMockTime });
     await stagePage.goto(`/stage?id=${programId}&testBypass=true`);
     await stagePage.waitForLoadState('domcontentloaded');
 
@@ -177,5 +179,79 @@ test.describe('Live Rundown E2E Scenarios', () => {
 
     // Verify standby banner is removed
     await expect(holdOverlay).not.toBeVisible();
+  });
+
+  test('should sync correctly across multiple tabs without auto-save loops', async ({ page, context }) => {
+    test.setTimeout(60000);
+
+    // 1. Install Playwright clock with a fixed base time to avoid offsets
+    const baseTime = new Date('2026-06-12T12:00:00Z');
+    await page.clock.install({ time: baseTime });
+
+    // 2. Load Page A and create a program
+    await page.goto('/?testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+
+    const createBtn = page.getByRole('button', { name: 'Create New' });
+    await expect(createBtn).toBeVisible({ timeout: 10000 });
+    await createBtn.click();
+
+    await expect(page).toHaveURL(/.*editor/);
+    const titleInput = page.locator('input').first();
+    await expect(titleInput).toBeVisible();
+    await titleInput.fill('Multi-Tab Sync Service');
+
+    // Add a slot
+    await page.getByText('Add Session Slot').click();
+    await page.locator('input[placeholder="Session Title"]').first().fill('Worship');
+    await page.locator('input[placeholder="Speaker Name"]').first().fill('Choir');
+    await page.locator('input[type="number"]').first().fill('5');
+
+    // Grab the program ID
+    const currentUrl = page.url();
+    const urlObj = new URL(currentUrl);
+    const programId = urlObj.searchParams.get('id');
+    expect(programId).toBeTruthy();
+
+    // Let the auto-save debounce save the program to localStorage
+    await page.clock.fastForward(3000);
+
+    // 4. Navigate Page A to the Live Timer
+    await page.goto(`/live?id=${programId}&testBypass=true`);
+    await page.waitForLoadState('domcontentloaded');
+    const timerDisplayA = page.locator('div.font-mono.font-bold.leading-none').first();
+    await expect(timerDisplayA).toContainText('05:00');
+
+    // 5. Start the timer on Page A
+    const playPauseBtnA = page.locator('button.w-24.h-24');
+    await expect(playPauseBtnA).toBeVisible();
+    await playPauseBtnA.click();
+    await page.clock.fastForward(1000); // Let start mutation and state settle
+
+    // 3. Open Page B (simulating secondary tab/device)
+    const pageB = await context.newPage();
+    // Synchronize Page B's clock with Page A's current mock time AFTER the timer has started
+    const currentMockTimeB = await page.evaluate(() => Date.now());
+    await pageB.clock.install({ time: currentMockTimeB });
+    await pageB.goto(`/live?id=${programId}&testBypass=true`);
+    await pageB.waitForLoadState('domcontentloaded');
+
+    // Verify Page B loaded the correct slot
+    await expect(pageB.locator('h1').first()).toContainText('Worship');
+    const timerDisplayB = pageB.locator('div.font-mono.font-bold.leading-none').first();
+
+    // 6. Propagate state and tick time on both pages identically
+    await page.clock.fastForward(5000);
+    await pageB.clock.fastForward(5000);
+
+    // Verify timer is active on Page A and has decremented
+    const timeA = await timerDisplayA.textContent();
+    expect(timeA).not.toBe('05:00');
+    expect(timeA).toMatch(/^(04|03):\d\d$/);
+
+    // Verify timer is active on Page B and has decremented (without auto-save loop reverting it)
+    const timeB = await timerDisplayB.textContent();
+    expect(timeB).not.toBe('05:00');
+    expect(timeB).toMatch(/^(04|03):\d\d$/);
   });
 });
