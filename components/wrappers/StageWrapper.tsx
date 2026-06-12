@@ -41,6 +41,33 @@ const StageWrapper: React.FC = () => {
 
     // Use a simple ticker to force re-render every second for the countdown
     const [, setTick] = useState(0);
+
+    // BroadcastChannel Display Telemetry
+    useEffect(() => {
+        const channel = new BroadcastChannel('kairon_displays');
+        
+        const sendHeartbeat = () => {
+            const isFullscreen = !!(
+                document.fullscreenElement ||
+                (document as any).webkitFullscreenElement ||
+                (document as any).mozFullScreenElement ||
+                (document as any).msFullscreenElement
+            );
+            channel.postMessage({
+                type: 'heartbeat',
+                tabId: 'stage',
+                isFullscreen
+            });
+        };
+        
+        sendHeartbeat();
+        const interval = setInterval(sendHeartbeat, 1000);
+        
+        return () => {
+            clearInterval(interval);
+            channel.close();
+        };
+    }, []);
     useEffect(() => {
         const interval = window.setInterval(() => setTick(t => t + 1), 1000);
         return () => clearInterval(interval);

@@ -10,6 +10,7 @@ interface MonitorDashboardProps {
     onLaunchFlightBridge: () => void;
     isFlightBridgeSupported: boolean;
     isPro?: boolean;
+    displayStatuses?: Record<string, { isFullscreen: boolean; timestamp: number }>;
 }
 
 export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
@@ -17,7 +18,8 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
     activeOrg,
     onLaunchFlightBridge,
     isFlightBridgeSupported,
-    isPro = false
+    isPro = false,
+    displayStatuses = {}
 }) => {
     const { sendStageMessage, clearStageMessage } = useStageMessages(program.id);
     const [customMessage, setCustomMessage] = useState('');
@@ -67,14 +69,16 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
             icon: Monitor,
             description: 'Massive countdown for preachers/speakers.',
             path: `/stage?id=${program.id}`,
-            color: 'bg-emerald-500'
+            color: 'bg-emerald-500',
+            tabId: 'stage'
         },
         {
             title: 'TV / Overflow',
             icon: Tv,
             description: 'High-contrast view for audience screens.',
             path: `/tv?id=${program.id}`,
-            color: 'bg-rose-500'
+            color: 'bg-rose-500',
+            tabId: 'tv'
         },
         {
             title: 'Public Portal',
@@ -114,7 +118,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                         return (
                             <div key={opt.title} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
                                 <div className="flex items-start justify-between mb-4">
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-3 flex-wrap">
                                         <div className={`p-3 rounded-2xl ${opt.color} text-white`}>
                                             <opt.icon size={24} />
                                         </div>
@@ -122,6 +126,33 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                             <div className="bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-tighter shadow-sm border border-white/20">
                                                 <Crown size={10} /> Pro
                                             </div>
+                                        )}
+                                        {opt.tabId && (
+                                            (() => {
+                                                const status = displayStatuses?.[opt.tabId];
+                                                if (!status) {
+                                                    return (
+                                                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border border-rose-200/50 dark:border-rose-800/30">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                                            Offline
+                                                        </div>
+                                                    );
+                                                }
+                                                if (status.isFullscreen) {
+                                                    return (
+                                                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/30">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                            Active
+                                                        </div>
+                                                    );
+                                                }
+                                                return (
+                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/30">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                                        Windowed
+                                                    </div>
+                                                );
+                                            })()
                                         )}
                                     </div>
                                     <div className="flex items-center gap-1.5">
