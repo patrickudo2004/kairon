@@ -121,6 +121,38 @@ const VenueDock: React.FC<{
 };
 
 
+const isProgramContentEqual = (p1: Program, p2: Program): boolean => {
+  if (p1.title !== p2.title) return false;
+  if ((p1.subtitle || "") !== (p2.subtitle || "")) return false;
+  if (p1.date !== p2.date) return false;
+  if (p1.startTime !== p2.startTime) return false;
+  if ((p1.endTime || "") !== (p2.endTime || "")) return false;
+  if (!!p1.isManualMode !== !!p2.isManualMode) return false;
+  if (!!p1.isOnHold !== !!p2.isOnHold) return false;
+  if ((p1.holdMessage || "") !== (p2.holdMessage || "")) return false;
+  if ((p1.slug || "") !== (p2.slug || "")) return false;
+  if (!!p1.isPublic !== !!p2.isPublic) return false;
+  if ((p1.status || "draft") !== (p2.status || "draft")) return false;
+  if ((p1.estimatedAttendees || 0) !== (p2.estimatedAttendees || 0)) return false;
+  if ((p1.averageHourlyRate || 0) !== (p2.averageHourlyRate || 0)) return false;
+  if (p1.slots.length !== p2.slots.length) return false;
+
+  for (let i = 0; i < p1.slots.length; i++) {
+    const s1 = p1.slots[i];
+    const s2 = p2.slots[i];
+    if (s1.id !== s2.id) return false;
+    if (s1.title !== s2.title) return false;
+    if ((s1.speaker || "") !== (s2.speaker || "")) return false;
+    if (s1.durationMinutes !== s2.durationMinutes) return false;
+    if ((s1.type || "") !== (s2.type || "")) return false;
+    if ((s1.actualDuration || 0) !== (s2.actualDuration || 0)) return false;
+    if ((s1.details || "") !== (s2.details || "")) return false;
+    if ((s1.productionNotes || "") !== (s2.productionNotes || "")) return false;
+  }
+  return true;
+};
+
+
 // --- App Content Component ---
 const AppContent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -640,6 +672,9 @@ const AppContent: React.FC = () => {
             console.log("Hydrating program from ID:", fetchedProgram.title);
             setProgram(fetchedProgram);
           }
+        } else if (saveStatus === 'saved' && !isProgramContentEqual(program, fetchedProgram)) {
+          console.log("Syncing program content updates from database:", fetchedProgram.title);
+          setProgram(fetchedProgram);
         }
 
         // Always sync timer state from DB unless we just performed a local action (Optimistic Consistency)
@@ -860,6 +895,12 @@ const AppContent: React.FC = () => {
       return;
     }
 
+    // Skip saving if local state is already in sync with database
+    if (fetchedProgram && isProgramContentEqual(program, fetchedProgram)) {
+      setSaveStatus('saved');
+      return;
+    }
+
     // Mark as unsaved when program changes
     setSaveStatus('unsaved');
 
@@ -870,7 +911,7 @@ const AppContent: React.FC = () => {
     }, 2000); // 2s debounce
 
     return () => clearTimeout(timer);
-  }, [program, isReadOnly]);
+  }, [program, isReadOnly, fetchedProgram]);
 
   // No-op: Removed 10-second background sync to prevent overwriting server with stale local ticks.
   // The system now relies on "Derived Time" on all displays, so the server only needs to know the StartTimestamp.
