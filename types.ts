@@ -21,6 +21,7 @@ export interface Slot {
   actualDuration?: number; // For analytics
   details?: string; // Additional detailed description
   productionNotes?: string; // Phase 18: Internal cues for staff
+  prompterText?: string; // Teleprompter content
 }
 
 export interface Program {

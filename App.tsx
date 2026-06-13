@@ -226,7 +226,12 @@ const AppContent: React.FC = () => {
     }
   }, [location.pathname, location.search, location.hash, navigate]);
 
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 1280;
+    }
+    return false;
+  });
   const queryClient = useQueryClient();
   const recentlyToggledRef = React.useRef<boolean>(false);
   const lastAdvancedIndexRef = React.useRef<number>(-1);
@@ -622,7 +627,11 @@ const AppContent: React.FC = () => {
 
   // Export State
   const [isExportOpen, setIsExportOpen] = useState(false);
-  const [exportOptions, setExportOptions] = useState<ExportOptions>({ includeDetails: true, includeSpeakers: true });
+  const [exportOptions, setExportOptions] = useState<ExportOptions>({ 
+    includeDetails: true, 
+    includeSpeakers: true,
+    includePrompter: false 
+  });
 
 
   // ---------------------------------------------------------
@@ -1041,7 +1050,7 @@ const AppContent: React.FC = () => {
   // Update save status when mutation completes
   useEffect(() => {
     if (mutation.isSuccess) {
-      setSaveStatus('saved');
+      setSaveStatus(prev => prev === 'saving' ? 'saved' : prev);
 
       // CRITICAL: If we just created a new program (transitioning from local- ID), 
       // we must update our local state with the actual Convex ID returned.
@@ -1059,7 +1068,7 @@ const AppContent: React.FC = () => {
       // Invalidate programs cache to refresh home view
       queryClient.invalidateQueries({ queryKey: ['programs'] });
       // Reset to saved status after 2 seconds
-      setTimeout(() => setSaveStatus('saved'), 2000);
+      setTimeout(() => setSaveStatus(prev => prev === 'saving' ? 'saved' : prev), 2000);
     }
     if (mutation.isError) {
       setSaveStatus('unsaved');
@@ -1698,6 +1707,8 @@ const AppContent: React.FC = () => {
     currentTickingSecondsRef.current = headerElapsed;
   }, [headerElapsed]);
 
+  const isHudVisible = !!(user && canControlLive && displayProgram.slots.length > 0);
+
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
       {user && (
@@ -1736,7 +1747,14 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      <div className={`flex-1 flex flex-col min-h-screen pb-32 lg:pb-0 transition-all duration-300 overflow-x-hidden ${user ? (isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64') : ''}`}>
+      <div className={`flex-1 flex flex-col min-h-screen pb-32 lg:pb-0 transition-all duration-300 overflow-x-hidden ${
+        user 
+          ? (isSidebarCollapsed 
+              ? (isHudVisible ? 'lg:pl-[192px]' : 'lg:pl-20') 
+              : (isHudVisible ? 'lg:pl-[368px]' : 'lg:pl-64')
+            ) 
+          : ''
+      }`}>
         {/* Header (Simplified Top Bar) */}
         <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md transition-colors h-16 flex items-center shrink-0 no-print">
           <div className="w-full px-6 flex items-center justify-between">
@@ -2172,6 +2190,7 @@ const AppContent: React.FC = () => {
           program={displayProgram}
           includeDetails={exportOptions.includeDetails}
           includeSpeakers={exportOptions.includeSpeakers}
+          includePrompter={exportOptions.includePrompter}
           activeOrg={activeOrg}
         />
       )}

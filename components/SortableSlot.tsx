@@ -2,7 +2,7 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Slot, SLOT_PRESETS } from '../types';
-import { Trash2, GripVertical, Copy, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { Trash2, GripVertical, Copy, ChevronDown, ChevronUp, AlertCircle, Tv } from 'lucide-react';
 
 interface SortableSlotProps {
   slot: Slot;
@@ -69,7 +69,7 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
         )}
 
         <div className="flex-1 grid grid-cols-12 gap-4 w-full items-center">
-          <div className="col-span-12 md:col-span-4 flex items-center gap-2">
+          <div className="col-span-12 md:col-span-8 xl:col-span-4 flex items-center gap-2">
             <button
               onClick={() => onToggleDetails(slot.id)}
               className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-900"
@@ -86,7 +86,7 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
               className={`w-full bg-transparent text-slate-900 dark:text-white font-bold text-lg md:text-base focus:underline outline-none placeholder-slate-400 dark:placeholder-slate-600 min-h-[44px] ${isReadOnly ? 'cursor-default' : ''}`}
             />
           </div>
-          <div className="col-span-12 md:col-span-3">
+          <div className="col-span-12 md:col-span-4 xl:col-span-3">
             <input
               type="text"
               value={slot.speaker}
@@ -96,7 +96,7 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
               className={`w-full bg-transparent text-indigo-600 dark:text-indigo-300 text-sm font-medium focus:underline outline-none placeholder-slate-400 dark:placeholder-slate-600 min-h-[44px] ${isReadOnly ? 'cursor-default' : ''}`}
             />
           </div>
-          <div className="col-span-6 md:col-span-2">
+          <div className="col-span-6 md:col-span-6 xl:col-span-2">
             <input
               list="slot-types"
               type="text"
@@ -107,7 +107,7 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
               placeholder="Type..."
             />
           </div>
-          <div className="col-span-6 md:col-span-2 flex items-center gap-2 justify-end">
+          <div className="col-span-6 md:col-span-6 xl:col-span-2 flex items-center gap-2 justify-end">
             <input
               type="number"
               value={slot.durationMinutes}
@@ -151,6 +151,18 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
                 onChange={(e) => onSlotChange(slot.id, 'details', e.target.value)}
                 placeholder="Include key points or session description for attendees..."
                 className={`w-full h-28 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-sm text-slate-700 dark:text-slate-300 font-medium placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/50 outline-none resize-none transition-all ${isReadOnly ? 'cursor-default' : ''}`}
+              />
+            </div>
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+              <label className="block text-[10px] font-black text-indigo-500 uppercase mb-2 tracking-widest flex items-center gap-1.5">
+                <Tv size={12} /> Teleprompter Details
+              </label>
+              <textarea
+                value={slot.prompterText || ''}
+                readOnly={isReadOnly}
+                onChange={(e) => onSlotChange(slot.id, 'prompterText', e.target.value)}
+                placeholder="Enter speech scripts, hymn lyrics, or outlines specifically for the teleprompter screen..."
+                className={`w-full h-28 bg-indigo-500/[0.02] dark:bg-indigo-500/[0.04] border border-indigo-500/20 dark:border-indigo-500/10 rounded-2xl p-4 text-sm text-slate-700 dark:text-slate-300 font-medium placeholder-indigo-900/30 dark:placeholder-indigo-400/20 focus:ring-2 focus:ring-indigo-500/30 outline-none resize-none transition-all ${isReadOnly ? 'cursor-default' : ''}`}
               />
             </div>
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
