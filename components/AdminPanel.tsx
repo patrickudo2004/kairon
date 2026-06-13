@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Organization, OrganizationMember } from '../types';
-import { getOrgMembers, updateOrganizationBranding } from '../services/orgService';
+import { getOrgMembers, updateOrganizationBranding, generateUploadUrl } from '../services/orgService';
 import {
     Settings,
     Users,
@@ -19,7 +19,8 @@ import {
     Check,
     AlertTriangle,
     ArrowRight,
-    Loader
+    Loader,
+    Upload
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { deleteOrganization } from '../services/orgService';
@@ -38,6 +39,47 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
 
     // Branding State
     const [logoUrl, setLogoUrl] = useState(organization.logoUrl || '');
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setIsUploading(true);
+            const isTestBypass = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true';
+
+            if (isTestBypass) {
+                // Test mode: read as base64 data URL
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setLogoUrl(reader.result as string);
+                    setIsUploading(false);
+                };
+                reader.readAsDataURL(file);
+            } else {
+                // Real mode: Convex storage upload
+                const uploadUrl = await generateUploadUrl();
+                const response = await fetch(uploadUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': file.type,
+                    },
+                    body: file,
+                });
+                
+                if (!response.ok) throw new Error("Upload failed");
+                const { storageId } = await response.json();
+                setLogoUrl(storageId);
+                setIsUploading(false);
+            }
+        } catch (err) {
+            console.error("Logo upload failed:", err);
+            alert("Failed to upload logo. Please try again.");
+            setIsUploading(false);
+        }
+    };
     const [brandColor, setBrandColor] = useState(organization.brandColor || '#4f46e5');
 
     // Invite Modal State
@@ -250,19 +292,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                             <ImageIcon size={18} className="text-slate-400" />
                                             Workspace Logo
                                         </label>
-                                        <div className="flex items-center gap-6">
-                                            <div className="w-20 h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 overflow-hidden">
+                                        <div className="flex flex-col md:flex-row md:items-center gap-6">
+                                            <div className="w-20 h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 overflow-hidden shrink-0">
                                                 {logoUrl ? <img src={logoUrl} alt="Preview" className="w-full h-full object-contain" /> : <ImageIcon className="text-slate-300" />}
                                             </div>
-                                            <div className="flex-1">
+                                            <div className="flex-1 space-y-3">
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        disabled={isUploading}
+                                                        className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                                                    >
+                                                        <Upload size={14} />
+                                                        {isUploading ? 'Uploading...' : 'Upload Image'}
+                                                    </button>
+                                                    <span className="text-xs text-slate-400 font-medium">or paste URL below:</span>
+                                                </div>
+                                                <input
+                                                    type="file"
+                                                    ref={fileInputRef}
+                                                    onChange={handleLogoUpload}
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                />
                                                 <input
                                                     type="url"
                                                     value={logoUrl}
                                                     onChange={(e) => setLogoUrl(e.target.value)}
                                                     placeholder="https://your-domain.com/logo.png"
-                                                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                                                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                                                 />
-                                                <p className="text-[10px] text-slate-400 mt-2 italic">Supports PNG, SVG, or JPG. Recommended size 512x512px.</p>
+                                                <p className="text-[10px] text-slate-400 italic">Supports PNG, SVG, or JPG. Recommended size 512x512px.</p>
                                             </div>
                                         </div>
                                     </div>

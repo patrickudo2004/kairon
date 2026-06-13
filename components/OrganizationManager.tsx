@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Organization } from '../types';
-import { getMyOrganizations, createOrganization, updateOrganizationBranding, deleteOrganization } from '../services/orgService';
+import { getMyOrganizations, createOrganization, updateOrganizationBranding, deleteOrganization, generateUploadUrl } from '../services/orgService';
 import { migratePrograms, deleteAllProgramsInOrg, getPrograms } from '../services/programService';
-import { Plus, Settings, Building, ChevronRight, Loader, Check, Image as ImageIcon, Palette, Crown, X, AlertTriangle, ArrowRight, Trash2 } from 'lucide-react';
+import { Plus, Settings, Building, ChevronRight, Loader, Check, Image as ImageIcon, Palette, Crown, X, AlertTriangle, ArrowRight, Trash2, Upload } from 'lucide-react';
 import { createCheckoutSession } from '../services/stripeService';
 
 interface OrganizationManagerProps {
@@ -18,6 +18,47 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
     const [isSettingsOpen, setIsSettingsOpen] = useState<string | null>(null);
     const [logoUrl, setLogoUrl] = useState('');
     const [brandColor, setBrandColor] = useState('#4f46e5');
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setIsUploading(true);
+            const isTestBypass = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true';
+
+            if (isTestBypass) {
+                // Test mode: read as base64 data URL
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setLogoUrl(reader.result as string);
+                    setIsUploading(false);
+                };
+                reader.readAsDataURL(file);
+            } else {
+                // Real mode: Convex storage upload
+                const uploadUrl = await generateUploadUrl();
+                const response = await fetch(uploadUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': file.type,
+                    },
+                    body: file,
+                });
+                
+                if (!response.ok) throw new Error("Upload failed");
+                const { storageId } = await response.json();
+                setLogoUrl(storageId);
+                setIsUploading(false);
+            }
+        } catch (err) {
+            console.error("Logo upload failed:", err);
+            alert("Failed to upload logo. Please try again.");
+            setIsUploading(false);
+        }
+    };
 
     // Deletion State
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
@@ -267,16 +308,43 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
                         ) : (
                             <div className="space-y-6">
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
-                                        <ImageIcon size={16} /> Logo URL
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                                        <ImageIcon size={18} className="text-slate-400" />
+                                        Workspace Logo
                                     </label>
-                                    <input
-                                        type="text"
-                                        value={logoUrl}
-                                        onChange={(e) => setLogoUrl(e.target.value)}
-                                        placeholder="https://example.com/logo.png"
-                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                                    />
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                                        <div className="w-16 h-16 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 overflow-hidden shrink-0">
+                                            {logoUrl ? <img src={logoUrl} alt="Preview" className="w-full h-full object-contain" /> : <ImageIcon className="text-slate-300" />}
+                                        </div>
+                                        <div className="flex-1 space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    disabled={isUploading}
+                                                    className="flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                                                >
+                                                    <Upload size={12} />
+                                                    {isUploading ? 'Uploading...' : 'Upload Image'}
+                                                </button>
+                                                <span className="text-[10px] text-slate-400 font-medium">or paste URL:</span>
+                                            </div>
+                                            <input
+                                                type="file"
+                                                ref={fileInputRef}
+                                                onChange={handleLogoUpload}
+                                                accept="image/*"
+                                                className="hidden"
+                                            />
+                                            <input
+                                                type="url"
+                                                value={logoUrl}
+                                                onChange={(e) => setLogoUrl(e.target.value)}
+                                                placeholder="https://your-domain.com/logo.png"
+                                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-xs text-slate-900 dark:text-white"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div>

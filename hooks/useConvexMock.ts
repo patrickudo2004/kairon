@@ -115,29 +115,20 @@ export const useQuery = (query: any, args: any) => {
         const found = list.find((p: any) => p.slug === slugStr || p.id === slugStr || p.id?.replace('local-', '') === slugStr.replace('local-', ''));
         return found || null;
     }
-    if (path.includes('getOrganizationById')) {
-        return {
+    if (path.includes('getOrganizationById') || path.includes('getMyOrganizations')) {
+        const cachedBranding = localStorage.getItem('test_org_branding');
+        const branding = cachedBranding ? JSON.parse(cachedBranding) : { logoUrl: "", brandColor: "#4f46e5" };
+        const org = {
             id: "test-org-id",
             name: "Test Organization",
             slug: "test-org",
-            logoUrl: "",
-            brandColor: "#4f46e5",
+            logoUrl: branding.logoUrl,
+            brandColor: branding.brandColor,
             subscriptionStatus: "pro",
             createdBy: "test-user-id",
             createdAt: new Date().toISOString()
         };
-    }
-    if (path.includes('getMyOrganizations')) {
-        return [{
-            id: "test-org-id",
-            name: "Test Organization",
-            slug: "test-org",
-            logoUrl: "",
-            brandColor: "#4f46e5",
-            subscriptionStatus: "pro",
-            createdBy: "test-user-id",
-            createdAt: new Date().toISOString()
-        }];
+        return path.includes('getMyOrganizations') ? [org] : org;
     }
     if (path.includes('getAcknowledgements')) {
         return [];
@@ -153,6 +144,25 @@ export const useMutation = (mutation: any) => {
     }
     return async (args: any) => {
         console.log('Mock mutation called with args:', args);
+        let path = '';
+        if (typeof mutation === 'string') {
+            path = mutation;
+        } else if (mutation && typeof mutation === 'object') {
+            const sym = Symbol.for("functionName");
+            path = mutation[sym] || mutation._path || mutation.path || '';
+        }
+        
+        if (path.includes('generateUploadUrl')) {
+            return "/mock-upload-url";
+        }
+        if (path.includes('updateOrganizationBranding')) {
+            localStorage.setItem('test_org_branding', JSON.stringify({
+                logoUrl: args.logoUrl,
+                brandColor: args.brandColor
+            }));
+            window.dispatchEvent(new Event('storage'));
+            return { success: true };
+        }
         return {};
     };
 };

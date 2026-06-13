@@ -13,12 +13,14 @@ const isTestBypass = () => {
 
 export const getMyOrganizations = async (userId: string): Promise<Organization[]> => {
     if (isTestBypass()) {
+        const cached = localStorage.getItem('test_org_branding');
+        const branding = cached ? JSON.parse(cached) : { logoUrl: "", brandColor: "#4f46e5" };
         return [{
             id: "test-org-id",
             name: "Test Organization",
             slug: "test-org",
-            logoUrl: "",
-            brandColor: "#4f46e5",
+            logoUrl: branding.logoUrl,
+            brandColor: branding.brandColor,
             subscriptionStatus: "pro",
             createdBy: "test-user-id",
             createdAt: new Date().toISOString()
@@ -31,12 +33,14 @@ export const getMyOrganizations = async (userId: string): Promise<Organization[]
 
 export const getOrganizationById = async (id: string): Promise<Organization | null> => {
     if (isTestBypass()) {
+        const cached = localStorage.getItem('test_org_branding');
+        const branding = cached ? JSON.parse(cached) : { logoUrl: "", brandColor: "#4f46e5" };
         return {
             id: "test-org-id",
             name: "Test Organization",
             slug: "test-org",
-            logoUrl: "",
-            brandColor: "#4f46e5",
+            logoUrl: branding.logoUrl,
+            brandColor: branding.brandColor,
             subscriptionStatus: "pro",
             createdBy: "test-user-id",
             createdAt: new Date().toISOString()
@@ -68,7 +72,22 @@ export const createOrganization = async (name: string, slug: string, userId?: st
 };
 
 export const updateOrganizationBranding = async (orgId: string, logoUrl: string, brandColor: string): Promise<void> => {
+    if (isTestBypass()) {
+        localStorage.setItem('test_org_branding', JSON.stringify({
+            logoUrl,
+            brandColor
+        }));
+        window.dispatchEvent(new Event('storage'));
+        return;
+    }
     await convex.mutation(api.orgs.updateOrganizationBranding, { id: orgId as any, logoUrl, brandColor });
+};
+
+export const generateUploadUrl = async (): Promise<string> => {
+    if (isTestBypass()) {
+        return "/mock-upload-url";
+    }
+    return await convex.mutation(api.orgs.generateUploadUrl, {});
 };
 
 export const getOrgMembers = async (orgId: string): Promise<any[]> => {

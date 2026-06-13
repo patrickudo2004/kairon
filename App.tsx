@@ -2161,6 +2161,7 @@ const AppContent: React.FC = () => {
           program={displayProgram}
           includeDetails={exportOptions.includeDetails}
           includeSpeakers={exportOptions.includeSpeakers}
+          activeOrg={activeOrg}
         />
       )}
 
