@@ -25,11 +25,13 @@ export const useTimerSync = (
 
         // Immediate initial calculation to avoid frame-jump
         const initialNow = Date.now();
-        setElapsed(Math.floor((initialNow - timestamp) / 1000));
+        const initialElapsed = Math.floor((initialNow - timestamp) / 1000);
+        setElapsed(initialElapsed < 0 ? 0 : initialElapsed);
 
         const interval = setInterval(() => {
             const now = Date.now();
-            setElapsed(Math.floor((now - timestamp) / 1000));
+            const tickElapsed = Math.floor((now - timestamp) / 1000);
+            setElapsed(tickElapsed < 0 ? 0 : tickElapsed);
         }, 1000); // 1s tick is enough for second-precision countdowns
 
         return () => clearInterval(interval);

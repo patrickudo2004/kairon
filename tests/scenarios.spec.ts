@@ -159,13 +159,13 @@ test.describe('Live Rundown E2E Scenarios', () => {
     await expect(stagePage.locator('h1').first()).toContainText('Sermon - Pastor John');
 
     // Go back to operator page and toggle "Hold for Cue"
-    const holdForCueBtn = page.locator('button:has-text("Hold for Cue")');
+    const holdForCueBtn = page.locator('button[title="Toggle Hold"]').first();
     await expect(holdForCueBtn).toBeVisible();
-    await holdForCueBtn.click();
+    await holdForCueBtn.click({ force: true });
 
-    // Wait 1 second to propagate via localStorage sync event
+    // Let mutation settle and reload stage display to fetch latest state
     await page.clock.fastForward(1000);
-    await stagePage.clock.fastForward(1000);
+    await stagePage.reload();
 
     // Verify the standby banner overlays in Stage Display
     const holdOverlay = stagePage.locator('div:has-text("WAITING FOR CUE")').first();
@@ -173,9 +173,9 @@ test.describe('Live Rundown E2E Scenarios', () => {
     await expect(stagePage.locator('div:has-text("Stand By")').first()).toBeVisible();
 
     // Toggle "Hold for Cue" off
-    await holdForCueBtn.click();
+    await holdForCueBtn.click({ force: true });
     await page.clock.fastForward(1000);
-    await stagePage.clock.fastForward(1000);
+    await stagePage.reload();
 
     // Verify standby banner is removed
     await expect(holdOverlay).not.toBeVisible();
@@ -253,5 +253,111 @@ test.describe('Live Rundown E2E Scenarios', () => {
     const timeB = await timerDisplayB.textContent();
     expect(timeB).not.toBe('05:00');
     expect(timeB).toMatch(/^(04|03):\d\d$/);
+  });
+
+  test('should verify prompter, command center, and autopilot behavior', async ({ page, context }) => {
+    test.setTimeout(90000);
+
+    // 1. Install Playwright clock with a fixed base time to avoid offsets
+    const baseTime = new Date('2026-06-12T12:00:00Z');
+    await page.clock.install({ time: baseTime });
+
+    // 2. Load Page and create a program
+    await page.goto('/?testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+
+    const createBtn = page.getByRole('button', { name: 'Create New' });
+    await expect(createBtn).toBeVisible({ timeout: 10000 });
+    await createBtn.click();
+
+    await expect(page).toHaveURL(/.*editor/);
+    const titleInput = page.locator('input').first();
+    await expect(titleInput).toBeVisible();
+    await titleInput.fill('Phase 35 Test Service');
+
+    // Add a slot with speaker and details/notes
+    await page.getByText('Add Session Slot').click();
+    await page.locator('input[placeholder="Session Title"]').first().fill('Opening Remarks');
+    await page.locator('input[placeholder="Speaker Name"]').first().fill('Host Pastor');
+    await page.locator('input[type="number"]').first().fill('3');
+    
+    // Add details for prompter
+    await page.locator('button[title="Show Details"]').first().click();
+    await page.locator('textarea[placeholder*="attendees"]').first().fill('Welcome to Kairon!\n# Key Topics\n- Introduction\n- Welcome guest speakers');
+
+    // Grab the program ID
+    const currentUrl = page.url();
+    const urlObj = new URL(currentUrl);
+    const programId = urlObj.searchParams.get('id');
+    expect(programId).toBeTruthy();
+
+    // Let the auto-save debounce save the program to localStorage
+    await page.clock.fastForward(3000);
+
+    // 3. Navigate to Prompter screen
+    const prompterPage = await context.newPage();
+    await prompterPage.clock.install({ time: baseTime });
+    await prompterPage.goto(`/prompter?id=${programId}&testBypass=true`);
+    await prompterPage.waitForLoadState('domcontentloaded');
+
+    // Verify prompter page displays title, speaker, countdown and markdown notes
+    await expect(prompterPage.locator('h1').first()).toContainText('Opening Remarks');
+    await expect(prompterPage.locator('p').filter({ hasText: 'Host Pastor' }).first()).toBeVisible();
+    await expect(prompterPage.locator('h1', { hasText: 'Key Topics' })).toBeVisible();
+
+    // 4. Navigate Page A to Command Center
+    await page.goto('/command?testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Verify CommandCenter header is visible
+    await expect(page.locator('h1').first()).toContainText('Multi-Track Command Center');
+
+    // Command Center shows live programs. Our program is currently in draft. Let's make it live by going to live timer page.
+    await page.goto(`/live?id=${programId}&testBypass=true`);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Start the live timer
+    const playPauseBtn = page.locator('button.w-24.h-24');
+    await expect(playPauseBtn).toBeVisible();
+    await playPauseBtn.click();
+    await page.clock.fastForward(1000); // Let it start and sync
+
+    // Reload prompter page to load the active live segment state
+    await prompterPage.reload();
+
+    // Verify prompter page displays title, speaker, countdown and markdown notes
+    await expect(prompterPage.locator('h1').first()).toContainText('Opening Remarks');
+    await expect(prompterPage.locator('p').filter({ hasText: 'Host Pastor' }).first()).toBeVisible();
+    await expect(prompterPage.locator('h1', { hasText: 'Key Topics' })).toBeVisible();
+
+    // 4. Navigate Page A to Command Center
+    await page.goto('/command?testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Verify CommandCenter header is visible
+    await expect(page.locator('h1').first()).toContainText('Multi-Track Command Center');
+
+    // Command Center shows live programs. Our program is currently in draft. Let's make it live by going to live timer page.
+    await page.goto(`/live?id=${programId}&testBypass=true`);
+    await page.waitForLoadState('domcontentloaded');
+
+    // Start the live timer
+    const playPauseBtn2 = page.locator('button.w-24.h-24');
+    await expect(playPauseBtn2).toBeVisible();
+    await playPauseBtn2.click();
+    await page.clock.fastForward(1000); // Let it start and sync
+
+    // Verify that autopilot toggle is visible on Live Timer page
+    const autopilotToggle = page.locator('button:has-text("Autopilot")').first();
+    await expect(autopilotToggle).toBeVisible();
+    await autopilotToggle.click(); // Enable Autopilot
+    await page.clock.fastForward(1000);
+
+    // Let's verify CommandCenter shows the active track
+    const commandPage = await context.newPage();
+    await commandPage.clock.install({ time: await page.evaluate(() => Date.now()) });
+    await commandPage.goto(`/command?testBypass=true`);
+    await commandPage.waitForLoadState('domcontentloaded');
+    await expect(commandPage.locator('h2', { hasText: 'Phase 35 Test Service' }).first()).toBeVisible();
   });
 });

@@ -26,14 +26,62 @@ const StageWrapper: React.FC = () => {
         {} // Always poll the live channel as a secondary fallback
     );
 
+    const [localOfflineProgram, setLocalOfflineProgram] = useState<Program | null>(() => {
+        try {
+            const cached = localStorage.getItem(`kairon_offline_cache_${programId || 'live'}`);
+            return cached ? JSON.parse(cached) : null;
+        } catch {
+            return null;
+        }
+    });
+
+    useEffect(() => {
+        const offlineChannel = new BroadcastChannel('kairon_offline_sync');
+        const handleOfflineMsg = (event: MessageEvent) => {
+            const data = event.data;
+            if (data.id === programId || (!programId && (data.program?.status === 'live' || localOfflineProgram?.status === 'live'))) {
+                setLocalOfflineProgram(prev => {
+                    let updated: Program | null = null;
+                    if (data.program) {
+                        updated = { ...data.program, id: data.id };
+                    } else if (prev) {
+                        updated = {
+                            ...prev,
+                            ...data
+                        } as Program;
+                    }
+                    if (updated) {
+                        try {
+                            localStorage.setItem(`kairon_offline_cache_${programId || 'live'}`, JSON.stringify(updated));
+                        } catch (err) {
+                            console.error("Failed to cache program locally:", err);
+                        }
+                    }
+                    return updated;
+                });
+            }
+        };
+        offlineChannel.addEventListener('message', handleOfflineMsg);
+        return () => {
+            offlineChannel.removeEventListener('message', handleOfflineMsg);
+            offlineChannel.close();
+        };
+    }, [programId, localOfflineProgram]);
+
     // Prioritize specific ID, but fallback to live session if ID not found
     const activeData = (programId && specificProgram) ? specificProgram : liveProgram;
 
     // Derive the program object with explicit ID mapping
-    const program = activeData ? {
+    const programFromConvex = activeData ? {
         ...(activeData as any),
-        id: (activeData as any)._id
+        id: (activeData as any)._id || (activeData as any).id
     } as Program : null;
+
+    // Fallback logic: use Convex if online and loaded, otherwise use offline broadcast cache
+    const isOfflineMode = typeof window !== 'undefined' && !window.navigator.onLine;
+    const program = (isOfflineMode && localOfflineProgram) 
+        ? localOfflineProgram 
+        : (programFromConvex || localOfflineProgram);
 
     // Organization Branding Query
     const activeOrg = useQuery(
@@ -102,10 +150,10 @@ const StageWrapper: React.FC = () => {
         : (program?.secondsElapsed || 0);
 
 
-    // Handle Loading State
-    const loading = programId
+    // Handle Loading State (bypass if we have local offline program cached)
+    const loading = (programId
         ? (specificProgram === undefined)
-        : (liveProgram === undefined);
+        : (liveProgram === undefined)) && !localOfflineProgram;
 
     // FIX: Treat 'null' as STANDBY, not a network error. 
     // This resolves the "Sync Lost" false positive when no session is live.
@@ -174,6 +222,7 @@ const StageWrapper: React.FC = () => {
             isDarkMode={isDarkMode}
             toggleTheme={toggleTheme}
             isThumbnail={searchParams.get('mode') === 'thumbnail'}
+            customTheme={themeParam || undefined}
         />
     );
 };

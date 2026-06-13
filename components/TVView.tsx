@@ -17,6 +17,7 @@ interface TVViewProps {
     toggleTheme?: () => void;
     activeOrg?: Organization | null;
     isThumbnail?: boolean;
+    customTheme?: string;
 }
 
 const TVView: React.FC<TVViewProps> = ({
@@ -28,8 +29,42 @@ const TVView: React.FC<TVViewProps> = ({
     isDarkMode = true, // Default to dark if not provided
     toggleTheme,
     activeOrg,
-    isThumbnail = false
+    isThumbnail = false,
+    customTheme
 }) => {
+    const themeToUse = customTheme || (isDarkMode ? 'dark' : 'light');
+
+    const getThemeContainerClasses = () => {
+        switch (themeToUse) {
+            case 'ambient-yellow':
+                return 'bg-black text-amber-400';
+            case 'ambient-white':
+                return 'bg-black text-white';
+            case 'light':
+                return 'bg-white text-slate-900';
+            case 'dark':
+            default:
+                return 'bg-white dark:bg-black text-slate-900 dark:text-white';
+        }
+    };
+
+    const getThemeClockClasses = () => {
+        if (timeLeft < 0) return 'text-rose-600 dark:text-rose-500 animate-pulse';
+        if (timeLeft < 60 && isTimerActive) {
+            return 'text-rose-500 dark:text-rose-400';
+        }
+        switch (themeToUse) {
+            case 'ambient-yellow':
+                return 'text-amber-400';
+            case 'ambient-white':
+                return 'text-white';
+            case 'light':
+                return 'text-slate-900';
+            case 'dark':
+            default:
+                return 'text-slate-900 dark:text-white';
+        }
+    };
     const [isFullscreen, setIsFullscreen] = useState(false);
     const { promptMessage } = useStageMessages(program.id);
     const currentSlot = program.slots[currentSlotIndex];
@@ -159,8 +194,8 @@ const TVView: React.FC<TVViewProps> = ({
     }
 
     return (
-        <div className={isDarkMode ? 'dark' : ''}>
-            <div className={`w-screen h-screen bg-white dark:bg-black text-slate-900 dark:text-white overflow-hidden flex flex-col relative transition-colors duration-300 ${isDarkMode ? 'dark' : ''}`}>
+        <div className={themeToUse === 'dark' || themeToUse === 'ambient-yellow' || themeToUse === 'ambient-white' ? 'dark' : ''}>
+            <div className={`w-screen h-screen ${getThemeContainerClasses()} overflow-hidden flex flex-col relative transition-colors duration-300`}>
 
                 {/* Controls Container */}
                 {!isThumbnail && (
@@ -216,11 +251,7 @@ const TVView: React.FC<TVViewProps> = ({
 
                     <div
                         className={`font-mono font-bold leading-none tracking-tighter tabular-nums select-none transition-all duration-700
-                    ${timeLeft < 0
-                                ? 'text-rose-600 dark:text-rose-500 animate-pulse'
-                                : timeLeft < 60 && isTimerActive
-                                    ? 'text-rose-500 dark:text-rose-400'
-                                    : 'text-slate-900 dark:text-white'}
+                    ${getThemeClockClasses()}
                 `}
                         style={{
                             fontSize: isVisible && !promptMessage?.isStrobe ? 'min(10vw, 200px)' : 'min(35vw, 500px)',

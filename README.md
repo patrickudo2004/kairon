@@ -6,7 +6,7 @@ Kairon is a professional, cloud-powered conference time management application d
 
 ### 1. **Live Event Execution**
    - **Smart Live Timer**: Large, high-visibility countdown for the current session.
-   - **Auto-Advance**: Automatically transitions to the next slot when the timer hits zero.
+   - **Auto-Advance & Auto-Heal (Autopilot)**: Automatically transitions to the next slot when the timer hits zero. When Autopilot is enabled, any slot overrun automatically shaves duration off remaining segments locally (zero token cost) to protect the event's hard curfew.
    - **Smart Sync**: Automatically calculates the correct slot and time elapsed based on the scheduled start time. Real-time synchronization ensures all screens (TV, Stage, Admin) are perfectly aligned in sub-second latency.
    - **Manual Controls**: Play, Pause, Next, and Previous controls for on-the-fly adjustments.
 
@@ -16,19 +16,27 @@ Kairon is a professional, cloud-powered conference time management application d
    - **AI Drafting**: Integrated with Google Gemini API to convert raw text (emails, agendas) into structured schedules.
    - **Slot Management**: Duplicate existing slots, add detailed notes/abstracts, and categorize sessions (Keynote, Talk, Panel, Break).
 
-   - **Real-Time Collaboration**: Changes made by any team member are instantly pushed to all other connected screens. No manual refreshing required.
+### 3. **Collaborative Display System**
+   - **Real-Time Collaboration**: Changes made by any team member are instantly pushed to all other connected screens.
    - **QR Code Generation**: Instantly generate QR codes for TV, Stage, or Public Portal views for easy scanning on mobile devices.
+   - **Integrated Teleprompter (Fifth View)**: A dedicated `/prompter` display that loads dynamic scripts/outlines alongside the countdown, featuring auto-scroll synced directly to the timer duration.
+   - **Multi-Track Command Center**: A unified dashboard tab displaying concurrent live timelines side-by-side with separate controllers for each parallel track.
 
-### 4. **Export & Persistence**
+### 4. **Resiliency & Performance**
+   - **Local Offline Fallback**: In the event of network failure, local BroadcastChannel synchronization is triggered automatically. The operator deck continues to control and synchronize all local monitor tabs (TV, Stage, Prompter) on the same machine without internet.
+   - **High-Contrast Ambient Themes**: Supports custom `"ambient-yellow"` and `"ambient-white"` high-intensity themes specifically designed to cut through reflections from bright stage wash lights on pulpits.
+   - **Bundle Code-Splitting**: Optimized packaging shaves ~2MB off the initial entrypoint bundle by lazily loading report generation and charting assets, making the app load instantly on weak venue cellular connections.
+
+### 5. **Export & Persistence**
    - **PDF Export**: Generate professional, clean PDF schedules optimized for print (A4/Letter).
    - **Clipboard Copy**: One-click copy of the formatted text schedule for emails or documents.
    - **Multi-Program Management**: Create, delete, and duplicate entire programs via the Dashboard or Calendar.
    - **Auto-Save**: All work is automatically synced to the Convex cloud in real-time.
 
-### 5. **User Experience**
-   - **Theme Support**: Toggle between Light and Dark modes.
-   - **Responsive Design**: Fully functional on desktops, tablets, and mobile devices.
-   - **Calendar View**: visual overview of events across the month.
+### 6. **User Experience**
+   - **Theme Support**: Toggle between Light, Dark, and Ambient high-contrast modes.
+   - **Responsive Design**: Fully functional on desktops, tablets, and mobile devices (mobile view tailored controls).
+   - **Calendar View**: Visual overview of events across the month.
 
 ## 🛠 Tech Stack
 

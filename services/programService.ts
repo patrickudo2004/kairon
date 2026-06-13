@@ -179,6 +179,7 @@ export const updateTimerState = async (programId: string, state: {
     status?: 'draft' | 'live' | 'concluded' | 'archived';
 }): Promise<void> => {
     if (isTestBypass()) {
+        console.log(`[TEST BYPASS] updateTimerState for programId=${programId}`, state);
         const local = localStorage.getItem('test_programs');
         let list: Program[] = local ? JSON.parse(local) : [];
         list = list.map((p) => {

@@ -23,7 +23,7 @@ export const useTimer = ({ isActive, isManualMode, isOnHold, startTimestamp, ini
                 if (startTimestamp) {
                     const now = Date.now();
                     const elapsed = Math.floor((now - startTimestamp) / 1000);
-                    setSecondsElapsed(elapsed);
+                    setSecondsElapsed(elapsed < 0 ? 0 : elapsed);
                 } else {
                     setSecondsElapsed(prev => prev + 1);
                 }
