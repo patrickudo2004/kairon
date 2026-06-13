@@ -31,7 +31,7 @@ import ProgramEditor from './components/ProgramEditor';
 import CalendarView from './components/CalendarView';
 import HomeDashboard from './components/HomeDashboard';
 import PrintableSchedule from './components/PrintableSchedule';
-import AnalyticsDashboard from './components/AnalyticsDashboard';
+const AnalyticsDashboard = React.lazy(() => import('./components/AnalyticsDashboard'));
 
 
 import TVView from './components/TVView';
@@ -52,7 +52,9 @@ import { ProductionHUD } from './components/ProductionHUD';
 import { InterlockModal } from './components/InterlockModal';
 import TVWrapper from './components/wrappers/TVWrapper';
 import StageWrapper from './components/wrappers/StageWrapper';
+import PrompterWrapper from './components/wrappers/PrompterWrapper';
 import { MonitorDashboard } from './components/MonitorDashboard';
+import { CommandCenter } from './components/CommandCenter';
 import { ConfirmationModal } from './components/ConfirmationModal';
 import { CrewHUD } from './components/CrewHUD';
 import { MobileFlightBridge } from './components/MobileFlightBridge';
@@ -84,7 +86,11 @@ const AnalyticsWrapper: React.FC<{ onUpdateSlot?: (slotId: string, updates: Part
   if (rawData === undefined) return <div className="flex h-screen items-center justify-center dark:bg-slate-950"><div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>;
   if (!reportProgram) return <div className="p-12 text-center text-slate-500">Report not found.</div>;
 
-  return <AnalyticsDashboard program={reportProgram} onUpdateSlot={onUpdateSlot} />;
+  return (
+    <React.Suspense fallback={<div className="flex h-screen items-center justify-center dark:bg-slate-950"><div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>}>
+      <AnalyticsDashboard program={reportProgram} onUpdateSlot={onUpdateSlot} />
+    </React.Suspense>
+  );
 };
 
 // --- Mobile Venue Dock (Pill Switcher) ---
@@ -150,6 +156,57 @@ const isProgramContentEqual = (p1: Program, p2: Program): boolean => {
     if ((s1.productionNotes || "") !== (s2.productionNotes || "")) return false;
   }
   return true;
+};
+
+
+const healScheduleOverruns = (program: Program, currentSlotIndex: number, overrunSeconds: number): any[] => {
+  const remainingSlots = program.slots.slice(currentSlotIndex + 1);
+  if (remainingSlots.length === 0) return program.slots;
+
+  let secondsToAbsorb = overrunSeconds;
+  const minutesToAbsorb = Math.ceil(secondsToAbsorb / 60);
+  if (minutesToAbsorb <= 0) return program.slots;
+
+  // Clone all slots
+  const newSlots = program.slots.map(s => ({ ...s }));
+  let absorbed = 0;
+
+  // Step 1: Try to absorb from "flex/buffer" slots first
+  const flexTypes = ['break', 'transition', 'announcements', 'buffer', 'music', 'worship'];
+  const remainingFlexSlots = newSlots.slice(currentSlotIndex + 1).filter(s => 
+    flexTypes.includes((s.type || '').toLowerCase())
+  );
+
+  for (let s of remainingFlexSlots) {
+    if (absorbed >= minutesToAbsorb) break;
+    const currentDuration = s.durationMinutes;
+    const maxShave = Math.max(0, currentDuration - 1); // keep at least 1 min
+    const shave = Math.min(minutesToAbsorb - absorbed, maxShave);
+    if (shave > 0) {
+      s.durationMinutes -= shave;
+      absorbed += shave;
+    }
+  }
+
+  // Step 2: If we still need to absorb time, shave from other slots down to 1 minute
+  if (absorbed < minutesToAbsorb) {
+    const remainingOtherSlots = newSlots.slice(currentSlotIndex + 1).filter(s => 
+      !flexTypes.includes((s.type || '').toLowerCase())
+    );
+    
+    for (let s of remainingOtherSlots) {
+      if (absorbed >= minutesToAbsorb) break;
+      const currentDuration = s.durationMinutes;
+      const maxShave = Math.max(0, currentDuration - 1); // keep at least 1 min
+      const shave = Math.min(minutesToAbsorb - absorbed, maxShave);
+      if (shave > 0) {
+        s.durationMinutes -= shave;
+        absorbed += shave;
+      }
+    }
+  }
+
+  return newSlots;
 };
 
 
@@ -388,6 +445,22 @@ const AppContent: React.FC = () => {
 
   const [isOnline, setIsOnline] = useState(window.navigator.onLine);
   const [isOnboardingManual, setIsOnboardingManual] = useState(false);
+  const [isAutopilotEnabled, setIsAutopilotEnabled] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('kairon_autopilot_enabled') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleAutopilot = (enabled: boolean) => {
+    setIsAutopilotEnabled(enabled);
+    try {
+      localStorage.setItem('kairon_autopilot_enabled', String(enabled));
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     const handleOnline = () => {
@@ -487,6 +560,19 @@ const AppContent: React.FC = () => {
       id: String(s._id || s.id)
     })) as Program[];
   }, [activeSessionsRaw]);
+
+  const allProgramsRaw = useConvexQuery(
+    api.programs.getPrograms,
+    activeOrgId ? { organizationId: activeOrgId as any } : "skip"
+  );
+
+  const programs = useMemo(() => {
+    if (!allProgramsRaw) return [];
+    return allProgramsRaw.map(s => ({
+      ...s,
+      id: String(s._id || s.id)
+    })) as Program[];
+  }, [allProgramsRaw]);
 
   // Auto-selection & Cleanup logic
   useEffect(() => {
@@ -755,6 +841,18 @@ const AppContent: React.FC = () => {
   // Persistence (Convex)
   const mutation = useMutation({
     mutationFn: async (p: Program): Promise<Program | void> => {
+      // Broadcast local offline state sync across tabs immediately
+      try {
+        const channel = new BroadcastChannel('kairon_offline_sync');
+        channel.postMessage({
+          id: p.id,
+          program: p
+        });
+        channel.close();
+      } catch (err) {
+        console.error("Local BroadcastChannel sync failed:", err);
+      }
+
       // Only attempt creation if it's a local-prefixed ID
       if (p.id?.startsWith('local-')) {
         return await createProgramService(p);
@@ -778,6 +876,19 @@ const AppContent: React.FC = () => {
       status?: 'draft' | 'live' | 'concluded' | 'archived';
     }) => {
       const { id, ...timerState } = state;
+
+      // Broadcast local offline state sync across tabs immediately
+      try {
+        const channel = new BroadcastChannel('kairon_offline_sync');
+        channel.postMessage({
+          id,
+          ...timerState
+        });
+        channel.close();
+      } catch (err) {
+        console.error("Local BroadcastChannel sync failed:", err);
+      }
+
       const isTestBypass = typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
       // CRITICAL GUARD
       if (id?.startsWith('local-') && !isTestBypass) {
@@ -967,9 +1078,15 @@ const AppContent: React.FC = () => {
     }
 
     // Clear persisted state for safety when explicitly switching/loading
+    localStorage.removeItem('kairon_elapsed_seconds');
 
     // Navigate to editor screen with the ID in the URL for better hydration
     navigate(`/editor?id=${newProgram.id}`);
+  };
+
+  const handleSelectProgramFromCommand = (targetProgram: Program) => {
+    loadProgram(targetProgram);
+    navigate(`/live?id=${targetProgram.id}`);
   };
 
   const handlePlayProgram = (newProgram: Program, seconds?: number) => {
@@ -1408,10 +1525,18 @@ const AppContent: React.FC = () => {
       
       handleSlotComplete(currentSlot.id, actualDur);
 
+      const plannedDur = currentSlot.durationMinutes;
+      const overrunMinutes = actualDur - plannedDur;
+      let healedSlots = targetProg.slots;
+      if (isAutopilotEnabled && overrunMinutes > 0 && targetIdx < targetProg.slots.length - 1) {
+        console.log(`Autopilot: Slot "${currentSlot.title}" ran over by ${overrunMinutes}m. Recalculating remaining slots...`);
+        healedSlots = healScheduleOverruns(targetProg, targetIdx, overrunMinutes * 60);
+      }
+
       // Persist the slot's performance data immediately
       void (async () => {
         try {
-          const updatedSlots = targetProg.slots.map(s =>
+          const updatedSlots = healedSlots.map(s =>
             s.id === currentSlot.id ? { ...s, actualDuration: actualDur } : s
           );
           await updateProgramService({ ...targetProg, slots: updatedSlots });
@@ -1545,6 +1670,10 @@ const AppContent: React.FC = () => {
 
   if (location.pathname === '/stage') {
     return <StageWrapper />;
+  }
+
+  if (location.pathname === '/prompter') {
+    return <PrompterWrapper />;
   }
 
 
@@ -1863,6 +1992,18 @@ const AppContent: React.FC = () => {
                       />
                     } />
 
+                    <Route path="/command" element={
+                      <CommandCenter
+                        programs={programs}
+                        activeSessions={activeSessions}
+                        onToggleTimer={(p) => handleToggleTimer(p)}
+                        onNext={handleNext}
+                        onPrev={handlePrev}
+                        onNudge={handleNudge}
+                        onSelectProgram={handleSelectProgramFromCommand}
+                      />
+                    } />
+
                     <Route path="/analytics/:id" element={<AnalyticsWrapper onUpdateSlot={handleUpdateSlot} />} />
 
                     <Route path="/live" element={
@@ -1879,6 +2020,8 @@ const AppContent: React.FC = () => {
                         onEndEvent={handleEndEvent}
                         onNudge={handleNudge}
                         readOnly={isReadOnly && userRole !== 'operator'}
+                        isAutopilotEnabled={isAutopilotEnabled}
+                        onToggleAutopilot={handleToggleAutopilot}
                       />
                     } />
 

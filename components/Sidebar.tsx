@@ -16,7 +16,8 @@ import {
     ClipboardList,
     FileText,
     Edit3,
-    Monitor
+    Monitor,
+    Radio
 } from 'lucide-react';
 import { Organization, Profile, Program } from '../types';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
@@ -191,6 +192,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { icon: Play, label: 'Live', path: getLinkPath('/live') },
         { icon: ClipboardList, label: 'List', path: getLinkPath('/list') },
         { icon: Monitor, label: 'Monitors', path: getLinkPath('/monitors') },
+        { icon: Radio, label: 'Command Center', path: getLinkPath('/command') },
         { icon: Calendar, label: 'Calendar', path: '/calendar' },
         { icon: FileText, label: 'User Guide', path: '/guide' },
         { icon: Settings, label: 'Workspace', path: '/admin' },

@@ -16,6 +16,7 @@ interface StageDisplayProps {
     isDarkMode?: boolean;
     toggleTheme?: () => void;
     isThumbnail?: boolean;
+    customTheme?: string;
 }
 
 const StageDisplay: React.FC<StageDisplayProps> = ({
@@ -27,8 +28,56 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     activeOrg,
     isDarkMode = true,
     toggleTheme,
-    isThumbnail = false
+    isThumbnail = false,
+    customTheme
 }) => {
+    const themeToUse = customTheme || (isDarkMode ? 'dark' : 'light');
+
+    const getThemeContainerClasses = () => {
+        switch (themeToUse) {
+            case 'ambient-yellow':
+                return 'bg-black text-amber-400';
+            case 'ambient-white':
+                return 'bg-black text-white';
+            case 'light':
+                return 'bg-white text-slate-900';
+            case 'dark':
+            default:
+                return 'dark bg-black text-white';
+        }
+    };
+
+    const getThemeLabelClasses = () => {
+        switch (themeToUse) {
+            case 'ambient-yellow':
+                return 'text-amber-500/50';
+            case 'ambient-white':
+                return 'text-slate-500';
+            case 'light':
+                return 'text-slate-500';
+            case 'dark':
+            default:
+                return 'text-[#555]';
+        }
+    };
+
+    const getThemeClockClasses = () => {
+        if (timeLeft < 0) return 'text-rose-500';
+        if (timeLeft < 60) {
+            return 'text-amber-500 animate-pulse';
+        }
+        switch (themeToUse) {
+            case 'ambient-yellow':
+                return 'text-amber-400';
+            case 'ambient-white':
+                return 'text-white';
+            case 'light':
+                return 'text-black';
+            case 'dark':
+            default:
+                return 'text-white';
+        }
+    };
     useWakeLock(true);
     const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -130,8 +179,8 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     }
 
     return (
-        <div className={isDarkMode ? 'dark' : ''}>
-            <div className={`w-screen h-screen ${isDarkMode ? 'dark bg-black text-white' : 'bg-white text-slate-900'} overflow-hidden flex flex-col items-center justify-center font-sans select-none transition-colors duration-500`}>
+        <div className={themeToUse === 'dark' || themeToUse === 'ambient-yellow' || themeToUse === 'ambient-white' ? 'dark' : ''}>
+            <div className={`w-screen h-screen ${getThemeContainerClasses()} overflow-hidden flex flex-col items-center justify-center font-sans select-none transition-colors duration-500`}>
 
                 {/* Controls Container */}
                 {!isThumbnail && (
@@ -169,21 +218,20 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                 {/* Stage Title */}
                 <div className="absolute top-8 left-8 right-8 flex justify-between items-start z-10">
                     <div className="max-w-[70%]">
-                        <h2 className={`text-3xl md:text-4xl font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-500'} mb-2`}>Current Item</h2>
+                        <h2 className={`text-3xl md:text-4xl font-bold uppercase tracking-widest ${getThemeLabelClasses()} mb-2`}>Current Item</h2>
                         <h1 className="text-5xl md:text-7xl font-black uppercase leading-none tracking-tighter">
                             {currentSlot.title}
                         </h1>
                     </div>
                     <div className="text-right">
-                        <h2 className={`text-3xl md:text-4xl font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-500'} mb-2`}>Status</h2>
-                        <div className={`text-4xl font-black uppercase ${isTimerActive ? 'text-emerald-500' : isDarkMode ? 'text-slate-600' : 'text-slate-500'}`} style={isTimerActive && activeOrg?.brandColor ? { color: activeOrg.brandColor } : {}}>
+                        <h2 className={`text-3xl md:text-4xl font-bold uppercase tracking-widest ${getThemeLabelClasses()} mb-2`}>Status</h2>
+                        <div className={`text-4xl font-black uppercase ${isTimerActive ? 'text-emerald-500' : themeToUse === 'light' ? 'text-slate-500' : 'text-slate-600'}`} style={isTimerActive && activeOrg?.brandColor ? { color: activeOrg.brandColor } : {}}>
                             {isTimerActive ? 'Running' : 'Paused'}
                         </div>
                     </div>
                 </div>
 
-                <div className={`relative z-10 font-mono font-black tabular-nums leading-none tracking-tighter transition-all duration-700 ${timeLeft < 0 ? 'text-rose-500' : timeLeft < 60 ? (isDarkMode ? 'text-amber-500' : 'text-amber-600') : (isDarkMode ? 'text-white' : 'text-black')
-                    }`} style={{
+                <div className={`relative z-10 font-mono font-black tabular-nums leading-none tracking-tighter transition-all duration-700 ${getThemeClockClasses()}`} style={{
                         fontSize: isVisible && !promptMessage?.isStrobe ? '10vw' : '35vw',
                         transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-15vh)' : 'none'
                     }}>
@@ -222,24 +270,24 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                 )}
 
                 {/* Bottom Meta */}
-                <div className={`absolute bottom-12 w-full px-12 flex justify-between items-end border-t ${isDarkMode ? 'border-white/10' : 'border-slate-200'} pt-8`}>
+                <div className={`absolute bottom-12 w-full px-12 flex justify-between items-end border-t ${themeToUse === 'light' ? 'border-slate-200' : 'border-white/10'} pt-8`}>
                     <div className="flex-1">
-                        <span className={`text-2xl font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-500'} block mb-2`}>Duration</span>
+                        <span className={`text-2xl font-bold uppercase tracking-widest ${getThemeLabelClasses()} block mb-2`}>Duration</span>
                         <span className="text-4xl font-black">{currentSlot.durationMinutes}m Planned</span>
                     </div>
 
                     {/* Up Next Preview (Speaker Focused) */}
                     {!isThumbnail && program.slots[currentSlotIndex + 1] && (
                         <div className="flex-[2] text-center px-8 border-x border-white/5 mx-8 max-w-[500px]">
-                            <span className={`text-2xl font-bold uppercase tracking-[0.2em] ${isDarkMode ? 'text-amber-500' : 'text-amber-600'} block mb-2`}>Up Next</span>
-                            <p className={`text-2xl md:text-4xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'} uppercase leading-[1.1] tracking-tighter line-clamp-2 px-4`}>
+                            <span className={`text-2xl font-bold uppercase tracking-[0.2em] ${themeToUse === 'light' ? 'text-amber-600' : 'text-amber-500'} block mb-2`}>Up Next</span>
+                            <p className={`text-2xl md:text-4xl font-black ${themeToUse === 'light' ? 'text-slate-900' : 'text-white'} uppercase leading-[1.1] tracking-tighter line-clamp-2 px-4`}>
                                 {program.slots[currentSlotIndex + 1].title}
                             </p>
                         </div>
                     )}
 
                     <div className="flex-1 text-right">
-                        <span className={`text-2xl font-bold uppercase tracking-widest ${isDarkMode ? 'text-[#555]' : 'text-slate-500'} block mb-2`}>Event</span>
+                        <span className={`text-2xl font-bold uppercase tracking-widest ${getThemeLabelClasses()} block mb-2`}>Event</span>
                         <span className="text-4xl font-black">{program.title}</span>
                     </div>
                 </div>

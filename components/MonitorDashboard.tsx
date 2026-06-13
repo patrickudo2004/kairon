@@ -29,7 +29,8 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
     const [localThemes, setLocalThemes] = useState<Record<string, 'dark' | 'light'>>({
         stage: 'dark',
         tv: 'dark',
-        public: 'dark'
+        public: 'dark',
+        prompter: 'dark'
     });
 
     const handleCopyLink = (path: string, key: string) => {
@@ -131,6 +132,14 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
             path: `/p/${program.slug || program.id}/crew`,
             color: 'bg-amber-500',
             tabId: 'crew'
+        },
+        {
+            title: 'Integrated Teleprompter',
+            icon: AppWindow,
+            description: 'Autoscrolling outline + countdown screen.',
+            path: `/prompter?id=${program.id}`,
+            color: 'bg-purple-500',
+            tabId: 'prompter'
         }
     ];
 

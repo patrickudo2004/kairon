@@ -16,6 +16,8 @@ interface LiveTimerProps {
   onEndEvent?: (targetId?: string) => void;
   onNudge?: (minutes: number) => void;
   readOnly?: boolean;
+  isAutopilotEnabled?: boolean;
+  onToggleAutopilot?: (enabled: boolean) => void;
 }
 
 import { formatDuration } from '../utils/time';
@@ -34,7 +36,9 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
   onPrev,
   onEndEvent,
   onNudge,
-  readOnly = false
+  readOnly = false,
+  isAutopilotEnabled = false,
+  onToggleAutopilot
 }) => {
   const currentSlot = program.slots[currentSlotIndex];
   const nextSlot = program.slots[currentSlotIndex + 1];
@@ -251,6 +255,18 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
               >
                 <Pause size={20} />
                 <span className="uppercase tracking-widest">Hold for Cue</span>
+              </button>
+
+              <button
+                onClick={() => onToggleAutopilot?.(!isAutopilotEnabled)}
+                className={`flex items-center gap-2 px-6 py-4 rounded-2xl font-bold text-sm transition-all border shadow-lg ${isAutopilotEnabled
+                  ? 'bg-purple-600 text-white border-purple-700'
+                  : 'bg-white dark:bg-slate-800 text-purple-600 border-purple-200 dark:border-purple-900 hover:bg-purple-50 dark:hover:bg-purple-900/20'
+                  }`}
+                title="When enabled, any time slot overrun automatically shaves duration off remaining segments."
+              >
+                <Zap size={20} className={isAutopilotEnabled ? 'animate-pulse' : ''} />
+                <span className="uppercase tracking-widest">Autopilot</span>
               </button>
 
               <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-2xl p-1 border border-slate-200 dark:border-slate-700 shadow-lg">
