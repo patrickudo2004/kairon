@@ -117,10 +117,10 @@ export const useQuery = (query: any, args: any) => {
     }
     if (path.includes('getOrganizationById') || path.includes('getMyOrganizations')) {
         const cachedBranding = localStorage.getItem('test_org_branding');
-        const branding = cachedBranding ? JSON.parse(cachedBranding) : { logoUrl: "", brandColor: "#4f46e5" };
+        const branding = cachedBranding ? JSON.parse(cachedBranding) : { logoUrl: "", brandColor: "#4f46e5", name: "Test Organization" };
         const org = {
             id: "test-org-id",
-            name: "Test Organization",
+            name: branding.name || "Test Organization",
             slug: "test-org",
             logoUrl: branding.logoUrl,
             brandColor: branding.brandColor,
@@ -156,9 +156,13 @@ export const useMutation = (mutation: any) => {
             return "/mock-upload-url";
         }
         if (path.includes('updateOrganizationBranding')) {
+            const cached = localStorage.getItem('test_org_branding');
+            const existing = cached ? JSON.parse(cached) : {};
             localStorage.setItem('test_org_branding', JSON.stringify({
+                ...existing,
                 logoUrl: args.logoUrl,
-                brandColor: args.brandColor
+                brandColor: args.brandColor,
+                ...(args.name ? { name: args.name } : {})
             }));
             window.dispatchEvent(new Event('storage'));
             return { success: true };

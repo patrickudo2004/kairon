@@ -94,14 +94,16 @@ export const createOrganization = mutation({
 export const updateOrganizationBranding = mutation({
     args: {
         id: v.id("organizations"),
+        name: v.optional(v.string()),
         logoUrl: v.optional(v.string()),
         brandColor: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        await ctx.db.patch(args.id, {
-            logoUrl: args.logoUrl,
-            brandColor: args.brandColor,
-        });
+        const patchData: any = {};
+        if (args.name !== undefined) patchData.name = args.name;
+        if (args.logoUrl !== undefined) patchData.logoUrl = args.logoUrl;
+        if (args.brandColor !== undefined) patchData.brandColor = args.brandColor;
+        await ctx.db.patch(args.id, patchData);
     },
 });
 

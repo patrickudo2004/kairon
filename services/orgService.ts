@@ -71,16 +71,20 @@ export const createOrganization = async (name: string, slug: string, userId?: st
     return transformOrg(data);
 };
 
-export const updateOrganizationBranding = async (orgId: string, logoUrl: string, brandColor: string): Promise<void> => {
+export const updateOrganizationBranding = async (orgId: string, logoUrl: string, brandColor: string, name?: string): Promise<void> => {
     if (isTestBypass()) {
+        const cached = localStorage.getItem('test_org_branding');
+        const existing = cached ? JSON.parse(cached) : {};
         localStorage.setItem('test_org_branding', JSON.stringify({
+            ...existing,
             logoUrl,
-            brandColor
+            brandColor,
+            ...(name ? { name } : {})
         }));
         window.dispatchEvent(new Event('storage'));
         return;
     }
-    await convex.mutation(api.orgs.updateOrganizationBranding, { id: orgId as any, logoUrl, brandColor });
+    await convex.mutation(api.orgs.updateOrganizationBranding, { id: orgId as any, logoUrl, brandColor, name });
 };
 
 export const generateUploadUrl = async (): Promise<string> => {
