@@ -37,9 +37,22 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const requestRef = useRef<number | null>(null);
 
-    const currentSlot = program.slots[currentSlotIndex];
+    const [previewSlotIndex, setPreviewSlotIndex] = useState(currentSlotIndex);
+    const [isSyncingWithLive, setIsSyncingWithLive] = useState(true);
+
+    // Keep preview in sync with live slot if sync is active
+    useEffect(() => {
+        if (isSyncingWithLive) {
+            setPreviewSlotIndex(currentSlotIndex);
+        }
+    }, [currentSlotIndex, isSyncingWithLive]);
+
+    const currentSlot = program.slots[previewSlotIndex];
     const elapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
-    const timeLeft = (currentSlot ? currentSlot.durationMinutes * 60 : 0) - elapsed;
+    const liveTimeLeft = (program.slots[currentSlotIndex] ? program.slots[currentSlotIndex].durationMinutes * 60 : 0) - elapsed;
+    const timeLeft = isSyncingWithLive
+        ? liveTimeLeft
+        : (currentSlot ? currentSlot.durationMinutes * 60 : 0);
 
     // Theme Evaluation
     const activeTheme = customTheme || (isDarkMode ? 'dark' : 'light');
@@ -129,7 +142,22 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
 
     // Render Basic Markdown content safely
     const renderMarkdownContent = (text: string) => {
-        if (!text) return <p className="opacity-50 italic">No notes or script details provided for this segment.</p>;
+        if (!text) {
+            return (
+                <div className="bg-indigo-500/[0.03] dark:bg-indigo-500/[0.05] border border-indigo-500/10 rounded-3xl p-8 max-w-xl my-6">
+                    <p className="font-bold text-lg mb-3">📝 No outlines or details provided for this segment.</p>
+                    <p className="text-sm opacity-70 leading-relaxed mb-4">
+                        To add notes or speaker outlines that auto-scroll on this teleprompter:
+                    </p>
+                    <ol className="list-decimal list-inside text-sm opacity-70 space-y-2 leading-relaxed">
+                        <li>Go to the <strong>Program Editor</strong> tab.</li>
+                        <li>Click the dropdown chevron button (next to the title of the desired slot) to expand it.</li>
+                        <li>Fill in the <strong>Public Details / Abstract</strong> textarea (supports markdown formatting).</li>
+                        <li>The changes will automatically save and sync to this screen in real time.</li>
+                    </ol>
+                </div>
+            );
+        }
 
         return text.split('\n').map((line, idx) => {
             const cleanLine = line.trim();
@@ -207,7 +235,16 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
         );
     }
 
-    return (
+        const isThemeDark = activeTheme === 'dark' || activeTheme === 'ambient-yellow' || activeTheme === 'ambient-white';
+        const selectClass = isThemeDark 
+            ? "px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm font-bold uppercase tracking-wider text-slate-200 focus:outline-none cursor-pointer" 
+            : "px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold uppercase tracking-wider text-slate-800 focus:outline-none cursor-pointer";
+    
+        const optionClass = isThemeDark
+            ? "bg-slate-900 text-slate-200"
+            : "bg-white text-slate-800";
+
+        return (
         <div className={`w-screen h-screen ${getThemeClasses()} flex flex-col overflow-hidden font-sans select-none transition-colors duration-500`}>
             
             {/* Top Bar Navigation / Control overlay */}
@@ -235,13 +272,42 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
                                     const val = e.target.value;
                                     setScrollSpeed(val === 'sync' ? 'sync' : Number(val));
                                 }}
-                                className="px-3 py-2 bg-current/5 border border-current/20 rounded-xl text-sm font-bold uppercase tracking-wider text-inherit focus:outline-none"
+                                className={selectClass}
                             >
-                                <option value="sync">⏱️ Sync to Timer</option>
-                                <option value="1">1x Speed</option>
-                                <option value="2">2x Speed</option>
-                                <option value="3">3x Speed</option>
+                                <option value="sync" className={optionClass}>⏱️ Sync to Timer</option>
+                                <option value="1" className={optionClass}>1x Speed</option>
+                                <option value="2" className={optionClass}>2x Speed</option>
+                                <option value="3" className={optionClass}>3x Speed</option>
                             </select>
+
+                            <select
+                                value={previewSlotIndex}
+                                onChange={(e) => {
+                                    setPreviewSlotIndex(Number(e.target.value));
+                                    setIsSyncingWithLive(false);
+                                }}
+                                className={selectClass}
+                            >
+                                {program.slots.map((s, idx) => (
+                                    <option key={s.id} value={idx} className={optionClass}>
+                                        {idx + 1}. {s.title}
+                                    </option>
+                                ))}
+                            </select>
+
+                            {!isSyncingWithLive && (
+                                <button
+                                    onClick={() => {
+                                        setPreviewSlotIndex(currentSlotIndex);
+                                        setIsSyncingWithLive(true);
+                                    }}
+                                    className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all text-sm font-bold uppercase tracking-wider flex items-center gap-1.5"
+                                    title="Tether back to live session countdown"
+                                >
+                                    <RefreshCw size={14} />
+                                    Sync to Live
+                                </button>
+                            )}
 
                             {toggleTheme && (
                                 <button
@@ -271,7 +337,9 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
                 {/* Left Pane: Countdown clock & Slot Metadata */}
                 <div className="w-full md:w-[40%] border-r border-current/10 flex flex-col justify-between p-8 shrink-0 bg-current/[0.02]">
                     <div>
-                        <span className="text-lg font-bold uppercase tracking-widest opacity-50 block mb-2">Current Segment</span>
+                        <span className="text-lg font-bold uppercase tracking-widest opacity-50 block mb-2">
+                            {isSyncingWithLive ? 'Current Segment' : 'Preview Segment'}
+                        </span>
                         <h1 className="text-4xl sm:text-5xl font-black uppercase leading-none tracking-tight mb-2">
                             {currentSlot.title}
                         </h1>
@@ -285,17 +353,24 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
                         <div className={`font-mono font-black tabular-nums leading-none tracking-tighter transition-all duration-500 text-[12vw] md:text-[8vw] ${timeLeft < 0 ? 'text-rose-500 animate-pulse' : timeLeft < 60 ? 'text-amber-500' : ''}`}>
                             {formatDuration(timeLeft)}
                         </div>
-                        <span className="text-xs font-bold uppercase tracking-[0.3em] opacity-40 mt-2">Time Remaining</span>
+                        <span className="text-xs font-bold uppercase tracking-[0.3em] opacity-40 mt-2">
+                            {isSyncingWithLive ? 'Time Remaining' : 'Planned Duration'}
+                        </span>
+                        {!isSyncingWithLive && (
+                            <span className="mt-3 px-3 py-1 bg-amber-500/20 text-amber-500 text-[10px] font-black uppercase tracking-widest rounded-full animate-pulse">
+                                Preview Mode
+                            </span>
+                        )}
                     </div>
 
                     {/* Up Next Segment Footer */}
                     <div>
-                        {program.slots[currentSlotIndex + 1] && (
+                        {program.slots[previewSlotIndex + 1] && (
                             <div className="p-4 bg-current/5 border border-current/10 rounded-2xl">
                                 <span className="text-xs font-black text-indigo-500 uppercase tracking-widest block mb-1">Up Next</span>
-                                <h3 className="text-xl font-bold uppercase truncate">{program.slots[currentSlotIndex + 1].title}</h3>
-                                {program.slots[currentSlotIndex + 1].speaker && (
-                                    <p className="text-sm opacity-60 mt-0.5">{program.slots[currentSlotIndex + 1].speaker}</p>
+                                <h3 className="text-xl font-bold uppercase truncate">{program.slots[previewSlotIndex + 1].title}</h3>
+                                {program.slots[previewSlotIndex + 1].speaker && (
+                                    <p className="text-sm opacity-60 mt-0.5">{program.slots[previewSlotIndex + 1].speaker}</p>
                                 )}
                             </div>
                         )}
