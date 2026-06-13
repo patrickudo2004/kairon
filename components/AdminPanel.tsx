@@ -20,7 +20,8 @@ import {
     AlertTriangle,
     ArrowRight,
     Loader,
-    Upload
+    Upload,
+    Building
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { deleteOrganization } from '../services/orgService';
@@ -39,12 +40,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
 
     // Branding State
     const [logoUrl, setLogoUrl] = useState(organization.logoUrl || '');
+    const [previewUrl, setPreviewUrl] = useState(organization.logoUrl || '');
+    const [orgName, setOrgName] = useState(organization.name || '');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isUploading, setIsUploading] = useState(false);
 
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+
+        // Instantly display the local image file in preview box
+        const localPreview = URL.createObjectURL(file);
+        setPreviewUrl(localPreview);
 
         try {
             setIsUploading(true);
@@ -55,6 +62,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                 const reader = new FileReader();
                 reader.onloadend = () => {
                     setLogoUrl(reader.result as string);
+                    setPreviewUrl(reader.result as string);
                     setIsUploading(false);
                 };
                 reader.readAsDataURL(file);
@@ -111,12 +119,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
     });
 
     const brandingMutation = useMutation({
-        mutationFn: ({ logo, color }: { logo: string, color: string }) =>
-            updateOrganizationBranding(organization.id, logo, color),
+        mutationFn: ({ logo, color, name }: { logo: string, color: string, name: string }) =>
+            updateOrganizationBranding(organization.id, logo, color, name),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['organizations'] });
+            queryClient.invalidateQueries({ queryKey: ['myOrganizations'] });
             queryClient.invalidateQueries({ queryKey: ['my-organizations'] });
-            alert('Branding updated successfully!');
+            queryClient.invalidateQueries({ queryKey: ['organizations'] });
+            alert('Workspace settings updated successfully!');
         }
     });
 
@@ -289,12 +298,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                 <div className={`space-y-8 ${!isPro ? 'opacity-50 pointer-events-none grayscale-[0.5]' : ''}`}>
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                                            <Building className="text-slate-400" size={18} />
+                                            Workspace Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={orgName}
+                                            onChange={(e) => setOrgName(e.target.value)}
+                                            placeholder="Workspace Name"
+                                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-white"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
                                             <ImageIcon size={18} className="text-slate-400" />
                                             Workspace Logo
                                         </label>
                                         <div className="flex flex-col md:flex-row md:items-center gap-6">
                                             <div className="w-20 h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 overflow-hidden shrink-0">
-                                                {logoUrl ? <img src={logoUrl} alt="Preview" className="w-full h-full object-contain" /> : <ImageIcon className="text-slate-300" />}
+                                                {previewUrl ? <img src={previewUrl} alt="Preview" className="w-full h-full object-contain" /> : <ImageIcon className="text-slate-300" />}
                                             </div>
                                             <div className="flex-1 space-y-3">
                                                 <div className="flex items-center gap-3">
@@ -319,7 +342,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                                 <input
                                                     type="url"
                                                     value={logoUrl}
-                                                    onChange={(e) => setLogoUrl(e.target.value)}
+                                                    onChange={(e) => {
+                                                        setLogoUrl(e.target.value);
+                                                        setPreviewUrl(e.target.value);
+                                                    }}
                                                     placeholder="https://your-domain.com/logo.png"
                                                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                                                 />
@@ -353,11 +379,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
 
                                     <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
                                         <button
-                                            onClick={() => brandingMutation.mutate({ logo: logoUrl, color: brandColor })}
+                                            onClick={() => brandingMutation.mutate({ logo: logoUrl, color: brandColor, name: orgName })}
                                             disabled={brandingMutation.isPending}
                                             className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-3 rounded-xl font-bold hover:opacity-90 transition-opacity disabled:opacity-50 shadow-lg"
                                         >
-                                            {brandingMutation.isPending ? 'Saving...' : 'Save Branding'}
+                                            {brandingMutation.isPending ? 'Saving...' : 'Save Workspace Settings'}
                                         </button>
                                     </div>
                                 </div>

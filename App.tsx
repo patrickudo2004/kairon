@@ -920,31 +920,42 @@ const AppContent: React.FC = () => {
     });
   };
 
-  const handleNudge = (minutes: number) => {
+  const handleNudge = (minutes: number, targetProgramId?: string) => {
     if (isReadOnly) return;
     
-    const newSlots = [...displayProgram.slots];
-    const currentSlot = newSlots[displayCurrentSlotIndex];
+    const targetId = targetProgramId || displayProgram.id;
+    const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
+    const targetIdx = targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0);
+
+    const newSlots = [...targetProg.slots];
+    const currentSlot = newSlots[targetIdx];
     console.log('handleNudge called with:', minutes, 'currentSlot duration minutes before nudge:', currentSlot?.durationMinutes);
-    console.log('isLiveEventActive:', isLiveEventActive, 'displayProgram.id:', displayProgram.id);
 
     if (currentSlot) {
       currentSlot.durationMinutes = Math.max(0, currentSlot.durationMinutes + minutes);
-      const updated = { ...displayProgram, slots: newSlots };
-      console.log('updated slot durationMinutes:', updated.slots[displayCurrentSlotIndex].durationMinutes);
+      const updated = { ...targetProg, slots: newSlots };
+      console.log('updated slot durationMinutes:', updated.slots[targetIdx].durationMinutes);
 
-      if (isLiveEventActive) {
-        // Live show nudge - broadcast via mutation
+      const targetIsLive = targetProg.status === 'live';
+      const targetIsActive = activeSessions.some(as => String(as.id) === String(targetId) && as.isTimerActive) || 
+                            (String(targetId) === String(program.id) ? isTimerActive : false);
+      const targetStartTs = targetId === displayProgram.id ? displayTimerStartTimestamp : targetProg.timerStartTimestamp;
+      const targetElapsed = targetId === displayProgram.id ? currentTickingSecondsRef.current : (targetProg.secondsElapsed || 0);
+
+      if (targetIsLive) {
         timerSaveMutation.mutate({
-          id: displayProgram.id,
-          currentSlotIndex: displayCurrentSlotIndex,
-          isTimerActive: displayIsTimerActive,
-          secondsElapsed: currentTickingSecondsRef.current,
-          timerStartTimestamp: displayTimerStartTimestamp,
-          isManualMode: displayProgram.isManualMode
+          id: targetId,
+          currentSlotIndex: targetIdx,
+          isTimerActive: targetIsActive,
+          secondsElapsed: targetElapsed,
+          timerStartTimestamp: targetStartTs,
+          isManualMode: targetProg.isManualMode
         });
       }
-      setProgram(updated);
+
+      if (targetId === program.id) {
+        setProgram(updated);
+      }
       
       // Persist the slot change
       updateProgramService(updated);

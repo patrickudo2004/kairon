@@ -17,6 +17,8 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
     const [newOrgName, setNewOrgName] = useState('');
     const [isSettingsOpen, setIsSettingsOpen] = useState<string | null>(null);
     const [logoUrl, setLogoUrl] = useState('');
+    const [previewUrl, setPreviewUrl] = useState('');
+    const [orgName, setOrgName] = useState('');
     const [brandColor, setBrandColor] = useState('#4f46e5');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -24,6 +26,10 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+
+        // Instantly display selected local image in preview box
+        const localPreview = URL.createObjectURL(file);
+        setPreviewUrl(localPreview);
 
         try {
             setIsUploading(true);
@@ -34,6 +40,7 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
                 const reader = new FileReader();
                 reader.onloadend = () => {
                     setLogoUrl(reader.result as string);
+                    setPreviewUrl(reader.result as string);
                     setIsUploading(false);
                 };
                 reader.readAsDataURL(file);
@@ -89,11 +96,16 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
     });
 
     const brandingMutation = useMutation({
-        mutationFn: ({ id, logo, color }: { id: string, logo: string, color: string }) => updateOrganizationBranding(id, logo, color),
+        mutationFn: ({ id, logo, color, name }: { id: string, logo: string, color: string, name: string }) => 
+            updateOrganizationBranding(id, logo, color, name),
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['myOrganizations'] });
             queryClient.invalidateQueries({ queryKey: ['my-organizations'] });
+            queryClient.invalidateQueries({ queryKey: ['organizations'] });
             setIsSettingsOpen(null);
             setLogoUrl('');
+            setPreviewUrl('');
+            setOrgName('');
             setBrandColor('#4f46e5');
         }
     });
@@ -243,7 +255,9 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setIsSettingsOpen(org.id);
+                                    setOrgName(org.name || '');
                                     setLogoUrl(org.logoUrl || '');
+                                    setPreviewUrl(org.logoUrl || '');
                                     setBrandColor(org.brandColor || '#4f46e5');
                                 }}
                                 className={`p-2 rounded-lg transition-colors ${activeOrgId === org.id ? 'text-white/70 hover:bg-white/10' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600'}`}
@@ -306,7 +320,20 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
                                 </button>
                             </div>
                         ) : (
-                            <div className="space-y-6">
+                             <div className="space-y-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                                        <Building className="text-slate-400" size={16} /> Workspace Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={orgName}
+                                        onChange={(e) => setOrgName(e.target.value)}
+                                        placeholder="Workspace Name"
+                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                </div>
+
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
                                         <ImageIcon size={18} className="text-slate-400" />
@@ -314,7 +341,7 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
                                     </label>
                                     <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                                         <div className="w-16 h-16 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 overflow-hidden shrink-0">
-                                            {logoUrl ? <img src={logoUrl} alt="Preview" className="w-full h-full object-contain" /> : <ImageIcon className="text-slate-300" />}
+                                            {previewUrl ? <img src={previewUrl} alt="Preview" className="w-full h-full object-contain" /> : <ImageIcon className="text-slate-300" />}
                                         </div>
                                         <div className="flex-1 space-y-2">
                                             <div className="flex items-center gap-2">
@@ -339,7 +366,10 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
                                             <input
                                                 type="url"
                                                 value={logoUrl}
-                                                onChange={(e) => setLogoUrl(e.target.value)}
+                                                onChange={(e) => {
+                                                    setLogoUrl(e.target.value);
+                                                    setPreviewUrl(e.target.value);
+                                                }}
                                                 placeholder="https://your-domain.com/logo.png"
                                                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-xs text-slate-900 dark:text-white"
                                             />
@@ -370,11 +400,11 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
 
                                 <div className="pt-4">
                                     <button
-                                        onClick={() => brandingMutation.mutate({ id: isSettingsOpen!, logo: logoUrl, color: brandColor })}
+                                        onClick={() => brandingMutation.mutate({ id: isSettingsOpen!, logo: logoUrl, color: brandColor, name: orgName })}
                                         disabled={brandingMutation.isPending}
                                         className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-xl font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
                                     >
-                                        {brandingMutation.isPending ? 'Saving...' : 'Save Branding Changes'}
+                                        {brandingMutation.isPending ? 'Saving...' : 'Save Workspace Settings'}
                                     </button>
                                 </div>
 
