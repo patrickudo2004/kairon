@@ -7,6 +7,7 @@ interface PrintableScheduleProps {
   program: Program;
   includeSpeakers?: boolean;
   includeDetails?: boolean;
+  includePrompter?: boolean;
   activeOrg?: Organization | null;
 }
 
@@ -14,6 +15,7 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
   program,
   includeSpeakers = true,
   includeDetails = true,
+  includePrompter = false,
   activeOrg
 }) => {
   const startMinutes = timeToMinutes(program.startTime || "09:00");
@@ -108,6 +110,12 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
                   {includeDetails && slot.details && (
                     <div className="text-xs text-gray-600 mt-1 leading-tight">
                       {slot.details}
+                    </div>
+                  )}
+                  {includePrompter && slot.prompterText && (
+                    <div className="text-xs text-indigo-700 mt-1 leading-tight border-l-2 border-indigo-200 pl-2 italic">
+                      <span className="font-bold text-[9px] uppercase tracking-wider block text-slate-400 not-italic">Prompter Script:</span>
+                      {slot.prompterText}
                     </div>
                   )}
                 </td>

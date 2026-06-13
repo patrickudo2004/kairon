@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Download, X, User, AlignLeft, Clipboard, Check, FileText } from 'lucide-react';
+import { Download, X, User, AlignLeft, Clipboard, Check, FileText, Tv } from 'lucide-react';
 import { Program } from '../types';
 import { timeToMinutes, minutesToTime } from '../utils/time';
 
 export interface ExportOptions {
     includeDetails: boolean;
     includeSpeakers: boolean;
+    includePrompter: boolean;
 }
 
 interface ExportDialogProps {
@@ -45,6 +46,9 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, pro
 
             if (options.includeDetails && slot.details) {
                 text += `Details: ${slot.details}\n`;
+            }
+            if (options.includePrompter && slot.prompterText) {
+                text += `Teleprompter Script: ${slot.prompterText}\n`;
             }
             text += `\n`;
         });
@@ -97,6 +101,19 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, pro
                             <div className="flex items-center gap-3 text-slate-700 dark:text-slate-200">
                                 <AlignLeft size={18} className="text-slate-400" />
                                 <span className="font-medium">Include Details</span>
+                            </div>
+                        </label>
+
+                        <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                            <input
+                                type="checkbox"
+                                checked={options.includePrompter}
+                                onChange={(e) => setOptions(prev => ({ ...prev, includePrompter: e.target.checked }))}
+                                className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
+                            />
+                            <div className="flex items-center gap-3 text-slate-700 dark:text-slate-200">
+                                <Tv size={18} className="text-slate-400" />
+                                <span className="font-medium">Include Teleprompter Script</span>
                             </div>
                         </label>
                     </div>

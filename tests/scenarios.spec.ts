@@ -283,7 +283,7 @@ test.describe('Live Rundown E2E Scenarios', () => {
     
     // Add details for prompter
     await page.locator('button[title="Show Details"]').first().click();
-    await page.locator('textarea[placeholder*="attendees"]').first().fill('Welcome to Kairon!\n# Key Topics\n- Introduction\n- Welcome guest speakers');
+    await page.locator('textarea[placeholder*="teleprompter"]').first().fill('Welcome to Kairon!\n# Key Topics\n- Introduction\n- Welcome guest speakers');
 
     // Grab the program ID
     const currentUrl = page.url();

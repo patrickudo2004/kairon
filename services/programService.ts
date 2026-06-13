@@ -258,6 +258,7 @@ export const transformProgram = (p: any): Program => ({
         type: s.type,
         details: s.details,
         productionNotes: s.productionNotes,
+        prompterText: s.prompterText,
         actualDuration: s.actualDuration
     }))
 });

@@ -152,7 +152,7 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
                     <ol className="list-decimal list-inside text-sm opacity-70 space-y-2 leading-relaxed">
                         <li>Go to the <strong>Program Editor</strong> tab.</li>
                         <li>Click the dropdown chevron button (next to the title of the desired slot) to expand it.</li>
-                        <li>Fill in the <strong>Public Details / Abstract</strong> textarea (supports markdown formatting).</li>
+                        <li>Fill in the <strong>Teleprompter Details</strong> textarea (supports markdown formatting).</li>
                         <li>The changes will automatically save and sync to this screen in real time.</li>
                     </ol>
                 </div>
@@ -383,7 +383,7 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
                     className="flex-1 overflow-y-auto p-12 relative"
                 >
                     <div className="max-w-[800px] mx-auto pb-48 select-text">
-                        {renderMarkdownContent(currentSlot.details || currentSlot.productionNotes || '')}
+                        {renderMarkdownContent(currentSlot.prompterText || '')}
                     </div>
                 </div>
             </div>
