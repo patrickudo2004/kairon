@@ -12,7 +12,20 @@ export const getMyOrganizations = query({
             .collect();
 
         const orgs = await Promise.all(
-            memberships.map((m) => ctx.db.get(m.organizationId))
+            memberships.map(async (m) => {
+                const org = await ctx.db.get(m.organizationId);
+                if (org && org.logoUrl && !org.logoUrl.startsWith("http")) {
+                    try {
+                        const url = await ctx.storage.getUrl(org.logoUrl);
+                        if (url) {
+                            return { ...org, logoUrl: url };
+                        }
+                    } catch (e) {
+                        console.error("Failed to get storage URL for logo:", e);
+                    }
+                }
+                return org;
+            })
         );
         return orgs.filter((o) => o !== null);
     },
@@ -30,7 +43,18 @@ export const getOrganizationById = query({
         }
 
         if (!orgId) return null;
-        return await ctx.db.get(orgId);
+        const org = await ctx.db.get(orgId);
+        if (org && org.logoUrl && !org.logoUrl.startsWith("http")) {
+            try {
+                const url = await ctx.storage.getUrl(org.logoUrl);
+                if (url) {
+                    return { ...org, logoUrl: url };
+                }
+            } catch (e) {
+                console.error("Failed to get storage URL for logo:", e);
+            }
+        }
+        return org;
     },
 });
 
@@ -164,5 +188,12 @@ export const grantProStatusByEmail = mutation({
         }
 
         return { count: orgs.length, profileUpgraded: !!profile };
+    },
+});
+
+export const generateUploadUrl = mutation({
+    args: {},
+    handler: async (ctx) => {
+        return await ctx.storage.generateUploadUrl();
     },
 });

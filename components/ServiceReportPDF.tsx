@@ -1,5 +1,5 @@
 import React from 'react';
-import { Page, Text, View, Document, StyleSheet, Font } from '@react-pdf/renderer';
+import { Page, Text, View, Document, StyleSheet, Font, Image } from '@react-pdf/renderer';
 import { Program, Slot } from '../types';
 
 // Register standard fonts
@@ -259,17 +259,23 @@ interface ServiceReportPDFProps {
     overruns: number;
     efficiency: number;
   };
+  logoUrl?: string;
 }
 
-const ServiceReportPDF: React.FC<ServiceReportPDFProps> = ({ program, stats }) => {
+const ServiceReportPDF: React.FC<ServiceReportPDFProps> = ({ program, stats, logoUrl }) => {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header} fixed>
-          <View style={styles.titleWrapper}>
-            <Text style={styles.title}>Service Report</Text>
-            <Text style={styles.subtitle}>Performance analytics for "{program.title}"</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+            {logoUrl ? (
+              <Image src={logoUrl} style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'contain' }} />
+            ) : null}
+            <View style={styles.titleWrapper}>
+              <Text style={styles.title}>Service Report</Text>
+              <Text style={styles.subtitle}>Performance analytics for "{program.title}"</Text>
+            </View>
           </View>
           <View style={styles.metaBadge}>
             <Text style={styles.metaText}>{program.date} • {program.startTime}</Text>

@@ -4,7 +4,7 @@ import { BarChart3, Clock, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown
 import { formatDuration } from '../utils/time';
 import { usePDF } from '@react-pdf/renderer';
 import ServiceReportPDF from './ServiceReportPDF';
-import { useMutation } from '../hooks/useConvexMock';
+import { useQuery, useMutation } from '../hooks/useConvexMock';
 import { api } from '../convex/_generated/api';
 
 interface AnalyticsDashboardProps {
@@ -47,12 +47,17 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
     const finalizeProgram = useMutation(api.programs.finalizeProgram);
     const [isFinalizing, setIsFinalizing] = React.useState(false);
 
-    const [pdfInstance, updatePdf] = usePDF({ document: <ServiceReportPDF program={program} stats={stats} /> });
+    const organization = useQuery(
+        api.orgs.getOrganizationById,
+        program.organizationId ? { id: program.organizationId } : "skip"
+    );
+
+    const [pdfInstance, updatePdf] = usePDF({ document: <ServiceReportPDF program={program} stats={stats} logoUrl={organization?.logoUrl || ""} /> });
 
     // Force PDF regeneration specifically when stats change
     React.useEffect(() => {
-        updatePdf(<ServiceReportPDF program={program} stats={stats} />);
-    }, [stats, program, updatePdf]);
+        updatePdf(<ServiceReportPDF program={program} stats={stats} logoUrl={organization?.logoUrl || ""} />);
+    }, [stats, program, organization?.logoUrl, updatePdf]);
 
     return (
         <div id="printable-area" className="max-w-6xl print:max-w-none mx-auto p-6 space-y-8 print:space-y-4 animate-in fade-in duration-500">

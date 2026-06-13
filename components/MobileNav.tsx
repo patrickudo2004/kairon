@@ -157,8 +157,12 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                                             }`}
                                         >
                                             <div className="flex items-center gap-3 min-w-0">
-                                                <div className={`p-2 rounded-xl ${org.id === activeOrg?.id ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-900 text-slate-400'}`}>
-                                                    <Building2 size={18} />
+                                                <div className={`w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center shrink-0 ${org.id === activeOrg?.id ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-900 text-slate-400'}`}>
+                                                    {org.logoUrl ? (
+                                                        <img src={org.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                                                    ) : (
+                                                        <Building2 size={18} />
+                                                    )}
                                                 </div>
                                                 <span className="font-bold text-sm truncate">{org.name}</span>
                                             </div>

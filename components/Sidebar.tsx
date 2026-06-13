@@ -205,16 +205,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Brand / Logo Section */}
             <div className="p-4 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
                 {!isCollapsed && (
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-gradient-to-tr from-indigo-500 to-violet-500">
-                            <Mic className="text-white" size={18} />
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-gradient-to-tr from-indigo-500 to-violet-500 overflow-hidden shrink-0">
+                            {activeOrg?.logoUrl ? (
+                                <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                            ) : (
+                                <Mic className="text-white" size={18} />
+                            )}
                         </div>
-                        <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">KAIRON</span>
+                        <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white truncate">
+                            {activeOrg?.name ? activeOrg.name.toUpperCase() : 'KAIRON'}
+                        </span>
                     </div>
                 )}
                 {isCollapsed && (
-                    <div className="w-10 h-10 mx-auto rounded-lg flex items-center justify-center shadow-md bg-gradient-to-tr from-indigo-500 to-violet-500">
-                        <Mic className="text-white" size={18} />
+                    <div className="w-10 h-10 mx-auto rounded-lg flex items-center justify-center shadow-md bg-gradient-to-tr from-indigo-500 to-violet-500 overflow-hidden">
+                        {activeOrg?.logoUrl ? (
+                            <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                        ) : (
+                            <Mic className="text-white" size={18} />
+                        )}
                     </div>
                 )}
                 <button
