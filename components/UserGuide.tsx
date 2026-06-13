@@ -1,5 +1,4 @@
-import React from 'react';
-import { Book, CheckCircle, Smartphone, Monitor, Layout, Play, Clock, Globe, Shield, Zap, Sparkles, Receipt, Wifi, Info } from 'lucide-react';
+import { Book, CheckCircle, Smartphone, Monitor, Layout, Play, Clock, Globe, Shield, Zap, Sparkles, Receipt, Wifi, Info, LayoutGrid } from 'lucide-react';
 
 export const UserGuide: React.FC = () => {
     return (
@@ -31,7 +30,10 @@ export const UserGuide: React.FC = () => {
                     { title: 'Running the Show', icon: Play, target: '#running' },
                     { title: 'The Cue System', icon: Zap, target: '#cue' },
                     { title: 'Public Portals', icon: Globe, target: '#public' },
-                    { title: 'Offline Reliability', icon: Wifi, target: '#offline' },
+                    { title: 'Offline & Local Sync', icon: Wifi, target: '#offline' },
+                    { title: 'Command Center', icon: LayoutGrid, target: '#command-center' },
+                    { title: 'Stage Teleprompter', icon: Book, target: '#teleprompter' },
+                    { title: 'Autopilot Mode', icon: Zap, target: '#autopilot' },
                 ].map((item, i) => (
                     <a
                         key={i}
@@ -237,35 +239,169 @@ export const UserGuide: React.FC = () => {
                     </div>
                 </section>
 
-                {/* 7. Offline Reliability */}
+                {/* 7. Offline & Local Sync Fallback */}
                 <section id="offline" className="scroll-mt-24">
                     <div className="flex items-center gap-4 mb-8">
                         <div className="h-10 w-1 bg-indigo-600 rounded-full"></div>
                         <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                            📴 7. Offline Reliability
+                            📴 7. Offline & Local Sync Fallback
                         </h2>
                     </div>
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm relative">
-                        <div className="flex flex-col md:flex-row gap-8">
-                            <div className="flex-1 space-y-6">
-                                <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                                    Kairon is built for the "No Wi-Fi" reality of hotel ballrooms, while maintaining high-speed cloud sync.
-                                </p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
-                                        <Zap className="text-indigo-500" size={18} />
-                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest">Real-Time Sync</span>
-                                    </div>
-                                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
-                                        <CheckCircle className="text-emerald-500" size={18} />
-                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest">PWA Installed</span>
-                                    </div>
+                        <div className="space-y-6">
+                            <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                                Kairon features a built-in, completely transparent **Local Sync Router** designed for high-stress event venues where internet access is spotty or missing entirely.
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/80">
+                                    <h4 className="font-bold mb-2 flex items-center gap-2 text-indigo-500">
+                                        <Wifi size={16} /> 1. Automatic Local Bridge
+                                    </h4>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                                        If the WAN connection cuts out mid-event, the operator tab automatically starts broadcasting state updates locally using browser-level `BroadcastChannel` technology.
+                                    </p>
+                                </div>
+                                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/80">
+                                    <h4 className="font-bold mb-2 flex items-center gap-2 text-emerald-500">
+                                        <CheckCircle size={16} /> 2. Seamless Screen Sync
+                                    </h4>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                                        Any local screens (Stage Displays, TV Views, Teleprompters) open in neighboring tabs or screens automatically detect the offline state and listen to local broadcasts to continue running in perfect sync.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400/90 rounded-2xl text-xs leading-relaxed">
+                                💡 **No setup required:** Disconnect your device's Wi-Fi, control the live event from the `/live` page, and notice how all other local monitor tabs keep updating in real time.
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* 8. Command Center */}
+                <section id="command-center" className="scroll-mt-24">
+                    <div className="flex items-center gap-4 mb-8">
+                        <div className="h-10 w-1 bg-violet-600 rounded-full"></div>
+                        <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+                            🎛️ 8. Multi-Track Command Center
+                        </h2>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm relative space-y-6">
+                        <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                            For large summits and multi-venue productions, the **Command Center** provides a single screen to monitor and manage multiple active live rundown tracks side-by-side.
+                        </p>
+                        <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md">
+                            <img src="/command_center_mockup.png" alt="Multi-Track Command Center Mockup" className="w-full h-auto object-cover max-h-[300px]" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
+                                <h4 className="font-bold text-xs uppercase tracking-wider text-indigo-500 mb-1">Grid Overview</h4>
+                                <p className="text-xs text-slate-500">Monitor titles, speakers, elapsed percentages, and status alerts for all rooms concurrently.</p>
+                            </div>
+                            <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
+                                <h4 className="font-bold text-xs uppercase tracking-wider text-indigo-500 mb-1">Direct Telemetry</h4>
+                                <p className="text-xs text-slate-500">Start, pause, skip forward, or nudge countdown timers directly from the aggregate view.</p>
+                            </div>
+                            <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
+                                <h4 className="font-bold text-xs uppercase tracking-wider text-indigo-500 mb-1">Active Launch</h4>
+                                <p className="text-xs text-slate-500">Click the action icon on any card to instantly open the full control cockpit for that specific track.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* 9. Stage Teleprompter */}
+                <section id="teleprompter" className="scroll-mt-24">
+                    <div className="flex items-center gap-4 mb-8">
+                        <div className="h-10 w-1 bg-purple-600 rounded-full"></div>
+                        <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+                            📖 9. Stage Teleprompter Mode
+                        </h2>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-6">
+                        <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                            The **Integrated Teleprompter** merges schedule countdowns with structured markdown reading outlines, providing a clean split-screen layout for speakers at the podium.
+                        </p>
+                        <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md">
+                            <img src="/teleprompter_mockup.png" alt="Stage Teleprompter Mockup" className="w-full h-auto object-cover max-h-[300px]" />
+                        </div>
+                        <div className="space-y-4">
+                            <h4 className="font-bold text-slate-800 dark:text-slate-200">How to Setup and Use Teleprompter Outlines:</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-2xl">
+                                    <span className="font-bold text-xs text-indigo-500 uppercase tracking-widest block mb-1">1. Fill Outlines</span>
+                                    <p className="text-xs text-slate-500 leading-relaxed">
+                                        In the **Program Editor**, click the chevron dropdown on a slot. Type your sermon outline or speech notes into the **Public Details / Abstract** box. Supports `# Headings`, `- Bullets`, and `**bold**` markdown syntax.
+                                    </p>
+                                </div>
+                                <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-2xl">
+                                    <span className="font-bold text-xs text-indigo-500 uppercase tracking-widest block mb-1">2. Preview Outlines</span>
+                                    <p className="text-xs text-slate-500 leading-relaxed">
+                                        Open `/prompter?id=...`. Select any slot from the dropdown to read and preview notes. Click **Sync to Live** to let it automatically snap back to the running countdown timer.
+                                    </p>
                                 </div>
                             </div>
                         </div>
-                        <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800 flex items-center gap-4 text-xs font-bold text-slate-400">
-                            <Wifi size={14} className="text-emerald-500" />
-                            WATCH THE "LIVE SYNC" BADGE IN THE HEADER TO KNOW WHEN YOUR DATA IS SAFELY SYNCED TO THE CONVEX CLOUD.
+                    </div>
+                </section>
+
+                {/* 10. Autopilot Mode */}
+                <section id="autopilot" className="scroll-mt-24">
+                    <div className="flex items-center gap-4 mb-8">
+                        <div className="h-10 w-1 bg-amber-500 rounded-full"></div>
+                        <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+                            🤖 10. Autopilot Autopilot (Auto-Heal)
+                        </h2>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-6">
+                        <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                            When events run overtime, organizers face stress re-calculating the rest of the rundown. **Autopilot Mode** automates this process cleanly and deterministically.
+                        </p>
+                        <ul className="space-y-4">
+                            <li className="flex gap-4">
+                                <Zap className="text-amber-500 shrink-0" size={20} />
+                                <div>
+                                    <strong className="text-slate-800 dark:text-slate-100">Zero-Token Local Execution:</strong>
+                                    <p className="text-xs text-slate-500 mt-1">Unlike standard AI suggestions, Autopilot runs entirely on local math. It consumes no server credits or API tokens, remaining fully free and responsive offline.</p>
+                                </div>
+                            </li>
+                            <li className="flex gap-4">
+                                <CheckCircle className="text-indigo-500 shrink-0" size={20} />
+                                <div>
+                                    <strong className="text-slate-800 dark:text-slate-100">Smart Overrun Redistribution:</strong>
+                                    <p className="text-xs text-slate-500 mt-1">If a segment overruns, Autopilot automatically redistributes the overflow minutes by shaving time proportionally from subsequent flexible segments, ensuring you finish exactly at your hard end-time.</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </section>
+
+                {/* 11. Contrast Themes */}
+                <section id="pulpit-themes" className="scroll-mt-24">
+                    <div className="flex items-center gap-4 mb-8">
+                        <div className="h-10 w-1 bg-teal-500 rounded-full"></div>
+                        <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+                            🎨 11. Pulpit Contrast Themes
+                        </h2>
+                    </div>
+                    <div className="bg-slate-950 text-white rounded-3xl p-8 shadow-xl border border-slate-800">
+                        <p className="text-slate-400 leading-relaxed mb-6">
+                            To combat screen glare from intense stage spotlights, Kairon provides specialized, high-visibility themes for Pulpit displays.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-4 bg-black border border-amber-500/30 rounded-2xl flex items-center justify-between">
+                                <div>
+                                    <h4 className="font-bold text-amber-400">Ambient Yellow</h4>
+                                    <p className="text-[10px] text-slate-500">Optimized for low-light stages with high spotlight contrast.</p>
+                                </div>
+                                <span className="h-4 w-4 rounded-full bg-amber-400"></span>
+                            </div>
+                            <div className="p-4 bg-black border border-slate-800 rounded-2xl flex items-center justify-between">
+                                <div>
+                                    <h4 className="font-bold text-white">Ambient White</h4>
+                                    <p className="text-[10px] text-slate-500">Ultra-high visibility matte white outlines on true black background.</p>
+                                </div>
+                                <span className="h-4 w-4 rounded-full bg-white"></span>
+                            </div>
                         </div>
                     </div>
                 </section>

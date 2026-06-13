@@ -48,12 +48,38 @@ Want to share your schedule with the world?
 -   **Attendee Portal**: Anyone with the link can see a beautiful, mobile-friendly schedule without logging in.
 -   **iFrame Embed**: Copy the provided snippet to put your Kairon schedule directly on your own website.
 
-## 📴 7. Offline-First Reliability
+## 📴 7. Offline & Local LAN Sync
 
-Kairon is built for the "No Wi-Fi" reality of hotel ballrooms.
+Kairon is built for the "No Wi-Fi" reality of hotel ballrooms and metal-roofed event spaces.
 -   **PWA**: Click "Install" in your browser bar. Kairon will live in your dock/taskbar and open even without internet.
 -   **Convex Sync**: Every change is instantly backed up to the cloud. If you refresh on any device, your schedule is recovered instantly.
--   **Sync Indicator**: Watch the **"Live Sync"** badge in the header to know when your data is safely synced.
+-   **Local Sync Fallback (LAN)**: If the internet cuts out entirely, Kairon automatically switches to a local `BroadcastChannel` router. Controls (Play, Pause, Nudge, Next) on the operator screen are sent directly to local display monitors (Stage display, TV display, Teleprompter) on the same machine/LAN environment with **zero internet connection**.
+
+## 🎛️ 8. Multi-Track Command Center
+
+For large-scale corporate summits, multi-track conferences, or multi-venue church setups, the Command Center (`/command`) provides a unified matrix view.
+-   **Concurrent Tracking**: View active rundowns and countdown timers for Track A, Track B, and Track C side-by-side.
+-   **Master Controls**: Play, pause, or nudge any specific track directly from the central dashboard grid.
+-   **Quick Link Cockpit**: Click the action card icon to immediately launch the dedicated control cockpit for that specific session.
+
+## 📖 9. Stage Teleprompter Mode
+
+The Integrated Teleprompter (`/prompter`) splits the screen, showing the speaker a high-contrast countdown clock on the left, and an auto-scrolling markdown script outline on the right.
+-   **Outlines Setup**: In the Program Editor, click the chevron dropdown on a slot card. Enter outline details under **Public Details / Abstract** (or stage cues under **Internal Stage Cues**).
+-   **Slot Selector Dropdown**: Speakers can untether from the live sync and manually preview any slot's outline from the dropdown in the top bar.
+-   **Sync to Live**: Click the **Sync to Live** button in preview mode to instantly snap back to the running countdown timer.
+
+## 🤖 10. Autopilot Mode (Auto-Heal)
+
+Autopilot is a deterministic auto-heal algorithm designed for operators who want the rundown schedule to self-correct when sessions run long.
+-   **Zero Token Math**: Runs fully locally on your device with no external API calls, making it completely free (zero-token) and responsive even offline.
+-   **Auto-Correction**: Toggling Autopilot will automatically detect slot overruns and redistribute the delayed minutes by shaving time proportionally from subsequent flexible segments to ensure the event finishes exactly at the planned hard end-time.
+
+## 🎨 11. Pulpit Contrast Themes
+
+To combat intense stage spotlights, pulpit screens and teleprompters can be set to high-contrast styles:
+-   **Ambient Yellow**: Matte yellow text on true black background to eliminate glare under heavy overhead spotlights.
+-   **Ambient White**: Clean, modern white outlines on pitch black background for low-light stages.
 
 ---
 
@@ -73,8 +99,9 @@ Kairon is built for the "No Wi-Fi" reality of hotel ballrooms.
 *   **The Moment**: The Flower Girl is missing.
 *   **The Solution**: The DJ toggles **"Hold"**. The TV in the hall says "WAITING FOR CUE" so guests know something is happening. Once she's found, the DJ hits "Release" and the timer kicks off perfectly.
 
-### Scenario C: The Church Service (Poor Wi-Fi)
-*   **The Goal**: Display the service schedule on foyer screens in a building with thick concrete walls.
-*   **The Setup**: Tech team installs Kairon as a **PWA app** on the display PCs.
-*   **The Moment**: The internet cuts out mid-service.
-*   **The Solution**: Kairon doesn't blink. The **"Offline"** badge appears, but the timer keeps ticking and the foyer screens continue to show the correct local schedule.
+### Scenario C: The Church Service (Poor Wi-Fi & LAN Fallback)
+*   **The Goal**: Display the service schedule on pulpit and lobby screens in a building with thick concrete walls.
+*   **The Setup**: Tech team installs Kairon as a **PWA app** on all display PCs.
+*   **The Moment**: The external internet fiber line cuts out mid-service.
+*   **The Solution**: Kairon's automatic offline fallback router engages instantly. The tech team controls the rundown on the operator console, and all local display TVs, stage monitors, and pulpit teleprompters receive updates locally, keeping the countdown ticking in perfect sync offline.
+
