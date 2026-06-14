@@ -60,6 +60,7 @@ export const CrewHUD: React.FC = () => {
         !programData && slug ? { id: slug as any } : "skip"
     );
 
+    const programRaw = programData || programByIdData;
     const rawId = (programRaw as any)?._id;
     const isConvexId = rawId && rawId.length >= 19 && !rawId.includes('-');
     const acks = useQuery(
