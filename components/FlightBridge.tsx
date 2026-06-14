@@ -43,7 +43,11 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
     const [holdToEndProgress, setHoldToEndProgress] = useState(0);
     const holdTimerRef = useRef<number | null>(null);
 
-    const acks = useQuery(api.programs.getAcknowledgements, { programId: program._id as any }) || [];
+    const isLocalId = !program.id || program.id.startsWith('local-');
+    const acks = useQuery(
+        api.programs.getAcknowledgements,
+        isLocalId ? "skip" : { programId: program.id as any }
+    ) || [];
 
     const currentSlot = program.slots[currentSlotIndex];
 

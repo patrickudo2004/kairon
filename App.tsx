@@ -1196,9 +1196,10 @@ const AppContent: React.FC = () => {
           }))
         };
 
-        await createProgramService(newProgram);
+        const saved = await createProgramService(newProgram);
 
         queryClient.invalidateQueries({ queryKey: ['programs'] });
+        loadProgram(saved);
       } catch (error) {
         console.error('Failed to duplicate program:', error);
         alert('Failed to duplicate program. Please try again.');

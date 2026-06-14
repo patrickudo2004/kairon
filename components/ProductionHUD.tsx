@@ -35,7 +35,11 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
     const [holdToEnd, setHoldToEnd] = useState(0);
     const [isEnding, setIsEnding] = useState(false);
 
-    const acks = useQuery(api.programs.getAcknowledgements, programId ? { programId: programId as any } : "skip") || [];
+    const isLocalId = !programId || programId.startsWith('local-');
+    const acks = useQuery(
+        api.programs.getAcknowledgements,
+        isLocalId ? "skip" : { programId: programId as any }
+    ) || [];
 
     const program = useQuery(api.programs.getProgramById, programId ? { id: programId as any } : "skip");
     const currentSlot = program?.slots[program?.currentSlotIndex ?? 0];
