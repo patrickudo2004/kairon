@@ -60,8 +60,12 @@ export const CrewHUD: React.FC = () => {
         !programData && slug ? { id: slug as any } : "skip"
     );
 
-    const programRaw = programData || programByIdData;
-    const acks = useQuery(api.programs.getAcknowledgements, programRaw ? { programId: (programRaw as any)._id } : "skip") || [];
+    const rawId = (programRaw as any)?._id;
+    const isConvexId = rawId && rawId.length >= 19 && !rawId.includes('-');
+    const acks = useQuery(
+        api.programs.getAcknowledgements,
+        isConvexId ? { programId: rawId } : "skip"
+    ) || [];
     const acknowledge = useMutation(api.programs.acknowledgeCue);
 
     const program = programRaw ? {

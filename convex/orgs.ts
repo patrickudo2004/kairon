@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { checkPermissions } from "./programs";
 
 export const getMyOrganizations = query({
     args: { userId: v.optional(v.string()) },
@@ -99,6 +100,8 @@ export const updateOrganizationBranding = mutation({
         brandColor: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        await checkPermissions(ctx, args.id, "manager");
+
         const patchData: any = {};
         if (args.name !== undefined) patchData.name = args.name;
         if (args.logoUrl !== undefined) patchData.logoUrl = args.logoUrl;

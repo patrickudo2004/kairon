@@ -35,10 +35,10 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
     const [holdToEnd, setHoldToEnd] = useState(0);
     const [isEnding, setIsEnding] = useState(false);
 
-    const isLocalId = !programId || programId.startsWith('local-');
+    const isConvexId = programId && programId.length >= 19 && !programId.includes('-');
     const acks = useQuery(
         api.programs.getAcknowledgements,
-        isLocalId ? "skip" : { programId: programId as any }
+        isConvexId ? { programId: programId as any } : "skip"
     ) || [];
 
     const program = useQuery(api.programs.getProgramById, programId ? { id: programId as any } : "skip");
