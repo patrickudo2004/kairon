@@ -1133,7 +1133,7 @@ const AppContent: React.FC = () => {
   };
 
   const createProgram = (date: string) => {
-    if (isReadOnly) return;
+    if (!isAdmin && !isManager) return;
     const newProgram: Program = {
       ...getInitialProgram(activeOrgId || undefined),
       id: `local-${crypto.randomUUID()}`, // Prefix to distinguish local-only programs
@@ -1143,7 +1143,7 @@ const AppContent: React.FC = () => {
   };
 
   const deleteProgram = async (id: string) => {
-    if (isReadOnly || !id) return;
+    if ((!isAdmin && !isManager) || !id) return;
 
     try {
       // Guard: Don't call backend if it's a local-only program
@@ -1173,7 +1173,7 @@ const AppContent: React.FC = () => {
   };
 
   const duplicateProgram = (id: string) => {
-    if (isReadOnly) return;
+    if (!isAdmin && !isManager) return;
     void (async () => {
       try {
         const original = await getProgramById(id);
@@ -1183,6 +1183,13 @@ const AppContent: React.FC = () => {
           ...original,
           id: `local-${crypto.randomUUID()}`,
           title: `${original.title} (Copy)`,
+          status: 'draft',
+          isTimerActive: false,
+          timerStartTimestamp: null,
+          secondsElapsed: 0,
+          currentSlotIndex: 0,
+          isOnHold: false,
+          holdMessage: '',
           slots: original.slots.map(s => ({
             ...s,
             id: crypto.randomUUID()

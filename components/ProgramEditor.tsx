@@ -212,11 +212,12 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
             <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Subtitle</label>
             <input
               type="text"
+              readOnly={isReadOnly}
               value={program.subtitle}
               onChange={(e) => {
                 onUpdate({ ...program, subtitle: e.target.value });
               }}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-colors"
+              className={`w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-colors ${isReadOnly ? 'cursor-default' : ''}`}
             />
           </div>
         </div>
@@ -228,9 +229,10 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
             </label>
             <input
               type="date"
+              readOnly={isReadOnly}
               value={program.date}
               onChange={(e) => onUpdate({ ...program, date: e.target.value })}
-              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-colors"
+              className={`w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-colors ${isReadOnly ? 'cursor-default' : ''}`}
             />
           </div>
           <div className="md:col-span-1">
@@ -239,9 +241,10 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
             </label>
             <input
               type="time"
+              readOnly={isReadOnly}
               value={program.startTime}
               onChange={(e) => onUpdate({ ...program, startTime: e.target.value })}
-              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-colors"
+              className={`w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-colors ${isReadOnly ? 'cursor-default' : ''}`}
             />
           </div>
 
@@ -251,9 +254,10 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
             </label>
             <input
               type="time"
+              readOnly={isReadOnly}
               value={program.endTime || ''}
               onChange={(e) => onUpdate({ ...program, endTime: e.target.value })}
-              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-colors"
+              className={`w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-colors ${isReadOnly ? 'cursor-default' : ''}`}
             />
           </div>
 
@@ -285,8 +289,9 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
           </div>
           <button
             onClick={() => onUpdate({ ...program, isPublic: !program.isPublic })}
+            disabled={isReadOnly}
             className={`relative inline-flex h-5 w-9 sm:h-6 sm:w-11 items-center rounded-full transition-colors focus:outline-none shrink-0 ${program.isPublic ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
-              }`}
+              } ${isReadOnly ? 'opacity-50 cursor-default' : ''}`}
           >
             <span
               className={`inline-block h-3 w-3 sm:h-4 sm:w-4 transform rounded-full bg-white transition-transform ${program.isPublic ? 'translate-x-[18px] sm:translate-x-[26px]' : 'translate-x-[2px] sm:translate-x-[4px]'
