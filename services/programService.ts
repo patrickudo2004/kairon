@@ -65,6 +65,8 @@ export const createProgram = async (program: Program): Promise<Program> => {
                 ...existing,      // base: preserve timer state from localStorage
                 ...program,       // overlay: update content fields (title, slots, isManualMode, etc.)
                 id,
+                uuid: id.replace('local-', ''),
+                slug: id.replace('local-', ''),
                 // Explicitly restore timer fields from localStorage so they aren't lost:
                 currentSlotIndex: existing.currentSlotIndex,
                 isTimerActive: existing.isTimerActive,
@@ -72,7 +74,12 @@ export const createProgram = async (program: Program): Promise<Program> => {
                 secondsElapsed: existing.secondsElapsed,
                 status: existing.status,
               }
-            : { ...program, id };
+            : {
+                ...program,
+                id,
+                uuid: id.replace('local-', ''),
+                slug: id.replace('local-', ''),
+              };
         const filtered = list.filter((p: any) => p.id !== id);
         filtered.push(newProg);
         updateTestPrograms(filtered);

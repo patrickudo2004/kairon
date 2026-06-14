@@ -311,6 +311,11 @@ const AppContent: React.FC = () => {
 
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
 
+  const updateLocalProgram = React.useCallback((newProg: Program | ((prev: Program) => Program)) => {
+    setProgram(newProg);
+    setSaveStatus('unsaved');
+  }, []);
+
   // --- Auth & Org State ---
   // Use real Convex Auth hooks
   const { isAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
@@ -763,16 +768,44 @@ const AppContent: React.FC = () => {
     const hydrate = async () => {
       // 1. Try DB Hydration (Reactive)
       if (fetchedProgram) {
-        const isNewProgram = fetchedProgram.id !== program.id && !program.id?.startsWith('local-');
+        // Guard: Ensure we only hydrate if the fetched program matches the currently requested URL ID
+        const urlIdClean = urlId?.replace('local-', '');
+        const fetchedIdClean = fetchedProgram.id?.replace('local-', '');
+        const fetchedUuidClean = fetchedProgram.uuid?.replace('local-', '');
+        const fetchedSlugClean = fetchedProgram.slug?.replace('local-', '');
+        
+        if (urlId) {
+          const matchesUrl = fetchedProgram.id === urlId || 
+            (urlIdClean && (fetchedUuidClean === urlIdClean || fetchedSlugClean === urlIdClean));
+          if (!matchesUrl) {
+            return;
+          }
+        }
+
+        const currentProg = programRef.current;
+        const isSameProgram = fetchedProgram.id === currentProg.id || 
+          (currentProg.id?.startsWith('local-') && 
+            (fetchedProgram.uuid === currentProg.id.replace('local-', '') || 
+             fetchedProgram.slug === currentProg.id.replace('local-', '')));
+
+        const isNewProgram = !isSameProgram;
         const isTransitioning = Date.now() - lastAdvanceTimeRef.current < 10000;
 
-        if (isNewProgram || program.id?.startsWith('local-')) {
-          if (fetchedProgram.id !== program.id) {
-            console.log("Hydrating program from ID:", fetchedProgram.title);
-            lastSavedProgramRef.current = fetchedProgram;
-            setProgram(fetchedProgram);
+        if (isNewProgram) {
+          console.log("Hydrating program from ID:", fetchedProgram.title);
+          lastSavedProgramRef.current = fetchedProgram;
+          setProgram(fetchedProgram);
+        } else if (currentProg.id?.startsWith('local-') && fetchedProgram.id !== currentProg.id && !fetchedProgram.id.startsWith('local-')) {
+          console.log("Syncing local ID to Convex ID from fetched program:", fetchedProgram.id);
+          if (lastSavedProgramRef.current) {
+            lastSavedProgramRef.current = { ...lastSavedProgramRef.current, id: fetchedProgram.id };
           }
-        } else if (saveStatus === 'saved' && !isProgramContentEqual(program, fetchedProgram)) {
+          setProgram(prev => ({ ...prev, id: fetchedProgram.id }));
+          setSearchParams(prev => {
+            prev.set('id', fetchedProgram.id);
+            return prev;
+          }, { replace: true });
+        } else if (saveStatus === 'saved' && !isProgramContentEqual(currentProg, fetchedProgram)) {
           console.log("Syncing program content updates from database:", fetchedProgram.title);
           lastSavedProgramRef.current = fetchedProgram;
           setProgram(fetchedProgram);
@@ -790,7 +823,7 @@ const AppContent: React.FC = () => {
           const targetSlotIndex = fetchedProgram.currentSlotIndex ?? 0;
 
           // AUTO-CORRECTION: If DB has "dirty" or "stale" timer data, fix it permanently on the server
-          const needsCorrection = (!isLive && (fetchedProgram.isTimerActive || fetchedProgram.timerStartTimestamp !== null)) || isStale;
+          const needsCorrection = (!isLive && (fetchedProgram.isTimerActive || (fetchedProgram.timerStartTimestamp !== null && fetchedProgram.timerStartTimestamp !== undefined))) || isStale;
 
           if (needsCorrection) {
             // Guard: Only correct this specific ID once per session to prevent infinite render loops (React Error #185)
@@ -839,7 +872,7 @@ const AppContent: React.FC = () => {
       // 2. Try URL Import Hydration
       if (importData) {
         const importedProgram = decodeProgramData(importData);
-        if (importedProgram && importedProgram.id !== program.id) {
+        if (importedProgram && importedProgram.id !== programRef.current.id) {
           console.log("Hydrating program from URL Data:", importedProgram.title);
           setProgram(importedProgram);
         }
@@ -851,7 +884,7 @@ const AppContent: React.FC = () => {
     };
 
     hydrate();
-  }, [importData, fetchedProgram, searchParams]);
+  }, [importData, fetchedProgram, searchParams, saveStatus]);
 
   // Persistence (Convex)
   const mutation = useMutation({
@@ -969,7 +1002,7 @@ const AppContent: React.FC = () => {
       }
 
       if (targetId === program.id) {
-        setProgram(updated);
+        updateLocalProgram(updated);
       }
       
       // Persist the slot change
@@ -1012,7 +1045,7 @@ const AppContent: React.FC = () => {
     });
 
     if (targetId === program.id) {
-      setProgram(updatedProgram);
+      updateLocalProgram(updatedProgram);
       setIsTimerActive(false);
       setTimerStartTimestamp(null);
       setSecondsElapsed(0);
@@ -1064,7 +1097,8 @@ const AppContent: React.FC = () => {
       // CRITICAL: If we just created a new program (transitioning from local- ID), 
       // we must update our local state with the actual Convex ID returned.
       const savedProgram = mutation.data as Program | void;
-      if (savedProgram && savedProgram.id && program.id !== savedProgram.id && program.id?.startsWith('local-')) {
+      const currentProg = programRef.current;
+      if (savedProgram && savedProgram.id && currentProg.id !== savedProgram.id && currentProg.id?.startsWith('local-')) {
         console.log("Syncing local ID to Convex ID:", savedProgram.id);
         if (lastSavedProgramRef.current) {
           lastSavedProgramRef.current = { ...lastSavedProgramRef.current, id: savedProgram.id };
@@ -1086,10 +1120,13 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (fetchedProgram && lastSavedProgramRef.current) {
       if (isProgramContentEqual(lastSavedProgramRef.current, fetchedProgram)) {
-        setSaveStatus('saved');
+        // Only mark as saved if the user hasn't made new local edits in the meantime
+        if (isProgramContentEqual(program, lastSavedProgramRef.current)) {
+          setSaveStatus('saved');
+        }
       }
     }
-  }, [fetchedProgram]);
+  }, [fetchedProgram, program]);
 
   const loadProgram = (newProgram: Program) => {
     lastAdvancedIndexRef.current = -1;
@@ -1233,10 +1270,8 @@ const AppContent: React.FC = () => {
       if (displayIsTimerActive && displayTimerStartTimestamp) {
         const elapsed = Math.floor((now - displayTimerStartTimestamp) / 1000);
         
-        // Only update local state if we aren't in live mode (Live mode is driven by Convex)
-        if (!isLiveEventActive) {
-          setSecondsElapsed(elapsed);
-        }
+        // Update local secondsElapsed to trigger re-renders for auto-advance (once per second)
+        setSecondsElapsed(prev => prev !== elapsed ? elapsed : prev);
         
         // ALWAYS update the high-precision ref for pause capturing
         currentTickingSecondsRef.current = elapsed;
@@ -1254,7 +1289,7 @@ const AppContent: React.FC = () => {
 
 
   const handleSlotComplete = (slotId: string, actualDuration: number) => {
-    setProgram(prev => ({
+    updateLocalProgram(prev => ({
       ...prev,
       slots: prev.slots.map(s => s.id === slotId ? { ...s, actualDuration } : s)
     }));
@@ -1271,7 +1306,7 @@ const AppContent: React.FC = () => {
     if (isLiveEventActive && displayProgram.id === globalLiveProgram?.id) {
       // It's the live show - Convex will broadcast this automatically if we mutation save it
     } else {
-      setProgram(updatedProgram);
+      updateLocalProgram(updatedProgram);
     }
 
     try {
@@ -1366,7 +1401,7 @@ const AppContent: React.FC = () => {
         setTimerStartTimestamp(startTs);
         setSecondsElapsed(0); // Ensure fresh start
 
-        setProgram(prev => ({ ...prev, status: 'live' }));
+        updateLocalProgram(prev => ({ ...prev, status: 'live' }));
 
         // PUSH TO CLOUD 
         timerSaveMutation.mutate({
@@ -1451,7 +1486,7 @@ const AppContent: React.FC = () => {
       if (targetIdStr === String(program.id)) {
         setIsTimerActive(true);
         setTimerStartTimestamp(shiftedStart);
-        setProgram(prev => ({ ...prev, status: 'live' }));
+        updateLocalProgram(prev => ({ ...prev, status: 'live' }));
         
         // REDIRECT FIX: Only navigate to Editor if starting from a non-production view
         const currentPath = window.location.pathname;
@@ -1528,7 +1563,7 @@ const AppContent: React.FC = () => {
 
     // Local update for smoothness on draft
     if (targetId === program.id) {
-      setProgram(prev => ({ ...prev, isOnHold: holdState, holdMessage: msg }));
+      updateLocalProgram(prev => ({ ...prev, isOnHold: holdState, holdMessage: msg }));
     }
   };
 
@@ -1550,7 +1585,7 @@ const AppContent: React.FC = () => {
     });
 
     if (targetId === program.id) {
-      setProgram(prev => ({ ...prev, isManualMode: nextManualState }));
+      updateLocalProgram(prev => ({ ...prev, isManualMode: nextManualState }));
     }
   };
 
@@ -2103,7 +2138,7 @@ const AppContent: React.FC = () => {
                             handleAiRebalance(p);
                             return;
                           }
-                          setProgram(p);
+                          updateLocalProgram(p);
                           if (p.slots.length === 0) {
                             setCurrentSlotIndex(0);
                             setSecondsElapsed(0);
