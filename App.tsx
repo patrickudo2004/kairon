@@ -154,6 +154,7 @@ const isProgramContentEqual = (p1: Program, p2: Program): boolean => {
     if ((s1.actualDuration || 0) !== (s2.actualDuration || 0)) return false;
     if ((s1.details || "") !== (s2.details || "")) return false;
     if ((s1.productionNotes || "") !== (s2.productionNotes || "")) return false;
+    if ((s1.prompterText || "") !== (s2.prompterText || "")) return false;
   }
   return true;
 };
@@ -356,9 +357,11 @@ const AppContent: React.FC = () => {
   }, []);
 
   const isReadOnly = !isAuthResolved ? false : (
-    (isAdmin || isManager)
-      ? (mode === 'viewer') 
-      : true // Operators and Guests are read-only for structural edits
+    program.status === 'archived' || (
+      (isAdmin || isManager)
+        ? (mode === 'viewer') 
+        : true // Operators and Guests are read-only for structural edits
+    )
   );
 
   const canControlLive = isAdmin || isManager || isOperator;
