@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { resolveProgram, checkPermissions } from "./programs";
 
 export const getLatestMessage = query({
     args: { programId: v.string() },
@@ -35,6 +36,10 @@ export const sendMessage = mutation({
         durationMs: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
+        const program = await resolveProgram(ctx, args.programId);
+        if (!program) throw new Error("Program not found");
+        await checkPermissions(ctx, program.organizationId, "operator");
+
         const now = Date.now();
         const duration = args.durationMs ?? 10000; // Default 10s
         return await ctx.db.insert("stageMessages", {
@@ -51,6 +56,10 @@ export const sendMessage = mutation({
 export const clearMessages = mutation({
     args: { programId: v.string() },
     handler: async (ctx, args) => {
+        const program = await resolveProgram(ctx, args.programId);
+        if (!program) throw new Error("Program not found");
+        await checkPermissions(ctx, program.organizationId, "operator");
+
         const messages = await ctx.db
             .query("stageMessages")
             .withIndex("by_program_latest", (q) => q.eq("programId", args.programId))

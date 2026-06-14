@@ -4,7 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { Doc, Id } from "./_generated/dataModel";
 
 // Internal helper to verify user has required role in an organization
-async function checkPermissions(ctx: any, organizationId: Id<"organizations">, minimumRole: "admin" | "manager" | "operator") {
+export async function checkPermissions(ctx: any, organizationId: Id<"organizations">, minimumRole: "admin" | "manager" | "operator") {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Unauthorized: Not logged in");
 
@@ -206,7 +206,7 @@ export const migrateProgram = mutation({
 
 
 // Internal helper to resolve a program document by either Convex ID or UUID
-async function resolveProgram(ctx: any, id: string) {
+export async function resolveProgram(ctx: any, id: string) {
     const normalizedId = ctx.db.normalizeId("programs", id);
     if (normalizedId) {
         const doc = await ctx.db.get(normalizedId);
@@ -341,17 +341,21 @@ export const deleteAllProgramsInOrg = mutation({
 
 export const acknowledgeCue = mutation({
     args: {
-        programId: v.id("programs"),
+        programId: v.string(),
         slotId: v.string(),
         role: v.union(v.literal("sound"), v.literal("lighting"), v.literal("video")),
     },
     handler: async (ctx, args) => {
+        const program = await resolveProgram(ctx, args.programId);
+        if (!program) throw new Error("Program not found");
+        await checkPermissions(ctx, program.organizationId, "operator");
+
         const timestamp = Date.now();
 
         // Check if already acknowledged for this slot/role
         const existing = await ctx.db
             .query("acknowledgements")
-            .withIndex("by_slot", (q) => q.eq("programId", args.programId).eq("slotId", args.slotId))
+            .withIndex("by_slot", (q) => q.eq("programId", program._id).eq("slotId", args.slotId))
             .filter((q) => q.eq(q.field("role"), args.role))
             .first();
 
@@ -359,7 +363,7 @@ export const acknowledgeCue = mutation({
             await ctx.db.patch(existing._id, { timestamp });
         } else {
             await ctx.db.insert("acknowledgements", {
-                programId: args.programId,
+                programId: program._id,
                 slotId: args.slotId,
                 role: args.role,
                 timestamp,
@@ -369,11 +373,14 @@ export const acknowledgeCue = mutation({
 });
 
 export const getAcknowledgements = query({
-    args: { programId: v.id("programs") },
+    args: { programId: v.string() },
     handler: async (ctx, args) => {
+        const program = await resolveProgram(ctx, args.programId);
+        if (!program) return [];
+
         return await ctx.db
             .query("acknowledgements")
-            .withIndex("by_slot", (q) => q.eq("programId", args.programId))
+            .withIndex("by_slot", (q) => q.eq("programId", program._id))
             .collect();
     },
 });

@@ -551,6 +551,7 @@ const AppContent: React.FC = () => {
   const lastAdvanceTimeRef = React.useRef<number>(0);
   const lastCorrectedIdRef = React.useRef<string | null>(null);
   const currentTickingSecondsRef = React.useRef<number>(0);
+  const lastSavedProgramRef = React.useRef<Program | null>(null);
 
   // --- Reactive Global Live Channels (Multi-Track) ---
   const [selectedLiveId, setSelectedLiveId] = useState<string | null>(null);
@@ -768,10 +769,12 @@ const AppContent: React.FC = () => {
         if (isNewProgram || program.id?.startsWith('local-')) {
           if (fetchedProgram.id !== program.id) {
             console.log("Hydrating program from ID:", fetchedProgram.title);
+            lastSavedProgramRef.current = fetchedProgram;
             setProgram(fetchedProgram);
           }
         } else if (saveStatus === 'saved' && !isProgramContentEqual(program, fetchedProgram)) {
           console.log("Syncing program content updates from database:", fetchedProgram.title);
+          lastSavedProgramRef.current = fetchedProgram;
           setProgram(fetchedProgram);
         }
 
@@ -1032,6 +1035,7 @@ const AppContent: React.FC = () => {
     // Skip saving if local state is already in sync with database
     if (fetchedProgram && isProgramContentEqual(program, fetchedProgram)) {
       setSaveStatus('saved');
+      lastSavedProgramRef.current = fetchedProgram;
       return;
     }
 
@@ -1041,6 +1045,7 @@ const AppContent: React.FC = () => {
     const timer = setTimeout(() => {
       console.log(`Auto-saving program "${program.title}" to Convex...`);
       setSaveStatus('saving');
+      lastSavedProgramRef.current = program;
       mutation.mutate(program);
     }, 2000); // 2s debounce
 
@@ -1053,13 +1058,17 @@ const AppContent: React.FC = () => {
   // Update save status when mutation completes
   useEffect(() => {
     if (mutation.isSuccess) {
-      setSaveStatus(prev => prev === 'saving' ? 'saved' : prev);
+      // Invalidate programs cache to refresh home view
+      queryClient.invalidateQueries({ queryKey: ['programs'] });
 
       // CRITICAL: If we just created a new program (transitioning from local- ID), 
       // we must update our local state with the actual Convex ID returned.
       const savedProgram = mutation.data as Program | void;
       if (savedProgram && savedProgram.id && program.id !== savedProgram.id && program.id?.startsWith('local-')) {
         console.log("Syncing local ID to Convex ID:", savedProgram.id);
+        if (lastSavedProgramRef.current) {
+          lastSavedProgramRef.current = { ...lastSavedProgramRef.current, id: savedProgram.id };
+        }
         setProgram(prev => ({ ...prev, id: (savedProgram as Program).id }));
         // Also update URL to prevent "stale local" state on refresh
         setSearchParams(prev => {
@@ -1067,23 +1076,27 @@ const AppContent: React.FC = () => {
           return prev;
         }, { replace: true });
       }
-
-      // Invalidate programs cache to refresh home view
-      queryClient.invalidateQueries({ queryKey: ['programs'] });
-      // Reset to saved status after 2 seconds
-      setTimeout(() => setSaveStatus(prev => prev === 'saving' ? 'saved' : prev), 2000);
     }
     if (mutation.isError) {
       setSaveStatus('unsaved');
     }
   }, [mutation.isSuccess, mutation.isError, mutation.data, queryClient]);
 
-
+  // Set saveStatus to 'saved' when fetchedProgram catches up to our last saved state
+  useEffect(() => {
+    if (fetchedProgram && lastSavedProgramRef.current) {
+      if (isProgramContentEqual(lastSavedProgramRef.current, fetchedProgram)) {
+        setSaveStatus('saved');
+      }
+    }
+  }, [fetchedProgram]);
 
   const loadProgram = (newProgram: Program) => {
     lastAdvancedIndexRef.current = -1;
     lastProcessedIndexRef.current = -1;
+    lastSavedProgramRef.current = newProgram;
     setProgram(newProgram);
+    setSaveStatus('saved');
 
     // Safety: Only reset local viewer state if we are NOT loading the live program.
     // If loading the live program, we want to keep the current running pointers.
