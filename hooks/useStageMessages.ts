@@ -61,7 +61,7 @@ export const useStageMessages = (programId: string | undefined) => {
                 text,
                 type,
                 isStrobe,
-                expiresAt: Date.now() + (durationMs || 5000)
+                expiresAt: Date.now() + (durationMs || (24 * 60 * 60 * 1000))
             };
             localStorage.setItem(`prompt_${programId}`, JSON.stringify(msg));
             window.dispatchEvent(new Event('prompt_update'));

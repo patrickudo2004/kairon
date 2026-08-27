@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams, Navigate, useParams } from 'react-router-dom';
-import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, User as UserIcon, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus, ExternalLink, Tv, AppWindow, SkipBack, SkipForward, Pause, Clock, Monitor, Building, MessageSquare, Bell, Crown } from 'lucide-react';
+import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, User as UserIcon, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus, ExternalLink, Tv, AppWindow, SkipBack, SkipForward, Pause, Clock, Monitor, Building, MessageSquare, Bell, Crown, Volume2, Lightbulb, Video, Plus, Minus, BarChart3, Power } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Services
@@ -1800,7 +1800,15 @@ const AppContent: React.FC = () => {
     currentTickingSecondsRef.current = headerElapsed;
   }, [headerElapsed]);
 
-  const isHudVisible = !!(user && canControlLive && displayProgram.slots.length > 0);
+  const isConvexId = displayProgram.id && displayProgram.id.length >= 19 && !displayProgram.id.includes('-');
+  const crewAcks = useConvexQuery(
+    api.programs.getAcknowledgements,
+    isConvexId ? { programId: displayProgram.id as any } : "skip"
+  ) || [];
+
+  const isSoundAcked = crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'sound');
+  const isLightsAcked = crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'lighting');
+  const isVideoAcked = crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'video');
 
   return (
     <div className="h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-hidden">
@@ -1842,16 +1850,13 @@ const AppContent: React.FC = () => {
 
       <div className={`flex-1 flex flex-col h-screen transition-all duration-300 overflow-hidden ${
         user 
-          ? (isSidebarCollapsed 
-              ? (isHudVisible ? 'lg:pl-[192px]' : 'lg:pl-20') 
-              : (isHudVisible ? 'lg:pl-[368px]' : 'lg:pl-64')
-            ) 
+          ? (isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64') 
           : ''
       }`}>
         {/* Header (Studio Precision Top Bar) */}
         <header className="h-14 shrink-0 border-b border-slate-200 dark:border-[#22262E] bg-white/95 dark:bg-[#090A0C]/95 backdrop-blur-md transition-colors z-40 flex items-center shrink-0 no-print font-sans">
-          <div className="w-full px-5 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="w-full px-4 md:px-5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               {!user ? (
                 <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center">
@@ -1863,7 +1868,7 @@ const AppContent: React.FC = () => {
                 <>
                   <div className="flex-1 min-w-0 overflow-hidden">
                     <div className="flex items-center gap-2">
-                      <h2 className="font-semibold text-sm text-slate-900 dark:text-white truncate max-w-full">
+                      <h2 className="font-semibold text-sm text-slate-900 dark:text-white truncate max-w-[160px] sm:max-w-xs md:max-w-sm">
                         {displayProgram.title}
                       </h2>
                       {displayIsTimerActive ? (
@@ -1884,8 +1889,8 @@ const AppContent: React.FC = () => {
 
             {/* Live Control Center & Header Timer */}
             {!isReadOnly && displayProgram.slots.length > 0 && (
-              <div className="hidden md:flex items-center gap-3 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] px-3 py-1 rounded-md shadow-sm">
-                <div className={`text-base font-mono font-bold tabular-nums min-w-[70px] text-center ${
+              <div className="flex items-center gap-2 md:gap-3 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] px-2.5 py-1 rounded-md shadow-sm">
+                <div className={`text-sm md:text-base font-mono font-bold tabular-nums min-w-[55px] md:min-w-[70px] text-center ${
                   displayIsTimerActive 
                     ? (headerTimeLeft < 0 ? 'text-[#EF4444] animate-pulse' : 'text-[#10B981]') 
                     : 'text-slate-500 dark:text-[#8A93A4]'
@@ -1905,7 +1910,7 @@ const AppContent: React.FC = () => {
                     }`}
                     title={displayIsTimerActive ? "Pause Timer" : "Start Event"}
                   >
-                    {displayIsTimerActive ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+                    {displayIsTimerActive ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}
                   </button>
 
                   <button
@@ -1918,7 +1923,7 @@ const AppContent: React.FC = () => {
                     }`}
                     title="Previous Slot"
                   >
-                    <SkipBack size={14} />
+                    <SkipBack size={13} />
                   </button>
 
                   <button
@@ -1931,8 +1936,26 @@ const AppContent: React.FC = () => {
                     }`}
                     title="Next Slot"
                   >
-                    <SkipForward size={14} />
+                    <SkipForward size={13} />
                   </button>
+
+                  {/* Nudge Controls */}
+                  <div className="hidden sm:inline-flex items-center bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] rounded p-0.5 mx-0.5">
+                    <button
+                      onClick={() => handleNudge(-1)}
+                      className="px-1.5 py-0.5 hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-all font-mono text-[10px] font-bold"
+                      title="Nudge Down -1 min"
+                    >
+                      <Minus size={11} />
+                    </button>
+                    <button
+                      onClick={() => handleNudge(1)}
+                      className="px-1.5 py-0.5 hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-all font-mono text-[10px] font-bold"
+                      title="Nudge Up +1 min"
+                    >
+                      <Plus size={11} />
+                    </button>
+                  </div>
 
                   <button
                     onClick={() => handleToggleHold()}
@@ -1943,21 +1966,21 @@ const AppContent: React.FC = () => {
                     }`}
                     title="Toggle Hold"
                   >
-                    <Clock size={14} />
+                    <Clock size={13} />
                   </button>
 
-                  <div className="w-[1px] h-4 bg-slate-200 dark:bg-[#22262E] mx-0.5" />
+                  <div className="w-[1px] h-4 bg-slate-200 dark:bg-[#22262E] mx-0.5 hidden sm:block" />
 
                   <button
                     onClick={() => handleToggleManualMode()}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded transition-all ${
+                    className={`hidden sm:flex items-center gap-1.5 px-2 py-1 rounded transition-all ${
                       displayProgram.isManualMode
                         ? 'bg-slate-100 dark:bg-[#181B22] text-[#0EA5E9] border border-slate-300 dark:border-[#2D333F]'
                         : 'text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22]'
                     }`}
                     title={displayProgram.isManualMode ? "Manual Mode (Manual Advance)" : "Auto-Advance Mode (Continuous)"}
                   >
-                    {displayProgram.isManualMode ? <MousePointerClick size={13} /> : <Zap size={13} />}
+                    {displayProgram.isManualMode ? <MousePointerClick size={12} /> : <Zap size={12} />}
                     <span className="text-[9px] font-mono font-bold uppercase tracking-wider hidden lg:block">
                       {displayProgram.isManualMode ? 'MAN' : 'AUTO'}
                     </span>
@@ -1966,7 +1989,52 @@ const AppContent: React.FC = () => {
               </div>
             )}
 
-            <div className="flex items-center gap-2">
+            {/* Crew Tactical HUD Readiness Indicators */}
+            {currentHeaderSlot && (
+              <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md font-mono text-[10px] shadow-sm shrink-0" title="Crew Tactical HUD Live Readiness">
+                <span className="text-slate-400 dark:text-[#6A7382] uppercase mr-0.5 text-[9px]">CREW:</span>
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors ${isSoundAcked ? 'bg-[#10B981]/15 text-[#10B981] font-bold' : 'text-slate-400 dark:text-[#6A7382]'}`} title={isSoundAcked ? "Sound Team: Ready" : "Sound Team: Standby"}>
+                  <Volume2 size={11} />
+                  <span>S</span>
+                  {isSoundAcked && <span className="w-1 h-1 rounded-full bg-[#10B981]" />}
+                </span>
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors ${isLightsAcked ? 'bg-[#10B981]/15 text-[#10B981] font-bold' : 'text-slate-400 dark:text-[#6A7382]'}`} title={isLightsAcked ? "Lighting Team: Ready" : "Lighting Team: Standby"}>
+                  <Lightbulb size={11} />
+                  <span>L</span>
+                  {isLightsAcked && <span className="w-1 h-1 rounded-full bg-[#10B981]" />}
+                </span>
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors ${isVideoAcked ? 'bg-[#10B981]/15 text-[#10B981] font-bold' : 'text-slate-400 dark:text-[#6A7382]'}`} title={isVideoAcked ? "Video Team: Ready" : "Video Team: Standby"}>
+                  <Video size={11} />
+                  <span>V</span>
+                  {isVideoAcked && <span className="w-1 h-1 rounded-full bg-[#10B981]" />}
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+              {/* Post-Event Analytics Report Button */}
+              {displayProgram?.id && (
+                <button
+                  onClick={() => navigate(`/analytics/${displayProgram.id}`)}
+                  className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-amber-600 dark:text-[#F59E0B] rounded text-xs font-mono font-semibold transition-all shadow-sm"
+                  title="View Event Report & Analytics"
+                >
+                  <BarChart3 size={13} />
+                  <span>Report</span>
+                </button>
+              )}
+
+              {/* End Event / Stop Button */}
+              {displayIsTimerActive && (
+                <button
+                  onClick={() => handleEndEvent(displayProgram.id)}
+                  className="p-1.5 bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 text-[#EF4444] rounded transition-colors"
+                  title="End Event Session"
+                >
+                  <Power size={13} />
+                </button>
+              )}
+
               {/* Network Status Indicator */}
               <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded text-[10px] font-mono text-slate-600 dark:text-[#8A93A4]">
                 {isOnline ? <Wifi size={11} className="text-[#10B981]" /> : <WifiOff size={11} className="text-[#EF4444]" />}
@@ -1979,7 +2047,7 @@ const AppContent: React.FC = () => {
                   className="p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
                   title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
                 >
-                  {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
+                  {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
                 </button>
               )}
 
@@ -1995,7 +2063,7 @@ const AppContent: React.FC = () => {
                       }`}
                       title="Open Floating PiP Window"
                     >
-                      <AppWindow size={15} />
+                      <AppWindow size={14} />
                     </button>
                   )}
 
@@ -2004,7 +2072,7 @@ const AppContent: React.FC = () => {
                     className="p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
                     title="Launch TV / Overflow Screen"
                   >
-                    <Tv size={15} />
+                    <Tv size={14} />
                   </button>
 
                   <button
@@ -2012,7 +2080,7 @@ const AppContent: React.FC = () => {
                     className="p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
                     title="Export Schedule"
                   >
-                    <Download size={15} />
+                    <Download size={14} />
                   </button>
                 </>
               )}
@@ -2286,24 +2354,6 @@ const AppContent: React.FC = () => {
               Retry Connection
             </button>
           </div>
-        </div>
-      )}
-
-      {user && canControlLive && (displayProgram.slots.length > 0) && (
-        <div className={`hidden lg:block fixed top-16 bottom-0 z-[100] transition-all duration-300 ${isSidebarCollapsed ? 'left-20' : 'left-64'} h-[calc(100vh-64px)]`}>
-          <ProductionHUD
-            isTimerActive={displayIsTimerActive}
-            isAdminOnline={isAdminOnline}
-            onEndEvent={() => handleEndEvent(displayProgram.id)}
-            onNudge={handleNudge}
-            onToggleTimer={handleToggleTimer}
-            onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
-            currentSlotTitle={displayProgram?.slots[displayCurrentSlotIndex]?.title}
-            programId={displayProgram.id}
-            timerStartTimestamp={displayTimerStartTimestamp}
-            secondsElapsed={displaySecondsElapsed}
-            isVertical={true}
-          />
         </div>
       )}
 

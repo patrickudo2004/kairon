@@ -62,7 +62,8 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile,
         }
     };
 
-    const initial = profile?.fullName?.charAt(0) || user?.email?.charAt(0) || '?';
+    const displayName = profile?.fullName?.trim() || (user?.email ? user.email.split('@')[0] : 'User Profile');
+    const initial = displayName.charAt(0).toUpperCase() || '?';
 
     return (
         <div className="relative" ref={dropdownRef}>
@@ -73,7 +74,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile,
             >
                 <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center overflow-hidden shadow-sm group-hover:ring-2 group-hover:ring-indigo-500 transition-all">
                     {profile?.avatarUrl ? (
-                        <img src={profile.avatarUrl} alt={profile.fullName} className="w-full h-full object-cover" />
+                        <img src={profile.avatarUrl} alt={displayName} className="w-full h-full object-cover" />
                     ) : (
                         <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400 uppercase">{initial}</span>
                     )}
@@ -81,7 +82,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile,
                 {!isCollapsed && (
                     <div className="flex-1 text-left overflow-hidden">
                         <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                            {profile?.fullName || 'User Profile'}
+                            {displayName}
                         </p>
                         <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate tracking-tight">
                             {user?.email}
@@ -96,11 +97,11 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile,
                     <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
                         <div className="flex items-center gap-3 mb-3">
                             <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-indigo-500/20">
-                                {initial.toUpperCase()}
+                                {initial}
                             </div>
                             <div className="flex-1 overflow-hidden">
                                 <p className="font-bold text-slate-900 dark:text-white truncate">
-                                    {profile?.fullName || 'Anonymous User'}
+                                    {displayName}
                                 </p>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                                     {user?.email}
