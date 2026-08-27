@@ -64,7 +64,12 @@ export const PublicPortal: React.FC = () => {
         !programData && targetId ? { id: targetId as any } : "skip"
     );
 
-    const programRaw = programData || programByIdData;
+    const liveProgramData = useQuery(
+        api.programs.getLiveProgram,
+        !programData && !programByIdData ? {} : "skip"
+    );
+
+    const programRaw = programData || programByIdData || liveProgramData;
 
     // Local Program Fallback for offline or draft IDs
     const [localProgram, setLocalProgram] = useState<Program | null>(() => {
@@ -79,7 +84,7 @@ export const PublicPortal: React.FC = () => {
                 const raw = localStorage.getItem(key);
                 if (raw) {
                     const parsed = JSON.parse(raw);
-                    if (parsed && (parsed.id === targetId || parsed.slug === targetId || !targetId)) {
+                    if (parsed && (parsed.id === targetId || parsed.slug === targetId || !targetId || parsed.status === 'live')) {
                         return parsed;
                     }
                 }
@@ -94,7 +99,7 @@ export const PublicPortal: React.FC = () => {
                     if (Array.isArray(all) && all.length > 0) {
                         const match = all.find((p: Program) => p.id === targetId || p.slug === targetId);
                         if (match) return match;
-                        if (!targetId) return all[0];
+                        return all[0];
                     }
                 }
             }

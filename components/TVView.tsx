@@ -68,8 +68,6 @@ const TVView: React.FC<TVViewProps> = ({
     const { promptMessage } = useStageMessages(program.id);
     const currentSlot = program.slots[currentSlotIndex];
     const nextSlot = program.slots[currentSlotIndex + 1];
-
-    const [isVisible, setIsVisible] = useState(false);
     const rundownContainerRef = useRef<HTMLDivElement>(null);
 
     // Auto-scroll rundown to keep current slot visible while allowing full scrolling to slot 1
@@ -81,22 +79,7 @@ const TVView: React.FC<TVViewProps> = ({
         }
     }, [currentSlotIndex, program.slots]);
 
-    useEffect(() => {
-        if (promptMessage) {
-            setIsVisible(true);
-            const now = Date.now();
-            const delay = (promptMessage.expiresAt + 1000) - now;
-
-            if (delay > 0) {
-                const timer = setTimeout(() => setIsVisible(false), delay);
-                return () => clearTimeout(timer);
-            } else {
-                setIsVisible(false);
-            }
-        } else {
-            setIsVisible(false);
-        }
-    }, [promptMessage]);
+    const isVisible = !!promptMessage;
 
     const localSecondsElapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
     useWakeLock(true);

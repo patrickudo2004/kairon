@@ -41,7 +41,7 @@ export const sendMessage = mutation({
         await checkPermissions(ctx, program.organizationId, "operator");
 
         const now = Date.now();
-        const duration = args.durationMs ?? 10000; // Default 10s
+        const duration = args.durationMs ?? (24 * 60 * 60 * 1000); // Persist until operator explicitly clears
         return await ctx.db.insert("stageMessages", {
             programId: args.programId,
             text: args.text,

@@ -118,25 +118,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
 
     const { promptMessage } = useStageMessages(program.id);
     const currentSlot = program.slots[currentSlotIndex];
-    const [isVisible, setIsVisible] = useState(false);
-
-    // Stage Messaging Expiry Logic
-    useEffect(() => {
-        if (promptMessage) {
-            setIsVisible(true);
-            const now = Date.now();
-            const delay = (promptMessage.expiresAt + 1000) - now;
-
-            if (delay > 0) {
-                const timer = setTimeout(() => setIsVisible(false), delay);
-                return () => clearTimeout(timer);
-            } else {
-                setIsVisible(false);
-            }
-        } else {
-            setIsVisible(false);
-        }
-    }, [promptMessage]);
+    const isVisible = !!promptMessage;
 
     // Sync the timer heart-beat with the global anchor
     const elapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);

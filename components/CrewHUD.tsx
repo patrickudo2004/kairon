@@ -143,7 +143,12 @@ export const CrewHUD: React.FC = () => {
         !programData && targetId ? { id: targetId as any } : "skip"
     );
 
-    const programRaw = programData || programByIdData;
+    const liveProgramData = useQuery(
+        api.programs.getLiveProgram,
+        !programData && !programByIdData ? {} : "skip"
+    );
+
+    const programRaw = programData || programByIdData || liveProgramData;
 
     // Local Program Fallback for offline or draft IDs
     const [localProgram, setLocalProgram] = useState<Program | null>(() => {
@@ -158,7 +163,7 @@ export const CrewHUD: React.FC = () => {
                 const raw = localStorage.getItem(key);
                 if (raw) {
                     const parsed = JSON.parse(raw);
-                    if (parsed && (parsed.id === targetId || parsed.slug === targetId || !targetId)) {
+                    if (parsed && (parsed.id === targetId || parsed.slug === targetId || !targetId || parsed.status === 'live')) {
                         return parsed;
                     }
                 }
@@ -173,7 +178,7 @@ export const CrewHUD: React.FC = () => {
                     if (Array.isArray(all) && all.length > 0) {
                         const match = all.find((p: Program) => p.id === targetId || p.slug === targetId);
                         if (match) return match;
-                        if (!targetId) return all[0];
+                        return all[0];
                     }
                 }
             }
@@ -293,23 +298,23 @@ export const CrewHUD: React.FC = () => {
         return localAcks.has(`${currentSlot.id}-${role}`);
     };
 
+    const isThemeLight = currentTheme === 'light';
+
     if (!program || !program.slots || program.slots.length === 0) {
         return (
-            <div className="min-h-screen bg-[#090A0C] flex flex-col items-center justify-center p-6 text-center font-mono">
+            <div className={`min-h-screen ${isThemeLight ? 'bg-slate-50 text-slate-900' : 'bg-[#090A0C] text-white'} flex flex-col items-center justify-center p-6 text-center font-mono`}>
                 <div className="w-10 h-10 border-2 border-[#0EA5E9] border-t-transparent rounded-full animate-spin mb-4" />
-                <p className="text-xs font-mono text-[#8A93A4] uppercase tracking-widest">Awaiting Tactical Feed...</p>
-                <p className="text-[10px] text-slate-500 mt-2">Target ID: {targetId || 'Live Session'}</p>
+                <p className={`text-xs font-mono ${isThemeLight ? 'text-slate-600' : 'text-[#8A93A4]'} uppercase tracking-widest font-bold`}>Awaiting Tactical Feed...</p>
+                <p className="text-[10px] text-slate-400 mt-2">Target ID: {targetId || 'Live Session'}</p>
                 <button
                     onClick={() => window.location.reload()}
-                    className="mt-4 px-3 py-1.5 bg-[#181B22] border border-[#22262E] text-[#0EA5E9] rounded text-xs hover:bg-[#22262E] transition-all"
+                    className={`mt-4 px-3.5 py-1.5 ${isThemeLight ? 'bg-white border-slate-300 text-slate-900 hover:bg-slate-100 shadow-sm' : 'bg-[#181B22] border-[#22262E] text-[#0EA5E9] hover:bg-[#22262E]'} border rounded text-xs transition-all`}
                 >
                     Refresh Stream
                 </button>
             </div>
         );
     }
-
-    const isThemeLight = currentTheme === 'light';
 
     return (
         <div 
