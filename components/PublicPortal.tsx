@@ -55,18 +55,18 @@ export const PublicPortal: React.FC = () => {
     // Convex Reactive Query
     const programData = useQuery(
         api.programs.getProgramBySlug,
-        slug ? { slug } : "skip"
+        slug ? { slug } : (targetId ? { slug: targetId } : "skip")
     );
 
     // If slug is not found as a slug, it might be an ID
     const programByIdData = useQuery(
         api.programs.getProgramById,
-        !programData && targetId ? { id: targetId as any } : "skip"
+        targetId ? { id: targetId as any } : "skip"
     );
 
     const liveProgramData = useQuery(
         api.programs.getLiveProgram,
-        !programData && !programByIdData ? {} : "skip"
+        {} // Always poll live channel as fallback
     );
 
     const programRaw = programData || programByIdData || liveProgramData;
@@ -201,8 +201,8 @@ export const PublicPortal: React.FC = () => {
         }
     }, [program?.id, program?.isTimerActive, program?.currentSlotIndex]);
 
-    const loading = targetId && (programData === undefined || (programData === null && programByIdData === undefined)) && !localProgram;
-    const networkError = targetId && programData === null && programByIdData === null && !localProgram;
+    const loading = !program && targetId && (programData === undefined && programByIdData === undefined && liveProgramData === undefined) && !localProgram;
+    const networkError = false;
 
     if (loading) {
         return (

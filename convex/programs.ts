@@ -41,6 +41,7 @@ export const getPrograms = query({
 export const getProgramById = query({
     args: { id: v.string() },
     handler: async (ctx, args) => {
+        if (!args.id) return null;
         try {
             // 1. Try as standard Convex ID (safely normalized)
             const normalizedId = ctx.db.normalizeId("programs", args.id);
@@ -56,6 +57,24 @@ export const getProgramById = query({
                 .withIndex("by_uuid", (q) => q.eq("uuid", cleanUuid))
                 .first();
             if (byUuid) return byUuid;
+
+            // 3. Try as Slug
+            const bySlug = await ctx.db
+                .query("programs")
+                .withIndex("by_slug", (q) => q.eq("slug", args.id))
+                .first();
+            if (bySlug) return bySlug;
+
+            // 4. Try fallback search in programs
+            const fallback = await ctx.db
+                .query("programs")
+                .filter((q) => q.or(
+                    q.eq(q.field("uuid"), args.id),
+                    q.eq(q.field("slug"), args.id),
+                    q.eq(q.field("title"), args.id)
+                ))
+                .first();
+            if (fallback) return fallback;
         } catch (e) {
             // Unexpected internal error fallback
         }
@@ -74,22 +93,37 @@ export const getActiveSessions = query({
     },
 });
 
-// Legacy single-fetch for backward compatibility during transition
+// Resilient live-fetch for monitors, external views, and public portals
 export const getLiveProgram = query({
     args: { organizationId: v.optional(v.id("organizations")) },
     handler: async (ctx, args) => {
-        if (!args.organizationId) return null;
-        const today = new Date().toISOString().split('T')[0];
-        return await ctx.db
-            .query("programs")
-            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId!))
-            .filter((q) => 
-                q.and(
-                    q.eq(q.field("status"), "live"),
-                    q.eq(q.field("date"), today)
-                )
-            )
-            .first();
+        try {
+            if (args.organizationId) {
+                const liveInOrg = await ctx.db
+                    .query("programs")
+                    .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId!))
+                    .filter((q) => q.eq(q.field("status"), "live"))
+                    .first();
+                if (liveInOrg) return liveInOrg;
+            }
+
+            // Fallback 1: Any program marked as live
+            const anyLive = await ctx.db
+                .query("programs")
+                .filter((q) => q.eq(q.field("status"), "live"))
+                .first();
+            if (anyLive) return anyLive;
+
+            // Fallback 2: The latest updated program in the database
+            const latest = await ctx.db
+                .query("programs")
+                .order("desc")
+                .first();
+            if (latest) return latest;
+        } catch (e) {
+            console.warn("getLiveProgram query fallback error:", e);
+        }
+        return null;
     },
 });
 
@@ -115,10 +149,44 @@ export const stopAllActiveSessions = mutation({
 export const getProgramBySlug = query({
     args: { slug: v.string() },
     handler: async (ctx, args) => {
-        return await ctx.db
-            .query("programs")
-            .withIndex("by_slug", (q) => q.eq("slug", args.slug))
-            .unique();
+        if (!args.slug) return null;
+        try {
+            // 1. Try by exact slug
+            const bySlug = await ctx.db
+                .query("programs")
+                .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+                .first();
+            if (bySlug) return bySlug;
+
+            // 2. Try as Convex ID
+            const normalizedId = ctx.db.normalizeId("programs", args.slug);
+            if (normalizedId) {
+                const doc = await ctx.db.get(normalizedId);
+                if (doc) return doc;
+            }
+
+            // 3. Try as UUID
+            const cleanUuid = args.slug.replace('local-', '');
+            const byUuid = await ctx.db
+                .query("programs")
+                .withIndex("by_uuid", (q) => q.eq("uuid", cleanUuid))
+                .first();
+            if (byUuid) return byUuid;
+
+            // 4. Try fallback search by title or UUID
+            const fallback = await ctx.db
+                .query("programs")
+                .filter((q) => q.or(
+                    q.eq(q.field("uuid"), args.slug),
+                    q.eq(q.field("slug"), args.slug),
+                    q.eq(q.field("title"), args.slug)
+                ))
+                .first();
+            if (fallback) return fallback;
+        } catch (e) {
+            console.warn("getProgramBySlug query fallback error:", e);
+        }
+        return null;
     },
 });
 
