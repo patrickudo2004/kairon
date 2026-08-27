@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Program, Organization } from '../types';
-import { CheckCircle, Sun, Moon, Maximize, Minimize } from 'lucide-react';
+import { CheckCircle, Sun, Moon, Maximize, Minimize, AlertTriangle, Pause } from 'lucide-react';
 import { useTimerSync } from '../hooks/useTimerSync';
 import { formatDuration } from '../utils/time';
 import { useStageMessages } from '../hooks/useStageMessages';
@@ -32,52 +32,6 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     customTheme
 }) => {
     const themeToUse = customTheme || (isDarkMode ? 'dark' : 'light');
-
-    const getThemeContainerClasses = () => {
-        switch (themeToUse) {
-            case 'ambient-yellow':
-                return 'bg-black text-amber-400';
-            case 'ambient-white':
-                return 'bg-black text-white';
-            case 'light':
-                return 'bg-white text-slate-900';
-            case 'dark':
-            default:
-                return 'dark bg-black text-white';
-        }
-    };
-
-    const getThemeLabelClasses = () => {
-        switch (themeToUse) {
-            case 'ambient-yellow':
-                return 'text-amber-500/50';
-            case 'ambient-white':
-                return 'text-slate-500';
-            case 'light':
-                return 'text-slate-500';
-            case 'dark':
-            default:
-                return 'text-[#555]';
-        }
-    };
-
-    const getThemeClockClasses = () => {
-        if (timeLeft < 0) return 'text-rose-500';
-        if (timeLeft < 60) {
-            return 'text-amber-500 animate-pulse';
-        }
-        switch (themeToUse) {
-            case 'ambient-yellow':
-                return 'text-amber-400';
-            case 'ambient-white':
-                return 'text-white';
-            case 'light':
-                return 'text-black';
-            case 'dark':
-            default:
-                return 'text-white';
-        }
-    };
     useWakeLock(true);
     const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -97,11 +51,9 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
             }
         } catch (err) {
             console.error("Error toggling fullscreen:", err);
-            alert(`Fullscreen failed: ${err instanceof Error ? err.message : String(err)}`);
         }
     };
 
-    // Listen for fullscreen change events (ESC key etc)
     useEffect(() => {
         const handleFsChange = () => {
             const doc = document as any;
@@ -121,9 +73,9 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
             document.removeEventListener('MSFullscreenChange', handleFsChange);
         };
     }, []);
+
     const { promptMessage } = useStageMessages(program.id);
     const currentSlot = program.slots[currentSlotIndex];
-
     const [isVisible, setIsVisible] = useState(false);
 
     // Stage Messaging Expiry Logic
@@ -146,164 +98,191 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
 
     // Sync the timer heart-beat with the global anchor
     const elapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
-
     const timeLeft = (currentSlot ? currentSlot.durationMinutes * 60 : 0) - elapsed;
 
-    // Case 1: Program is concluded
+    // Concluded State
     if (program.status === 'concluded') {
         return (
-            <div className={isDarkMode ? 'dark' : ''}>
-                <div className={`w-screen h-screen ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'} flex flex-col items-center justify-center p-12 text-center transition-colors duration-500`}>
-                    <div className="w-24 h-24 mb-12 flex items-center justify-center relative">
-                        <div className="absolute inset-0 bg-emerald-500/10 rounded-full blur-2xl animate-pulse"></div>
-                        <CheckCircle size={80} className="text-emerald-500 relative z-10" />
-                    </div>
-                    <h1 className={`text-[10vw] font-black uppercase tracking-tighter leading-none mb-4 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Stand By</h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-3xl font-medium uppercase tracking-[0.2em]">Session Finished</p>
+            <div className="w-screen h-screen bg-[#000000] text-white flex flex-col items-center justify-center p-8 text-center font-sans select-none">
+                <div className="p-6 bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl mb-6 animate-pulse">
+                    <CheckCircle size={64} className="text-[#10B981]" />
                 </div>
+                <h1 className="text-[8vw] font-mono font-bold uppercase tracking-tight text-white mb-2">STANDBY</h1>
+                <p className="text-[#8A93A4] font-mono text-xl uppercase tracking-widest">SESSION CONCLUDED</p>
             </div>
         );
     }
 
-    // Case 2: Program is in Draft mode (or no slots yet)
+    // Draft / Waiting State
     if (program.status === 'draft' || !currentSlot) {
         return (
-            <div className={isDarkMode ? 'dark' : ''}>
-                <div className={`w-screen h-screen ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'} flex flex-col items-center justify-center p-12 text-center transition-colors duration-500`}>
-                    <h1 className={`text-[12vw] font-black uppercase tracking-tighter leading-none mb-8 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Stand By</h1>
-                    <div className="w-24 h-1 bg-indigo-500/50 rounded-full animate-pulse" />
-                    <p className="text-slate-600 dark:text-slate-400 text-2xl font-bold uppercase tracking-widest mt-12">{program.title}</p>
-                </div>
+            <div className="w-screen h-screen bg-[#000000] text-white flex flex-col items-center justify-center p-8 text-center font-sans select-none">
+                <div className="text-[8vw] font-mono font-bold tracking-tight text-white mb-4">STANDBY</div>
+                <div className="w-20 h-1 bg-[#0EA5E9] rounded-full animate-pulse mb-6" />
+                <p className="text-[#8A93A4] font-mono text-xl uppercase tracking-widest">{program.title}</p>
             </div>
         );
     }
 
+    const isOvertime = timeLeft < 0;
+    const isWarning = timeLeft >= 0 && timeLeft <= 60;
+
     return (
-        <div className={themeToUse === 'dark' || themeToUse === 'ambient-yellow' || themeToUse === 'ambient-white' ? 'dark' : ''}>
-            <div className={`w-screen h-screen ${getThemeContainerClasses()} overflow-hidden flex flex-col items-center justify-center font-sans select-none transition-colors duration-500`}>
+        <div className="w-screen h-screen bg-[#000000] text-white overflow-hidden flex flex-col justify-between p-6 md:p-12 font-sans select-none relative">
+            
+            {/* Perimeter Tally Flash Border on Overtime / Hold */}
+            {isOvertime && (
+                <div className="absolute inset-0 border-8 md:border-[16px] border-[#EF4444] pointer-events-none z-50 animate-pulse" />
+            )}
+            {program.isOnHold && !isOvertime && (
+                <div className="absolute inset-0 border-8 md:border-[16px] border-[#F59E0B] pointer-events-none z-50 animate-pulse" />
+            )}
 
-                {/* Controls Container */}
-                {!isThumbnail && (
-                    <div className="absolute top-4 right-4 z-50 flex items-center gap-2 opacity-20 hover:opacity-100 transition-opacity p-4 rounded-xl">
-                        {toggleTheme && (
-                            <button
-                                onClick={toggleTheme}
-                                className="p-3 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 transition-colors shadow-lg"
-                                title="Toggle Theme"
-                            >
-                                {isDarkMode ? <Sun size={24} /> : <Moon size={24} />}
-                            </button>
-                        )}
+            {/* Controls Container */}
+            {!isThumbnail && (
+                <div className="absolute top-4 right-4 z-50 flex items-center gap-2 opacity-10 hover:opacity-100 transition-opacity p-2 rounded">
+                    {toggleTheme && (
                         <button
-                            onClick={toggleFullscreen}
-                            className="p-3 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 transition-colors shadow-lg"
-                            title="Toggle Fullscreen"
+                            onClick={toggleTheme}
+                            className="p-2.5 bg-[#121418] border border-[#22262E] rounded text-[#8A93A4] hover:text-white"
+                            title="Toggle Theme"
                         >
-                            {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
+                            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
                         </button>
-                    </div>
-                )}
+                    )}
+                    <button
+                        onClick={toggleFullscreen}
+                        className="p-2.5 bg-[#121418] border border-[#22262E] rounded text-[#8A93A4] hover:text-white"
+                        title="Toggle Fullscreen"
+                    >
+                        {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                    </button>
+                </div>
+            )}
 
-                {/* High Contrast Background Signal */}
-                <div className={`absolute inset-0 transition-colors duration-500 ${timeLeft < 0 ? 'bg-rose-950/20' : timeLeft < 60 ? 'bg-amber-950/10' : ''
-                    }`} />
-
-                {/* Logo Overlay */}
-                {activeOrg?.logoUrl && !isThumbnail && (
-                    <div className="absolute top-8 right-8 w-32 h-32 opacity-20 pointer-events-none">
-                        <img src={activeOrg.logoUrl} alt={activeOrg.name} className="w-full h-full object-contain grayscale" />
+            {/* Top Bar: Current Item + Speaker */}
+            <div className="flex justify-between items-start z-10 border-b border-[#22262E]/60 pb-6">
+                <div className="max-w-[70%]">
+                    <div className="text-xs md:text-sm font-mono text-[#8A93A4] uppercase tracking-widest mb-1 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-[#0EA5E9]" />
+                        <span>CURRENT ITEM • SLOT {currentSlotIndex + 1} OF {program.slots.length}</span>
                     </div>
-                )}
-
-                {/* Stage Title */}
-                <div className="absolute top-8 left-8 right-8 flex justify-between items-start z-10">
-                    <div className="max-w-[70%]">
-                        <h2 className={`text-3xl md:text-4xl font-bold uppercase tracking-widest ${getThemeLabelClasses()} mb-2`}>Current Item</h2>
-                        <h1 className="text-5xl md:text-7xl font-black uppercase leading-none tracking-tighter">
-                            {currentSlot.title}
-                        </h1>
-                    </div>
-                    <div className="text-right">
-                        <h2 className={`text-3xl md:text-4xl font-bold uppercase tracking-widest ${getThemeLabelClasses()} mb-2`}>Status</h2>
-                        <div className={`text-4xl font-black uppercase ${isTimerActive ? 'text-emerald-500' : themeToUse === 'light' ? 'text-slate-500' : 'text-slate-600'}`} style={isTimerActive && activeOrg?.brandColor ? { color: activeOrg.brandColor } : {}}>
-                            {isTimerActive ? 'Running' : 'Paused'}
-                        </div>
-                    </div>
+                    <h1 className="text-3xl md:text-6xl font-bold uppercase tracking-tight text-white leading-tight">
+                        {currentSlot.title}
+                    </h1>
+                    {currentSlot.speaker && (
+                        <p className="text-lg md:text-2xl text-[#0EA5E9] font-mono font-medium mt-1">
+                            {currentSlot.speaker}
+                        </p>
+                    )}
                 </div>
 
-                <div className={`relative z-10 font-mono font-black tabular-nums leading-none tracking-tighter transition-all duration-700 ${getThemeClockClasses()}`} style={{
-                        fontSize: isVisible && !promptMessage?.isStrobe ? '10vw' : '35vw',
-                        transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-15vh)' : 'none'
-                    }}>
+                <div className="text-right">
+                    <div className="text-xs md:text-sm font-mono text-[#8A93A4] uppercase tracking-widest mb-1">STATUS</div>
+                    {isTimerActive ? (
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#10B981]/10 border border-[#10B981]/30 rounded text-[#10B981] font-mono text-base md:text-xl font-bold tracking-wider">
+                            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-tally" />
+                            <span>ON AIR</span>
+                        </div>
+                    ) : (
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#F59E0B]/10 border border-[#F59E0B]/30 rounded text-[#F59E0B] font-mono text-base md:text-xl font-bold tracking-wider">
+                            <span className="w-2 h-2 rounded-full bg-[#F59E0B]" />
+                            <span>STANDBY</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Center Massive Countdown Readout */}
+            <div className="flex-1 flex flex-col items-center justify-center relative my-4">
+                <div className={`font-mono font-bold leading-none tracking-tight tabular-nums select-none transition-colors ${
+                    isOvertime 
+                        ? 'text-[#EF4444] animate-pulse' 
+                        : (isWarning ? 'text-[#F59E0B] animate-pulse' : 'text-white')
+                }`}
+                style={{
+                    fontSize: isVisible && !promptMessage?.isStrobe ? '12vw' : '32vw',
+                    transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-8vh)' : 'none'
+                }}>
                     {formatDuration(timeLeft)}
                 </div>
 
-                {/* Standard Prompter Message (Non-Strobe) */}
-                {isVisible && promptMessage && !promptMessage.isStrobe && (
-                    <div className="absolute top-[50vh] left-0 right-0 z-20 flex justify-center px-12 animate-in slide-in-from-bottom-12 duration-700">
-                        <h2 className="text-[10vw] md:text-[12vw] font-black uppercase text-center text-emerald-500 tracking-tighter leading-none drop-shadow-2xl">
-                            {promptMessage.text}
-                        </h2>
-                    </div>
-                )}
-
-
-                {/* Prompter Overlay - High Intensity Strobe */}
-                {isVisible && promptMessage && promptMessage.isStrobe && (
-                    <div
-                        className="fixed inset-0 z-[100] flex items-center justify-center p-12 overflow-hidden"
-                        style={{
-                            animation: 'strobe 0.2s steps(2, start) infinite',
-                            backgroundColor: 'rgb(225, 29, 72)' // rose-600
-                        }}
-                    >
-                        <style>{`
-                        @keyframes strobe {
-                            0% { opacity: 1; background-color: rgb(225, 29, 72); }
-                            50% { opacity: 0.85; background-color: rgb(159, 18, 57); }
-                        }
-                    `}</style>
-                        <h2 className="text-[12vw] font-black uppercase text-center text-white italic tracking-tighter leading-tight drop-shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-bounce">
-                            {promptMessage.text}
-                        </h2>
-                    </div>
-                )}
-
-                {/* Bottom Meta */}
-                <div className={`absolute bottom-12 w-full px-12 flex justify-between items-end border-t ${themeToUse === 'light' ? 'border-slate-200' : 'border-white/10'} pt-8`}>
-                    <div className="flex-1">
-                        <span className={`text-2xl font-bold uppercase tracking-widest ${getThemeLabelClasses()} block mb-2`}>Duration</span>
-                        <span className="text-4xl font-black">{currentSlot.durationMinutes}m Planned</span>
-                    </div>
-
-                    {/* Up Next Preview (Speaker Focused) */}
-                    {!isThumbnail && program.slots[currentSlotIndex + 1] && (
-                        <div className="flex-[2] text-center px-8 border-x border-white/5 mx-8 max-w-[500px]">
-                            <span className={`text-2xl font-bold uppercase tracking-[0.2em] ${themeToUse === 'light' ? 'text-amber-600' : 'text-amber-500'} block mb-2`}>Up Next</span>
-                            <p className={`text-2xl md:text-4xl font-black ${themeToUse === 'light' ? 'text-slate-900' : 'text-white'} uppercase leading-[1.1] tracking-tighter line-clamp-2 px-4`}>
-                                {program.slots[currentSlotIndex + 1].title}
-                            </p>
-                        </div>
-                    )}
-
-                    <div className="flex-1 text-right">
-                        <span className={`text-2xl font-bold uppercase tracking-widest ${getThemeLabelClasses()} block mb-2`}>Event</span>
-                        <span className="text-4xl font-black">{program.title}</span>
-                    </div>
-                </div>
-
-                {/* Hold Overlay */}
-                {program.isOnHold && (
-                    <div className="fixed inset-0 z-[110] bg-amber-500 flex flex-col items-center justify-center p-12 animate-in fade-in duration-300">
-                        <h2 className="text-[12vw] font-black uppercase text-center text-white italic tracking-tighter leading-tight drop-shadow-2xl mb-8">
-                            {program.holdMessage || 'WAITING FOR CUE'}
-                        </h2>
-                        <div className="text-6xl font-bold uppercase tracking-[0.5em] text-white animate-pulse">
-                            Stand By
-                        </div>
+                {isOvertime && (
+                    <div className="text-xl md:text-3xl font-mono text-[#EF4444] font-bold uppercase tracking-widest mt-2 animate-bounce">
+                        OVERTIME • PLEASE WRAP UP
                     </div>
                 )}
             </div>
+
+            {/* Prompt Stage Message Overlay */}
+            {isVisible && promptMessage && !promptMessage.isStrobe && (
+                <div className="absolute top-[55vh] left-0 right-0 z-40 flex justify-center px-8 animate-in slide-in-from-bottom-6 duration-300">
+                    <div className="bg-[#121418]/95 border-2 border-[#10B981] rounded-xl px-8 py-4 shadow-2xl">
+                        <h2 className="text-[6vw] font-mono font-bold uppercase text-[#10B981] tracking-tight text-center">
+                            {promptMessage.text}
+                        </h2>
+                    </div>
+                </div>
+            )}
+
+            {/* Strobe Emergency Message Overlay */}
+            {isVisible && promptMessage && promptMessage.isStrobe && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-8"
+                    style={{
+                        animation: 'strobe 0.2s steps(2, start) infinite',
+                        backgroundColor: '#EF4444'
+                    }}
+                >
+                    <style>{`
+                        @keyframes strobe {
+                            0% { opacity: 1; background-color: #EF4444; }
+                            50% { opacity: 0.85; background-color: #991B1B; }
+                        }
+                    `}</style>
+                    <h2 className="text-[10vw] font-mono font-black uppercase text-center text-white tracking-tight drop-shadow-2xl">
+                        {promptMessage.text}
+                    </h2>
+                </div>
+            )}
+
+            {/* Bottom Strip: Duration Target & Up Next */}
+            <div className="flex justify-between items-end border-t border-[#22262E]/60 pt-6 z-10">
+                <div>
+                    <span className="text-[10px] md:text-xs font-mono text-[#8A93A4] uppercase tracking-widest block mb-1">PLANNED DURATION</span>
+                    <span className="text-xl md:text-3xl font-mono font-bold text-white">{currentSlot.durationMinutes}m</span>
+                </div>
+
+                {!isThumbnail && program.slots[currentSlotIndex + 1] && (
+                    <div className="text-center px-4 max-w-xl">
+                        <span className="text-[10px] md:text-xs font-mono text-[#F59E0B] uppercase tracking-widest block mb-1">UP NEXT</span>
+                        <p className="text-lg md:text-2xl font-bold text-white uppercase truncate">
+                            {program.slots[currentSlotIndex + 1].title}
+                        </p>
+                    </div>
+                )}
+
+                <div className="text-right">
+                    <span className="text-[10px] md:text-xs font-mono text-[#8A93A4] uppercase tracking-widest block mb-1">EVENT</span>
+                    <span className="text-lg md:text-2xl font-bold text-white uppercase">{program.title}</span>
+                </div>
+            </div>
+
+            {/* Hold Banner Overlay */}
+            {program.isOnHold && (
+                <div className="fixed inset-0 z-[90] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-200">
+                    <div className="p-6 bg-[#F59E0B]/10 border-2 border-[#F59E0B] rounded-2xl mb-8">
+                        <Pause size={80} className="text-[#F59E0B] animate-pulse" />
+                    </div>
+                    <h2 className="text-[8vw] font-mono font-black uppercase text-[#F59E0B] tracking-tight mb-4 leading-none">
+                        {program.holdMessage || 'WAITING FOR CUE'}
+                    </h2>
+                    <div className="text-2xl font-mono uppercase tracking-[0.3em] text-[#8A93A4]">
+                        STAND BY
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

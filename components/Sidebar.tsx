@@ -17,7 +17,8 @@ import {
     FileText,
     Edit3,
     Monitor,
-    Radio
+    Radio,
+    Sparkles
 } from 'lucide-react';
 import { Organization, Profile, Program } from '../types';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
@@ -59,20 +60,20 @@ const LiveSessionItem: React.FC<{
     return (
         <button
             onClick={() => onSelect(session.id)}
-            className={`w-full p-2.5 rounded-lg transition-all cursor-pointer group flex items-center justify-between gap-3 mb-1
+            className={`w-full p-2 rounded-md transition-all cursor-pointer group flex items-center justify-between gap-2 mb-1 font-mono
                 ${isSelected 
-                    ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' 
-                    : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'}
+                    ? 'bg-[#181B22] text-white border border-[#2D333F]' 
+                    : 'hover:bg-[#121418] text-[#8A93A4] border border-transparent'}
             `}
         >
             <div className="flex items-center gap-2 min-w-0">
-                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${session.isTimerActive ? (isSelected ? 'bg-indigo-500' : 'bg-emerald-500') : 'bg-slate-400'}`} />
-                <span className="text-xs font-bold truncate tracking-tight">{session.title}</span>
+                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${session.isTimerActive ? 'bg-[#10B981] animate-tally' : 'bg-[#6A7382]'}`} />
+                <span className="text-xs font-semibold truncate tracking-tight">{session.title}</span>
             </div>
-            <span className="text-[10px] font-mono font-bold opacity-60">
+            <span className="text-[10px] font-bold text-[#0EA5E9]">
                 {formatDuration(timeLeft)}
             </span>
-            {isSelected && <Check size={14} />}
+            {isSelected && <Check size={12} className="text-[#0EA5E9]" />}
         </button>
     );
 };
@@ -100,59 +101,63 @@ const VenueSwitcher: React.FC<{
 
     if (activeSessions.length === 0) return null;
 
+    if (isCollapsed) {
+        return (
+            <div className="px-2 py-3 border-b border-[#22262E] flex justify-center">
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="relative p-2 bg-[#121418] hover:bg-[#181B22] border border-[#22262E] rounded-md transition-all group"
+                    title={`Live Channels: ${activeSessions.length}`}
+                >
+                    <div className="w-2 h-2 rounded-full bg-[#10B981] animate-tally absolute top-1 right-1" />
+                    <Radio size={16} className="text-white" />
+                </button>
+            </div>
+        );
+    }
+
     return (
-        <div className="relative" ref={dropdownRef}>
-            {!isCollapsed && (
-                <div className="flex items-center justify-between gap-2 px-3 mb-2">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Live Venues</span>
-                    {onStopAllSessions && (
-                        <button
-                            onClick={onStopAllSessions}
-                            className="text-[10px] text-rose-500 hover:text-rose-600 font-bold tracking-tight transition-colors"
-                        >
-                            End All
-                        </button>
-                    )}
-                </div>
-            )}
+        <div className="px-3 py-3 border-b border-[#22262E] relative font-sans" ref={dropdownRef}>
+            <div className="flex items-center justify-between mb-1.5 px-1">
+                <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-[#8A93A4] flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-tally"></span>
+                    Live Channels ({activeSessions.length})
+                </span>
+                {onStopAllSessions && (
+                    <button
+                        onClick={onStopAllSessions}
+                        className="text-[9px] font-mono text-[#EF4444] hover:underline uppercase"
+                    >
+                        Stop All
+                    </button>
+                )}
+            </div>
 
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`flex items-center gap-2 rounded-xl transition-all border group
-                    ${selectedLiveId === selectedSession?.id ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-100 dark:border-indigo-500/30' : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-indigo-500/30'}
-                    ${isCollapsed ? 'w-10 h-10 justify-center p-0' : 'w-full px-3 py-2'}
-                `}
-                title={isCollapsed ? (selectedSession?.title || 'Switch Venue') : ''}
+                className="w-full flex items-center justify-between p-2 bg-[#121418] hover:bg-[#181B22] border border-[#22262E] rounded-md text-xs font-semibold text-white transition-all"
             >
-                <div className={`w-2 h-2 rounded-full shrink-0 ${selectedSession?.isTimerActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                {!isCollapsed && (
-                    <>
-                        <span className="text-xs font-bold truncate flex-1 text-left text-slate-700 dark:text-slate-200">
-                            {selectedSession?.title || 'Switch Venue'}
-                        </span>
-                        <ChevronDown size={14} className={`text-slate-400 group-hover:text-indigo-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-                    </>
-                )}
+                <div className="flex items-center gap-2 truncate">
+                    <div className={`w-1.5 h-1.5 rounded-full ${selectedSession?.isTimerActive ? 'bg-[#10B981] animate-tally' : 'bg-[#6A7382]'}`} />
+                    <span className="truncate">{selectedSession?.title || 'Select Channel'}</span>
+                </div>
+                <ChevronDown size={13} className={`text-[#8A93A4] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isOpen && (
-                <div className={`absolute bottom-full left-0 mb-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200
-                    ${isCollapsed ? 'w-48 ml-1' : 'w-full'}
-                `}>
-                    <div className="p-1 max-h-[300px] overflow-y-auto no-scrollbar">
-                        {activeSessions.map((session) => (
-                            <LiveSessionItem 
-                                key={session.id}
-                                session={session}
-                                isSelected={selectedLiveId === session.id}
-                                onSelect={(id) => {
-                                    onSelect(id);
-                                    setIsOpen(false);
-                                }}
-                                isCollapsed={isCollapsed}
-                            />
-                        ))}
-                    </div>
+                <div className="absolute left-3 right-3 top-full mt-1 bg-[#121418] border border-[#2D333F] rounded-md p-1 shadow-2xl z-50 animate-in fade-in duration-150">
+                    {activeSessions.map((session) => (
+                        <LiveSessionItem
+                            key={session.id}
+                            session={session}
+                            isSelected={session.id === selectedLiveId}
+                            onSelect={(id) => {
+                                onSelect(id);
+                                setIsOpen(false);
+                            }}
+                            isCollapsed={false}
+                        />
+                    ))}
                 </div>
             )}
         </div>
@@ -179,7 +184,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
     const location = useLocation();
 
-    // Helper to build links that preserve the current ID
     const getLinkPath = (base: string) => {
         const idToUse = selectedLiveId || programId;
         if (!idToUse || idToUse.startsWith('local-')) return base;
@@ -189,9 +193,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const navItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
         { icon: Edit3, label: 'Editor', path: getLinkPath('/editor') },
-        { icon: Play, label: 'Live', path: getLinkPath('/live') },
-        { icon: ClipboardList, label: 'List', path: getLinkPath('/list') },
-        { icon: Monitor, label: 'Monitors', path: getLinkPath('/monitors') },
+        { icon: Play, label: 'Live Control', path: getLinkPath('/live') },
+        { icon: ClipboardList, label: 'Rundown List', path: getLinkPath('/list') },
+        { icon: Monitor, label: 'Monitors & Displays', path: getLinkPath('/monitors') },
         { icon: Radio, label: 'Command Center', path: getLinkPath('/command') },
         { icon: Calendar, label: 'Calendar', path: '/calendar' },
         { icon: FileText, label: 'User Guide', path: '/guide' },
@@ -200,43 +204,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     return (
         <aside
-            className={`fixed left-0 top-0 h-full bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 z-50 flex flex-col no-print hidden lg:flex ${isCollapsed ? 'w-20' : 'w-64'}`}
+            className={`fixed left-0 top-0 h-full bg-[#090A0C] border-r border-[#22262E] transition-all duration-200 z-50 flex flex-col no-print hidden lg:flex font-sans ${isCollapsed ? 'w-16' : 'w-60'}`}
         >
-            {/* Brand / Logo Section */}
-            <div className="p-4 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
+            {/* Brand / Logo Header */}
+            <div className="p-3.5 flex items-center justify-between border-b border-[#22262E]">
                 {!isCollapsed && (
-                    <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-gradient-to-tr from-indigo-500 to-violet-500 overflow-hidden shrink-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 rounded bg-[#181B22] border border-[#2D333F] flex items-center justify-center shrink-0">
                             {activeOrg?.logoUrl ? (
-                                <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                                <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain p-0.5" />
                             ) : (
-                                <Mic className="text-white" size={18} />
+                                <Mic className="text-[#0EA5E9]" size={15} />
                             )}
                         </div>
-                        <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white truncate">
-                            {activeOrg?.name ? activeOrg.name.toUpperCase() : 'KAIRON'}
+                        <span className="font-mono font-bold text-sm tracking-wider text-white truncate uppercase">
+                            {activeOrg?.name ? activeOrg.name : 'KAIRON'}
                         </span>
                     </div>
                 )}
                 {isCollapsed && (
-                    <div className="w-10 h-10 mx-auto rounded-lg flex items-center justify-center shadow-md bg-gradient-to-tr from-indigo-500 to-violet-500 overflow-hidden">
+                    <div className="w-7 h-7 mx-auto rounded bg-[#181B22] border border-[#2D333F] flex items-center justify-center">
                         {activeOrg?.logoUrl ? (
-                            <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                            <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain p-0.5" />
                         ) : (
-                            <Mic className="text-white" size={18} />
+                            <Mic className="text-[#0EA5E9]" size={15} />
                         )}
                     </div>
                 )}
                 <button
                     onClick={() => onToggle(!isCollapsed)}
-                    className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors hidden md:block"
+                    className="p-1 rounded hover:bg-[#181B22] text-[#6A7382] hover:text-white transition-colors hidden md:block"
                 >
-                    {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+                    {isCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
                 </button>
             </div>
 
-            {/* Workspace Switcher Section */}
-            <div className="p-4">
+            {/* Workspace Switcher */}
+            <div className="p-3">
                 <WorkspaceSwitcher
                     activeOrg={activeOrg}
                     organizations={userOrganizations}
@@ -246,68 +250,69 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
             </div>
 
+            {/* Multi-Track Live Channels (if active) */}
+            <VenueSwitcher
+                activeSessions={activeSessions}
+                selectedLiveId={selectedLiveId}
+                onSelect={onSelectLive}
+                isCollapsed={isCollapsed}
+                onStopAllSessions={onStopAllSessions}
+            />
+
             {/* Navigation Items */}
-            <nav className="flex-1 px-3 space-y-1 py-4 overflow-y-auto custom-scrollbar">
+            <nav className="flex-1 px-2 space-y-1 py-3 overflow-y-auto">
                 {navItems.map((item) => (
                     <NavLink
                         key={item.label}
                         to={item.path}
                         className={({ isActive }) => `
-                            flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group
+                            flex items-center gap-2.5 px-3 py-2 rounded-md transition-all group font-mono text-xs font-semibold
                             ${isActive
-                                ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20'
-                                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-100'
+                                ? 'bg-[#181B22] text-white border border-[#2D333F]'
+                                : 'text-[#8A93A4] hover:bg-[#121418] hover:text-white border border-transparent'
                             }
                         `}
-                        title={isCollapsed ? item.label : ''}
+                        title={isCollapsed ? item.label : undefined}
                     >
-                        {({ isActive }) => (
-                            <>
-                                <item.icon
-                                    size={20}
-                                    className={isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200'}
-                                />
-                                {!isCollapsed && <span className="text-sm font-semibold">{item.label}</span>}
-                            </>
-                        )}
+                        <item.icon
+                            size={16}
+                            className={`shrink-0 transition-colors ${
+                                location.pathname === item.path.split('?')[0]
+                                    ? 'text-[#0EA5E9]'
+                                    : 'text-[#6A7382] group-hover:text-white'
+                            }`}
+                        />
+                        {!isCollapsed && <span className="truncate">{item.label}</span>}
                     </NavLink>
                 ))}
             </nav>
 
-            {/* Bottom Section: Status & Profile */}
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
-                {/* Sync Status */}
-                <div className={`flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 ${isCollapsed ? 'justify-center' : ''}`}>
-                    {isOnline ? (
-                        <Wifi size={14} className="text-emerald-500" />
-                    ) : (
-                        <WifiOff size={14} className="text-rose-500" />
-                    )}
-                    {!isCollapsed && (
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                            {isOnline ? 'Live Sync' : 'Offline'}
-                        </span>
-                    )}
-                </div>
-
-                {/* Profile */}
+            {/* Footer Profile & Network Status */}
+            <div className="p-3 border-t border-[#22262E] flex flex-col gap-2">
                 <ProfileDropdown
-                    user={user!}
                     profile={profile}
-                    onProfileUpdate={onProfileUpdate}
+                    user={user}
+                    onUpdate={onProfileUpdate}
+                    onSignOut={handleSignOut}
                     isCollapsed={isCollapsed}
                 />
 
-                {/* Venue Switcher (Bottom Left Dropdown) */}
-                {activeSessions.length > 0 && (
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                        <VenueSwitcher 
-                            activeSessions={activeSessions}
-                            selectedLiveId={selectedLiveId}
-                            onSelect={onSelectLive}
-                            isCollapsed={isCollapsed}
-                            onStopAllSessions={onStopAllSessions}
-                        />
+                {!isCollapsed && (
+                    <div className="flex items-center justify-between px-2 pt-1 text-[10px] font-mono text-[#6A7382]">
+                        <span className="flex items-center gap-1.5">
+                            {isOnline ? (
+                                <>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                                    <span>LIVE SYNC</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444]" />
+                                    <span>OFFLINE</span>
+                                </>
+                            )}
+                        </span>
+                        <span>v2.4</span>
                     </div>
                 )}
             </div>

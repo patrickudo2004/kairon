@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams, Navigate, useParams } from 'react-router-dom';
-import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus, ExternalLink } from 'lucide-react';
+import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, User as UserIcon, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus, ExternalLink, Tv, AppWindow, SkipBack, SkipForward, Pause, Clock, Monitor, Building, MessageSquare, Bell, Crown } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Services
@@ -66,8 +66,6 @@ import { Program, Slot, SlotType, Profile, Organization, TimerState } from './ty
 import { timeToMinutes, minutesToTime, formatDuration } from './utils/time';
 import { encodeProgramData, decodeProgramData } from './utils/encoding';
 import { getInitialProgram } from './utils/constants';
-
-import { Monitor, User as UserIcon, Building, MessageSquare, Bell, Clock, Crown, SkipBack, SkipForward, Pause } from 'lucide-react';
 
 // --- Analytics Wrapper (Dedicated Component to avoid render loops) ---
 const AnalyticsWrapper: React.FC<{ onUpdateSlot?: (slotId: string, updates: Partial<Slot>) => void }> = ({ onUpdateSlot }) => {
@@ -648,7 +646,7 @@ const AppContent: React.FC = () => {
   // Decides if we show the "Global Live" event or the "Local Draft" event.
   // ---------------------------------------------------------
   const isLiveEventActive = !!globalLiveProgram;
-  const isTargetSameAsLocal = isLiveEventActive && String(globalLiveProgram?.id) === String(program.id);
+  const isTargetSameAsLocal = isLiveEventActive && (String(globalLiveProgram?.id) === String(program.id) || String(globalLiveProgram?.id) === String(selectedLiveId));
 
   const displayProgram = isLiveEventActive ? globalLiveProgram! : program;
   const displayCurrentSlotIndex = isLiveEventActive ? (globalLiveProgram?.currentSlotIndex ?? 0) : currentSlotIndex;
@@ -666,7 +664,9 @@ const AppContent: React.FC = () => {
         ? Math.floor((Date.now() - (displayTimerStartTimestamp ?? Date.now())) / 1000) 
         // OPTIMISTIC FIX: Prioritize local 'secondsElapsed' if it's the same program to avoid "Pause Resets"
         : (isTargetSameAsLocal ? secondsElapsed : (globalLiveProgram?.secondsElapsed ?? 0)))
-    : secondsElapsed;
+    : (isTimerActive && timerStartTimestamp 
+        ? Math.floor((Date.now() - timerStartTimestamp) / 1000) 
+        : secondsElapsed);
 
 
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
@@ -985,10 +985,12 @@ const AppContent: React.FC = () => {
       console.log('updated slot durationMinutes:', updated.slots[targetIdx].durationMinutes);
 
       const targetIsLive = targetProg.status === 'live';
-      const targetIsActive = activeSessions.some(as => String(as.id) === String(targetId) && as.isTimerActive) || 
+      const targetIsActive = (targetProg.isTimerActive !== undefined ? targetProg.isTimerActive : false) ||
+                            activeSessions.some(as => String(as.id) === String(targetId) && as.isTimerActive) || 
+                            (String(targetId) === String(displayProgram.id) ? displayIsTimerActive : false) ||
                             (String(targetId) === String(program.id) ? isTimerActive : false);
       const targetStartTs = targetId === displayProgram.id ? displayTimerStartTimestamp : targetProg.timerStartTimestamp;
-      const targetElapsed = targetId === displayProgram.id ? currentTickingSecondsRef.current : (targetProg.secondsElapsed || 0);
+      const targetElapsed = targetId === displayProgram.id ? displaySecondsElapsed : (targetProg.secondsElapsed || 0);
 
       if (targetIsLive) {
         timerSaveMutation.mutate({
@@ -1001,7 +1003,7 @@ const AppContent: React.FC = () => {
         });
       }
 
-      if (targetId === program.id) {
+      if (targetId === program.id || targetId === displayProgram.id) {
         updateLocalProgram(updated);
       }
       
@@ -1373,8 +1375,8 @@ const AppContent: React.FC = () => {
 
   // Auto-Start Watcher (New Feature)
   useEffect(() => {
-    // Only run if timer is NOT active and we are NOT in read-only mode
-    if (isTimerActive || isReadOnly) return;
+    // Only run if timer is NOT active, program is in draft status, and we are NOT in read-only mode
+    if (isTimerActive || isReadOnly || program.status !== 'draft') return;
 
     const interval = setInterval(() => {
       const now = new Date();
@@ -1429,8 +1431,10 @@ const AppContent: React.FC = () => {
     const target = latestTarget;
 
     // CRITICAL (ID NORMALIZATION FIX): Use string-safe comparisons for active state
-    // We check both activeSessions (Cloud) and fallback to local state if missing from sessions
-    const targetIsActive = activeSessions.some(as => String(as.id) === targetIdStr && as.isTimerActive) || 
+    // We check target.isTimerActive, activeSessions (Cloud), and local state
+    const targetIsActive = (target.isTimerActive !== undefined ? target.isTimerActive : false) ||
+                          activeSessions.some(as => String(as.id) === targetIdStr && as.isTimerActive) || 
+                          (targetIdStr === String(displayProgram.id) ? displayIsTimerActive : false) ||
                           (targetIdStr === String(program.id) ? isTimerActive : false);
 
     // Safety Interlock Check: If we are starting a NEW event while others are already LIVE
@@ -1483,7 +1487,7 @@ const AppContent: React.FC = () => {
         }
       });
 
-      if (targetIdStr === String(program.id)) {
+      if (targetIdStr === String(program.id) || targetIdStr === String(displayProgram.id)) {
         setIsTimerActive(true);
         setTimerStartTimestamp(shiftedStart);
         updateLocalProgram(prev => ({ ...prev, status: 'live' }));
@@ -1513,7 +1517,7 @@ const AppContent: React.FC = () => {
         status: 'live' 
       });
 
-      if (targetIdStr === String(program.id)) {
+      if (targetIdStr === String(program.id) || targetIdStr === String(displayProgram.id)) {
         setIsTimerActive(false);
         setTimerStartTimestamp(null);
         setSecondsElapsed(secondsToSave); 
@@ -1584,7 +1588,7 @@ const AppContent: React.FC = () => {
       isManualMode: nextManualState
     });
 
-    if (targetId === program.id) {
+    if (targetId === program.id || targetId === displayProgram.id) {
       updateLocalProgram(prev => ({ ...prev, isManualMode: nextManualState }));
     }
   };
@@ -1643,7 +1647,7 @@ const AppContent: React.FC = () => {
         });
 
         // Local update for smoothness on draft
-        if (targetId === program.id) {
+        if (targetId === program.id || targetId === displayProgram.id) {
           setCurrentSlotIndex(nextIndex);
           setSecondsElapsed(0);
           setIsTimerActive(nextIsActive);
@@ -1680,7 +1684,7 @@ const AppContent: React.FC = () => {
       });
 
       // Local update for smoothness on draft
-      if (targetId === program.id) {
+      if (targetId === program.id || targetId === displayProgram.id) {
         setCurrentSlotIndex(nextIndex);
         setSecondsElapsed(0);
         setIsTimerActive(nextIsActive);
@@ -1814,142 +1818,172 @@ const AppContent: React.FC = () => {
             ) 
           : ''
       }`}>
-        {/* Header (Simplified Top Bar) */}
-        <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md transition-colors h-16 flex items-center shrink-0 no-print">
-          <div className="w-full px-6 flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        {/* Header (Studio Precision Top Bar) */}
+        <header className="sticky top-0 z-40 border-b border-[#22262E] bg-[#090A0C]/90 backdrop-blur-md transition-colors h-14 flex items-center shrink-0 no-print font-sans">
+          <div className="w-full px-5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
               {!user ? (
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md bg-gradient-to-tr from-indigo-500 to-violet-500">
-                    <Mic className="text-white" size={18} />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded bg-[#181B22] border border-[#2D333F] flex items-center justify-center">
+                    <Mic className="text-[#0EA5E9]" size={15} />
                   </div>
-                  <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">KAIRON</span>
+                  <span className="font-mono font-bold text-sm tracking-wider text-white uppercase">KAIRON</span>
                 </div>
               ) : (
                 <>
                   <div className="flex-1 min-w-0 overflow-hidden">
-                    <h2 className="font-bold text-slate-900 dark:text-white truncate max-w-full">
-                      {displayProgram.title}
-                    </h2>
-                    {isReadOnly && (
-                      <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-medium tracking-widest uppercase">Viewer</span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-semibold text-sm text-white truncate max-w-full">
+                        {displayProgram.title}
+                      </h2>
+                      {displayIsTimerActive ? (
+                        <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#10B981]/10 border border-[#10B981]/30 text-[10px] font-mono font-bold text-[#10B981]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-tally" />
+                          LIVE
+                        </span>
+                      ) : (
+                        <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[10px] font-mono text-[#F59E0B]">
+                          STANDBY
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </>
               )}
             </div>
 
-            {/* Live Control Center & Timer (Unified Header UI) */}
+            {/* Live Control Center & Header Timer */}
             {!isReadOnly && displayProgram.slots.length > 0 && (
-              <div className="hidden md:flex items-center gap-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-1.5 rounded-2xl shadow-sm">
-                <div className={`text-xl font-mono font-bold tabular-nums min-w-[80px] text-center ${displayIsTimerActive ? (headerTimeLeft < 0 ? 'text-rose-500' : 'text-indigo-600 dark:text-indigo-400') : 'text-slate-400'}`}>
+              <div className="hidden md:flex items-center gap-3 bg-[#121418] border border-[#22262E] px-3 py-1 rounded-md shadow-sm">
+                <div className={`text-base font-mono font-bold tabular-nums min-w-[70px] text-center ${
+                  displayIsTimerActive 
+                    ? (headerTimeLeft < 0 ? 'text-[#EF4444] animate-pulse' : 'text-[#10B981]') 
+                    : 'text-[#8A93A4]'
+                }`}>
                   {currentHeaderSlot ? formatDuration(headerTimeLeft) : '00:00'}
                 </div>
 
-                  <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
+                <div className="w-[1px] h-4 bg-[#22262E]" />
 
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleToggleTimer()}
-                    className={`p-2 rounded-xl transition-all ${displayIsTimerActive ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleToggleTimer()}
+                    className={`p-1.5 rounded transition-all ${
+                      displayIsTimerActive 
+                        ? 'bg-[#1C2028] text-white border border-[#2D333F]' 
+                        : 'bg-[#10B981] text-white hover:bg-[#059669]'
+                    }`}
                     title={displayIsTimerActive ? "Pause Timer" : "Start Event"}
                   >
-                    {displayIsTimerActive ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+                    {displayIsTimerActive ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
                   </button>
 
                   <button
                     onClick={() => handlePrev()}
                     disabled={displayCurrentSlotIndex === 0}
-                    className={`p-2 rounded-xl transition-all ${displayCurrentSlotIndex === 0 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
+                    className={`p-1.5 rounded transition-all ${
+                      displayCurrentSlotIndex === 0 
+                        ? 'text-[#4B5563] cursor-not-allowed' 
+                        : 'text-[#8A93A4] hover:text-white hover:bg-[#181B22]'
+                    }`}
                     title="Previous Slot"
                   >
-                    <SkipBack size={18} />
+                    <SkipBack size={14} />
                   </button>
 
                   <button
                     onClick={() => handleNext()}
                     disabled={displayCurrentSlotIndex === displayProgram.slots.length - 1}
-                    className={`p-2 rounded-xl transition-all ${displayCurrentSlotIndex === displayProgram.slots.length - 1 ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
+                    className={`p-1.5 rounded transition-all ${
+                      displayCurrentSlotIndex === displayProgram.slots.length - 1 
+                        ? 'text-[#4B5563] cursor-not-allowed' 
+                        : 'text-[#8A93A4] hover:text-white hover:bg-[#181B22]'
+                    }`}
                     title="Next Slot"
                   >
-                    <SkipForward size={18} />
+                    <SkipForward size={14} />
                   </button>
 
                   <button
                     onClick={() => handleToggleHold()}
-                    className={`p-2 rounded-xl transition-all ${displayProgram.isOnHold ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-amber-500'}`}
+                    className={`p-1.5 rounded transition-all ${
+                      displayProgram.isOnHold 
+                        ? 'bg-[#F59E0B] text-black' 
+                        : 'text-[#8A93A4] hover:text-[#F59E0B] hover:bg-[#181B22]'
+                    }`}
                     title="Toggle Hold"
                   >
-                    <Clock size={18} />
+                    <Clock size={14} />
                   </button>
 
-                  <div className="w-[1px] h-6 bg-slate-200 dark:bg-slate-700 mx-1" />
+                  <div className="w-[1px] h-4 bg-[#22262E] mx-0.5" />
 
                   <button
                     onClick={() => handleToggleManualMode()}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all ${displayProgram.isManualMode
-                      ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
-                      : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-500'}`}
-                    title={displayProgram.isManualMode ? "Manual Mode (Manual Advance)" : "Auto-Mode (Auto Advance)"}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded transition-all ${
+                      displayProgram.isManualMode
+                        ? 'bg-[#181B22] text-[#0EA5E9] border border-[#2D333F]'
+                        : 'text-[#8A93A4] hover:text-white hover:bg-[#181B22]'
+                    }`}
+                    title={displayProgram.isManualMode ? "Manual Mode (Manual Advance)" : "Auto-Advance Mode (Continuous)"}
                   >
-                    {displayProgram.isManualMode ? <MousePointerClick size={16} /> : <Zap size={16} />}
-                    <span className="text-[10px] font-bold uppercase tracking-widest hidden lg:block">
-                      {displayProgram.isManualMode ? 'Manual' : 'Auto'}
+                    {displayProgram.isManualMode ? <MousePointerClick size={13} /> : <Zap size={13} />}
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider hidden lg:block">
+                      {displayProgram.isManualMode ? 'MAN' : 'AUTO'}
                     </span>
                   </button>
                 </div>
               </div>
             )}
 
-            <div className="flex items-center gap-3">
-              {/* Connection & Mode Indicator */}
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                {isOnline ? <Wifi size={12} className="text-emerald-500" /> : <WifiOff size={12} className="text-rose-500" />}
-                {isOnline ? 'Synced' : 'Offline'}
+            <div className="flex items-center gap-2">
+              {/* Network Status Indicator */}
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-[#121418] border border-[#22262E] rounded text-[10px] font-mono text-[#8A93A4]">
+                {isOnline ? <Wifi size={11} className="text-[#10B981]" /> : <WifiOff size={11} className="text-[#EF4444]" />}
+                <span>{isOnline ? 'ONLINE' : 'OFFLINE'}</span>
               </div>
 
               {!isReadOnly && (
+                <button
+                  onClick={toggleTheme}
+                  className="p-1.5 bg-[#121418] hover:bg-[#181B22] border border-[#22262E] text-[#8A93A4] hover:text-white rounded transition-colors"
+                  title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                >
+                  {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
+                </button>
+              )}
+
+              {!isReadOnly && user && (
                 <>
+                  {canControlLive && isFlightBridgeSupported && (
+                    <button
+                      onClick={() => openFlightBridge()}
+                      className={`p-1.5 rounded border transition-colors ${
+                        pipWindow 
+                          ? 'bg-[#0EA5E9]/20 border-[#0EA5E9] text-[#0EA5E9]' 
+                          : 'bg-[#121418] border-[#22262E] text-[#8A93A4] hover:text-white'
+                      }`}
+                      title="Open Floating PiP Window"
+                    >
+                      <AppWindow size={15} />
+                    </button>
+                  )}
+
                   <button
-                    onClick={toggleTheme}
-                    className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
-                    title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                    onClick={() => window.open(`${window.location.origin}/tv?id=${displayProgram.id}`, '_blank')}
+                    className="p-1.5 bg-[#121418] hover:bg-[#181B22] border border-[#22262E] text-[#8A93A4] hover:text-white rounded transition-colors"
+                    title="Launch TV / Overflow Screen"
                   >
-                    {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                    <Tv size={15} />
                   </button>
 
-                  {user && (
-                    <>
-                      {canControlLive && isFlightBridgeSupported && (
-                        <button
-                          onClick={() => openFlightBridge()}
-                          className={`p-2 rounded-lg transition-colors ${pipWindow ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600' : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500'}`}
-                          title="Open Flight Bridge (Mini Player)"
-                        >
-                          <Zap size={18} className={pipWindow ? 'animate-pulse' : ''} />
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => window.open(`${window.location.origin}/tv`, '_blank')}
-                        className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
-                        title="Launch Projector (TV View)"
-                      >
-                        <Monitor size={18} />
-                      </button>
-
-                      <button
-                        onClick={() => setIsExportOpen(true)}
-                        className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
-                        title="Export PDF"
-                      >
-                        <Download size={18} />
-                      </button>
-
-
-
-                    </>
-                  )}
+                  <button
+                    onClick={() => setIsExportOpen(true)}
+                    className="p-1.5 bg-[#121418] hover:bg-[#181B22] border border-[#22262E] text-[#8A93A4] hover:text-white rounded transition-colors"
+                    title="Export Schedule"
+                  >
+                    <Download size={15} />
+                  </button>
                 </>
               )}
             </div>
