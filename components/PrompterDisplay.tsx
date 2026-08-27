@@ -100,24 +100,38 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
         };
     }, [isScrolling, scrollSpeed, elapsed, currentSlot, isThumbnail]);
 
-    // Listen for fullscreen change events
+    const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const isAutoFs = searchParams.get('autofs') === '1';
+    const [showFsPrompt, setShowFsPrompt] = useState(isAutoFs);
+
+    // Listen for fullscreen change events and shortcuts
     useEffect(() => {
         const handleFsChange = () => {
             const doc = document as any;
             const isFs = !!(doc.fullscreenElement || doc.mozFullScreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement);
             setIsFullscreen(isFs);
+            if (isFs) setShowFsPrompt(false);
+        };
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'f' || e.key === 'F') {
+                e.preventDefault();
+                toggleFullscreen();
+            }
         };
 
         document.addEventListener('fullscreenchange', handleFsChange);
         document.addEventListener('webkitfullscreenchange', handleFsChange);
         document.addEventListener('mozfullscreenchange', handleFsChange);
         document.addEventListener('MSFullscreenChange', handleFsChange);
+        document.addEventListener('keydown', handleKeyDown);
 
         return () => {
             document.removeEventListener('fullscreenchange', handleFsChange);
             document.removeEventListener('webkitfullscreenchange', handleFsChange);
             document.removeEventListener('mozfullscreenchange', handleFsChange);
             document.removeEventListener('MSFullscreenChange', handleFsChange);
+            document.removeEventListener('keydown', handleKeyDown);
         };
     }, []);
 
@@ -131,10 +145,11 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
             const isFullScreen = doc.fullscreenElement || doc.mozFullScreenElement || doc.webkitFullScreenElement || doc.msFullscreenElement;
 
             if (!isFullScreen) {
-                await requestFullScreen.call(docEl);
+                if (requestFullScreen) await requestFullScreen.call(docEl);
             } else {
-                await cancelFullScreen.call(doc);
+                if (cancelFullScreen) await cancelFullScreen.call(doc);
             }
+            setShowFsPrompt(false);
         } catch (err) {
             console.error("Fullscreen toggle failed:", err);
         }
@@ -245,7 +260,20 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
             : "bg-white text-slate-800";
 
         return (
-        <div className={`w-screen h-screen ${getThemeClasses()} flex flex-col overflow-hidden font-sans select-none transition-colors duration-500`}>
+        <div 
+            onDoubleClick={toggleFullscreen}
+            className={`w-screen h-screen ${getThemeClasses()} flex flex-col overflow-hidden font-sans select-none transition-colors duration-500 relative`}
+        >
+            {/* Auto Fullscreen Floating Banner */}
+            {showFsPrompt && !isFullscreen && !isThumbnail && (
+                <div 
+                    onClick={toggleFullscreen}
+                    className="cursor-pointer bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 text-center text-xs font-mono font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-2xl animate-pulse z-50 transition-all shrink-0"
+                >
+                    <Maximize size={14} />
+                    <span>Click anywhere or press 'F' to lock into 100% Fullscreen</span>
+                </div>
+            )}
             
             {/* Top Bar Navigation / Control overlay */}
             <div className="h-20 border-b border-current/10 flex items-center justify-between px-6 shrink-0 relative z-30">

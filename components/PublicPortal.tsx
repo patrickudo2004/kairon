@@ -41,6 +41,10 @@ export const PublicPortal: React.FC = () => {
         };
     }, [toggleTheme]);
 
+    const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const searchId = searchParams.get('id');
+    const targetId = slug || searchId || '';
+
     // Convex Reactive Query
     const programData = useQuery(
         api.programs.getProgramBySlug,
@@ -50,10 +54,90 @@ export const PublicPortal: React.FC = () => {
     // If slug is not found as a slug, it might be an ID
     const programByIdData = useQuery(
         api.programs.getProgramById,
-        !programData && slug ? { id: slug as any } : "skip"
+        !programData && targetId ? { id: targetId as any } : "skip"
     );
 
     const programRaw = programData || programByIdData;
+
+    // Local Program Fallback for offline or draft IDs
+    const [localProgram, setLocalProgram] = useState<Program | null>(() => {
+        try {
+            // Check offline cache keys
+            const cacheKeys = [
+                `kairon_offline_cache_${targetId}`,
+                `kairon_offline_cache_live`,
+                'kairon_program'
+            ];
+            for (const key of cacheKeys) {
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && (parsed.id === targetId || parsed.slug === targetId || !targetId)) {
+                        return parsed;
+                    }
+                }
+            }
+
+            // Check list stores
+            const listKeys = ['programs', 'test_programs'];
+            for (const key of listKeys) {
+                const allRaw = localStorage.getItem(key);
+                if (allRaw) {
+                    const all = JSON.parse(allRaw);
+                    if (Array.isArray(all) && all.length > 0) {
+                        const match = all.find((p: Program) => p.id === targetId || p.slug === targetId);
+                        if (match) return match;
+                        if (!targetId) return all[0];
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("Could not read local fallback program in PublicPortal:", e);
+        }
+        return null;
+    });
+
+    // Offline BroadcastChannel Sync
+    useEffect(() => {
+        const channel = new BroadcastChannel('kairon_offline_sync');
+        const handleSync = (event: MessageEvent) => {
+            if (!event.data) return;
+            const data = event.data;
+            setLocalProgram(prev => {
+                if (prev && data.id && prev.id !== data.id && prev.slug !== data.id) {
+                    return prev;
+                }
+                const base = prev || {
+                    id: data.id || 'live',
+                    title: 'Live Service',
+                    date: new Date().toISOString().split('T')[0],
+                    startTime: '09:00',
+                    slots: [],
+                    status: 'live',
+                    isTimerActive: false,
+                    secondsElapsed: 0,
+                    currentSlotIndex: 0,
+                    isManualMode: false
+                };
+                return {
+                    ...base,
+                    currentSlotIndex: data.currentSlotIndex ?? base.currentSlotIndex,
+                    isTimerActive: data.isTimerActive !== undefined ? data.isTimerActive : base.isTimerActive,
+                    secondsElapsed: data.secondsElapsed ?? base.secondsElapsed,
+                    timerStartTimestamp: data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : base.timerStartTimestamp,
+                    isOnHold: data.isOnHold !== undefined ? data.isOnHold : base.isOnHold,
+                    holdMessage: data.holdMessage !== undefined ? data.holdMessage : base.holdMessage,
+                    isManualMode: data.isManualMode !== undefined ? data.isManualMode : base.isManualMode,
+                    status: data.status ?? base.status
+                } as Program;
+            });
+        };
+        channel.addEventListener('message', handleSync);
+        return () => {
+            channel.removeEventListener('message', handleSync);
+            channel.close();
+        };
+    }, []);
 
     // Ticker for connection diagnostics and countdowns
     useEffect(() => {
@@ -66,11 +150,11 @@ export const PublicPortal: React.FC = () => {
         return () => clearInterval(interval);
     }, [convex]);
 
-    const program = programRaw ? {
-        ...(programRaw as any),
-        id: (programRaw as any)._id || (programRaw as any).id
+    const effectiveProgramRaw = programRaw || localProgram;
+    const program = effectiveProgramRaw ? {
+        ...(effectiveProgramRaw as any),
+        id: (effectiveProgramRaw as any)._id || (effectiveProgramRaw as any).id
     } as Program : null;
-
 
     // Tick every second to keep countdown live between Convex subscription updates
     const [, setTick] = useState(0);
@@ -84,7 +168,6 @@ export const PublicPortal: React.FC = () => {
         ? Math.max(0, Math.floor((nowTime - program.timerStartTimestamp) / 1000))
         : (program?.secondsElapsed || 0);
 
-
     // Scroll Observer
     useEffect(() => {
         const handleScroll = () => setIsScrolled(window.scrollY > 300);
@@ -94,7 +177,7 @@ export const PublicPortal: React.FC = () => {
 
     // Auto-scroll to active slot on load
     useEffect(() => {
-        if (program && program.isTimerActive && program.slots[program.currentSlotIndex ?? 0]) {
+        if (program && program.isTimerActive && program.slots?.[program.currentSlotIndex ?? 0]) {
             const timer = setTimeout(() => {
                 const activeSlotId = program.slots[program.currentSlotIndex ?? 0].id;
                 const element = document.getElementById(`slot-${activeSlotId}`);
@@ -106,8 +189,8 @@ export const PublicPortal: React.FC = () => {
         }
     }, [program?.id, program?.isTimerActive, program?.currentSlotIndex]);
 
-    const loading = slug && (programData === undefined || (programData === null && programByIdData === undefined));
-    const networkError = slug && programData === null && programByIdData === null;
+    const loading = targetId && (programData === undefined || (programData === null && programByIdData === undefined)) && !localProgram;
+    const networkError = targetId && programData === null && programByIdData === null && !localProgram;
 
     if (loading) {
         return (

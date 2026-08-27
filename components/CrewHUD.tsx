@@ -1,19 +1,75 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation } from '../hooks/useConvexMock';
 import { api } from '../convex/_generated/api';
 import { Program } from '../types';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
-import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon, RefreshCw, Volume2, Lightbulb, Video, CheckCircle2, Activity } from 'lucide-react';
+import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon, RefreshCw, Volume2, Lightbulb, Video, CheckCircle2, Activity, Maximize, Minimize } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 
 export const CrewHUD: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
+    const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const searchId = searchParams.get('id');
+    const targetId = slug || searchId || '';
+    const isAutoFs = searchParams.get('autofs') === '1';
+
     const [tick, setTick] = useState(0);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [showFsPrompt, setShowFsPrompt] = useState(isAutoFs);
+
+    // Hardware Fullscreen Toggle
+    const toggleFullscreen = useCallback(async () => {
+        try {
+            const doc = window.document as any;
+            const docEl = doc.documentElement as any;
+
+            const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+            const cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+            const isFs = doc.fullscreenElement || doc.mozFullScreenElement || doc.webkitFullScreenElement || doc.msFullscreenElement;
+
+            if (!isFs) {
+                if (requestFullScreen) await requestFullScreen.call(docEl);
+            } else {
+                if (cancelFullScreen) await cancelFullScreen.call(doc);
+            }
+            setShowFsPrompt(false);
+        } catch (err) {
+            console.error("Error toggling fullscreen in CrewHUD:", err);
+        }
+    }, []);
+
+    // Track fullscreen changes and keyboard shortcuts
+    useEffect(() => {
+        const handleFsChange = () => {
+            const doc = document as any;
+            const isFs = !!(doc.fullscreenElement || doc.mozFullScreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement);
+            setIsFullscreen(isFs);
+            if (isFs) setShowFsPrompt(false);
+        };
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'f' || e.key === 'F') {
+                e.preventDefault();
+                toggleFullscreen();
+            }
+        };
+
+        document.addEventListener('fullscreenchange', handleFsChange);
+        document.addEventListener('webkitfullscreenchange', handleFsChange);
+        document.addEventListener('mozfullscreenchange', handleFsChange);
+        document.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFsChange);
+            document.removeEventListener('webkitfullscreenchange', handleFsChange);
+            document.removeEventListener('mozfullscreenchange', handleFsChange);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [toggleFullscreen]);
 
     // BroadcastChannel Display Telemetry
     useEffect(() => {
-        // Detect if inside an iframe or in thumbnail mode
         const isThumbnail = new URLSearchParams(window.location.search).get('mode') === 'thumbnail';
         const isIframe = window.self !== window.top;
         if (isThumbnail || isIframe) return;
@@ -23,7 +79,7 @@ export const CrewHUD: React.FC = () => {
         const sendHeartbeat = () => {
             const isBrowserFullscreen = Math.abs(window.screen.width - window.innerWidth) <= 1 && 
                                          Math.abs(window.screen.height - window.innerHeight) <= 1;
-            const isFullscreen = !!(
+            const isFs = !!(
                 document.fullscreenElement ||
                 (document as any).webkitFullscreenElement ||
                 (document as any).mozFullScreenElement ||
@@ -35,7 +91,7 @@ export const CrewHUD: React.FC = () => {
             channel.postMessage({
                 type: 'heartbeat',
                 tabId: 'crew',
-                isFullscreen,
+                isFullscreen: isFs,
                 isOnSecondary
             });
         };
@@ -57,23 +113,41 @@ export const CrewHUD: React.FC = () => {
 
     const programByIdData = useQuery(
         api.programs.getProgramById,
-        !programData && slug ? { id: slug as any } : "skip"
+        !programData && targetId ? { id: targetId as any } : "skip"
     );
+
+    const programRaw = programData || programByIdData;
 
     // Local Program Fallback for offline or draft IDs
     const [localProgram, setLocalProgram] = useState<Program | null>(() => {
         try {
-            const raw = localStorage.getItem('kairon_program');
-            if (raw) {
-                const parsed = JSON.parse(raw);
-                if (parsed.id === slug || parsed.slug === slug || !slug) return parsed;
+            // Check offline cache keys
+            const cacheKeys = [
+                `kairon_offline_cache_${targetId}`,
+                `kairon_offline_cache_live`,
+                'kairon_program'
+            ];
+            for (const key of cacheKeys) {
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && (parsed.id === targetId || parsed.slug === targetId || !targetId)) {
+                        return parsed;
+                    }
+                }
             }
-            const allRaw = localStorage.getItem('programs');
-            if (allRaw) {
-                const all = JSON.parse(allRaw);
-                if (Array.isArray(all)) {
-                    const match = all.find((p: Program) => p.id === slug || p.slug === slug);
-                    if (match) return match;
+
+            // Check list stores
+            const listKeys = ['programs', 'test_programs'];
+            for (const key of listKeys) {
+                const allRaw = localStorage.getItem(key);
+                if (allRaw) {
+                    const all = JSON.parse(allRaw);
+                    if (Array.isArray(all) && all.length > 0) {
+                        const match = all.find((p: Program) => p.id === targetId || p.slug === targetId);
+                        if (match) return match;
+                        if (!targetId) return all[0];
+                    }
                 }
             }
         } catch (e) {
@@ -86,21 +160,35 @@ export const CrewHUD: React.FC = () => {
     useEffect(() => {
         const channel = new BroadcastChannel('kairon_offline_sync');
         const handleSync = (event: MessageEvent) => {
-            if (!event.data || !event.data.id) return;
+            if (!event.data) return;
             const data = event.data;
             setLocalProgram(prev => {
-                if (!prev || (prev.id !== data.id && prev.slug !== data.id)) return prev;
-                return {
-                    ...prev,
-                    currentSlotIndex: data.currentSlotIndex ?? prev.currentSlotIndex,
-                    isTimerActive: data.isTimerActive ?? prev.isTimerActive,
-                    secondsElapsed: data.secondsElapsed ?? prev.secondsElapsed,
-                    timerStartTimestamp: data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : prev.timerStartTimestamp,
-                    isOnHold: data.isOnHold !== undefined ? data.isOnHold : prev.isOnHold,
-                    holdMessage: data.holdMessage !== undefined ? data.holdMessage : prev.holdMessage,
-                    isManualMode: data.isManualMode !== undefined ? data.isManualMode : prev.isManualMode,
-                    status: data.status ?? prev.status
+                if (prev && data.id && prev.id !== data.id && prev.slug !== data.id) {
+                    return prev;
+                }
+                const base = prev || {
+                    id: data.id || 'live',
+                    title: 'Live Service',
+                    date: new Date().toISOString().split('T')[0],
+                    startTime: '09:00',
+                    slots: [],
+                    status: 'live',
+                    isTimerActive: false,
+                    secondsElapsed: 0,
+                    currentSlotIndex: 0,
+                    isManualMode: false
                 };
+                return {
+                    ...base,
+                    currentSlotIndex: data.currentSlotIndex ?? base.currentSlotIndex,
+                    isTimerActive: data.isTimerActive !== undefined ? data.isTimerActive : base.isTimerActive,
+                    secondsElapsed: data.secondsElapsed ?? base.secondsElapsed,
+                    timerStartTimestamp: data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : base.timerStartTimestamp,
+                    isOnHold: data.isOnHold !== undefined ? data.isOnHold : base.isOnHold,
+                    holdMessage: data.holdMessage !== undefined ? data.holdMessage : base.holdMessage,
+                    isManualMode: data.isManualMode !== undefined ? data.isManualMode : base.isManualMode,
+                    status: data.status ?? base.status
+                } as Program;
             });
         };
         channel.addEventListener('message', handleSync);
@@ -116,7 +204,7 @@ export const CrewHUD: React.FC = () => {
         id: (effectiveProgramRaw as any)._id || (effectiveProgramRaw as any).id
     } as Program : null;
 
-    // Live Ticker (High-Precision 200ms heartbeat to match main dashboard)
+    // Live Ticker
     useEffect(() => {
         let interval: NodeJS.Timeout | null = null;
         if (program?.isTimerActive) {
@@ -129,18 +217,14 @@ export const CrewHUD: React.FC = () => {
         };
     }, [program?.isTimerActive, program?.id]);
 
-    // Global Theme Sync (Force Dark for Tactical View)
-    const isDarkMode = true;
-
     const nowTime = Date.now();
-    // Drift-Proof Calculation (Sync with App.tsx exactElapsed logic)
     const derivedSecondsElapsed = (program?.isTimerActive && program?.timerStartTimestamp)
         ? Math.max(0, Math.floor((nowTime - program.timerStartTimestamp) / 1000))
         : (program?.secondsElapsed || 0);
 
     const currentSlotIndex = program?.currentSlotIndex ?? 0;
-    const currentSlot = program?.slots[currentSlotIndex];
-    const nextSlot = program?.slots[currentSlotIndex + 1];
+    const currentSlot = program?.slots?.[currentSlotIndex];
+    const nextSlot = program?.slots?.[currentSlotIndex + 1];
 
     const formatCountdown = (totalSeconds: number) => {
         const abs = Math.abs(totalSeconds);
@@ -153,33 +237,67 @@ export const CrewHUD: React.FC = () => {
 
     const [localAcks, setLocalAcks] = useState<Set<string>>(new Set());
 
+    // Safely attempt cloud mutation if available
+    let acknowledgeMutation: any = null;
+    try {
+        acknowledgeMutation = useMutation((api.programs as any).acknowledgeCrew || (api.programs as any).acknowledge);
+    } catch (e) {}
+
     const handleAck = async (role: 'sound' | 'lighting' | 'video') => {
         if (!program || !currentSlot) return;
         const ackKey = `${currentSlot.id}-${role}`;
         setLocalAcks(prev => new Set(prev).add(ackKey));
-        await acknowledge({
-            programId: programRaw?._id as any,
-            slotId: currentSlot.id,
-            role,
-        });
+        
+        try {
+            if (acknowledgeMutation && programRaw?._id) {
+                await acknowledgeMutation({
+                    programId: programRaw._id as any,
+                    slotId: currentSlot.id,
+                    role,
+                });
+            }
+        } catch (e) {
+            console.warn("Could not push ACK to Convex (local fallback active):", e);
+        }
     };
 
     const isAcked = (role: string) => {
         if (!currentSlot) return false;
-        return acks.some(a => a.slotId === currentSlot.id && a.role === role) || localAcks.has(`${currentSlot.id}-${role}`);
+        return localAcks.has(`${currentSlot.id}-${role}`);
     };
 
-    if (!program) {
+    if (!program || !program.slots || program.slots.length === 0) {
         return (
-            <div className="min-h-screen bg-[#090A0C] flex flex-col items-center justify-center p-6 text-center">
+            <div className="min-h-screen bg-[#090A0C] flex flex-col items-center justify-center p-6 text-center font-mono">
                 <div className="w-10 h-10 border-2 border-[#0EA5E9] border-t-transparent rounded-full animate-spin mb-4" />
                 <p className="text-xs font-mono text-[#8A93A4] uppercase tracking-widest">Awaiting Tactical Feed...</p>
+                <p className="text-[10px] text-slate-500 mt-2">Target ID: {targetId || 'Live Session'}</p>
+                <button
+                    onClick={() => window.location.reload()}
+                    className="mt-4 px-3 py-1.5 bg-[#181B22] border border-[#22262E] text-[#0EA5E9] rounded text-xs hover:bg-[#22262E] transition-all"
+                >
+                    Refresh Stream
+                </button>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#090A0C] text-white overflow-hidden flex flex-col font-mono select-none">
+        <div 
+            onDoubleClick={toggleFullscreen}
+            className="min-h-screen bg-[#090A0C] text-white overflow-hidden flex flex-col font-mono select-none relative"
+        >
+            {/* Auto Fullscreen Floating Banner */}
+            {showFsPrompt && !isFullscreen && (
+                <div 
+                    onClick={toggleFullscreen}
+                    className="cursor-pointer bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 text-center text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl animate-pulse z-50 transition-all"
+                >
+                    <Maximize size={14} />
+                    <span>Click anywhere or press 'F' to lock into 100% Fullscreen</span>
+                </div>
+            )}
+
             {/* Header / Meta */}
             <header className="px-6 py-3.5 bg-[#121418] border-b border-[#22262E] flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -190,7 +308,7 @@ export const CrewHUD: React.FC = () => {
                         {program.title}
                     </h1>
                 </div>
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                         <span className={`w-2 h-2 rounded-full ${program.isTimerActive ? 'bg-[#10B981] animate-tally' : 'bg-[#6A7382]'}`} />
                         <span className="text-[10px] font-bold text-[#8A93A4] uppercase tracking-widest font-mono">
@@ -200,6 +318,13 @@ export const CrewHUD: React.FC = () => {
                     <div className="text-[10px] font-mono font-bold text-[#8A93A4] tracking-widest">
                         {new Date().toLocaleTimeString()}
                     </div>
+                    <button
+                        onClick={toggleFullscreen}
+                        className="p-1.5 bg-[#181B22] hover:bg-[#22262E] border border-[#22262E] text-[#8A93A4] hover:text-white rounded transition-all"
+                        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen (F)"}
+                    >
+                        {isFullscreen ? <Minimize size={13} /> : <Maximize size={13} />}
+                    </button>
                 </div>
             </header>
 
@@ -315,7 +440,7 @@ export const CrewHUD: React.FC = () => {
                         <div className="flex items-center justify-between text-[10px] font-mono font-bold text-[#8A93A4]">
                             <span className="uppercase tracking-widest">Tactical HUD</span>
                             <span className="tabular-nums uppercase tracking-widest">
-                                {new Date().toLocaleDateString()}
+                                {new Date().toLocaleTimeString()}
                             </span>
                         </div>
                     </div>
@@ -324,7 +449,7 @@ export const CrewHUD: React.FC = () => {
 
             {/* Status Footer */}
             <footer className="px-6 py-2 bg-[#121418] border-t border-[#22262E] flex items-center justify-between text-[9px] font-mono">
-                <div className="text-[#6A7382] uppercase font-bold tracking-widest">Kairon HUD // Ref: {slug}</div>
+                <div className="text-[#6A7382] uppercase font-bold tracking-widest">Kairon HUD // Ref: {targetId || 'Live'}</div>
                 <div className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
                     <span className="text-[#8A93A4] font-bold uppercase">Sync Live</span>
