@@ -1823,21 +1823,21 @@ const AppContent: React.FC = () => {
           : ''
       }`}>
         {/* Header (Studio Precision Top Bar) */}
-        <header className="sticky top-0 z-40 border-b border-[#22262E] bg-[#090A0C]/90 backdrop-blur-md transition-colors h-14 flex items-center shrink-0 no-print font-sans">
+        <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-[#22262E] bg-white/95 dark:bg-[#090A0C]/95 backdrop-blur-md transition-colors h-14 flex items-center shrink-0 no-print font-sans">
           <div className="w-full px-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
               {!user ? (
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded bg-[#181B22] border border-[#2D333F] flex items-center justify-center">
+                  <div className="w-7 h-7 rounded bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center">
                     <Mic className="text-[#0EA5E9]" size={15} />
                   </div>
-                  <span className="font-mono font-bold text-sm tracking-wider text-white uppercase">KAIRON</span>
+                  <span className="font-mono font-bold text-sm tracking-wider text-slate-900 dark:text-white uppercase">KAIRON</span>
                 </div>
               ) : (
                 <>
                   <div className="flex-1 min-w-0 overflow-hidden">
                     <div className="flex items-center gap-2">
-                      <h2 className="font-semibold text-sm text-white truncate max-w-full">
+                      <h2 className="font-semibold text-sm text-slate-900 dark:text-white truncate max-w-full">
                         {displayProgram.title}
                       </h2>
                       {displayIsTimerActive ? (
@@ -1846,7 +1846,7 @@ const AppContent: React.FC = () => {
                           LIVE
                         </span>
                       ) : (
-                        <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[10px] font-mono text-[#F59E0B]">
+                        <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[10px] font-mono font-bold text-[#F59E0B]">
                           STANDBY
                         </span>
                       )}
@@ -1858,23 +1858,23 @@ const AppContent: React.FC = () => {
 
             {/* Live Control Center & Header Timer */}
             {!isReadOnly && displayProgram.slots.length > 0 && (
-              <div className="hidden md:flex items-center gap-3 bg-[#121418] border border-[#22262E] px-3 py-1 rounded-md shadow-sm">
+              <div className="hidden md:flex items-center gap-3 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] px-3 py-1 rounded-md shadow-sm">
                 <div className={`text-base font-mono font-bold tabular-nums min-w-[70px] text-center ${
                   displayIsTimerActive 
                     ? (headerTimeLeft < 0 ? 'text-[#EF4444] animate-pulse' : 'text-[#10B981]') 
-                    : 'text-[#8A93A4]'
+                    : 'text-slate-500 dark:text-[#8A93A4]'
                 }`}>
                   {currentHeaderSlot ? formatDuration(headerTimeLeft) : '00:00'}
                 </div>
 
-                <div className="w-[1px] h-4 bg-[#22262E]" />
+                <div className="w-[1px] h-4 bg-slate-200 dark:bg-[#22262E]" />
 
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => handleToggleTimer()}
                     className={`p-1.5 rounded transition-all ${
                       displayIsTimerActive 
-                        ? 'bg-[#1C2028] text-white border border-[#2D333F]' 
+                        ? 'bg-slate-200 dark:bg-[#1C2028] text-slate-900 dark:text-white border border-slate-300 dark:border-[#2D333F]' 
                         : 'bg-[#10B981] text-white hover:bg-[#059669]'
                     }`}
                     title={displayIsTimerActive ? "Pause Timer" : "Start Event"}
@@ -1887,8 +1887,8 @@ const AppContent: React.FC = () => {
                     disabled={displayCurrentSlotIndex === 0}
                     className={`p-1.5 rounded transition-all ${
                       displayCurrentSlotIndex === 0 
-                        ? 'text-[#4B5563] cursor-not-allowed' 
-                        : 'text-[#8A93A4] hover:text-white hover:bg-[#181B22]'
+                        ? 'text-slate-300 dark:text-[#4B5563] cursor-not-allowed' 
+                        : 'text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22]'
                     }`}
                     title="Previous Slot"
                   >
@@ -1900,8 +1900,8 @@ const AppContent: React.FC = () => {
                     disabled={displayCurrentSlotIndex === displayProgram.slots.length - 1}
                     className={`p-1.5 rounded transition-all ${
                       displayCurrentSlotIndex === displayProgram.slots.length - 1 
-                        ? 'text-[#4B5563] cursor-not-allowed' 
-                        : 'text-[#8A93A4] hover:text-white hover:bg-[#181B22]'
+                        ? 'text-slate-300 dark:text-[#4B5563] cursor-not-allowed' 
+                        : 'text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22]'
                     }`}
                     title="Next Slot"
                   >
@@ -1913,21 +1913,21 @@ const AppContent: React.FC = () => {
                     className={`p-1.5 rounded transition-all ${
                       displayProgram.isOnHold 
                         ? 'bg-[#F59E0B] text-black' 
-                        : 'text-[#8A93A4] hover:text-[#F59E0B] hover:bg-[#181B22]'
+                        : 'text-slate-600 dark:text-[#8A93A4] hover:text-[#F59E0B] hover:bg-slate-100 dark:hover:bg-[#181B22]'
                     }`}
                     title="Toggle Hold"
                   >
                     <Clock size={14} />
                   </button>
 
-                  <div className="w-[1px] h-4 bg-[#22262E] mx-0.5" />
+                  <div className="w-[1px] h-4 bg-slate-200 dark:bg-[#22262E] mx-0.5" />
 
                   <button
                     onClick={() => handleToggleManualMode()}
                     className={`flex items-center gap-1.5 px-2 py-1 rounded transition-all ${
                       displayProgram.isManualMode
-                        ? 'bg-[#181B22] text-[#0EA5E9] border border-[#2D333F]'
-                        : 'text-[#8A93A4] hover:text-white hover:bg-[#181B22]'
+                        ? 'bg-slate-100 dark:bg-[#181B22] text-[#0EA5E9] border border-slate-300 dark:border-[#2D333F]'
+                        : 'text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22]'
                     }`}
                     title={displayProgram.isManualMode ? "Manual Mode (Manual Advance)" : "Auto-Advance Mode (Continuous)"}
                   >
@@ -1942,7 +1942,7 @@ const AppContent: React.FC = () => {
 
             <div className="flex items-center gap-2">
               {/* Network Status Indicator */}
-              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-[#121418] border border-[#22262E] rounded text-[10px] font-mono text-[#8A93A4]">
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded text-[10px] font-mono text-slate-600 dark:text-[#8A93A4]">
                 {isOnline ? <Wifi size={11} className="text-[#10B981]" /> : <WifiOff size={11} className="text-[#EF4444]" />}
                 <span>{isOnline ? 'ONLINE' : 'OFFLINE'}</span>
               </div>
@@ -1950,7 +1950,7 @@ const AppContent: React.FC = () => {
               {!isReadOnly && (
                 <button
                   onClick={toggleTheme}
-                  className="p-1.5 bg-[#121418] hover:bg-[#181B22] border border-[#22262E] text-[#8A93A4] hover:text-white rounded transition-colors"
+                  className="p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
                   title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
                 >
                   {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
@@ -1965,7 +1965,7 @@ const AppContent: React.FC = () => {
                       className={`p-1.5 rounded border transition-colors ${
                         pipWindow 
                           ? 'bg-[#0EA5E9]/20 border-[#0EA5E9] text-[#0EA5E9]' 
-                          : 'bg-[#121418] border-[#22262E] text-[#8A93A4] hover:text-white'
+                          : 'bg-slate-50 dark:bg-[#121418] border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white'
                       }`}
                       title="Open Floating PiP Window"
                     >
@@ -1974,8 +1974,8 @@ const AppContent: React.FC = () => {
                   )}
 
                   <button
-                    onClick={() => window.open(`${window.location.origin}/tv?id=${displayProgram.id}`, '_blank')}
-                    className="p-1.5 bg-[#121418] hover:bg-[#181B22] border border-[#22262E] text-[#8A93A4] hover:text-white rounded transition-colors"
+                    onClick={() => window.open(`${window.location.origin}/tv?id=${displayProgram.id}`, 'kairon_tv_display')}
+                    className="p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
                     title="Launch TV / Overflow Screen"
                   >
                     <Tv size={15} />
@@ -1983,7 +1983,7 @@ const AppContent: React.FC = () => {
 
                   <button
                     onClick={() => setIsExportOpen(true)}
-                    className="p-1.5 bg-[#121418] hover:bg-[#181B22] border border-[#22262E] text-[#8A93A4] hover:text-white rounded transition-colors"
+                    className="p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
                     title="Export Schedule"
                   >
                     <Download size={15} />

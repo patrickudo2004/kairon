@@ -68,8 +68,8 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
         };
 
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'f' || e.key === 'F') {
-                e.preventDefault();
+            if (e.key === 'f' || e.key === 'F' || e.key === 'F11') {
+                if (e.key === 'f' || e.key === 'F') e.preventDefault();
                 toggleFullscreen();
             }
         };
@@ -154,7 +154,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                     className="cursor-pointer bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 rounded-lg text-center text-xs font-mono font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-2xl animate-pulse z-50 transition-all shrink-0 mb-3"
                 >
                     <Maximize size={14} />
-                    <span>Click anywhere or press 'F' to lock into 100% Fullscreen</span>
+                    <span>⛶ Click anywhere or press F11 to lock Fullscreen</span>
                 </div>
             )}
             
@@ -223,15 +223,15 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
 
             {/* Center Massive Countdown Readout */}
             <div className="flex-1 flex flex-col items-center justify-center relative my-auto min-h-0 overflow-hidden">
-                <div className={`font-mono font-bold leading-none tracking-tight tabular-nums select-none transition-colors ${
+                <div className={`font-mono font-black leading-none tracking-tight tabular-nums select-none transition-colors ${
                     isOvertime 
                         ? 'text-[#EF4444] animate-pulse' 
                         : (isWarning ? 'text-[#F59E0B] animate-pulse' : 'text-white')
                 }`}
                 style={{
                     fontSize: isVisible && !promptMessage?.isStrobe 
-                        ? 'clamp(2.5rem, 12vw, 15vh)' 
-                        : 'clamp(3.5rem, min(24vw, 36vh), 28vw)',
+                        ? 'clamp(3rem, 14vw, 18vh)' 
+                        : 'clamp(4.5rem, min(28vw, 42vh), 34vw)',
                     transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-3vh)' : 'none'
                 }}>
                     {formatDuration(timeLeft)}
