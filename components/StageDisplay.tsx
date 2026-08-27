@@ -31,9 +31,13 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     isThumbnail = false,
     customTheme
 }) => {
+    const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const isAutoFs = searchParams.get('autofs') === '1';
+
     const themeToUse = customTheme || (isDarkMode ? 'dark' : 'light');
     useWakeLock(true);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [showFsPrompt, setShowFsPrompt] = useState(isAutoFs);
 
     const toggleFullscreen = async () => {
         try {
@@ -45,10 +49,11 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
             const isFullScreen = doc.fullscreenElement || doc.mozFullScreenElement || doc.webkitFullScreenElement || doc.msFullscreenElement;
 
             if (!isFullScreen) {
-                await requestFullScreen.call(docEl);
+                if (requestFullScreen) await requestFullScreen.call(docEl);
             } else {
-                await cancelFullScreen.call(doc);
+                if (cancelFullScreen) await cancelFullScreen.call(doc);
             }
+            setShowFsPrompt(false);
         } catch (err) {
             console.error("Error toggling fullscreen:", err);
         }
@@ -59,18 +64,28 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
             const doc = document as any;
             const isFs = !!(doc.fullscreenElement || doc.mozFullScreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement);
             setIsFullscreen(isFs);
+            if (isFs) setShowFsPrompt(false);
+        };
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'f' || e.key === 'F') {
+                e.preventDefault();
+                toggleFullscreen();
+            }
         };
 
         document.addEventListener('fullscreenchange', handleFsChange);
         document.addEventListener('webkitfullscreenchange', handleFsChange);
         document.addEventListener('mozfullscreenchange', handleFsChange);
         document.addEventListener('MSFullscreenChange', handleFsChange);
+        document.addEventListener('keydown', handleKeyDown);
 
         return () => {
             document.removeEventListener('fullscreenchange', handleFsChange);
             document.removeEventListener('webkitfullscreenchange', handleFsChange);
             document.removeEventListener('mozfullscreenchange', handleFsChange);
             document.removeEventListener('MSFullscreenChange', handleFsChange);
+            document.removeEventListener('keydown', handleKeyDown);
         };
     }, []);
 
@@ -128,7 +143,20 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     const isWarning = timeLeft >= 0 && timeLeft <= 60;
 
     return (
-        <div className="w-screen h-screen bg-[#000000] text-white overflow-hidden flex flex-col justify-between p-4 sm:p-6 md:p-10 font-sans select-none relative box-border">
+        <div 
+            onDoubleClick={toggleFullscreen}
+            className="w-screen h-screen bg-[#000000] text-white overflow-hidden flex flex-col justify-between p-4 sm:p-6 md:p-10 font-sans select-none relative box-border"
+        >
+            {/* Auto Fullscreen Floating Banner */}
+            {showFsPrompt && !isFullscreen && !isThumbnail && (
+                <div 
+                    onClick={toggleFullscreen}
+                    className="cursor-pointer bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 rounded-lg text-center text-xs font-mono font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-2xl animate-pulse z-50 transition-all shrink-0 mb-3"
+                >
+                    <Maximize size={14} />
+                    <span>Click anywhere or press 'F' to lock into 100% Fullscreen</span>
+                </div>
+            )}
             
             {/* Perimeter Tally Flash Border on Overtime / Hold */}
             {isOvertime && (
@@ -140,7 +168,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
 
             {/* Controls Container */}
             {!isThumbnail && (
-                <div className="absolute top-3 right-3 z-50 flex items-center gap-2 opacity-10 hover:opacity-100 transition-opacity p-2 rounded">
+                <div className="absolute top-3 right-3 z-50 flex items-center gap-2 opacity-20 hover:opacity-100 transition-opacity p-2 rounded">
                     {toggleTheme && (
                         <button
                             onClick={toggleTheme}

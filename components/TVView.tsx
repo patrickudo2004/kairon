@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Program, Organization } from '../types';
 import { Maximize, Minimize, Sun, Moon, Timer, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { formatDuration } from '../utils/time';
@@ -32,12 +32,26 @@ const TVView: React.FC<TVViewProps> = ({
     isThumbnail = false,
     customTheme
 }) => {
+    const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const isAutoFs = searchParams.get('autofs') === '1';
+
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [showFsPrompt, setShowFsPrompt] = useState(isAutoFs);
     const { promptMessage } = useStageMessages(program.id);
     const currentSlot = program.slots[currentSlotIndex];
     const nextSlot = program.slots[currentSlotIndex + 1];
 
     const [isVisible, setIsVisible] = useState(false);
+    const rundownContainerRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll rundown to keep current slot visible while allowing full scrolling to slot 1
+    useEffect(() => {
+        if (!rundownContainerRef.current || !program.slots?.[currentSlotIndex]) return;
+        const activeElement = document.getElementById(`tv-slot-${program.slots[currentSlotIndex]?.id}`);
+        if (activeElement) {
+            activeElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }, [currentSlotIndex, program.slots]);
 
     useEffect(() => {
         if (promptMessage) {
@@ -61,7 +75,9 @@ const TVView: React.FC<TVViewProps> = ({
 
     const toggleFullscreen = () => {
         if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(err => {
+            document.documentElement.requestFullscreen().then(() => {
+                setShowFsPrompt(false);
+            }).catch(err => {
                 console.error("Error attempting to enable fullscreen:", err);
             });
         } else {
@@ -73,10 +89,25 @@ const TVView: React.FC<TVViewProps> = ({
 
     useEffect(() => {
         const handleFullscreenChange = () => {
-            setIsFullscreen(!!document.fullscreenElement);
+            const isFs = !!document.fullscreenElement;
+            setIsFullscreen(isFs);
+            if (isFs) setShowFsPrompt(false);
         };
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'f' || e.key === 'F') {
+                e.preventDefault();
+                toggleFullscreen();
+            }
+        };
+
         document.addEventListener('fullscreenchange', handleFullscreenChange);
-        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
     }, []);
 
     const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
@@ -88,7 +119,20 @@ const TVView: React.FC<TVViewProps> = ({
         : 0;
 
     return (
-        <div className="w-screen h-screen bg-[#090A0C] text-[#E1E4EA] flex flex-col justify-between overflow-hidden p-6 md:p-10 select-none font-sans relative">
+        <div 
+            onDoubleClick={toggleFullscreen}
+            className="w-screen h-screen bg-[#090A0C] text-[#E1E4EA] flex flex-col justify-between overflow-hidden p-6 md:p-10 select-none font-sans relative"
+        >
+            {/* Auto Fullscreen Floating Banner */}
+            {showFsPrompt && !isFullscreen && !isThumbnail && (
+                <div 
+                    onClick={toggleFullscreen}
+                    className="cursor-pointer bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 rounded-lg text-center text-xs font-mono font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-2xl animate-pulse z-50 transition-all shrink-0 mb-3"
+                >
+                    <Maximize size={14} />
+                    <span>Click anywhere or press 'F' to lock into 100% Fullscreen</span>
+                </div>
+            )}
 
             {/* Subtle Tally Header */}
             <header className="flex justify-between items-center border-b border-[#22262E] pb-4 z-10">
@@ -135,7 +179,10 @@ const TVView: React.FC<TVViewProps> = ({
             <main className="flex-1 grid grid-cols-12 gap-8 my-6 overflow-hidden">
                 
                 {/* Left Column: Dense Rundown Feed */}
-                <div className="col-span-12 lg:col-span-5 flex flex-col justify-center space-y-2 overflow-y-auto pr-2">
+                <div 
+                    ref={rundownContainerRef}
+                    className="col-span-12 lg:col-span-5 flex flex-col space-y-2.5 overflow-y-auto pr-2 py-1 scroll-smooth"
+                >
                     {program.slots.map((slot, idx) => {
                         const isCurrent = idx === currentSlotIndex;
                         const isPast = idx < currentSlotIndex;
@@ -143,6 +190,7 @@ const TVView: React.FC<TVViewProps> = ({
                         return (
                             <div
                                 key={slot.id}
+                                id={`tv-slot-${slot.id}`}
                                 className={`p-3.5 rounded-md border transition-all flex items-center justify-between font-mono ${
                                     isCurrent
                                         ? 'bg-[#121822] border-[#0EA5E9] text-white shadow-lg'

@@ -1,9 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Program, Organization } from '../types';
 import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap, Activity, Crown, Copy, Check, QrCode, AppWindow, Moon, Sun, Cast, CheckCircle2, Sliders, Shield, Maximize } from 'lucide-react';
 import { useStageMessages } from '../hooks/useStageMessages';
 import { useScreenManagement } from '../hooks/useScreenManagement';
 import QRCode from 'react-qr-code';
+
+const LiveThumbnail: React.FC<{
+    path: string;
+    title: string;
+    theme: string;
+    isLocked?: boolean;
+}> = ({ path, title, theme, isLocked }) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [scale, setScale] = useState(0.18);
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const updateScale = () => {
+            if (containerRef.current) {
+                const width = containerRef.current.clientWidth;
+                if (width > 0) {
+                    setScale(width / 1920);
+                }
+            }
+        };
+        updateScale();
+        const observer = new ResizeObserver(updateScale);
+        observer.observe(containerRef.current);
+        return () => observer.disconnect();
+    }, []);
+
+    return (
+        <div ref={containerRef} className="w-full h-full relative overflow-hidden">
+            <iframe
+                src={`${path}${path.includes('?') ? '&' : '?'}mode=thumbnail&theme=${theme}`}
+                className="pointer-events-none opacity-85 absolute top-0 left-0"
+                title={title}
+                style={{
+                    width: '1920px',
+                    height: '1080px',
+                    transform: `scale(${scale})`,
+                    transformOrigin: 'top left',
+                    border: 'none'
+                }}
+            />
+        </div>
+    );
+};
 
 interface MonitorDashboardProps {
     program: Program;
@@ -84,20 +127,18 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
         );
     };
 
-    const handleOpenFullscreen = (path: string) => {
-        const width = window.screen.availWidth || 1920;
-        const height = window.screen.availHeight || 1080;
-        const newWin = window.open(
-            path,
-            '_blank',
-            `width=${width},height=${height},left=0,top=0,menubar=no,status=no,toolbar=no,location=no`
-        );
-        if (newWin) {
-            newWin.onload = () => {
-                try {
-                    newWin.document.documentElement.requestFullscreen().catch(() => {});
-                } catch (e) {}
-            };
+    const handleOpenFullscreen = async (path: string) => {
+        const fullPath = `${path}${path.includes('?') ? '&' : '?'}autofs=1`;
+        if (hasSecondaryScreen) {
+            await openOnSecondaryScreen(fullPath);
+        } else {
+            const width = window.screen.availWidth || 1920;
+            const height = window.screen.availHeight || 1080;
+            window.open(
+                fullPath,
+                '_blank',
+                `width=${width},height=${height},left=0,top=0,menubar=no,status=no,toolbar=no,location=no`
+            );
         }
     };
 
@@ -309,35 +350,29 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
 
                                     {/* Live 16:9 Multiviewer Thumbnail */}
                                     <div className="aspect-video bg-[#090A0C] rounded border border-[#1E222A] overflow-hidden relative mb-3 group">
-                                        <div className={`w-full h-full ${isLocked ? 'blur-sm grayscale opacity-30' : ''}`} style={{ overflow: 'hidden' }}>
+                                        <div className={`w-full h-full ${isLocked ? 'blur-sm grayscale opacity-30' : ''}`}>
                                             {(() => {
                                                 const activeTheme = status?.isDarkMode !== undefined
                                                     ? (status.isDarkMode ? 'dark' : 'light')
                                                     : localThemes[opt.tabId || 'stage'];
                                                 return (
-                                                    <iframe
-                                                        src={`${opt.path}${opt.path.includes('?') ? '&' : '?'}mode=thumbnail&theme=${activeTheme}`}
-                                                        className="pointer-events-none opacity-85"
+                                                    <LiveThumbnail
+                                                        path={opt.path}
                                                         title={opt.title}
-                                                        style={{
-                                                            width: '1920px',
-                                                            height: '1080px',
-                                                            transform: 'scale(0.18)',
-                                                            transformOrigin: 'top left',
-                                                            border: 'none'
-                                                        }}
+                                                        theme={activeTheme}
+                                                        isLocked={isLocked}
                                                     />
                                                 );
                                             })()}
                                         </div>
-                                        <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-[#090A0C]/90 border border-[#22262E] text-[9px] font-mono text-[#8A93A4]">
+                                        <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-[#090A0C]/90 border border-[#22262E] text-[9px] font-mono text-[#8A93A4] pointer-events-none">
                                             FEED #{opt.tabId?.toUpperCase()}
                                         </div>
                                         {!isLocked && (
                                             <div className="absolute inset-0 bg-transparent flex items-center justify-center backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button 
                                                     onClick={() => window.open(opt.path, '_blank')}
-                                                    className="bg-[#121418]/95 border border-[#2D333F] text-white px-3 py-1.5 rounded text-xs font-mono font-semibold flex items-center gap-1.5 shadow-xl"
+                                                    className="bg-[#121418]/95 border border-[#2D333F] text-white px-3 py-1.5 rounded text-xs font-mono font-semibold flex items-center gap-1.5 shadow-xl hover:bg-[#1E232B] transition-all"
                                                 >
                                                     <ExternalLink size={12} />
                                                     <span>Open Full View</span>
@@ -348,32 +383,35 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                 </div>
 
                                 {/* Projection Buttons */}
-                                <div className="flex items-center gap-2 pt-2 border-t border-[#1E222A]">
+                                <div className="flex items-center gap-1.5 sm:gap-2 pt-2.5 border-t border-[#1E222A] mt-auto">
                                     <button
-                                        onClick={() => openOnSecondaryScreen(opt.path)}
+                                        onClick={() => openOnSecondaryScreen(`${opt.path}${opt.path.includes('?') ? '&' : '?'}autofs=1`)}
                                         disabled={isLocked}
-                                        className="flex-1 py-1.5 px-2 bg-[#1C2028] hover:bg-[#252B37] disabled:opacity-40 text-[#E1E4EA] border border-[#2D333F] rounded text-xs font-mono font-semibold transition-all flex items-center justify-center gap-1.5"
+                                        className="flex-1 py-2 px-2 bg-[#1C2028] hover:bg-[#252B37] disabled:opacity-40 text-[#E1E4EA] border border-[#2D333F] rounded-md text-[11px] sm:text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 whitespace-nowrap min-w-0"
                                         title="Automatically position and fullscreen on HDMI secondary screen"
                                     >
-                                        <Cast size={12} className="text-[#0EA5E9]" />
-                                        <span>Project to Display 2</span>
+                                        <Cast size={13} className="text-[#0EA5E9] shrink-0" />
+                                        <span className="truncate">
+                                            <span className="hidden xl:inline">Project to </span>Display 2
+                                        </span>
                                     </button>
                                     <button
                                         onClick={() => handleOpenFullscreen(opt.path)}
                                         disabled={isLocked}
-                                        className="py-1.5 px-2.5 bg-[#181B22] hover:bg-[#22262E] disabled:opacity-40 text-[#8A93A4] hover:text-white border border-[#22262E] rounded text-xs font-mono font-semibold transition-all flex items-center justify-center gap-1"
+                                        className="py-2 px-2.5 bg-[#181B22] hover:bg-[#22262E] disabled:opacity-40 text-[#8A93A4] hover:text-white border border-[#22262E] rounded-md text-[11px] sm:text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 shrink-0"
                                         title="Open directly in Fullscreen mode"
                                     >
-                                        <Maximize size={12} className="text-[#F59E0B]" />
-                                        <span>Fullscreen</span>
+                                        <Maximize size={13} className="text-[#F59E0B] shrink-0" />
+                                        <span className="hidden sm:inline">Fullscreen</span>
                                     </button>
                                     <button
                                         onClick={() => window.open(opt.path, '_blank')}
                                         disabled={isLocked}
-                                        className="py-1.5 px-2.5 bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-40 text-white rounded text-xs font-mono font-semibold transition-all flex items-center justify-center gap-1"
+                                        className="py-2 px-2.5 sm:px-3 bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-40 text-white rounded-md text-[11px] sm:text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 shrink-0"
+                                        title="Open view in new tab"
                                     >
-                                        <ExternalLink size={12} />
-                                        <span>Open</span>
+                                        <ExternalLink size={13} className="shrink-0" />
+                                        <span className="hidden xs:inline">Open</span>
                                     </button>
                                 </div>
 
