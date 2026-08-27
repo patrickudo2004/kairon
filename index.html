@@ -11,16 +11,33 @@
     <meta name="twitter:card" content="summary_large_image" />
     <title>Kairon - Production Timer</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400..800;1,400..800&family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
+              sans: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
+              mono: ['"JetBrains Mono"', 'monospace'],
             },
             colors: {
+              studio: {
+                bg: '#090A0C',
+                card: '#121418',
+                elevated: '#1A1D24',
+                inset: '#0D0F12',
+                border: '#22262E',
+                subtle: '#181B22',
+                ice: '#0EA5E9',
+                emerald: '#10B981',
+                amber: '#F59E0B',
+                crimson: '#EF4444',
+                text: '#E1E4EA',
+                muted: '#8A93A4',
+              },
               slate: {
                 850: '#1e293b',
                 900: '#0f172a',
@@ -29,6 +46,7 @@
             },
             animation: {
               'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'tally': 'tallyPulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
             }
           },
         },
@@ -36,13 +54,12 @@
     </script>
     <style>
       body {
-        /* Default to light mode colors, overridden by dark mode class */
         background-color: #f8fafc;
         color: #0f172a;
       }
       .dark body {
-        background-color: #0f172a;
-        color: #f8fafc;
+        background-color: #090A0C;
+        color: #E1E4EA;
       }
       /* Custom Scrollbar */
       ::-webkit-scrollbar {

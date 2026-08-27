@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400..800;1,400..800&family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800&family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --studio-bg: #090A0C;
+  --studio-card: #121418;
+  --studio-elevated: #1A1D24;
+  --studio-inset: #0D0F12;
+  --studio-border: #22262E;
+  --studio-border-subtle: #181B22;
+  --studio-text: #E1E4EA;
+  --studio-muted: #8A93A4;
+  --tally-live: #10B981;
+  --tally-onair: #EF4444;
+  --tally-standby: #F59E0B;
+  --tally-accent: #0EA5E9;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: #090A0C;
+  color: #E1E4EA;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-mono, .font-tabular {
+  font-family: 'JetBrains Mono', monospace;
+  font-feature-settings: 'tnum' on, 'zero' on;
+}
+
+/* Broadcast Tally Animation */
+@keyframes tallyPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.96); }
+}
+
+.animate-tally {
+  animation: tallyPulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Micro Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #090A0C;
+}
+::-webkit-scrollbar-thumb {
+  background: #22262E;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #363C48;
+}

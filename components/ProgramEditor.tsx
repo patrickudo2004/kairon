@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Program, Slot, SLOT_PRESETS } from '../types';
-import { Trash2, Plus, GripVertical, Sparkles, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, Users, Globe, Link as LinkIcon, Share2, Crown } from 'lucide-react';
+import { Trash2, Plus, GripVertical, Sparkles, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, Users, Globe, Link as LinkIcon, Share2, Crown, Cast, Shield } from 'lucide-react';
 import { generateProgramDraft } from '../services/geminiService';
 import { EmbedSnippet } from './EmbedSnippet';
 
@@ -13,7 +13,6 @@ import {
   useSensors,
   DragEndEvent,
   TouchSensor,
-  MouseSensor
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -55,8 +54,8 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200, // Reduced for snappier feel
-        tolerance: 8, // Increased for finger jitter
+        delay: 200,
+        tolerance: 8,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -89,9 +88,9 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   const addSlot = () => {
     const newSlot: Slot = {
       id: crypto.randomUUID(),
-      title: 'New Session',
+      title: 'New Session Item',
       speaker: '',
-      durationMinutes: 30,
+      durationMinutes: 15,
       type: 'Talk'
     };
     const newSlots = [...program.slots, newSlot];
@@ -112,10 +111,8 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
     setIsGenerating(true);
     const newProgram = await generateProgramDraft(aiInput);
     if (newProgram) {
-      // Preserve ID and Date, replace content
       const merged = { ...program, ...newProgram, id: program.id, date: program.date };
       onUpdate(merged);
-
       setIsAIDialogOpen(false);
     }
     setIsGenerating(false);
@@ -131,7 +128,6 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
     }
   };
 
-
   // Time Calculations
   const startMinutes = useMemo(() => timeToMinutes(program.startTime || "09:00"), [program.startTime]);
   const targetEndMinutes = useMemo(() => program.endTime ? timeToMinutes(program.endTime) : null, [program.endTime]);
@@ -140,7 +136,6 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   const calculatedEndMinutes = startMinutes + totalDuration;
   const remainingMinutes = targetEndMinutes !== null ? targetEndMinutes - calculatedEndMinutes : null;
 
-  // Helper to get slot start time
   const getSlotStartTime = (index: number) => {
     let minutes = startMinutes;
     for (let i = 0; i < index; i++) {
@@ -150,187 +145,176 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-6 pb-32 overflow-x-hidden">
+    <div className="max-w-5xl mx-auto p-4 md:p-6 pb-32 overflow-x-hidden font-sans">
 
       {/* Header Actions */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-[#22262E] pb-5">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-            Program Editor
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400">Configure schedule timeline and slots.</p>
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded bg-[#1C2028] border border-[#2D333F] text-[10px] font-mono tracking-widest text-[#9BA3AF] uppercase">Rundown Architect</span>
+            <span className="text-xs text-[#0EA5E9] font-mono font-medium">Timeline Editor</span>
+          </div>
+          <h1 className="text-2xl font-bold text-white tracking-tight mt-1">Program Editor</h1>
+          <p className="text-xs text-[#8A93A4]">Structure your service rundown, assign cues, and configure timing targets.</p>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-2">
           {remainingMinutes !== null && Math.abs(remainingMinutes) > 0 && !isReadOnly && (
             <button
               onClick={() => {
-                // This will be handled by a prop or event bubble for real AI call
                 (onUpdate as any)({ ...program, _triggerRebalance: true });
               }}
-              className="group relative flex items-center gap-2 px-4 py-2 bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 rounded-lg font-medium transition-all hover:bg-amber-200 dark:hover:bg-amber-500/20"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/30 rounded-md font-mono text-xs font-semibold transition-all"
             >
-              <Sparkles size={18} />
-              Re-balance with AI
-              {!isPro && (
-                <Crown size={12} className="text-amber-500 ml-1" />
-              )}
+              <Sparkles size={13} />
+              <span>AI Rebalance</span>
+              {!isPro && <Crown size={10} className="text-[#F59E0B] ml-1" />}
             </button>
           )}
+
           {!isCoEditor && !isReadOnly && (
             <button
               onClick={() => setIsAIDialogOpen(true)}
-              className="group relative flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-lg font-medium shadow-lg transition-all"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0EA5E9] hover:bg-[#0284C7] text-white rounded-md font-mono text-xs font-semibold transition-all shadow-sm"
             >
-              <Sparkles size={18} />
-              AI Draft
-              {!isPro && (
-                <div className="absolute -top-2 -right-2 bg-amber-500 text-[8px] px-1.5 py-0.5 rounded-full border border-white dark:border-slate-900 flex items-center gap-0.5 shadow-sm">
-                  <Crown size={8} /> PRO
-                </div>
-              )}
+              <Sparkles size={13} />
+              <span>AI Draft</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Main Config Panel */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden mb-8 shadow-xl">
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 border-b border-slate-200 dark:border-slate-800">
+      {/* Main Configuration Panel */}
+      <div className="bg-[#121418] border border-[#22262E] rounded-md overflow-hidden mb-6 shadow-sm">
+        
+        {/* Titles Row */}
+        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 border-b border-[#22262E]">
           <div>
-            <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Conference Title</label>
+            <label className="block text-[10px] font-mono font-bold text-[#8A93A4] uppercase mb-1">
+              Event / Service Title
+            </label>
             <input
               type="text"
               readOnly={isReadOnly}
               value={program.title}
-              onChange={(e) => {
-                onUpdate({ ...program, title: e.target.value });
-              }}
-              className={`w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none font-medium transition-colors ${isReadOnly ? 'cursor-default' : ''}`}
+              onChange={(e) => onUpdate({ ...program, title: e.target.value })}
+              className={`w-full bg-[#090A0C] border border-[#22262E] rounded px-3 py-2 text-sm text-white font-semibold focus:outline-none focus:border-[#0EA5E9] ${isReadOnly ? 'cursor-default' : ''}`}
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Subtitle</label>
+            <label className="block text-[10px] font-mono font-bold text-[#8A93A4] uppercase mb-1">
+              Subtitle / Theme / Scripture
+            </label>
             <input
               type="text"
               readOnly={isReadOnly}
               value={program.subtitle}
-              onChange={(e) => {
-                onUpdate({ ...program, subtitle: e.target.value });
-              }}
-              className={`w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-colors ${isReadOnly ? 'cursor-default' : ''}`}
+              onChange={(e) => onUpdate({ ...program, subtitle: e.target.value })}
+              className={`w-full bg-[#090A0C] border border-[#22262E] rounded px-3 py-2 text-sm text-[#0EA5E9] font-mono focus:outline-none focus:border-[#0EA5E9] ${isReadOnly ? 'cursor-default' : ''}`}
             />
           </div>
         </div>
 
-        <div className="p-6 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-6 bg-slate-50 dark:bg-slate-900/50">
-          <div className="md:col-span-1 relative">
-            <label className="block text-xs font-medium text-slate-500 uppercase mb-1 flex items-center gap-2">
-              <Calendar size={12} /> Date
+        {/* Timing Controls & Telemetry Readout */}
+        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-[#0E1013]">
+          <div>
+            <label className="block text-[10px] font-mono font-bold text-[#8A93A4] uppercase mb-1 flex items-center gap-1.5">
+              <Calendar size={11} className="text-[#0EA5E9]" /> Date
             </label>
             <input
               type="date"
               readOnly={isReadOnly}
               value={program.date}
               onChange={(e) => onUpdate({ ...program, date: e.target.value })}
-              className={`w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-colors ${isReadOnly ? 'cursor-default' : ''}`}
+              className="w-full bg-[#121418] border border-[#22262E] rounded px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-[#0EA5E9]"
             />
           </div>
-          <div className="md:col-span-1">
-            <label className="block text-xs font-medium text-slate-500 uppercase mb-1 flex items-center gap-2">
-              <Clock size={12} /> Start Time
+
+          <div>
+            <label className="block text-[10px] font-mono font-bold text-[#8A93A4] uppercase mb-1 flex items-center gap-1.5">
+              <Clock size={11} className="text-[#10B981]" /> Start Time
             </label>
             <input
               type="time"
               readOnly={isReadOnly}
               value={program.startTime}
               onChange={(e) => onUpdate({ ...program, startTime: e.target.value })}
-              className={`w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-colors ${isReadOnly ? 'cursor-default' : ''}`}
+              className="w-full bg-[#121418] border border-[#22262E] rounded px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-[#0EA5E9]"
             />
           </div>
 
-          <div className="md:col-span-1 border-l border-slate-200 dark:border-slate-800 pl-4">
-            <label className="block text-xs font-medium text-slate-500 uppercase mb-1 flex items-center gap-2">
-              <Clock size={12} /> Target End Time
+          <div>
+            <label className="block text-[10px] font-mono font-bold text-[#8A93A4] uppercase mb-1 flex items-center gap-1.5">
+              <Clock size={11} className="text-[#F59E0B]" /> Target End Time
             </label>
             <input
               type="time"
               readOnly={isReadOnly}
               value={program.endTime || ''}
               onChange={(e) => onUpdate({ ...program, endTime: e.target.value })}
-              className={`w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-colors ${isReadOnly ? 'cursor-default' : ''}`}
+              className="w-full bg-[#121418] border border-[#22262E] rounded px-2.5 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-[#0EA5E9]"
             />
           </div>
 
-          {/* Time Summary Widget */}
-          <div className="md:col-span-1 lg:col-span-2 flex items-center justify-end pr-2 gap-6 border-l border-slate-200 dark:border-slate-800">
-            <div className="text-right">
-              <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-tight">Total Duration</span>
-              <span className="text-sm font-bold text-slate-900 dark:text-white">{Math.floor(totalDuration / 60)}h {totalDuration % 60}m</span>
+          {/* Precision Timing Telemetry */}
+          <div className="flex items-center justify-between lg:justify-end gap-5 border-t sm:border-t-0 sm:border-l border-[#22262E] pt-2 sm:pt-0 sm:pl-4">
+            <div>
+              <span className="block text-[9px] font-mono text-[#6A7382] uppercase">Total Duration</span>
+              <span className="text-xs font-mono font-bold text-white">
+                {Math.floor(totalDuration / 60)}h {totalDuration % 60}m
+              </span>
             </div>
             <div className="text-right">
-              <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-tight">Projected End</span>
-              <span className="text-sm font-mono font-bold text-indigo-600 dark:text-indigo-400">{minutesToTime(calculatedEndMinutes)}</span>
+              <span className="block text-[9px] font-mono text-[#6A7382] uppercase">Projected End</span>
+              <span className="text-xs font-mono font-bold text-[#0EA5E9]">
+                {minutesToTime(calculatedEndMinutes)}
+              </span>
             </div>
           </div>
         </div>
+
       </div>
 
-      {/* Public Access Panel */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden mb-8 shadow-xl transition-all duration-500 w-full flex flex-col">
-        <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="p-2 bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg shrink-0">
-              <Globe size={18} />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider truncate">Public Access</h3>
-              <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate sm:whitespace-normal">Allow attendees to view the schedule via a public link.</p>
-            </div>
+      {/* Public Access Link Bar */}
+      <div className="bg-[#121418] border border-[#22262E] rounded-md p-3.5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 bg-[#181B22] border border-[#22262E] text-[#0EA5E9] rounded">
+            <Globe size={15} />
           </div>
+          <div>
+            <h4 className="text-xs font-bold text-white font-mono uppercase">Public Attendee Link</h4>
+            <p className="text-[11px] text-[#8A93A4]">Allow congregants and guests to view live schedule countdown on their phones.</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <button
             onClick={() => onUpdate({ ...program, isPublic: !program.isPublic })}
             disabled={isReadOnly}
-            className={`relative inline-flex h-5 w-9 sm:h-6 sm:w-11 items-center rounded-full transition-colors focus:outline-none shrink-0 ${program.isPublic ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
-              } ${isReadOnly ? 'opacity-50 cursor-default' : ''}`}
+            className={`px-3 py-1 rounded text-xs font-mono font-bold transition-all border ${
+              program.isPublic
+                ? 'bg-[#10B981]/10 border-[#10B981]/30 text-[#10B981]'
+                : 'bg-[#181B22] border-[#22262E] text-[#6A7382]'
+            }`}
           >
-            <span
-              className={`inline-block h-3 w-3 sm:h-4 sm:w-4 transform rounded-full bg-white transition-transform ${program.isPublic ? 'translate-x-[18px] sm:translate-x-[26px]' : 'translate-x-[2px] sm:translate-x-[4px]'
-                }`}
-            />
+            {program.isPublic ? 'PUBLIC ENABLED' : 'PRIVATE'}
           </button>
+          
+          {program.isPublic && (
+            <a
+              href={`/p/${program.slug || program.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1 bg-[#181B22] hover:bg-[#22262E] border border-[#22262E] text-white rounded text-xs font-mono flex items-center gap-1 transition-colors"
+            >
+              <Share2 size={12} />
+              <span>Preview</span>
+            </a>
+          )}
         </div>
-
-        {program.isPublic && (
-          <div className="p-4 sm:p-6 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 sm:gap-6">
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Public Link Active</h4>
-                <p className="text-xs text-slate-500 mb-3 sm:mb-4">Anyone with this link can view the live countdown.</p>
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-2 sm:p-3 rounded-lg border border-slate-200 dark:border-slate-700/50 font-mono text-[10px] sm:text-xs text-indigo-600 dark:text-indigo-400 break-all max-w-full overflow-hidden">
-                  {window.location.origin.replace('http://', '').replace('https://', '')}/p/{program.id}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <a
-                  href={`/p/${program.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs sm:text-sm transition-all shadow-sm group"
-                >
-                  <Share2 size={16} className="group-hover:text-indigo-600" />
-                  Preview
-                </a>
-              </div>
-            </div>
-
-            <div className="mt-8">
-              <EmbedSnippet slug={program.id} />
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Slots List */}
+      {/* DnD Rundown Slot Stack */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -341,7 +325,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
           items={program.slots.map(s => s.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="space-y-3">
+          <div className="space-y-2">
             {program.slots.map((slot, index) => (
               <SortableSlot
                 key={slot.id}
@@ -360,90 +344,64 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
         </SortableContext>
       </DndContext>
 
+      {/* Add Slot Button */}
       {!isReadOnly && (
         <button
           onClick={addSlot}
-          className="w-full mt-4 py-4 border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-500 rounded-xl hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex flex-col items-center justify-center gap-1 font-medium group"
+          className="w-full mt-4 py-3 bg-[#0D0F12] hover:bg-[#14171E] border border-dashed border-[#22262E] hover:border-[#0EA5E9] text-[#8A93A4] hover:text-white rounded-md text-xs font-mono font-bold transition-all flex items-center justify-center gap-2 group"
         >
-          <div className="flex items-center gap-2">
-            <Plus size={20} className="group-hover:scale-110 transition-transform" />
-            <span>Add Session Slot</span>
-          </div>
+          <Plus size={14} className="group-hover:scale-110 text-[#0EA5E9] transition-transform" />
+          <span>Add Session Slot</span>
           {remainingMinutes !== null && remainingMinutes > 0 && (
-            <span className="text-xs text-emerald-600/80 dark:text-emerald-500/80 font-normal">
-              You have {remainingMinutes} minutes remaining in your budget
+            <span className="text-[10px] text-[#10B981] font-normal ml-2">
+              ({remainingMinutes}m unallocated budget remaining)
             </span>
           )}
         </button>
       )}
 
-      {/* AI Modal */}
+      {/* AI Draft Modal */}
       {isAIDialogOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Sparkles className="text-indigo-600 dark:text-indigo-400" size={24} />
-                    AI Program Drafter
-                  </h3>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                    Paste an email, agenda document text, or rough notes. Gemini will organize it.
-                  </p>
-                </div>
-                {!isPro && (
-                  <div className="bg-amber-500/10 text-amber-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 uppercase tracking-wider">
-                    <Crown size={12} /> Pro Feature
-                  </div>
-                )}
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans">
+          <div className="bg-[#121418] border border-[#22262E] rounded-lg w-full max-w-xl overflow-hidden shadow-2xl">
+            <div className="p-4 border-b border-[#22262E] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-[#0EA5E9]" />
+                <h3 className="text-sm font-bold text-white font-mono uppercase">AI Schedule Drafter</h3>
               </div>
+              {!isPro && (
+                <span className="px-2 py-0.5 rounded bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[9px] font-mono font-bold text-[#F59E0B]">
+                  PRO FEATURE
+                </span>
+              )}
             </div>
-            <div className={`p-6 ${!isPro ? 'opacity-50 pointer-events-none grayscale-[0.5]' : ''}`}>
+
+            <div className="p-4">
+              <p className="text-xs text-[#8A93A4] mb-3">
+                Paste an agenda, order of service text, or rough notes. Gemini will structure it into rundown slots.
+              </p>
               <textarea
                 value={aiInput}
                 onChange={(e) => setAiInput(e.target.value)}
-                placeholder="e.g., 'Starts at 9am with Opening Remarks for 15m, then Keynote... ends at 1pm'"
-                className="w-full h-48 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 outline-none resize-none font-mono text-sm transition-colors"
-                disabled={!isPro}
+                placeholder="e.g. '10:00 Welcome (5m), 10:05 Praise & Worship (25m), 10:30 Sermon by Pastor John (35m)...'"
+                className="w-full h-40 bg-[#090A0C] border border-[#22262E] rounded p-3 text-xs font-mono text-white placeholder-[#4B5563] focus:outline-none focus:border-[#0EA5E9] resize-none"
               />
             </div>
-            <div className="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
-              {!isPro ? (
-                <div className="flex flex-col items-center gap-4 text-center">
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    AI generation is reserved for **Kairon Pro** workspaces.
-                  </p>
-                  <button
-                    onClick={() => {
-                        window.location.href = '/admin?tab=branding'; // Redirect to branding tab to see Pro status
-                    }}
-                    className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
-                  >
-                    <Crown size={18} /> Upgrade to Kairon Pro
-                  </button>
-                </div>
-              ) : (
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={() => setIsAIDialogOpen(false)}
-                    className="px-4 py-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-medium transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleMagicDraft}
-                    disabled={isGenerating || !aiInput.trim()}
-                    className="flex items-center gap-2 px-6 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-indigo-500/20"
-                  >
-                    {isGenerating ? (
-                      <><span className="animate-spin">⏳</span> Drafting...</>
-                    ) : (
-                      <><Sparkles size={18} /> Generate Program</>
-                    )}
-                  </button>
-                </div>
-              )}
+
+            <div className="p-4 border-t border-[#22262E] flex items-center justify-end gap-2 bg-[#0E1013]">
+              <button
+                onClick={() => setIsAIDialogOpen(false)}
+                className="px-3 py-1.5 text-xs font-mono text-[#8A93A4] hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleMagicDraft}
+                disabled={isGenerating || !aiInput.trim()}
+                className="px-4 py-1.5 bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-40 text-white rounded text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-sm"
+              >
+                {isGenerating ? <span>⏳ Drafting...</span> : <span>Generate Rundown ❯</span>}
+              </button>
             </div>
           </div>
         </div>
