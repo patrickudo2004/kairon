@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Program, Organization } from '../types';
-import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap, Activity, Crown, Copy, Check, QrCode, AppWindow, Moon, Sun, Cast, CheckCircle2, Sliders, Shield } from 'lucide-react';
+import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap, Activity, Crown, Copy, Check, QrCode, AppWindow, Moon, Sun, Cast, CheckCircle2, Sliders, Shield, Maximize } from 'lucide-react';
 import { useStageMessages } from '../hooks/useStageMessages';
 import { useScreenManagement } from '../hooks/useScreenManagement';
 import QRCode from 'react-qr-code';
@@ -82,6 +82,23 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
             '_blank',
             `width=${width},height=${height},left=${left},top=${top},menubar=no,status=no,toolbar=no,location=no`
         );
+    };
+
+    const handleOpenFullscreen = (path: string) => {
+        const width = window.screen.availWidth || 1920;
+        const height = window.screen.availHeight || 1080;
+        const newWin = window.open(
+            path,
+            '_blank',
+            `width=${width},height=${height},left=0,top=0,menubar=no,status=no,toolbar=no,location=no`
+        );
+        if (newWin) {
+            newWin.onload = () => {
+                try {
+                    newWin.document.documentElement.requestFullscreen().catch(() => {});
+                } catch (e) {}
+            };
+        }
     };
 
     const quickCues = [
@@ -335,16 +352,25 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                     <button
                                         onClick={() => openOnSecondaryScreen(opt.path)}
                                         disabled={isLocked}
-                                        className="flex-1 py-1.5 px-2.5 bg-[#1C2028] hover:bg-[#252B37] disabled:opacity-40 text-[#E1E4EA] border border-[#2D333F] rounded text-xs font-mono font-semibold transition-all flex items-center justify-center gap-1.5"
-                                        title="Automatically position on HDMI secondary screen"
+                                        className="flex-1 py-1.5 px-2 bg-[#1C2028] hover:bg-[#252B37] disabled:opacity-40 text-[#E1E4EA] border border-[#2D333F] rounded text-xs font-mono font-semibold transition-all flex items-center justify-center gap-1.5"
+                                        title="Automatically position and fullscreen on HDMI secondary screen"
                                     >
                                         <Cast size={12} className="text-[#0EA5E9]" />
                                         <span>Project to Display 2</span>
                                     </button>
                                     <button
+                                        onClick={() => handleOpenFullscreen(opt.path)}
+                                        disabled={isLocked}
+                                        className="py-1.5 px-2.5 bg-[#181B22] hover:bg-[#22262E] disabled:opacity-40 text-[#8A93A4] hover:text-white border border-[#22262E] rounded text-xs font-mono font-semibold transition-all flex items-center justify-center gap-1"
+                                        title="Open directly in Fullscreen mode"
+                                    >
+                                        <Maximize size={12} className="text-[#F59E0B]" />
+                                        <span>Fullscreen</span>
+                                    </button>
+                                    <button
                                         onClick={() => window.open(opt.path, '_blank')}
                                         disabled={isLocked}
-                                        className="py-1.5 px-3 bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-40 text-white rounded text-xs font-mono font-semibold transition-all flex items-center justify-center gap-1"
+                                        className="py-1.5 px-2.5 bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-40 text-white rounded text-xs font-mono font-semibold transition-all flex items-center justify-center gap-1"
                                     >
                                         <ExternalLink size={12} />
                                         <span>Open</span>
