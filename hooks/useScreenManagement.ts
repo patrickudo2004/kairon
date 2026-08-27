@@ -74,7 +74,7 @@ export const useScreenManagement = () => {
     }
   }, [isSupported, updateScreensList]);
 
-  const openOnSecondaryScreen = useCallback(async (path: string) => {
+  const openOnSecondaryScreen = useCallback(async (path: string, windowName: string = 'kairon_secondary_screen') => {
     // 1. If we have detailed screen info, find the secondary screen
     if (screenDetails && screenDetails.screens && screenDetails.screens.length > 1) {
       const secondary = screenDetails.screens.find((s: any) => !s.isPrimary) || screenDetails.screens[1];
@@ -86,7 +86,7 @@ export const useScreenManagement = () => {
 
         const win = window.open(
           path,
-          '_blank',
+          windowName,
           `left=${left},top=${top},width=${width},height=${height},menubar=no,status=no,toolbar=no,location=no`
         );
         return win;
@@ -97,7 +97,7 @@ export const useScreenManagement = () => {
     if (isSupported && !hasPermission) {
       const granted = await requestScreenAccess();
       if (granted && screenDetails) {
-        return openOnSecondaryScreen(path);
+        return openOnSecondaryScreen(path, windowName);
       }
     }
 
@@ -105,7 +105,7 @@ export const useScreenManagement = () => {
     const fallbackLeft = window.screen.width || 1920;
     return window.open(
       path,
-      '_blank',
+      windowName,
       `left=${fallbackLeft},top=0,width=1920,height=1080,menubar=no,status=no,toolbar=no,location=no`
     );
   }, [screenDetails, isSupported, hasPermission, requestScreenAccess]);

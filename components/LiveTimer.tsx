@@ -79,13 +79,13 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
   if (program.status === 'draft' && program.slots.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full max-w-xl mx-auto p-8 animate-in fade-in duration-300 font-sans">
-        <div className="mb-6 p-5 bg-[#121418] border border-[#22262E] rounded-lg">
+        <div className="mb-6 p-5 bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-lg shadow-sm">
           <Play size={48} className="text-[#0EA5E9] ml-1" />
         </div>
-        <h2 className="text-2xl font-bold text-white text-center mb-2 tracking-tight">
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white text-center mb-2 tracking-tight">
           No Schedule Items
         </h2>
-        <p className="text-xs font-mono text-[#8A93A4] text-center mb-8">
+        <p className="text-xs font-mono text-slate-500 dark:text-[#8A93A4] text-center mb-8">
           Add rundown slots in the Program Editor before starting your live session.
         </p>
       </div>
@@ -99,16 +99,16 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
         <div className="mb-6 p-5 bg-[#10B981]/10 border border-[#10B981]/30 rounded-lg">
           <CheckCircle size={48} className="text-[#10B981]" />
         </div>
-        <h2 className="text-3xl font-bold text-white text-center mb-2 tracking-tight">
+        <h2 className="text-3xl font-bold text-slate-900 dark:text-white text-center mb-2 tracking-tight">
           Session Concluded
         </h2>
-        <p className="text-xs font-mono text-[#8A93A4] text-center mb-8">
+        <p className="text-xs font-mono text-slate-500 dark:text-[#8A93A4] text-center mb-8">
           The program has concluded and all active timers have finished.
         </p>
         {!readOnly && (
           <button
             onClick={() => onPrev(program.id)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#121418] hover:bg-[#1A1D24] text-[#E1E4EA] border border-[#22262E] rounded-md font-mono text-xs font-semibold transition-all"
+            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#1A1D24] text-slate-800 dark:text-[#E1E4EA] border border-slate-200 dark:border-[#22262E] rounded-md font-mono text-xs font-semibold transition-all shadow-sm"
           >
             <SkipBack size={14} />
             <span>Return to Previous Slot</span>
@@ -122,11 +122,11 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
   if (program.status === 'live' && !currentSlot) {
     return (
       <div className="flex flex-col items-center justify-center h-full max-w-xl mx-auto p-8 text-center font-sans">
-        <div className="p-4 bg-[#121418] border border-[#22262E] rounded-md mb-4">
-          <ClipboardList size={32} className="text-[#8A93A4]" />
+        <div className="p-4 bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md mb-4 shadow-sm">
+          <ClipboardList size={32} className="text-slate-500 dark:text-[#8A93A4]" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">No Items in Rundown</h2>
-        <p className="text-xs font-mono text-[#8A93A4] mb-6">This program has no schedule items.</p>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No Items in Rundown</h2>
+        <p className="text-xs font-mono text-slate-500 dark:text-[#8A93A4] mb-6">This program has no schedule items.</p>
         {!readOnly && (
           <button
             onClick={() => onToggleTimer(program, false, elapsed)}
@@ -143,9 +143,9 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
     <div className="flex flex-col h-full p-4 md:p-6 overflow-y-auto max-w-5xl mx-auto w-full font-sans">
       
       {/* Top Status & Tally Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#121418] border border-[#22262E] rounded-md px-4 py-3 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md px-4 py-3 mb-6 shadow-sm">
         <div className="flex items-center gap-2.5 flex-wrap">
-          <span className="px-2 py-0.5 rounded bg-[#1C2028] border border-[#2D333F] text-[10px] font-mono font-bold uppercase tracking-wider text-[#0EA5E9]">
+          <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-[#1C2028] border border-slate-200 dark:border-[#2D333F] text-[10px] font-mono font-bold uppercase tracking-wider text-[#0EA5E9]">
             {currentSlot.type || 'SESSION'}
           </span>
 
@@ -162,7 +162,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
           )}
 
           {program.isManualMode && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#1C2028] border border-[#2D333F] text-[10px] font-mono font-bold text-[#E1E4EA] uppercase">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 dark:bg-[#1C2028] border border-slate-200 dark:border-[#2D333F] text-[10px] font-mono font-bold text-slate-800 dark:text-[#E1E4EA] uppercase">
               <MousePointerClick size={11} className="text-[#0EA5E9]" />
               Manual Advance
             </span>
@@ -176,30 +176,30 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
           )}
 
           {readOnly && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#181B22] border border-[#22262E] text-[10px] font-mono text-[#8A93A4]">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-[10px] font-mono text-slate-500 dark:text-[#8A93A4]">
               <Eye size={11} />
               Viewer Mode
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-mono text-[#8A93A4]">
+        <div className="flex items-center gap-2 text-xs font-mono text-slate-500 dark:text-[#8A93A4]">
           <span>NEXT:</span>
-          <span className="text-white font-semibold truncate max-w-[200px]">
+          <span className="text-slate-900 dark:text-white font-semibold truncate max-w-[200px]">
             {nextSlot ? nextSlot.title : 'End of Event'}
           </span>
         </div>
       </div>
 
       {/* Main Studio Countdown Readout Panel */}
-      <div className="bg-[#121418] border border-[#22262E] rounded-lg p-6 md:p-10 flex flex-col items-center justify-center relative min-h-[320px] mb-6 shadow-2xl">
+      <div className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-lg p-6 md:p-10 flex flex-col items-center justify-center relative min-h-[320px] mb-6 shadow-xl">
         
         {/* Slot Metadata */}
         <div className="text-center max-w-3xl mb-4">
-          <div className="text-[11px] font-mono text-[#6A7382] uppercase tracking-wider mb-1">
+          <div className="text-[11px] font-mono text-slate-400 dark:text-[#6A7382] uppercase tracking-wider mb-1">
             Slot {currentSlotIndex + 1} of {program.slots.length}
           </div>
-          <h1 className="text-2xl md:text-4xl font-bold text-white tracking-tight leading-tight">
+          <h1 className="text-2xl md:text-4xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
             {currentSlot.title}
           </h1>
           {currentSlot.speaker && (
@@ -213,7 +213,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
         <div className={`text-[20vw] sm:text-[18vw] lg:text-[150px] font-mono font-bold leading-none tracking-tight tabular-nums select-none transition-colors my-2 ${
           timeLeft < 0 
             ? 'text-[#EF4444] animate-pulse' 
-            : (isTimerActive ? 'text-white' : 'text-[#8A93A4]')
+            : (isTimerActive ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-[#8A93A4]')
         }`}>
           {formatDuration(timeLeft)}
         </div>
@@ -228,10 +228,10 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
 
         {/* Meeting Cost Analytics (Optional) */}
         {program.estimatedAttendees && program.averageHourlyRate && (
-          <div className="mt-4 px-3.5 py-1.5 bg-[#090A0C] border border-[#22262E] rounded-md flex items-center gap-2 font-mono text-xs">
+          <div className="mt-4 px-3.5 py-1.5 bg-slate-100 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] rounded-md flex items-center gap-2 font-mono text-xs">
             <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-tally" />
-            <span className="text-[#8A93A4] uppercase text-[10px]">Session Cost:</span>
-            <span className="text-white font-bold">
+            <span className="text-slate-500 dark:text-[#8A93A4] uppercase text-[10px]">Session Cost:</span>
+            <span className="text-slate-900 dark:text-white font-bold">
               ${((program.estimatedAttendees * program.averageHourlyRate / 3600) * secondsElapsed).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
@@ -246,7 +246,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
         )}
 
         {/* Slim Progress Meter */}
-        <div className="w-full h-1.5 bg-[#090A0C] rounded-full overflow-hidden border border-[#22262E] mt-6">
+        <div className="w-full h-1.5 bg-slate-100 dark:bg-[#090A0C] rounded-full overflow-hidden border border-slate-200 dark:border-[#22262E] mt-6">
           <div
             className={`h-full transition-all duration-1000 ease-linear ${
               program.isOnHold 
@@ -261,7 +261,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
 
       {/* Tactical Hardware Control Deck */}
       {!readOnly && (
-        <div className="bg-[#121418] border border-[#22262E] rounded-lg p-5 flex flex-col items-center gap-5">
+        <div className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-lg p-5 flex flex-col items-center gap-5 shadow-md">
           
           <div className="flex flex-wrap items-center justify-center gap-3 w-full">
             
@@ -269,7 +269,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             <button
               onClick={() => onPrev(program.id)}
               disabled={currentSlotIndex === 0}
-              className="p-3.5 bg-[#181B22] hover:bg-[#22262E] disabled:opacity-30 text-[#E1E4EA] border border-[#22262E] rounded-md transition-all active:scale-95"
+              className="p-3.5 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] disabled:opacity-30 text-slate-800 dark:text-[#E1E4EA] border border-slate-200 dark:border-[#22262E] rounded-md transition-all active:scale-95 shadow-sm"
               title="Jump to Previous Slot"
             >
               <SkipBack size={20} />
@@ -280,7 +280,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
               onClick={() => onToggleTimer(program, false, elapsed)}
               className={`w-24 h-24 md:px-8 md:py-3.5 rounded-2xl md:rounded-md font-mono text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-md active:scale-95 ${
                 isTimerActive
-                  ? 'bg-[#1C2028] hover:bg-[#252B37] text-white border border-[#2D333F]'
+                  ? 'bg-slate-100 dark:bg-[#1C2028] hover:bg-slate-200 dark:hover:bg-[#252B37] text-slate-900 dark:text-white border border-slate-300 dark:border-[#2D333F]'
                   : 'bg-[#10B981] hover:bg-[#059669] text-white shadow-[#10B981]/20'
               }`}
             >
@@ -300,31 +300,31 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             {/* Next Slot */}
             <button
               onClick={() => onNext(program.id)}
-              className={`p-3.5 rounded-md transition-all active:scale-95 border ${
+              className={`p-3.5 rounded-md transition-all active:scale-95 border shadow-sm ${
                 program.isManualMode && timeLeft <= 0
                   ? 'bg-[#F59E0B] text-black border-[#F59E0B] animate-pulse ring-2 ring-[#F59E0B]/30'
-                  : 'bg-[#181B22] hover:bg-[#22262E] text-[#E1E4EA] border-[#22262E]'
+                  : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-800 dark:text-[#E1E4EA] border-slate-200 dark:border-[#22262E]'
               }`}
               title="Next Slot"
             >
               <SkipForward size={20} />
             </button>
 
-            <div className="h-6 w-px bg-[#22262E] mx-1 hidden sm:block"></div>
+            <div className="h-6 w-px bg-slate-200 dark:bg-[#22262E] mx-1 hidden sm:block"></div>
 
             {/* Nudge Controls */}
-            <div className="inline-flex items-center bg-[#181B22] border border-[#22262E] rounded-md p-0.5">
+            <div className="inline-flex items-center bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] rounded-md p-0.5 shadow-sm">
               <button
                 onClick={() => onNudge?.(-1)}
-                className="px-2.5 py-2 hover:bg-[#22262E] text-[#8A93A4] hover:text-white rounded transition-all font-mono text-xs font-bold"
+                className="px-2.5 py-2 hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-all font-mono text-xs font-bold"
                 title="Nudge Down"
               >
                 <Minus size={14} />
               </button>
-              <span className="px-2 text-[10px] font-mono text-[#6A7382] uppercase">NUDGE</span>
+              <span className="px-2 text-[10px] font-mono text-slate-400 dark:text-[#6A7382] uppercase">NUDGE</span>
               <button
                 onClick={() => onNudge?.(1)}
-                className="px-2.5 py-2 hover:bg-[#22262E] text-[#8A93A4] hover:text-white rounded transition-all font-mono text-xs font-bold"
+                className="px-2.5 py-2 hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-all font-mono text-xs font-bold"
                 title="Nudge Up"
               >
                 <Plus size={14} />
@@ -334,10 +334,10 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             {/* Hold Toggle */}
             <button
               onClick={() => onToggleHold?.(undefined, program.id)}
-              className={`px-3.5 py-2.5 rounded-md font-mono text-xs font-semibold uppercase tracking-wider transition-all border flex items-center gap-1.5 ${
+              className={`px-3.5 py-2.5 rounded-md font-mono text-xs font-semibold uppercase tracking-wider transition-all border flex items-center gap-1.5 shadow-sm ${
                 program.isOnHold
                   ? 'bg-[#F59E0B] text-black border-[#F59E0B]'
-                  : 'bg-[#181B22] hover:bg-[#22262E] text-[#F59E0B] border-[#22262E]'
+                  : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] text-[#F59E0B] border-slate-200 dark:border-[#22262E]'
               }`}
               title="Toggle Hold for Cue"
             >
@@ -348,10 +348,10 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             {/* Autopilot Toggle */}
             <button
               onClick={() => onToggleAutopilot?.(!isAutopilotEnabled)}
-              className={`px-3.5 py-2.5 rounded-md font-mono text-xs font-semibold uppercase tracking-wider transition-all border flex items-center gap-1.5 ${
+              className={`px-3.5 py-2.5 rounded-md font-mono text-xs font-semibold uppercase tracking-wider transition-all border flex items-center gap-1.5 shadow-sm ${
                 isAutopilotEnabled
                   ? 'bg-[#A855F7] text-white border-[#A855F7]'
-                  : 'bg-[#181B22] hover:bg-[#22262E] text-[#A855F7] border-[#22262E]'
+                  : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] text-[#A855F7] border-slate-200 dark:border-[#22262E]'
               }`}
               title="Automatically balance remaining durations on overrun"
             >
@@ -366,7 +366,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
               onMouseLeave={() => setIsEnding(false)}
               onTouchStart={() => setIsEnding(true)}
               onTouchEnd={() => setIsEnding(false)}
-              className="relative overflow-hidden bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 text-[#EF4444] px-4 py-2.5 rounded-md font-mono text-xs font-bold uppercase tracking-wider transition-all select-none flex items-center gap-1.5"
+              className="relative overflow-hidden bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 text-[#EF4444] px-4 py-2.5 rounded-md font-mono text-xs font-bold uppercase tracking-wider transition-all select-none flex items-center gap-1.5 shadow-sm"
             >
               <div
                 className="absolute inset-0 bg-[#EF4444] opacity-30 origin-left transition-transform duration-75"
@@ -380,7 +380,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
 
           </div>
 
-          <div className="text-[10px] font-mono text-[#6A7382] uppercase tracking-widest flex items-center gap-2">
+          <div className="text-[10px] font-mono text-slate-400 dark:text-[#6A7382] uppercase tracking-widest flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]"></span>
             <span>Studio Control Surface • Broadcast Timing Engine</span>
           </div>

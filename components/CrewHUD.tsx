@@ -49,8 +49,8 @@ export const CrewHUD: React.FC = () => {
         };
 
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'f' || e.key === 'F') {
-                e.preventDefault();
+            if (e.key === 'f' || e.key === 'F' || e.key === 'F11') {
+                if (e.key === 'f' || e.key === 'F') e.preventDefault();
                 toggleFullscreen();
             }
         };
@@ -294,7 +294,7 @@ export const CrewHUD: React.FC = () => {
                     className="cursor-pointer bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-4 py-2 text-center text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl animate-pulse z-50 transition-all"
                 >
                     <Maximize size={14} />
-                    <span>Click anywhere or press 'F' to lock into 100% Fullscreen</span>
+                    <span>⛶ Click anywhere or press F11 to lock Fullscreen</span>
                 </div>
             )}
 
