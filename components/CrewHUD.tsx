@@ -60,18 +60,60 @@ export const CrewHUD: React.FC = () => {
         !programData && slug ? { id: slug as any } : "skip"
     );
 
-    const programRaw = programData || programByIdData;
-    const rawId = (programRaw as any)?._id;
-    const isConvexId = rawId && rawId.length >= 19 && !rawId.includes('-');
-    const acks = useQuery(
-        api.programs.getAcknowledgements,
-        isConvexId ? { programId: rawId } : "skip"
-    ) || [];
-    const acknowledge = useMutation(api.programs.acknowledgeCue);
+    // Local Program Fallback for offline or draft IDs
+    const [localProgram, setLocalProgram] = useState<Program | null>(() => {
+        try {
+            const raw = localStorage.getItem('kairon_program');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed.id === slug || parsed.slug === slug || !slug) return parsed;
+            }
+            const allRaw = localStorage.getItem('programs');
+            if (allRaw) {
+                const all = JSON.parse(allRaw);
+                if (Array.isArray(all)) {
+                    const match = all.find((p: Program) => p.id === slug || p.slug === slug);
+                    if (match) return match;
+                }
+            }
+        } catch (e) {
+            console.warn("Could not read local fallback program in CrewHUD:", e);
+        }
+        return null;
+    });
 
-    const program = programRaw ? {
-        ...(programRaw as any),
-        id: (programRaw as any)._id || (programRaw as any).id
+    // Offline BroadcastChannel Sync
+    useEffect(() => {
+        const channel = new BroadcastChannel('kairon_offline_sync');
+        const handleSync = (event: MessageEvent) => {
+            if (!event.data || !event.data.id) return;
+            const data = event.data;
+            setLocalProgram(prev => {
+                if (!prev || (prev.id !== data.id && prev.slug !== data.id)) return prev;
+                return {
+                    ...prev,
+                    currentSlotIndex: data.currentSlotIndex ?? prev.currentSlotIndex,
+                    isTimerActive: data.isTimerActive ?? prev.isTimerActive,
+                    secondsElapsed: data.secondsElapsed ?? prev.secondsElapsed,
+                    timerStartTimestamp: data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : prev.timerStartTimestamp,
+                    isOnHold: data.isOnHold !== undefined ? data.isOnHold : prev.isOnHold,
+                    holdMessage: data.holdMessage !== undefined ? data.holdMessage : prev.holdMessage,
+                    isManualMode: data.isManualMode !== undefined ? data.isManualMode : prev.isManualMode,
+                    status: data.status ?? prev.status
+                };
+            });
+        };
+        channel.addEventListener('message', handleSync);
+        return () => {
+            channel.removeEventListener('message', handleSync);
+            channel.close();
+        };
+    }, []);
+
+    const effectiveProgramRaw = programRaw || localProgram;
+    const program = effectiveProgramRaw ? {
+        ...(effectiveProgramRaw as any),
+        id: (effectiveProgramRaw as any)._id || (effectiveProgramRaw as any).id
     } as Program : null;
 
     // Live Ticker (High-Precision 200ms heartbeat to match main dashboard)
@@ -129,128 +171,139 @@ export const CrewHUD: React.FC = () => {
 
     if (!program) {
         return (
-            <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-center">
-                <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            <div className="min-h-screen bg-[#090A0C] flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-10 h-10 border-2 border-[#0EA5E9] border-t-transparent rounded-full animate-spin mb-4" />
+                <p className="text-xs font-mono text-[#8A93A4] uppercase tracking-widest">Awaiting Tactical Feed...</p>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-black text-slate-100 overflow-hidden flex flex-col font-mono">
+        <div className="min-h-screen bg-[#090A0C] text-white overflow-hidden flex flex-col font-mono select-none">
             {/* Header / Meta */}
-            <header className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <div className="bg-amber-600 text-black text-[10px] font-black px-2 py-0.5 rounded tracking-tighter uppercase">Crew HUD</div>
-                    <h1 className="text-sm font-bold truncate max-w-[300px] text-slate-400 uppercase tracking-widest">{program.title}</h1>
+            <header className="px-6 py-3.5 bg-[#121418] border-b border-[#22262E] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="bg-[#F59E0B] text-black text-[10px] font-mono font-bold px-2 py-0.5 rounded tracking-wider uppercase">
+                        Crew HUD
+                    </div>
+                    <h1 className="text-sm font-bold truncate max-w-[300px] text-white uppercase tracking-wider font-mono">
+                        {program.title}
+                    </h1>
                 </div>
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${program.isTimerActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-700'}`} />
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{program.isTimerActive ? 'Active' : 'Standby'}</span>
+                        <span className={`w-2 h-2 rounded-full ${program.isTimerActive ? 'bg-[#10B981] animate-tally' : 'bg-[#6A7382]'}`} />
+                        <span className="text-[10px] font-bold text-[#8A93A4] uppercase tracking-widest font-mono">
+                            {program.isTimerActive ? 'ON AIR' : 'STANDBY'}
+                        </span>
                     </div>
-                    <div className="text-[10px] font-bold text-slate-600 tracking-widest">
+                    <div className="text-[10px] font-mono font-bold text-[#8A93A4] tracking-widest">
                         {new Date().toLocaleTimeString()}
                     </div>
                 </div>
             </header>
 
-            <main className="flex-1 grid grid-cols-12 gap-px bg-slate-800 overflow-hidden">
+            <main className="flex-1 grid grid-cols-12 gap-px bg-[#22262E] overflow-hidden">
                 {/* Left: The "Now" Block */}
-                <div className="col-span-12 lg:col-span-8 bg-black p-8 flex flex-col justify-between border-r border-slate-800">
+                <div className="col-span-12 lg:col-span-8 bg-[#090A0C] p-6 lg:p-10 flex flex-col justify-between border-r border-[#22262E]">
                     <div className="space-y-2">
-                        <div className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em]">Current Session</div>
-                        <h2 className="text-4xl lg:text-5xl font-black tracking-tighter leading-none text-white uppercase italic">
+                        <div className="text-[10px] font-mono font-bold text-[#10B981] uppercase tracking-[0.25em] flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-tally" />
+                            Current Slot • {currentSlotIndex + 1} of {program.slots.length}
+                        </div>
+                        <h2 className="text-3xl lg:text-5xl font-bold tracking-tight text-white uppercase font-mono leading-tight">
                             {currentSlot?.title || 'No Active Slot'}
                         </h2>
                         {currentSlot?.speaker && (
-                            <div className="text-xl text-slate-500 flex items-center gap-2 italic">
-                                <User size={18} /> {currentSlot.speaker}
+                            <div className="text-lg lg:text-xl text-[#0EA5E9] flex items-center gap-2 font-mono font-medium mt-1">
+                                <User size={16} /> {currentSlot.speaker}
                             </div>
                         )}
                     </div>
 
-                    <div className="flex items-baseline gap-4 py-8">
-                        <div className={`text-[12rem] lg:text-[18rem] font-black leading-none tabular-nums tracking-tighter ${remainingSeconds < 60 ? 'text-rose-600 animate-pulse' : 'text-white'}`}>
+                    <div className="flex items-baseline gap-4 py-6 lg:py-10">
+                        <div className={`text-[16vw] lg:text-[140px] font-mono font-bold leading-none tabular-nums tracking-tight ${remainingSeconds < 0 ? 'text-[#EF4444] animate-pulse' : (remainingSeconds <= 60 ? 'text-[#F59E0B] animate-pulse' : 'text-white')}`}>
                             {formatCountdown(remainingSeconds)}
                         </div>
-                        <div className="text-3xl font-bold text-slate-700 uppercase tracking-widest">Remaining</div>
+                        <div className="text-xl lg:text-2xl font-mono font-bold text-[#6A7382] uppercase tracking-widest">
+                            {remainingSeconds < 0 ? 'Overtime' : 'Remaining'}
+                        </div>
                     </div>
 
-                    <div className="h-4 bg-slate-900 rounded-full overflow-hidden border border-slate-800 p-0.5">
+                    <div className="h-3 bg-[#121418] rounded-full overflow-hidden border border-[#22262E] p-0.5">
                         <div
-                            className="h-full bg-indigo-600 transition-all duration-1000 ease-linear"
+                            className="h-full bg-[#0EA5E9] rounded-full transition-all duration-1000 ease-linear"
                             style={{ width: `${Math.min(100, (derivedSecondsElapsed / ((currentSlot?.durationMinutes || 1) * 60)) * 100)}%` }}
                         />
                     </div>
                 </div>
 
                 {/* Right: Technical Cues & ACKs */}
-                <div className="col-span-12 lg:col-span-4 flex flex-col bg-slate-950">
+                <div className="col-span-12 lg:col-span-4 flex flex-col bg-[#121418]">
                     <div className="flex-1 overflow-y-auto">
                         {/* Active Cue Block */}
-                        <div className="p-6 space-y-4 border-b border-slate-800/50">
+                        <div className="p-6 space-y-3 border-b border-[#22262E]">
                             <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em]">Active Cue</span>
-                                <Activity size={12} className="text-emerald-500" />
+                                <span className="text-[10px] font-mono font-bold text-[#10B981] uppercase tracking-[0.2em]">Active Production Cue</span>
+                                <Activity size={12} className="text-[#10B981]" />
                             </div>
-                            <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-5">
+                            <div className="bg-[#181B22] border border-[#22262E] rounded-md p-4">
                                 {currentSlot?.productionNotes ? (
-                                    <p className="text-lg text-emerald-100/90 leading-tight italic font-medium">
+                                    <p className="text-base text-[#E1E4EA] leading-snug font-mono">
                                         "{currentSlot.productionNotes}"
                                     </p>
                                 ) : (
-                                    <p className="text-slate-700 text-sm italic">No cues for current slot.</p>
+                                    <p className="text-[#6A7382] text-xs font-mono italic">No cues entered for current slot.</p>
                                 )}
                             </div>
                         </div>
 
-                        {/* Next Prep Block (Option B) */}
-                        <div className="p-6 space-y-4 bg-amber-500/[0.02]">
+                        {/* Next Prep Block */}
+                        <div className="p-6 space-y-3">
                             <div className="flex items-center justify-between">
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-[0.3em]">Upcoming Prep</span>
-                                    <span className="text-[9px] text-slate-600 font-bold uppercase truncate max-w-[200px]">Next: {nextSlot?.title || 'End'}</span>
+                                    <span className="text-[10px] font-mono font-bold text-[#F59E0B] uppercase tracking-[0.2em]">Upcoming Standby</span>
+                                    <span className="text-[9px] text-[#8A93A4] font-mono font-semibold uppercase truncate max-w-[200px]">Next: {nextSlot?.title || 'Conclude'}</span>
                                 </div>
-                                <Clock size={12} className="text-amber-500" />
+                                <Clock size={12} className="text-[#F59E0B]" />
                             </div>
-                            <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-5 relative overflow-hidden">
+                            <div className="bg-[#181B22] border border-[#22262E] rounded-md p-4 relative overflow-hidden">
                                 {nextSlot?.productionNotes ? (
-                                    <p className="text-lg text-amber-100 leading-tight italic font-medium">
+                                    <p className="text-base text-[#F59E0B] leading-snug font-mono">
                                         "{nextSlot.productionNotes}"
                                     </p>
                                 ) : (
-                                    <p className="text-slate-700 text-sm italic">No preparation notes needed.</p>
+                                    <p className="text-[#6A7382] text-xs font-mono italic">No advance cues required.</p>
                                 )}
-                                <div className="absolute top-0 right-0 h-1 w-12 bg-amber-500/20" />
                             </div>
                         </div>
 
                         {/* ACK Section */}
-                        <div className="p-6 space-y-4 border-t border-slate-800/50">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Confirm Readiness</span>
+                        <div className="p-6 space-y-3 border-t border-[#22262E]">
+                            <span className="text-[10px] font-mono font-bold text-[#8A93A4] uppercase tracking-[0.2em]">Confirm Readiness</span>
                             <div className="grid grid-cols-3 gap-2">
                                 <button
                                     onClick={() => handleAck('sound')}
-                                    className={`flex flex-col items-center justify-center py-4 rounded-xl border transition-all ${isAcked('sound') ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-600 hover:border-slate-600'}`}
+                                    className={`flex flex-col items-center justify-center py-3.5 rounded-md border transition-all ${isAcked('sound') ? 'bg-[#10B981]/20 border-[#10B981] text-[#10B981]' : 'bg-[#181B22] border-[#22262E] text-[#8A93A4] hover:text-white hover:border-[#2D333F]'}`}
                                 >
-                                    <Volume2 size={20} className="mb-1" />
-                                    <span className="text-[9px] font-black uppercase">Sound</span>
+                                    <Volume2 size={18} className="mb-1" />
+                                    <span className="text-[9px] font-mono font-bold uppercase">Sound</span>
                                     {isAcked('sound') && <CheckCircle2 size={10} className="mt-1" />}
                                 </button>
                                 <button
                                     onClick={() => handleAck('lighting')}
-                                    className={`flex flex-col items-center justify-center py-4 rounded-xl border transition-all ${isAcked('lighting') ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-600 hover:border-slate-600'}`}
+                                    className={`flex flex-col items-center justify-center py-3.5 rounded-md border transition-all ${isAcked('lighting') ? 'bg-[#10B981]/20 border-[#10B981] text-[#10B981]' : 'bg-[#181B22] border-[#22262E] text-[#8A93A4] hover:text-white hover:border-[#2D333F]'}`}
                                 >
-                                    <Lightbulb size={20} className="mb-1" />
-                                    <span className="text-[9px] font-black uppercase">Lights</span>
+                                    <Lightbulb size={18} className="mb-1" />
+                                    <span className="text-[9px] font-mono font-bold uppercase">Lights</span>
                                     {isAcked('lighting') && <CheckCircle2 size={10} className="mt-1" />}
                                 </button>
                                 <button
                                     onClick={() => handleAck('video')}
-                                    className={`flex flex-col items-center justify-center py-4 rounded-xl border transition-all ${isAcked('video') ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-800 text-slate-600 hover:border-slate-600'}`}
+                                    className={`flex flex-col items-center justify-center py-3.5 rounded-md border transition-all ${isAcked('video') ? 'bg-[#10B981]/20 border-[#10B981] text-[#10B981]' : 'bg-[#181B22] border-[#22262E] text-[#8A93A4] hover:text-white hover:border-[#2D333F]'}`}
                                 >
-                                    <Video size={20} className="mb-1" />
-                                    <span className="text-[9px] font-black uppercase">Video</span>
+                                    <Video size={18} className="mb-1" />
+                                    <span className="text-[9px] font-mono font-bold uppercase">Video</span>
                                     {isAcked('video') && <CheckCircle2 size={10} className="mt-1" />}
                                 </button>
                             </div>
@@ -258,10 +311,10 @@ export const CrewHUD: React.FC = () => {
                     </div>
 
                     {/* Meta Footer */}
-                    <div className="p-4 bg-slate-900 border-t border-slate-800">
-                        <div className="flex items-center justify-between text-[10px] font-bold">
-                            <span className="text-slate-500 uppercase tracking-widest">Kairon HUD 2.0</span>
-                            <span className="text-slate-600 tabular-nums uppercase tracking-widest">
+                    <div className="p-4 bg-[#181B22] border-t border-[#22262E]">
+                        <div className="flex items-center justify-between text-[10px] font-mono font-bold text-[#8A93A4]">
+                            <span className="uppercase tracking-widest">Tactical HUD</span>
+                            <span className="tabular-nums uppercase tracking-widest">
                                 {new Date().toLocaleDateString()}
                             </span>
                         </div>
@@ -270,13 +323,11 @@ export const CrewHUD: React.FC = () => {
             </main>
 
             {/* Status Footer */}
-            <footer className="px-6 py-2 bg-slate-950 border-t border-slate-900 flex items-center justify-between">
-                <div className="text-[9px] text-slate-700 uppercase font-black tracking-widest">Kairon Tactical HUD // Ref: {slug}</div>
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        <span className="text-[9px] text-slate-500 font-bold uppercase">Sync Online</span>
-                    </div>
+            <footer className="px-6 py-2 bg-[#121418] border-t border-[#22262E] flex items-center justify-between text-[9px] font-mono">
+                <div className="text-[#6A7382] uppercase font-bold tracking-widest">Kairon HUD // Ref: {slug}</div>
+                <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                    <span className="text-[#8A93A4] font-bold uppercase">Sync Live</span>
                 </div>
             </footer>
         </div>

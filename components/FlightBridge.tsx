@@ -92,8 +92,8 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
         // Ensure the body of the window this component is rendered in has the correct theme class
         const localDoc = containerRef.current.ownerDocument;
         localDoc.body.classList.toggle('dark', isDarkMode);
-        localDoc.body.style.backgroundColor = isDarkMode ? '#020617' : '#ffffff'; // slate-950 or white
-        localDoc.body.style.color = isDarkMode ? '#ffffff' : '#0f172a'; // white or slate-900
+        localDoc.body.style.backgroundColor = isDarkMode ? '#090A0C' : '#F8FAFC';
+        localDoc.body.style.color = isDarkMode ? '#FFFFFF' : '#0F172A';
     }, [isDarkMode]);
 
     useEffect(() => {
@@ -105,38 +105,44 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
     if (!currentSlot) return null;
 
     return (
-        <div ref={containerRef} className={`flex flex-col h-full ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-white text-slate-900'} font-sans overflow-hidden border-l-4 border-indigo-600 shadow-2xl transition-colors duration-300`}>
+        <div ref={containerRef} className={`flex flex-col h-full ${isDarkMode ? 'bg-[#090A0C] text-white' : 'bg-[#F8FAFC] text-slate-900'} font-sans overflow-hidden border-l-4 border-[#0EA5E9] shadow-2xl transition-colors duration-200`}>
             {/* Minimal Header */}
-            <div className={`px-4 py-2 border-b ${isDarkMode ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50'} flex justify-between items-center z-10 shrink-0`}>
+            <div className={`px-4 py-2.5 border-b ${isDarkMode ? 'border-[#22262E] bg-[#121418]' : 'border-slate-200 bg-white'} flex justify-between items-center z-10 shrink-0`}>
                 <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full bg-indigo-500 animate-pulse" />
-                    <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-slate-400' : 'text-slate-500'}`}>Flight Bridge</span>
+                    <div className="w-3.5 h-3.5 rounded bg-[#181B22] border border-[#2D333F] flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#0EA5E9] animate-pulse" />
+                    </div>
+                    <span className={`text-[10px] font-mono font-bold uppercase tracking-[0.15em] ${isDarkMode ? 'text-[#8A93A4]' : 'text-slate-600'}`}>Flight Bridge</span>
                 </div>
 
                 {/* Crew ACK Feedback */}
-                <div className="flex items-center gap-3">
-                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md ${isAcked('sound') ? 'bg-emerald-500/20 text-emerald-500' : 'text-slate-500 opacity-30'}`} title="Sound ACK">
-                        <Volume2 size={12} />
-                        <span className="text-[8px] font-black uppercase">S</span>
+                <div className="flex items-center gap-2.5">
+                    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${isAcked('sound') ? 'bg-[#10B981]/20 text-[#10B981]' : (isDarkMode ? 'text-[#6A7382] opacity-40' : 'text-slate-400')}`} title="Sound ACK">
+                        <Volume2 size={11} />
+                        <span className="text-[8px] font-mono font-bold uppercase">S</span>
                     </div>
-                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md ${isAcked('lighting') ? 'bg-emerald-500/20 text-emerald-500' : 'text-slate-500 opacity-30'}`} title="Lighting ACK">
-                        <Lightbulb size={12} />
-                        <span className="text-[8px] font-black uppercase">L</span>
+                    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${isAcked('lighting') ? 'bg-[#10B981]/20 text-[#10B981]' : (isDarkMode ? 'text-[#6A7382] opacity-40' : 'text-slate-400')}`} title="Lighting ACK">
+                        <Lightbulb size={11} />
+                        <span className="text-[8px] font-mono font-bold uppercase">L</span>
                     </div>
-                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md ${isAcked('video') ? 'bg-emerald-500/20 text-emerald-500' : 'text-slate-500 opacity-30'}`} title="Video ACK">
-                        <Video size={12} />
-                        <span className="text-[8px] font-black uppercase">V</span>
+                    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${isAcked('video') ? 'bg-[#10B981]/20 text-[#10B981]' : (isDarkMode ? 'text-[#6A7382] opacity-40' : 'text-slate-400')}`} title="Video ACK">
+                        <Video size={11} />
+                        <span className="text-[8px] font-mono font-bold uppercase">V</span>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                     <button
                         onClick={onToggleTheme}
-                        className={`p-1.5 rounded-lg ${isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-200 text-slate-500'} transition-colors`}
+                        className={`p-1.5 rounded-md ${isDarkMode ? 'hover:bg-[#181B22] text-[#8A93A4]' : 'hover:bg-slate-200 text-slate-600'} transition-colors`}
                     >
-                        {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
+                        {isDarkMode ? <Sun size={13} /> : <Moon size={13} />}
                     </button>
-                    <div className="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-bold">
+                    <div className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded uppercase border ${
+                        program.status === 'live' 
+                            ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30' 
+                            : 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/30'
+                    }`}>
                         {program.status.toUpperCase()}
                     </div>
                 </div>
@@ -145,77 +151,83 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
             {/* Timer Hub - Massive Focus */}
             <div className="flex-1 flex flex-col items-center justify-center p-4 relative min-h-0">
                 {/* Slot Title - Marquee if long */}
-                <div className="w-full mb-2 overflow-hidden relative fade-mask">
+                <div className="w-full mb-1 overflow-hidden relative fade-mask">
                     <div className={`marquee-container ${currentSlot.title.length > 25 ? 'animate-marquee' : 'text-center'}`}>
-                        <div className={`${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'} text-[14px] font-black uppercase tracking-tight whitespace-nowrap px-4`}>
+                        <div className={`${isDarkMode ? 'text-[#0EA5E9]' : 'text-[#0284C7]'} text-[13px] font-mono font-bold uppercase tracking-tight whitespace-nowrap px-4`}>
                             {currentSlot.title}
                         </div>
                     </div>
                 </div>
 
-                {/* THE TITANIC TIMER - Using inline styles for guaranteed scaling */}
+                {/* THE TITANIC TIMER */}
                 <div
-                    className={`font-mono font-black tabular-nums leading-none tracking-[-0.08em] transition-colors ${isOvertime ? 'text-rose-500 animate-pulse' : (isDarkMode ? 'text-white' : 'text-slate-900')}`}
+                    className={`font-mono font-bold tabular-nums leading-none tracking-tight select-none transition-colors ${isOvertime ? 'text-[#EF4444] animate-pulse' : (isDarkMode ? 'text-white' : 'text-slate-900')}`}
                     style={{
-                        fontSize: 'min(100px, 25vw)', // Balanced "sweet spot" for -MM:SS
+                        fontSize: 'min(90px, 24vw)',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 900
+                        justifyContent: 'center'
                     }}
                 >
                     {formatDuration(timeLeft)}
                 </div>
 
-                <div className={`text-[12px] ${isDarkMode ? 'text-slate-300' : 'text-slate-600'} font-black uppercase tracking-[0.2em] mt-2`}>
-                    {currentSlot.speaker || 'No Speaker'}
+                <div className={`text-[11px] font-mono ${isDarkMode ? 'text-[#8A93A4]' : 'text-slate-600'} font-semibold uppercase tracking-wider mt-1.5`}>
+                    {currentSlot.speaker || 'No Speaker Assigned'}
                 </div>
             </div>
 
             {/* Tactical Controls */}
-            <div className="px-4 pb-4 shrink-0 z-10">
-                <div className="flex justify-center items-center gap-6 mb-4">
+            <div className="px-4 pb-3 shrink-0 z-10">
+                <div className="flex justify-center items-center gap-4 mb-3">
                     <button
                         onClick={() => onPrev(program.id)}
                         disabled={currentSlotIndex === 0}
-                        className={`p-4 ${isDarkMode ? 'bg-slate-900 border-slate-800 hover:bg-slate-800' : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700'} rounded-2xl border transition-all disabled:opacity-20`}
+                        className={`p-3 rounded-lg border transition-all disabled:opacity-30 ${isDarkMode ? 'bg-[#181B22] border-[#22262E] hover:bg-[#22262E] text-white' : 'bg-white border-slate-200 hover:bg-slate-100 text-slate-800 shadow-sm'}`}
+                        title="Previous Slot"
                     >
-                        <SkipBack size={24} fill="currentColor" stroke="none" />
+                        <SkipBack size={18} fill="currentColor" stroke="none" />
                     </button>
 
                     <button
                         onClick={() => onToggleTimer(program, false, secondsElapsed)}
-                        className={`w-20 h-20 rounded-full flex items-center justify-center transition-all bg-indigo-600 hover:bg-indigo-500 shadow-xl shadow-indigo-500/20 active:scale-90`}
+                        className={`w-16 h-16 rounded-xl flex items-center justify-center transition-all shadow-md active:scale-95 ${
+                            isTimerActive
+                                ? 'bg-[#1C2028] hover:bg-[#252B37] text-white border border-[#2D333F]'
+                                : 'bg-[#10B981] hover:bg-[#059669] text-white shadow-[#10B981]/20'
+                        }`}
+                        title={isTimerActive ? "Pause Timer" : "Start Timer"}
                     >
-                        {isTimerActive ? <Pause size={40} fill="currentColor" /> : <Play size={40} className="ml-1" fill="currentColor" />}
+                        {isTimerActive ? <Pause size={30} fill="currentColor" /> : <Play size={30} className="ml-0.5" fill="currentColor" />}
                     </button>
 
                     <button
                         onClick={() => onNext(program.id)}
-                        className={`p-4 ${isDarkMode ? 'bg-slate-900 border-slate-800 hover:bg-slate-800' : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700'} rounded-2xl border transition-all`}
+                        className={`p-3 rounded-lg border transition-all ${isDarkMode ? 'bg-[#181B22] border-[#22262E] hover:bg-[#22262E] text-white' : 'bg-white border-slate-200 hover:bg-slate-100 text-slate-800 shadow-sm'}`}
+                        title="Next Slot"
                     >
-                        <SkipForward size={24} fill="currentColor" stroke="none" />
+                        <SkipForward size={18} fill="currentColor" stroke="none" />
                     </button>
                 </div>
 
                 {/* Sub-controls: Row 1 - Nudges */}
-                <div className="flex gap-2 mb-2 w-full">
-                    <button onClick={() => onNudge(-1)} className={`flex-1 flex items-center justify-center gap-2 py-2.5 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'} rounded-xl border transition-colors shadow-sm`}>
-                        <span className="text-[12px] font-black">-1M</span>
+                <div className="flex gap-2 mb-2 w-full font-mono">
+                    <button onClick={() => onNudge(-1)} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md border text-xs font-bold transition-all shadow-sm ${isDarkMode ? 'bg-[#181B22] hover:bg-[#22262E] border-[#22262E] text-[#8A93A4] hover:text-white' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'}`}>
+                        <span>-1 MIN</span>
                     </button>
-                    <button onClick={() => onNudge(1)} className={`flex-1 flex items-center justify-center gap-2 py-2.5 ${isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600'} rounded-xl border transition-colors shadow-sm`}>
-                        <span className="text-[12px] font-black">+1M</span>
+                    <button onClick={() => onNudge(1)} className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md border text-xs font-bold transition-all shadow-sm ${isDarkMode ? 'bg-[#181B22] hover:bg-[#22262E] border-[#22262E] text-[#8A93A4] hover:text-white' : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'}`}>
+                        <span>+1 MIN</span>
                     </button>
                 </div>
 
                 {/* Sub-controls: Row 2 - Hold & End */}
-                <div className="flex gap-2 mb-2 w-full">
+                <div className="flex gap-2 mb-2 w-full font-mono">
                     <button
                         onClick={() => onToggleHold(undefined, program.id)}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all shadow-sm ${program.isOnHold ? 'bg-amber-600 border-amber-500 text-white' : (isDarkMode ? 'bg-slate-900 border-slate-800 text-amber-500 hover:bg-slate-800' : 'bg-slate-50 border-slate-200 text-amber-600 hover:bg-slate-100')}`}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md border text-xs font-bold transition-all shadow-sm ${program.isOnHold ? 'bg-[#F59E0B] border-[#F59E0B] text-black' : (isDarkMode ? 'bg-[#181B22] border-[#22262E] text-[#F59E0B] hover:bg-[#22262E]' : 'bg-white border-slate-200 text-amber-600 hover:bg-slate-100')}`}
                     >
-                        <Clock size={16} />
-                        <span className="text-[10px] font-black uppercase">Hold</span>
+                        <Clock size={13} />
+                        <span className="uppercase">Hold</span>
                     </button>
 
                     <button
@@ -224,27 +236,27 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                         onMouseLeave={handleHoldEnd}
                         onTouchStart={handleHoldStart}
                         onTouchEnd={handleHoldEnd}
-                        className={`flex-1 relative flex items-center justify-center gap-2 py-2.5 rounded-xl border select-none active:scale-[0.98] transition-all shadow-sm overflow-hidden shrink-0 ${isDarkMode ? 'bg-rose-900/20 border-rose-500/20 text-rose-500 hover:bg-rose-900/40' : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'}`}
+                        className={`flex-1 relative flex items-center justify-center gap-1.5 py-2 rounded-md border text-xs font-bold select-none active:scale-[0.98] transition-all shadow-sm overflow-hidden shrink-0 ${isDarkMode ? 'bg-[#EF4444]/10 border-[#EF4444]/30 text-[#EF4444] hover:bg-[#EF4444]/20' : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'}`}
                     >
                         <div
-                            className="absolute bottom-0 left-0 h-full bg-rose-600/20 transition-all duration-75 pointer-events-none"
+                            className="absolute bottom-0 left-0 h-full bg-[#EF4444]/20 transition-all duration-75 pointer-events-none"
                             style={{ width: `${holdToEndProgress}%` }}
                         />
-                        <AlertCircle size={16} className="shrink-0" />
-                        <span className="text-[10px] font-black uppercase whitespace-nowrap">End Event</span>
+                        <AlertCircle size={13} className="shrink-0" />
+                        <span className="uppercase whitespace-nowrap">End Event</span>
                     </button>
                 </div>
 
                 {/* Sub-controls: Row 3 - Auto/Manual Toggle */}
-                <div className="mb-4">
+                <div className="mb-2">
                     <button
                         onClick={onToggleManualMode}
-                        className={`w-full flex items-center justify-center gap-3 py-3 rounded-xl border transition-all shadow-md ${isManualMode
-                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
-                            : (isDarkMode ? 'bg-slate-900 border-slate-800 text-indigo-400 hover:bg-slate-800' : 'bg-slate-50 border-slate-200 text-indigo-600 hover:bg-slate-100')}`}
+                        className={`w-full flex items-center justify-center gap-2 py-2 rounded-md border font-mono text-xs font-bold transition-all shadow-sm ${isManualMode
+                            ? 'bg-[#181B22] border-[#2D333F] text-[#0EA5E9]'
+                            : (isDarkMode ? 'bg-[#181B22] border-[#22262E] text-[#10B981] hover:bg-[#22262E]' : 'bg-white border-slate-200 text-[#059669] hover:bg-slate-100')}`}
                     >
-                        <div className={`w-2 h-2 rounded-full ${isManualMode ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]'}`} />
-                        <span className="text-[11px] font-black uppercase tracking-[0.1em]">
+                        <div className={`w-1.5 h-1.5 rounded-full ${isManualMode ? 'bg-[#0EA5E9]' : 'bg-[#10B981] animate-tally'}`} />
+                        <span className="uppercase tracking-wider">
                             {isManualMode ? 'Manual Advance Mode' : 'Auto Advance Mode'}
                         </span>
                     </button>
@@ -253,10 +265,10 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                 {/* Expansion Toggle */}
                 <button
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className={`w-full flex items-center justify-between px-3 py-2 ${isDarkMode ? 'bg-slate-900/80 hover:bg-slate-800 text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'} rounded-lg text-[10px] font-bold uppercase tracking-wider group transition-colors`}
+                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-md font-mono text-[10px] font-bold uppercase tracking-wider transition-colors ${isDarkMode ? 'bg-[#121418] hover:bg-[#181B22] text-[#8A93A4]' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
                 >
-                    <div className="flex items-center gap-2">
-                        <ChevronDown className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} size={14} />
+                    <div className="flex items-center gap-1.5">
+                        <ChevronDown className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} size={12} />
                         Remaining Schedule
                     </div>
                     <span>{remainingSlots.length} Items</span>
@@ -264,22 +276,22 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
             </div>
 
             {/* Scrollable Slot List */}
-            <div className={`flex-1 overflow-y-auto custom-scrollbar transition-all duration-300 ${isExpanded ? 'max-h-[300px] opacity-100 p-4 pt-0' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-                <div className="space-y-2">
+            <div className={`flex-1 overflow-y-auto custom-scrollbar transition-all duration-300 ${isExpanded ? 'max-h-[220px] opacity-100 p-3 pt-0' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                <div className="space-y-1.5 font-mono">
                     {remainingSlots.length > 0 ? (
-                        remainingSlots.map((slot, idx) => (
-                            <div key={slot.id} className={`p-3 ${isDarkMode ? 'bg-slate-900/40 border-slate-800 hover:border-slate-700' : 'bg-slate-50 border-slate-100 hover:border-slate-200'} border rounded-xl flex justify-between items-center group transition-colors`}>
-                                <div className="min-w-0 pr-4">
-                                    <div className={`text-[10px] font-bold ${isDarkMode ? 'text-white group-hover:text-indigo-400' : 'text-slate-900 group-hover:text-indigo-600'} transition-colors truncate`}>{slot.title}</div>
-                                    <div className={`text-[8px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} mt-0.5 uppercase tracking-widest`}>{slot.speaker}</div>
+                        remainingSlots.map((slot) => (
+                            <div key={slot.id} className={`p-2.5 rounded-md border flex justify-between items-center transition-colors ${isDarkMode ? 'bg-[#121418] border-[#22262E]' : 'bg-white border-slate-200'}`}>
+                                <div className="min-w-0 pr-3">
+                                    <div className={`text-xs font-bold truncate ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{slot.title}</div>
+                                    <div className={`text-[9px] uppercase tracking-wider ${isDarkMode ? 'text-[#8A93A4]' : 'text-slate-500'}`}>{slot.speaker || 'General'}</div>
                                 </div>
-                                <div className={`shrink-0 text-[10px] font-mono font-bold ${isDarkMode ? 'text-slate-400 bg-slate-800' : 'text-slate-600 bg-slate-200'} px-2 py-1 rounded`}>
-                                    {slot.durationMinutes}M
+                                <div className={`shrink-0 text-[10px] font-mono font-bold px-2 py-0.5 rounded ${isDarkMode ? 'text-[#0EA5E9] bg-[#181B22]' : 'text-slate-700 bg-slate-100'}`}>
+                                    {slot.durationMinutes}m
                                 </div>
                             </div>
                         ))
                     ) : (
-                        <div className={`py-8 text-center ${isDarkMode ? 'text-slate-600' : 'text-slate-400'} text-[10px] italic`}>
+                        <div className={`py-4 text-center font-mono text-[10px] italic ${isDarkMode ? 'text-[#6A7382]' : 'text-slate-400'}`}>
                             End of Program
                         </div>
                     )}
@@ -307,7 +319,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                 }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 10px; opacity: 0.3; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #0EA5E9; border-radius: 10px; opacity: 0.4; }
                 * { box-sizing: border-box; }
             ` }} />
         </div>

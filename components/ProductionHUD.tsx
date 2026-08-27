@@ -73,78 +73,78 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
 
     if (isVertical) {
         return (
-            <div className="h-full w-28 bg-slate-900 border-r border-slate-800 shadow-2xl flex flex-col items-center py-6 gap-6 pointer-events-auto animate-in slide-in-from-left-8 duration-500 overflow-y-auto no-scrollbar">
+            <div className="h-full w-28 bg-[#121418] border-r border-[#22262E] shadow-2xl flex flex-col items-center py-6 gap-6 pointer-events-auto animate-in slide-in-from-left-8 duration-500 overflow-y-auto no-scrollbar font-mono">
                 {/* Header: Time Left & Session */}
                 <div className="px-2 w-full flex flex-col items-center text-center gap-1">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Time Left</span>
+                    <span className="text-[10px] font-bold text-[#8A93A4] uppercase tracking-wider">Time Left</span>
                     {currentSlot ? (
-                        <div className={`font-mono text-xl font-black ${isTimerActive ? (currentSlot.durationMinutes * 60 - elapsed < 0 ? 'text-rose-500 animate-pulse' : 'text-indigo-400') : 'text-slate-600'}`}>
+                        <div className={`font-mono text-xl font-bold tabular-nums ${isTimerActive ? (currentSlot.durationMinutes * 60 - elapsed < 0 ? 'text-[#EF4444] animate-pulse' : 'text-[#0EA5E9]') : 'text-[#6A7382]'}`}>
                             {Math.floor((currentSlot.durationMinutes * 60 - elapsed) / 60)}:
                             {String(Math.abs((currentSlot.durationMinutes * 60 - elapsed) % 60)).padStart(2, '0')}
                         </div>
                     ) : (
-                        <div className="text-slate-700 font-mono text-xl">--:--</div>
+                        <div className="text-[#6A7382] font-mono text-xl">--:--</div>
                     )}
-                    <div className="mt-1 px-2 py-0.5 bg-slate-800 rounded-md max-w-full">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase truncate w-20">
+                    <div className="mt-1 px-2 py-0.5 bg-[#181B22] border border-[#22262E] rounded-md max-w-full">
+                        <p className="text-[9px] font-bold text-[#E1E4EA] uppercase truncate w-20">
                             {currentSlotTitle || 'No Session'}
                         </p>
                     </div>
                 </div>
 
-                <div className="w-8 h-[1px] bg-slate-800/50" />
+                <div className="w-8 h-[1px] bg-[#22262E]" />
 
                 {/* Status Section */}
                 <div className="flex flex-col items-center gap-4 w-full">
                     <div className="flex flex-col items-center gap-1">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isAdminOnline ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${isAdminOnline ? 'bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/30' : 'bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/30'}`}>
                             <Wifi size={18} />
                         </div>
-                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">
+                        <span className="text-[8px] font-bold uppercase tracking-widest text-[#8A93A4]">
                             {isAdminOnline ? 'Live' : 'Offline'}
                         </span>
                     </div>
 
                     {/* Crew Feedback (Vertical Stack) */}
                     <div className="flex flex-col items-center gap-2 w-full px-4">
-                        <div className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-slate-800/30 border border-slate-700/30 grayscale">
-                            <Volume2 size={12} className={isAcked('sound') ? 'text-emerald-500 opacity-100' : 'text-slate-600 opacity-30'} />
-                            <Lightbulb size={12} className={isAcked('lighting') ? 'text-emerald-500 opacity-100' : 'text-slate-600 opacity-30'} />
-                            <Video size={12} className={isAcked('video') ? 'text-emerald-500 opacity-100' : 'text-slate-600 opacity-30'} />
+                        <div className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded bg-[#181B22] border border-[#22262E]">
+                            <Volume2 size={12} className={isAcked('sound') ? 'text-[#10B981]' : 'text-[#6A7382] opacity-40'} />
+                            <Lightbulb size={12} className={isAcked('lighting') ? 'text-[#10B981]' : 'text-[#6A7382] opacity-40'} />
+                            <Video size={12} className={isAcked('video') ? 'text-[#10B981]' : 'text-[#6A7382] opacity-40'} />
                         </div>
                     </div>
-                    {/* Play/Pause Control (Centralized for Mobile) */}
+                    {/* Play/Pause Control */}
                     <div className="flex flex-col items-center gap-1">
                         <button
                             onClick={() => onToggleTimer?.({ ...program, id: programId } as any, false, elapsed)}
-                            className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all active:scale-90 shadow-lg ${isTimerActive ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30' : 'bg-emerald-600 text-white shadow-emerald-900/20'}`}
+                            className={`w-14 h-14 rounded-xl flex items-center justify-center transition-all active:scale-90 shadow-md ${isTimerActive ? 'bg-[#181B22] text-[#F59E0B] border border-[#F59E0B]/30' : 'bg-[#10B981] hover:bg-[#059669] text-white shadow-[#10B981]/20'}`}
                         >
                             {isTimerActive ? <TimerIcon size={24} /> : <Play size={24} />}
                         </button>
-                        <span className={`text-[8px] font-black uppercase tracking-widest ${isTimerActive ? 'text-amber-500' : 'text-emerald-500'}`}>
+                        <span className={`text-[8px] font-bold uppercase tracking-widest ${isTimerActive ? 'text-[#F59E0B]' : 'text-[#10B981]'}`}>
                             {isTimerActive ? 'Pause' : 'Play'}
                         </span>
                     </div>
                 </div>
 
                 {/* Control Section */}
-                <div className="mt-auto flex flex-col items-center gap-6 pb-4 w-full px-2">
-                    {/* Nudge Controls (Vertical with Labels) */}
-                    <div className="flex flex-col items-center bg-slate-800/50 rounded-2xl w-full p-1 gap-1 border border-slate-700/30">
+                <div className="mt-auto flex flex-col items-center gap-5 pb-4 w-full px-2">
+                    {/* Nudge Controls */}
+                    <div className="flex flex-col items-center bg-[#181B22] rounded-lg w-full p-1 gap-1 border border-[#22262E]">
                         <button
                             onClick={() => onNudge(1)}
-                            className="w-full aspect-square flex items-center justify-center hover:bg-slate-700 text-indigo-400 hover:text-white rounded-xl transition-all active:scale-90"
+                            className="w-full aspect-square flex items-center justify-center hover:bg-[#22262E] text-[#0EA5E9] rounded transition-all active:scale-90"
                             title="Nudge +1 min"
                         >
-                            <Plus size={20} />
+                            <Plus size={18} />
                         </button>
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Nudge</span>
+                        <span className="text-[8px] font-bold text-[#8A93A4] uppercase tracking-widest">Nudge</span>
                         <button
                             onClick={() => onNudge(-1)}
-                            className="w-full aspect-square flex items-center justify-center hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition-all active:scale-90"
+                            className="w-full aspect-square flex items-center justify-center hover:bg-[#22262E] text-[#8A93A4] hover:text-white rounded transition-all active:scale-90"
                             title="Nudge -1 min"
                         >
-                            <Minus size={20} />
+                            <Minus size={18} />
                         </button>
                     </div>
 
@@ -152,16 +152,16 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                         {programId && (
                             <button
                                 onClick={() => onViewAnalytics(programId)}
-                                className="p-3 bg-slate-800/50 hover:bg-slate-800 text-amber-500 rounded-2xl transition-all hover:scale-105 active:scale-95 border border-slate-700/30 w-14 h-14 flex items-center justify-center shadow-lg shadow-amber-950/10"
+                                className="p-3 bg-[#181B22] hover:bg-[#22262E] text-[#F59E0B] rounded-xl transition-all active:scale-95 border border-[#22262E] w-14 h-14 flex items-center justify-center shadow-md"
                                 title="View Service Report"
                             >
                                 <BarChart3 size={20} />
                             </button>
                         )}
-                        <span className="text-[8px] font-black text-amber-500/50 uppercase tracking-widest">Report</span>
+                        <span className="text-[8px] font-bold text-[#F59E0B] uppercase tracking-widest">Report</span>
                     </div>
 
-                    {/* End Event (Square vertical reveal) */}
+                    {/* End Event */}
                     <div className="flex flex-col items-center gap-2">
                         <button
                             onMouseDown={() => setIsEnding(true)}
@@ -169,15 +169,15 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                             onMouseLeave={() => setIsEnding(false)}
                             onTouchStart={() => setIsEnding(true)}
                             onTouchEnd={() => setIsEnding(false)}
-                            className="relative group overflow-hidden bg-rose-600 hover:bg-rose-700 text-white w-14 h-14 rounded-2xl flex items-center justify-center transition-all active:scale-90 select-none shadow-lg shadow-rose-900/20"
+                            className="relative group overflow-hidden bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 text-[#EF4444] w-14 h-14 rounded-xl flex items-center justify-center transition-all active:scale-90 select-none shadow-md"
                         >
                             <div
-                                className="absolute bottom-0 left-0 right-0 bg-rose-950 opacity-50 origin-bottom transition-transform duration-75"
+                                className="absolute bottom-0 left-0 right-0 bg-[#EF4444]/40 origin-bottom transition-transform duration-75"
                                 style={{ transform: `scaleY(${holdToEnd / 100})` }}
                             />
                             <Power size={20} className="relative z-10" />
                         </button>
-                        <span className="text-[8px] font-black text-rose-500/50 uppercase tracking-widest">End Event</span>
+                        <span className="text-[8px] font-bold text-[#EF4444] uppercase tracking-widest">End Event</span>
                     </div>
                 </div>
             </div>
@@ -185,21 +185,21 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
     }
 
     return (
-        <div className="max-w-4xl mx-auto bg-slate-900 border border-slate-800 shadow-2xl rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 pointer-events-auto animate-in slide-in-from-bottom-8 duration-500">
+        <div className="max-w-4xl mx-auto bg-[#121418] border border-[#22262E] shadow-2xl rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 pointer-events-auto animate-in slide-in-from-bottom-8 duration-500 font-sans">
             {/* Status Section */}
             <div className="flex items-center gap-4 min-w-0">
-                <div className="flex items-center shrink-0 gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full">
-                    <span className={`w-2 h-2 rounded-full ${isAdminOnline ? 'bg-indigo-500 animate-pulse' : 'bg-rose-500'}`} />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">
+                <div className="flex items-center shrink-0 gap-2 px-3 py-1.5 bg-[#181B22] border border-[#22262E] rounded-md font-mono">
+                    <span className={`w-2 h-2 rounded-full ${isAdminOnline ? 'bg-[#10B981] animate-tally' : 'bg-[#EF4444]'}`} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-[#E1E4EA]">
                         {isAdminOnline ? 'Live Broadcast' : 'Sync Offline'}
                     </span>
                 </div>
                 <div className="hidden md:flex flex-col min-w-0">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Current Session</span>
+                    <span className="text-[10px] font-mono font-bold text-[#8A93A4] uppercase tracking-wider">Current Session</span>
                     <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-white truncate max-w-[150px]">{currentSlotTitle || 'No Session'}</span>
+                        <span className="text-sm font-bold text-white truncate max-w-[150px] font-mono">{currentSlotTitle || 'No Session'}</span>
                         {currentSlot && (
-                            <span className={`font-mono text-sm font-bold ${isTimerActive ? (currentSlot.durationMinutes * 60 - elapsed < 0 ? 'text-rose-500' : 'text-indigo-400') : 'text-slate-500'}`}>
+                            <span className={`font-mono text-sm font-bold tabular-nums ${isTimerActive ? (currentSlot.durationMinutes * 60 - elapsed < 0 ? 'text-[#EF4444] animate-pulse' : 'text-[#0EA5E9]') : 'text-[#8A93A4]'}`}>
                                 {Math.floor((currentSlot.durationMinutes * 60 - elapsed) / 60)}:
                                 {String(Math.abs((currentSlot.durationMinutes * 60 - elapsed) % 60)).padStart(2, '0')}
                             </span>
@@ -208,65 +208,69 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                 </div>
 
                 {/* Crew Feedback */}
-                <div className="hidden lg:flex items-center shrink-0 gap-3 border-l border-slate-800 pl-4 ml-2">
-                    <div className={`p-1.5 rounded-lg transition-all ${isAcked('sound') ? 'bg-emerald-500/20 text-emerald-500' : 'bg-slate-800 text-slate-600 opacity-30'}`} title="Sound ACK">
-                        <Volume2 size={14} />
+                <div className="hidden lg:flex items-center shrink-0 gap-2.5 border-l border-[#22262E] pl-4 ml-2">
+                    <div className={`p-1.5 rounded transition-all ${isAcked('sound') ? 'bg-[#10B981]/20 text-[#10B981]' : 'bg-[#181B22] text-[#6A7382] opacity-40'}`} title="Sound ACK">
+                        <Volume2 size={13} />
                     </div>
-                    <div className={`p-1.5 rounded-lg transition-all ${isAcked('lighting') ? 'bg-emerald-500/20 text-emerald-500' : 'bg-slate-800 text-slate-600 opacity-30'}`} title="Lighting ACK">
-                        <Lightbulb size={14} />
+                    <div className={`p-1.5 rounded transition-all ${isAcked('lighting') ? 'bg-[#10B981]/20 text-[#10B981]' : 'bg-[#181B22] text-[#6A7382] opacity-40'}`} title="Lighting ACK">
+                        <Lightbulb size={13} />
                     </div>
-                    <div className={`p-1.5 rounded-lg transition-all ${isAcked('video') ? 'bg-emerald-500/20 text-emerald-500' : 'bg-slate-800 text-slate-600 opacity-30'}`} title="Video ACK">
-                        <Video size={14} />
+                    <div className={`p-1.5 rounded transition-all ${isAcked('video') ? 'bg-[#10B981]/20 text-[#10B981]' : 'bg-[#181B22] text-[#6A7382] opacity-40'}`} title="Video ACK">
+                        <Video size={13} />
                     </div>
                 </div>
             </div>
 
             {/* Control Section */}
-            <div className="flex items-center gap-2 shrink-0">
-                <div className="flex items-center bg-slate-800 rounded-xl p-1">
+            <div className="flex items-center gap-2 shrink-0 font-mono">
+                <div className="flex items-center bg-[#181B22] border border-[#22262E] rounded-md p-1">
                     <button
                         onClick={() => onNudge(-1)}
-                        className="p-2 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors"
+                        className="p-1.5 hover:bg-[#22262E] text-[#8A93A4] hover:text-white rounded transition-colors"
                         title="Nudge -1 min"
                     >
-                        <Minus size={18} />
+                        <Minus size={16} />
                     </button>
-                    <div className="px-3 flex flex-col items-center">
-                        <Timer size={14} className="text-indigo-500 mb-0.5" />
-                        <span className="text-[10px] font-bold text-slate-500">NUDGE</span>
+                    <div className="px-2.5 flex flex-col items-center">
+                        <Timer size={13} className="text-[#0EA5E9] mb-0.5" />
+                        <span className="text-[9px] font-bold text-[#8A93A4]">NUDGE</span>
                     </div>
                     <button
                         onClick={() => onNudge(1)}
-                        className="p-2 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors"
+                        className="p-1.5 hover:bg-[#22262E] text-[#8A93A4] hover:text-white rounded transition-colors"
                         title="Nudge +1 min"
                     >
-                        <Plus size={18} />
+                        <Plus size={16} />
                     </button>
                 </div>
 
                 {programId && (
                     <button
                         onClick={() => onViewAnalytics(programId)}
-                        className="flex items-center gap-2 p-2 hover:bg-slate-800 text-amber-500 rounded-xl transition-colors shrink-0"
+                        className="flex items-center gap-1.5 px-3 py-2 bg-[#181B22] hover:bg-[#22262E] border border-[#22262E] text-[#F59E0B] rounded-md transition-colors shrink-0 text-xs font-bold"
                         title="View Service Report"
                     >
-                        <BarChart3 size={20} />
-                        <span className="hidden md:inline text-[10px] font-bold uppercase tracking-widest text-amber-500/80">Report</span>
+                        <BarChart3 size={16} />
+                        <span className="hidden md:inline text-[10px] font-bold uppercase tracking-wider">Report</span>
                     </button>
                 )}
 
-                <div className="w-[1px] h-8 bg-slate-800 mx-2" />
+                <div className="w-[1px] h-6 bg-[#22262E] mx-1" />
  
                 {/* Play/Pause Control (Main HUD) */}
-                <div className="flex flex-col items-center gap-1 mr-2 border-r border-slate-800 pr-4">
+                <div className="flex flex-col items-center gap-1 mr-2 border-r border-[#22262E] pr-3">
                     <button
                         onClick={() => onToggleTimer?.({ ...program, id: programId } as any, false, elapsed)}
-                        className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all active:scale-90 ${isTimerActive ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20'}`}
+                        className={`w-10 h-10 rounded-md flex items-center justify-center transition-all active:scale-95 shadow-sm ${
+                            isTimerActive
+                                ? 'bg-[#181B22] text-[#F59E0B] border border-[#22262E]'
+                                : 'bg-[#10B981] hover:bg-[#059669] text-white'
+                        }`}
                     >
-                        {isTimerActive ? <TimerIcon size={20} /> : <Play size={20} />}
+                        {isTimerActive ? <TimerIcon size={18} /> : <Play size={18} className="ml-0.5" />}
                     </button>
-                    <span className={`text-[8px] font-black uppercase tracking-widest ${isTimerActive ? 'text-amber-500/50' : 'text-emerald-500'}`}>
-                        {isTimerActive ? 'Pause' : 'Resume'}
+                    <span className={`text-[8px] font-bold uppercase tracking-widest ${isTimerActive ? 'text-[#F59E0B]' : 'text-[#10B981]'}`}>
+                        {isTimerActive ? 'Pause' : 'Play'}
                     </span>
                 </div>
 
@@ -276,14 +280,14 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
                     onMouseLeave={() => setIsEnding(false)}
                     onTouchStart={() => setIsEnding(true)}
                     onTouchEnd={() => setIsEnding(false)}
-                    className="relative group overflow-hidden bg-rose-600 hover:bg-rose-700 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all active:scale-95 select-none shrink-0"
+                    className="relative group overflow-hidden bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 text-[#EF4444] px-4 py-2 rounded-md font-bold text-xs flex items-center gap-2 transition-all active:scale-95 select-none shrink-0"
                 >
                     {/* Progress Reveal */}
                     <div
-                        className="absolute inset-0 bg-rose-950 opacity-50 origin-left transition-transform duration-75"
+                        className="absolute inset-0 bg-[#EF4444]/30 origin-left transition-transform duration-75"
                         style={{ transform: `scaleX(${holdToEnd / 100})` }}
                     />
-                    <Power size={18} className="relative z-10" />
+                    <Power size={14} className="relative z-10" />
                     <span className="relative z-10 whitespace-nowrap">
                         {holdToEnd > 0 ? 'Hold...' : 'End Event'}
                     </span>

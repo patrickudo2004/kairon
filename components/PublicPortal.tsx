@@ -111,21 +111,21 @@ export const PublicPortal: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
-                <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-8" />
+            <div className="min-h-screen bg-slate-50 dark:bg-[#090A0C] flex flex-col items-center justify-center p-6 text-center font-sans">
+                <div className="w-12 h-12 border-4 border-[#0EA5E9] border-t-transparent rounded-full animate-spin mb-6" />
 
-                <h2 className="text-xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Syncing Event Pulse</h2>
-                <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 font-medium">Connecting to Kairon Cloud...</p>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1 tracking-tight">Syncing Event Feed</h2>
+                <p className="text-slate-500 dark:text-[#8A93A4] text-xs mb-6 font-mono">Connecting to Kairon Live...</p>
 
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-xs shadow-xl space-y-4 mx-auto">
+                <div className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-xl p-5 w-full max-w-xs shadow-xl space-y-3 mx-auto font-mono">
                     <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
                         <span className="text-slate-400">Target ID</span>
-                        <span className="text-slate-900 dark:text-indigo-400 font-mono truncate ml-4 block max-w-[120px]">{slug}</span>
+                        <span className="text-slate-900 dark:text-[#0EA5E9] truncate ml-4 block max-w-[120px]">{slug}</span>
                     </div>
 
                     <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
                         <span className="text-slate-400">Connection</span>
-                        <span className={`px-2 py-0.5 rounded ${connStatus === 'connected' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'
+                        <span className={`px-2 py-0.5 rounded ${connStatus === 'connected' ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-[#F59E0B]/10 text-[#F59E0B]'
                             }`}>
                             {connStatus}
                         </span>
@@ -135,24 +135,18 @@ export const PublicPortal: React.FC = () => {
                         <span className="text-slate-400">Wait Time</span>
                         <span className="text-slate-600 dark:text-slate-300">{secondsWaiting}s</span>
                     </div>
-
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800/50">
-                        <p className="text-[8px] text-slate-400 dark:text-slate-600 font-mono break-all leading-tight">
-                            DB: {import.meta.env.VITE_CONVEX_URL}
-                        </p>
-                    </div>
                 </div>
 
                 {secondsWaiting > 10 && (
-                    <div className="mt-8 animate-in fade-in slide-in-from-top-4 duration-500">
-                        <p className="text-xs text-amber-600 dark:text-amber-400 font-bold mb-4 px-4 bg-amber-500/10 py-2 rounded-lg">
+                    <div className="mt-6 animate-in fade-in duration-300 font-mono">
+                        <p className="text-xs text-amber-600 dark:text-amber-400 font-bold mb-3 px-4 bg-amber-500/10 py-2 rounded-lg">
                             Connection taking longer than usual.
                         </p>
                         <button
                             onClick={() => window.location.reload()}
-                            className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg active:scale-95 mx-auto"
+                            className="flex items-center gap-2 bg-[#0EA5E9] hover:bg-[#0284C7] text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-95 mx-auto"
                         >
-                            <RefreshCw size={18} />
+                            <RefreshCw size={14} />
                             Force Refresh
                         </button>
                     </div>
@@ -163,16 +157,16 @@ export const PublicPortal: React.FC = () => {
 
     if (!program) {
         return (
-            <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
-                <div className="w-24 h-24 bg-indigo-600/20 text-indigo-500 rounded-[2rem] flex items-center justify-center mb-8 rotate-3">
-                    <Share2 size={48} />
+            <div className="min-h-screen bg-[#090A0C] flex flex-col items-center justify-center p-6 text-center font-sans">
+                <div className="w-16 h-16 bg-[#181B22] border border-[#22262E] text-[#0EA5E9] rounded-2xl flex items-center justify-center mb-6">
+                    <Share2 size={32} />
                 </div>
-                <h1 className="text-4xl font-black text-white mb-4 tracking-tight">Welcome to Kairon</h1>
-                <p className="text-slate-400 text-xl font-medium max-w-md mb-12">
+                <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Welcome to Kairon</h1>
+                <p className="text-[#8A93A4] text-base font-medium max-w-md mb-8">
                     There is currently no live session active. Please check back later or use a specific event link.
                 </p>
-                <Link to="/" className="text-indigo-400 font-bold hover:underline flex items-center gap-2">
-                    Back to Dashboard <ChevronRight size={18} />
+                <Link to="/" className="text-[#0EA5E9] font-mono text-xs uppercase font-bold hover:underline flex items-center gap-1.5">
+                    Back to Dashboard <ChevronRight size={14} />
                 </Link>
             </div>
         );
@@ -180,15 +174,15 @@ export const PublicPortal: React.FC = () => {
 
     if (program.status === 'concluded') {
         return (
-            <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
-                <div className="w-24 h-24 bg-indigo-600/20 text-indigo-500 rounded-full flex items-center justify-center mb-8">
-                    <Calendar size={48} />
+            <div className="min-h-screen bg-[#090A0C] flex flex-col items-center justify-center p-6 text-center font-sans">
+                <div className="w-16 h-16 bg-[#181B22] border border-[#22262E] text-[#F59E0B] rounded-2xl flex items-center justify-center mb-6">
+                    <Calendar size={32} />
                 </div>
-                <h1 className="text-4xl font-black text-white mb-4 tracking-tight">Event Concluded</h1>
-                <p className="text-slate-400 text-xl font-medium max-w-md mb-12">
-                    Thank you for attending **{program.title}**. This session is now over.
+                <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Event Concluded</h1>
+                <p className="text-[#8A93A4] text-base font-medium max-w-md mb-8">
+                    Thank you for attending <strong>{program.title}</strong>. This session is now concluded.
                 </p>
-                <Link to="/" className="text-indigo-400 font-bold hover:underline">
+                <Link to="/" className="text-[#0EA5E9] font-mono text-xs uppercase font-bold hover:underline">
                     Back to Kairon
                 </Link>
             </div>
@@ -212,21 +206,21 @@ export const PublicPortal: React.FC = () => {
     const isThumbnail = new URLSearchParams(window.location.search).get('mode') === 'thumbnail';
 
     return (
-        <div className={`min-h-screen ${isDarkMode ? 'dark bg-slate-900' : 'bg-slate-50'} transition-colors ${!isThumbnail ? 'pb-24' : ''}`}>
-            {/* Minimal Header */}
+        <div className="min-h-screen bg-slate-50 dark:bg-[#090A0C] text-slate-900 dark:text-white transition-colors duration-200 font-sans">
+            {/* Minimal Nav Header */}
             {!isThumbnail && (
-                <header className="bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 transition-all">
-                    <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
+                <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#090A0C]/80 backdrop-blur-md border-b border-slate-200 dark:border-[#22262E] px-6 py-4 transition-colors">
+                    <div className="max-w-3xl mx-auto flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">K</div>
-                            <span className="font-bold text-slate-900 dark:text-white tracking-tight">Kairon</span>
+                            <div className="w-7 h-7 bg-[#181B22] border border-[#2D333F] rounded-md flex items-center justify-center text-[#0EA5E9] font-bold text-xs font-mono">K</div>
+                            <span className="font-bold text-slate-900 dark:text-white tracking-tight font-mono text-sm">KAIRON</span>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                             <button
                                 onClick={toggleTheme}
-                                className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-colors"
+                                className="p-2 rounded-md bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-500 dark:text-[#8A93A4] hover:text-[#0EA5E9] transition-colors"
                             >
-                                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                                {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
                             </button>
                         </div>
                     </div>
@@ -234,33 +228,33 @@ export const PublicPortal: React.FC = () => {
             )}
 
             {/* Floating Status Bar */}
-            <div className={`fixed top-16 left-0 right-0 z-40 transition-all duration-500 transform ${isScrolled && isTimerActive ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
-                <div className="bg-indigo-600/90 dark:bg-indigo-900/90 backdrop-blur-lg text-white border-b border-indigo-400/20 shadow-2xl">
-                    <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between">
+            <div className={`fixed top-16 left-0 right-0 z-40 transition-all duration-300 transform ${isScrolled && isTimerActive ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
+                <div className="bg-[#121418]/95 backdrop-blur-md text-white border-b border-[#22262E] shadow-xl">
+                    <div className="max-w-3xl mx-auto px-6 py-2.5 flex items-center justify-between">
                         <div className="flex-1 truncate mr-4">
-                            <div className="text-[10px] font-bold uppercase opacity-70 tracking-tighter">Live Now</div>
+                            <div className="text-[9px] font-mono font-bold uppercase text-[#10B981] tracking-wider">Live Now</div>
                             <div className="font-bold truncate text-sm">{currentSlot?.title}</div>
                         </div>
-                        <div className={`text-2xl font-mono font-black tabular-nums ${remainingSeconds < 60 ? 'text-amber-300 animate-pulse' : ''}`}>
+                        <div className={`text-xl font-mono font-bold tabular-nums ${remainingSeconds < 60 ? 'text-[#EF4444] animate-pulse' : 'text-white'}`}>
                             {formatCountdown(remainingSeconds)}
                         </div>
                     </div>
                 </div>
             </div>
 
-            <main className="max-w-3xl mx-auto px-6 py-12">
+            <main className="max-w-3xl mx-auto px-6 py-10">
                 {/* Event Hero */}
                 {!isScrolled && (
-                    <div className="mb-12">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-bold uppercase tracking-wider mb-4 border border-indigo-200/50 dark:border-indigo-800/50">
-                            <Calendar size={14} />
+                    <div className="mb-10">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-[#181B22] text-slate-700 dark:text-[#0EA5E9] rounded-md text-xs font-mono font-bold uppercase tracking-wider mb-3 border border-slate-200 dark:border-[#22262E]">
+                            <Calendar size={13} />
                             {new Date(program.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                         </div>
-                        <h1 className="text-4xl md:text-6xl font-black text-slate-900 dark:text-white mb-4 tracking-tight leading-none">
+                        <h1 className="text-3xl md:text-5xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight">
                             {program.title}
                         </h1>
                         {program.subtitle && (
-                            <p className="text-xl text-slate-600 dark:text-slate-400 font-medium max-w-xl">
+                            <p className="text-lg text-slate-600 dark:text-[#8A93A4] font-medium max-w-xl">
                                 {program.subtitle}
                             </p>
                         )}
@@ -269,39 +263,36 @@ export const PublicPortal: React.FC = () => {
 
                 {/* Live Hero */}
                 {isTimerActive && currentSlot && (
-                    <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 dark:from-indigo-600 dark:to-indigo-950 rounded-[2.5rem] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32 transition-transform duration-1000 group-hover:scale-110" />
-                            <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-400/10 rounded-full blur-3xl -ml-32 -mb-32" />
-
+                    <div className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="bg-[#121418] border border-[#22262E] rounded-2xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
                             <div className="relative z-10">
-                                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2 text-indigo-200 font-bold uppercase tracking-widest text-xs">
-                                            <span className="w-2 h-2 bg-amber-400 rounded-full animate-ping" />
+                                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6">
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center gap-2 text-[#10B981] font-mono font-bold uppercase tracking-wider text-xs">
+                                            <span className="w-2 h-2 bg-[#10B981] rounded-full animate-tally" />
                                             Happening Now
                                         </div>
-                                        <h2 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">
+                                        <h2 className="text-2xl md:text-4xl font-bold tracking-tight uppercase leading-tight font-mono">
                                             {currentSlot.title}
                                         </h2>
                                         {currentSlot.speaker && (
-                                            <div className="flex items-center gap-2 text-indigo-100 font-medium text-lg italic">
-                                                <User size={18} />
+                                            <div className="flex items-center gap-2 text-[#0EA5E9] font-mono text-base mt-1">
+                                                <User size={16} />
                                                 {currentSlot.speaker}
                                             </div>
                                         )}
                                     </div>
-                                    <div className="flex flex-col items-center md:items-end">
-                                        <div className="text-[10px] font-bold uppercase text-indigo-200 tracking-widest mb-1">Remaining</div>
-                                        <div className={`text-6xl md:text-7xl font-mono font-black tabular-nums transition-all ${remainingSeconds < 60 ? 'text-amber-400 scale-105' : ''}`}>
+                                    <div className="flex flex-col items-start md:items-end">
+                                        <div className="text-[10px] font-mono font-bold uppercase text-[#8A93A4] tracking-widest mb-1">Remaining</div>
+                                        <div className={`text-5xl md:text-6xl font-mono font-bold tabular-nums transition-all ${remainingSeconds < 0 ? 'text-[#EF4444] animate-pulse' : (remainingSeconds <= 60 ? 'text-[#F59E0B] animate-pulse' : 'text-white')}`}>
                                             {formatCountdown(remainingSeconds)}
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="h-3 bg-indigo-900/40 rounded-full overflow-hidden border border-indigo-400/20">
+                                <div className="h-2.5 bg-[#181B22] rounded-full overflow-hidden border border-[#22262E]">
                                     <div
-                                        className="h-full bg-gradient-to-r from-amber-400 to-amber-200 transition-all duration-1000 ease-linear shadow-[0_0_15px_rgba(251,191,36,0.3)]"
+                                        className="h-full bg-[#0EA5E9] rounded-full transition-all duration-1000 ease-linear"
                                         style={{ width: `${Math.min(100, (derivedSecondsElapsed / (currentSlot.durationMinutes * 60)) * 100)}%` }}
                                     />
                                 </div>
@@ -309,17 +300,17 @@ export const PublicPortal: React.FC = () => {
                         </div>
 
                         {nextSlots.length > 0 && (
-                            <div className="mt-8 px-4">
-                                <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">Up Next</h3>
-                                <div className="flex flex-col md:flex-row gap-4">
+                            <div className="mt-6 px-1">
+                                <h3 className="text-xs font-mono font-bold text-slate-400 dark:text-[#8A93A4] uppercase tracking-wider mb-3">Up Next</h3>
+                                <div className="flex flex-col md:flex-row gap-3">
                                     {nextSlots.map((slot) => (
-                                        <div key={slot.id} className="flex-1 bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-4 group">
-                                            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-slate-400">
-                                                <Timer size={20} />
+                                        <div key={slot.id} className="flex-1 bg-white dark:bg-[#121418] p-3.5 rounded-xl border border-slate-200 dark:border-[#22262E] flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] flex items-center justify-center text-slate-400">
+                                                <Timer size={16} />
                                             </div>
-                                            <div>
-                                                <div className="text-[10px] font-bold text-indigo-500 uppercase">{slot.durationMinutes} min Session</div>
-                                                <div className="font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{slot.title}</div>
+                                            <div className="min-w-0 font-mono">
+                                                <div className="text-[9px] font-bold text-[#0EA5E9] uppercase">{slot.durationMinutes} min</div>
+                                                <div className="font-bold text-slate-900 dark:text-white truncate text-xs">{slot.title}</div>
                                             </div>
                                         </div>
                                     ))}
@@ -330,61 +321,52 @@ export const PublicPortal: React.FC = () => {
                 )}
 
                 {/* Schedule List */}
-                <div className="space-y-4">
-                    <h2 className="text-lg font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-6 px-1">Full Program</h2>
+                <div className="space-y-3">
+                    <h2 className="text-xs font-mono font-bold text-slate-400 dark:text-[#8A93A4] uppercase tracking-widest mb-4 px-1">Full Program</h2>
                     {program.slots.map((slot, index) => (
                         <div
                             key={slot.id}
                             id={`slot-${slot.id}`}
-                            className={`group p-6 rounded-[2rem] border transition-all duration-500 ${index === currentSlotIndex && isTimerActive
-                                ? 'bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-200 dark:border-indigo-800/50 shadow-xl'
+                            className={`p-4 rounded-xl border transition-all duration-300 ${index === currentSlotIndex && isTimerActive
+                                ? 'bg-white dark:bg-[#121418] border-[#0EA5E9]/50 shadow-md'
                                 : index < currentSlotIndex
-                                    ? 'bg-slate-50/50 dark:bg-slate-900/30 border-transparent opacity-60 grayscale-[0.5]'
-                                    : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                                    ? 'bg-slate-50/50 dark:bg-[#0E1015] border-slate-200 dark:border-[#1E222A] opacity-60'
+                                    : 'bg-white dark:bg-[#121418] border-slate-200 dark:border-[#22262E]'
                                 }`}
                         >
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="text-[10px] font-mono font-black bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-800">
-                                        EVENT {index + 1}
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center gap-2">
+                                    <div className="text-[9px] font-mono font-bold bg-slate-100 dark:bg-[#181B22] text-slate-500 dark:text-[#8A93A4] px-2 py-0.5 rounded border border-slate-200 dark:border-[#22262E]">
+                                        SLOT {index + 1}
                                     </div>
                                     {index === currentSlotIndex && isTimerActive && (
-                                        <div className="relative flex items-center gap-2 px-3 py-1 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-full tracking-widest">
-                                            <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-[#10B981]/10 text-[#10B981] text-[9px] font-mono font-bold uppercase rounded border border-[#10B981]/30">
+                                            <span className="w-1.5 h-1.5 bg-[#10B981] rounded-full animate-tally" />
                                             Live
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-mono text-sm font-bold">
-                                    <Clock size={16} />
+                                <div className="flex items-center gap-1.5 text-slate-500 dark:text-[#8A93A4] font-mono text-xs font-bold">
+                                    <Clock size={13} />
                                     {slot.durationMinutes}m
                                 </div>
                             </div>
 
-                            <h3 className={`text-2xl font-black mb-3 tracking-tight transition-colors ${index === currentSlotIndex && isTimerActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-900 dark:text-white'}`}>
+                            <h3 className={`text-base font-bold mb-2 tracking-tight ${index === currentSlotIndex && isTimerActive ? 'text-[#0EA5E9]' : 'text-slate-900 dark:text-white'}`}>
                                 {slot.title}
                             </h3>
 
-                            <div className="flex flex-wrap items-center gap-6">
+                            <div className="flex flex-wrap items-center gap-4 font-mono text-xs">
                                 {slot.speaker && (
-                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-bold">
-                                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 overflow-hidden">
-                                            <User size={16} />
-                                        </div>
+                                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-[#8A93A4]">
+                                        <User size={13} />
                                         {slot.speaker}
                                     </div>
                                 )}
-                                <div className="flex items-center gap-2 text-slate-400 dark:text-slate-600 text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded">
-                                    <Mic size={14} />
+                                <div className="text-slate-400 dark:text-[#6A7382] text-[9px] font-bold uppercase tracking-wider border border-slate-200 dark:border-[#22262E] px-2 py-0.5 rounded">
                                     {slot.type}
                                 </div>
                             </div>
-
-                            {slot.details && (
-                                <p className="mt-4 text-slate-500 dark:text-slate-400 text-sm font-medium leading-relaxed border-t border-slate-100 dark:border-slate-900 pt-4">
-                                    {slot.details}
-                                </p>
-                            )}
                         </div>
                     ))}
                 </div>

@@ -6,7 +6,7 @@ test.describe('Kairon App', () => {
         page.on('pageerror', err => console.log('PAGE ERROR:', err.message));
         // Go to home and wait for load
         await page.goto('/?testBypass=true');
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
     });
 
     test('should load the homepage with correct title', async ({ page }) => {

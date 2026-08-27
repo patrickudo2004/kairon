@@ -29,3 +29,10 @@ dist-ssr
 # Environment variables
 .env
 .env.local
+
+# Test outputs
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+

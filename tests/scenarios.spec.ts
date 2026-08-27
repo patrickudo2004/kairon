@@ -144,16 +144,15 @@ test.describe('Live Rundown E2E Scenarios', () => {
     // In Manual Mode, it must NOT auto-advance.
     // It should stay on "Sermon - Pastor John" and display negative overtime countdown.
     await expect(page.locator('h1').first()).toContainText('Sermon - Pastor John');
-    await expect(timerDisplay).toHaveText(/-00:\d\d/);
+    await expect(timerDisplay).toHaveText(/^-\d\d:\d\d$/);
 
     // 11. Test Hold for Cue & Standby Banners
     // Open a second page context for Stage Display to verify real-time overlay sync
     const stagePage = await context.newPage();
-    // Enable fake clock on the stage page, synchronized with the operator page's current mock time
-    const currentMockTime = await page.evaluate(() => Date.now());
-    await stagePage.clock.install({ time: currentMockTime });
     await stagePage.goto(`/stage?id=${programId}&testBypass=true`);
     await stagePage.waitForLoadState('domcontentloaded');
+    const currentMockTime = await page.evaluate(() => Date.now());
+    await stagePage.clock.install({ time: currentMockTime });
 
     // Verify stage display shows the current slot title
     await expect(stagePage.locator('h1').first()).toContainText('Sermon - Pastor John');
@@ -230,11 +229,10 @@ test.describe('Live Rundown E2E Scenarios', () => {
 
     // 3. Open Page B (simulating secondary tab/device)
     const pageB = await context.newPage();
-    // Synchronize Page B's clock with Page A's current mock time AFTER the timer has started
-    const currentMockTimeB = await page.evaluate(() => Date.now());
-    await pageB.clock.install({ time: currentMockTimeB });
     await pageB.goto(`/live?id=${programId}&testBypass=true`);
     await pageB.waitForLoadState('domcontentloaded');
+    const currentMockTimeB = await page.evaluate(() => Date.now());
+    await pageB.clock.install({ time: currentMockTimeB });
 
     // Verify Page B loaded the correct slot
     await expect(pageB.locator('h1').first()).toContainText('Worship');

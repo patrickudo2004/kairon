@@ -234,47 +234,47 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                         </button>
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-                                <Settings className="text-indigo-600" size={24} />
+                                <Settings className="text-[#0EA5E9]" size={24} />
                                 {organization.name}
                             </h1>
-                            <p className="text-slate-500 text-sm">Managing collaboration and branding.</p>
+                            <p className="text-slate-500 dark:text-[#8A93A4] text-sm">Managing collaboration and branding.</p>
                         </div>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                     {/* Sidebar Nav */}
-                    <div className="lg:col-span-1 space-y-2">
+                    <div className="lg:col-span-1 space-y-2 font-mono">
                         <button
                             onClick={() => setActiveTab('branding')}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'branding'
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                                : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800'
+                                ? 'bg-[#0EA5E9] text-white shadow-md'
+                                : 'text-slate-500 dark:text-[#8A93A4] hover:bg-slate-200 dark:hover:bg-[#181B22]'
                                 }`}
                         >
                             <Palette size={18} />
-                            <span className="font-semibold">Branding</span>
+                            <span className="font-semibold text-xs uppercase tracking-wider">Branding</span>
                         </button>
                         <button
                             onClick={() => setActiveTab('members')}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'members'
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                                : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800'
+                                ? 'bg-[#0EA5E9] text-white shadow-md'
+                                : 'text-slate-500 dark:text-[#8A93A4] hover:bg-slate-200 dark:hover:bg-[#181B22]'
                                 }`}
                         >
                             <Users size={18} />
-                            <span className="font-semibold">Team Members</span>
+                            <span className="font-semibold text-xs uppercase tracking-wider">Team Members</span>
                         </button>
                         {currentUserRole === 'admin' && (
                             <button
                                 onClick={() => setActiveTab('danger')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'danger'
-                                    ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20'
-                                    : 'text-rose-500 hover:bg-rose-500/10'
+                                    ? 'bg-[#EF4444] text-white shadow-md'
+                                    : 'text-[#EF4444] hover:bg-[#EF4444]/10'
                                     }`}
                             >
                                 <AlertTriangle size={18} />
-                                <span className="font-semibold">Danger Zone</span>
+                                <span className="font-semibold text-xs uppercase tracking-wider">Danger Zone</span>
                             </button>
                         )}
                     </div>
@@ -282,14 +282,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                     {/* Main Content */}
                     <div className="lg:col-span-3 space-y-6">
                         {activeTab === 'branding' && (
-                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
+                            <div className="bg-white dark:bg-[#121418] rounded-2xl p-8 border border-slate-200 dark:border-[#22262E] shadow-sm">
                                 <div className="flex justify-between items-start mb-8">
                                     <div>
                                         <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Visual Identity</h2>
-                                        <p className="text-slate-500 text-sm">Custom logos and colors help reinforce your brand on all displays.</p>
+                                        <p className="text-slate-500 dark:text-[#8A93A4] text-sm">Custom logos and colors help reinforce your brand on all displays.</p>
                                     </div>
                                     {!isPro && (
-                                        <div className="px-3 py-1 bg-amber-500/10 text-amber-600 rounded-full text-xs font-bold flex items-center gap-1.5 uppercase tracking-wider">
+                                        <div className="px-3 py-1 bg-amber-500/10 text-amber-600 rounded-full text-xs font-bold flex items-center gap-1.5 uppercase tracking-wider font-mono">
                                             <Crown size={12} /> Pro Feature
                                         </div>
                                     )}
@@ -306,7 +306,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                             value={orgName}
                                             onChange={(e) => setOrgName(e.target.value)}
                                             placeholder="Workspace Name"
-                                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-white"
+                                            className="w-full bg-slate-50 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#0EA5E9] text-sm text-slate-900 dark:text-white"
                                         />
                                     </div>
 
@@ -316,16 +316,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                             Workspace Logo
                                         </label>
                                         <div className="flex flex-col md:flex-row md:items-center gap-6">
-                                            <div className="w-20 h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 overflow-hidden shrink-0">
+                                            <div className="w-20 h-20 rounded-2xl bg-slate-100 dark:bg-[#181B22] flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-[#22262E] overflow-hidden shrink-0">
                                                 {previewUrl ? <img src={previewUrl} alt="Preview" className="w-full h-full object-contain" /> : <ImageIcon className="text-slate-300" />}
                                             </div>
                                             <div className="flex-1 space-y-3">
-                                                <div className="flex items-center gap-3">
+                                                <div className="flex items-center gap-3 font-mono">
                                                     <button
                                                         type="button"
                                                         onClick={() => fileInputRef.current?.click()}
                                                         disabled={isUploading}
-                                                        className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                                                        className="flex items-center gap-2 px-4 py-2.5 bg-[#0EA5E9] hover:bg-[#0284C7] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
                                                     >
                                                         <Upload size={14} />
                                                         {isUploading ? 'Uploading...' : 'Upload Image'}
@@ -347,7 +347,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                                         setPreviewUrl(e.target.value);
                                                     }}
                                                     placeholder="https://your-domain.com/logo.png"
-                                                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                                    className="w-full bg-slate-50 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#0EA5E9] text-sm"
                                                 />
                                                 <p className="text-[10px] text-slate-400 italic">Supports PNG, SVG, or JPG. Recommended size 512x512px.</p>
                                             </div>
@@ -371,17 +371,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                                     type="text"
                                                     value={brandColor}
                                                     onChange={(e) => setBrandColor(e.target.value)}
-                                                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 font-mono uppercase focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                    className="w-full bg-slate-50 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] rounded-xl px-4 py-3 font-mono uppercase focus:ring-2 focus:ring-[#0EA5E9] outline-none"
                                                 />
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                                    <div className="pt-4 border-t border-slate-100 dark:border-[#22262E]">
                                         <button
                                             onClick={() => brandingMutation.mutate({ logo: logoUrl, color: brandColor, name: orgName })}
                                             disabled={brandingMutation.isPending}
-                                            className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-8 py-3 rounded-xl font-bold hover:opacity-90 transition-opacity disabled:opacity-50 shadow-lg"
+                                            className="bg-slate-900 dark:bg-[#0EA5E9] text-white px-8 py-3 rounded-xl font-bold font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-opacity disabled:opacity-50 shadow-md"
                                         >
                                             {brandingMutation.isPending ? 'Saving...' : 'Save Workspace Settings'}
                                         </button>
@@ -389,12 +389,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                 </div>
 
                                 {!isPro && (
-                                    <div className="mt-8 p-6 bg-indigo-600 rounded-2xl text-white">
-                                        <h4 className="font-bold text-lg mb-2">Upgrade to Pro</h4>
-                                        <p className="text-indigo-100 text-sm mb-4">
+                                    <div className="mt-8 p-6 bg-[#181B22] border border-[#22262E] rounded-2xl text-white">
+                                        <h4 className="font-bold text-lg mb-2 font-mono">Upgrade to Pro</h4>
+                                        <p className="text-[#8A93A4] text-sm mb-4">
                                             Unlock custom branding, logos, and AI-powered scheduling for your entire organization.
                                         </p>
-                                        <button className="bg-white text-indigo-600 px-6 py-2 rounded-xl font-bold hover:bg-slate-50 transition-colors">
+                                        <button className="bg-[#0EA5E9] text-white px-6 py-2 rounded-xl font-bold font-mono text-xs uppercase tracking-wider hover:bg-[#0284C7] transition-colors">
                                             See Pro Plans
                                         </button>
                                     </div>
@@ -403,13 +403,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                         )}
 
                         {activeTab === 'members' && (
-                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm relative">
+                            <div className="bg-white dark:bg-[#121418] rounded-2xl p-8 border border-slate-200 dark:border-[#22262E] shadow-sm relative">
                                 <div className="flex justify-between items-center mb-8">
                                     <div>
                                         <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Team Collaboration</h2>
-                                        <p className="text-slate-500 text-sm">Members below have access to manage or view this workspace.</p>
+                                        <p className="text-slate-500 dark:text-[#8A93A4] text-sm">Members below have access to manage or view this workspace.</p>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 font-mono">
                                         <button
                                             onClick={() => {
                                                 const url = `${window.location.origin}/?inviteId=generic&orgId=${organization.id}`;
@@ -417,7 +417,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                                 setCopiedId('generic');
                                                 setTimeout(() => setCopiedId(null), 2000);
                                             }}
-                                            className="p-2 text-slate-400 hover:text-indigo-600 transition-colors relative group"
+                                            className="p-2 text-slate-400 hover:text-[#0EA5E9] transition-colors relative group"
                                             title="Copy Generic Workspace Link"
                                         >
                                             {copiedId === 'generic' ? <Check size={18} className="text-emerald-500" /> : <LinkIcon size={18} />}
@@ -427,9 +427,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                         </button>
                                         <button
                                             onClick={() => setIsInviteOpen(true)}
-                                            className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20"
+                                            className="flex items-center gap-2 px-6 py-2 bg-[#0EA5E9] text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-[#0284C7] transition-colors shadow-md"
                                         >
-                                            <UserPlus size={18} /> Invite Teammate
+                                            <UserPlus size={16} /> Invite Teammate
                                         </button>
                                     </div>
                                 </div>
@@ -460,162 +460,159 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                                                 <span className="bg-amber-500/10 text-amber-600 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-amber-500/20">Owner</span>
                                                             )}
                                                             {member.isPending && (
-                                                                <span className="bg-indigo-500/10 text-indigo-500 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-indigo-500/20 animate-pulse">Pending</span>
-                                                            )}
-                                                        </div>
-                                                        <p className="text-xs text-slate-500 font-medium">
-                                                            {member.email} {isMe && <span className="text-indigo-500 font-bold ml-1 tracking-tight text-[10px] uppercase">(You)</span>}
-                                                        </p>
-                                                        <p className="text-[10px] text-slate-400 uppercase tracking-widest flex items-center gap-1 mt-1 font-bold">
-                                                            {member.role === 'admin' ? <Shield size={10} className="text-rose-500" /> : member.role === 'manager' ? <Users size={10} className="text-indigo-500" /> : <Mail size={10} className="text-slate-400" />}
-                                                            {member.role === 'admin' ? 'Administrator' : member.role === 'manager' ? 'Manager' : 'Operator'}
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                                                 <span className="bg-[#F59E0B]/10 text-[#F59E0B] text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border border-[#F59E0B]/30 animate-pulse">Pending</span>
+                                                             )}
+                                                         </div>
+                                                         <p className="text-xs text-slate-500 dark:text-[#8A93A4] font-medium font-mono">
+                                                             {member.email} {isMe && <span className="text-[#0EA5E9] font-bold ml-1 tracking-tight text-[10px] uppercase">(You)</span>}
+                                                         </p>
+                                                         <p className="text-[10px] text-slate-400 dark:text-[#8A93A4] uppercase tracking-widest flex items-center gap-1 mt-1 font-mono font-bold">
+                                                             {member.role === 'admin' ? <Shield size={10} className="text-[#EF4444]" /> : member.role === 'manager' ? <Users size={10} className="text-[#0EA5E9]" /> : <Mail size={10} className="text-slate-400" />}
+                                                             {member.role === 'admin' ? 'Administrator' : member.role === 'manager' ? 'Manager' : 'Operator'}
+                                                         </p>
+                                                     </div>
+                                                 </div>
 
-                                                <div className="flex items-center gap-2">
-                                                    {member.isPending && (
-                                                        <button
-                                                            onClick={() => copyInviteLink(member.id)}
-                                                            className="p-2 text-slate-400 hover:text-indigo-500 transition-colors relative group"
-                                                            title="Copy Personalized Invite Link"
-                                                        >
-                                                            {copiedId === member.id ? <Check size={16} className="text-emerald-500" /> : <LinkIcon size={16} />}
-                                                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                                 <div className="flex items-center gap-2">
+                                                     {member.isPending && (
+                                                         <button
+                                                             onClick={() => copyInviteLink(member.id)}
+                                                             className="p-2 text-slate-400 hover:text-[#0EA5E9] transition-colors relative group"
+                                                             title="Copy Personalized Invite Link"
+                                                         >
+                                                             {copiedId === member.id ? <Check size={16} className="text-emerald-500" /> : <LinkIcon size={16} />}
+                                                             <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap font-mono">
                                                                 Copy Unique Link
-                                                            </span>
-                                                        </button>
-                                                    )}
+                                                             </span>
+                                                         </button>
+                                                     )}
 
-                                                    {(() => {
-                                                        const canManageMember =
-                                                            (currentUserRole === 'admin' && (!isMe || members.filter(m => m.role === 'admin' && !m.isPending).length > 1)) ||
-                                                            (currentUserRole === 'manager' && member.role !== 'admin' && !isMe);
+                                                     {(() => {
+                                                         const canManageMember =
+                                                             (currentUserRole === 'admin' && (!isMe || members.filter(m => m.role === 'admin' && !m.isPending).length > 1)) ||
+                                                             (currentUserRole === 'manager' && member.role !== 'admin' && !isMe);
 
-                                                        if (!canManageMember) return null;
+                                                         if (!canManageMember) return null;
 
-                                                        return (
-                                                            <>
-                                                                {!member.isPending && member.userId !== organization.createdBy && (
-                                                                    <select
-                                                                        value={member.role}
-                                                                        onChange={(e) => roleMutation.mutate({ memberId: member.id, role: e.target.value })}
-                                                                        className="bg-transparent text-[10px] font-bold uppercase tracking-wider text-slate-400 outline-none hover:text-indigo-500 cursor-pointer"
-                                                                    >
-                                                                        {currentUserRole === 'admin' && <option value="admin">Admin</option>}
-                                                                        <option value="manager">Manager</option>
-                                                                        <option value="operator">Operator</option>
-                                                                    </select>
-                                                                )}
+                                                         return (
+                                                             <>
+                                                                 {!member.isPending && member.userId !== organization.createdBy && (
+                                                                     <select
+                                                                         value={member.role}
+                                                                         onChange={(e) => roleMutation.mutate({ memberId: member.id, role: e.target.value })}
+                                                                         className="bg-transparent text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 dark:text-[#8A93A4] outline-none hover:text-[#0EA5E9] cursor-pointer"
+                                                                     >
+                                                                         {currentUserRole === 'admin' && <option value="admin">Admin</option>}
+                                                                         <option value="manager">Manager</option>
+                                                                         <option value="operator">Operator</option>
+                                                                     </select>
+                                                                 )}
 
-                                                                <button
-                                                                    onClick={() => {
-                                                                        if (member.isPending) {
-                                                                            if (confirm(`Cancel invitation for ${member.email}?`)) {
-                                                                                cancelInviteMutation.mutate(member.id);
-                                                                            }
-                                                                        } else {
-                                                                            if (confirm(`Remove ${member.name} from this organization?`)) {
-                                                                                removeMutation.mutate(member.id);
-                                                                            }
-                                                                        }
-                                                                    }}
-                                                                    className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
-                                                                    title={member.isPending ? "Cancel Invitation" : "Remove Member"}
-                                                                >
-                                                                    <Trash2 size={16} />
-                                                                </button>
-                                                            </>
-                                                        );
-                                                    })()}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                    {loadingMembers && <p className="text-center text-slate-400 py-8 animate-pulse font-medium">Updating team access...</p>}
-                                    {members.length === 0 && !loadingMembers && (
-                                        <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800">
-                                            <p className="text-slate-400 font-medium">No team members yet. Time to recruit!</p>
-                                        </div>
-                                    )}
-                                </div>
+                                                                 <button
+                                                                     onClick={() => {
+                                                                         if (member.isPending) {
+                                                                             if (confirm(`Cancel invitation for ${member.email}?`)) {
+                                                                                 cancelInviteMutation.mutate(member.id);
+                                                                             }
+                                                                         } else {
+                                                                             if (confirm(`Remove ${member.name} from this organization?`)) {
+                                                                                 removeMutation.mutate(member.id);
+                                                                             }
+                                                                         }
+                                                                     }}
+                                                                     className="p-2 text-slate-300 dark:text-[#6A7382] hover:text-[#EF4444] transition-colors"
+                                                                     title={member.isPending ? "Cancel Invitation" : "Remove Member"}
+                                                                 >
+                                                                     <Trash2 size={16} />
+                                                                 </button>
+                                                             </>
+                                                         );
+                                                     })()}
+                                                 </div>
+                                             </div>
+                                         );
+                                     })}
+                                     {loadingMembers && <p className="text-center text-slate-400 py-8 animate-pulse font-mono text-xs">Updating team access...</p>}
+                                     {members.length === 0 && !loadingMembers && (
+                                         <div className="text-center py-12 bg-slate-50 dark:bg-[#181B22] rounded-2xl border-2 border-dashed border-slate-200 dark:border-[#22262E]">
+                                             <p className="text-slate-400 font-mono text-xs">No team members yet. Time to recruit!</p>
+                                         </div>
+                                     )}
+                                 </div>
 
-                                {/* Invite Modal */}
-                                {isInviteOpen && (
-                                    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-                                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300">
-                                            <div className="p-8 pb-4">
-                                                <div className="w-16 h-16 bg-indigo-600/10 text-indigo-600 rounded-3xl flex items-center justify-center mb-6">
-                                                    <UserPlus size={32} />
-                                                </div>
-                                                <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Invite Teammate</h3>
-                                                <p className="text-slate-500 mt-2 font-medium">Add someone to **{organization.name}** by their email address.</p>
-                                            </div>
+                                 {/* Invite Modal */}
+                                 {isInviteOpen && (
+                                     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4 font-sans">
+                                         <div className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+                                             <div className="p-6 pb-2">
+                                                 <div className="w-12 h-12 bg-[#0EA5E9]/10 text-[#0EA5E9] border border-[#0EA5E9]/20 rounded-xl flex items-center justify-center mb-4">
+                                                     <UserPlus size={24} />
+                                                 </div>
+                                                 <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Invite Teammate</h3>
+                                                 <p className="text-slate-500 dark:text-[#8A93A4] mt-1 text-xs">Add someone to <strong className="text-slate-900 dark:text-white">{organization.name}</strong> by email.</p>
+                                             </div>
 
-                                            <div className="p-8 space-y-6">
-                                                <div>
-                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Email Address</label>
-                                                    <div className="relative">
-                                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                                        <input
-                                                            type="email"
-                                                            value={inviteEmail}
-                                                            onChange={(e) => setInviteEmail(e.target.value)}
-                                                            autoFocus
-                                                            placeholder="teammate@example.com"
-                                                            className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl pl-12 pr-4 py-4 outline-none focus:ring-2 focus:ring-indigo-600 text-slate-900 dark:text-white font-medium"
-                                                        />
-                                                    </div>
-                                                </div>
+                                             <div className="p-6 space-y-4">
+                                                 <div>
+                                                     <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-1.5">Email Address</label>
+                                                     <div className="relative">
+                                                         <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                                         <input
+                                                             type="email"
+                                                             value={inviteEmail}
+                                                             onChange={(e) => setInviteEmail(e.target.value)}
+                                                             autoFocus
+                                                             placeholder="teammate@example.com"
+                                                             className="w-full bg-slate-50 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] rounded-xl pl-10 pr-4 py-2.5 outline-none focus:ring-2 focus:ring-[#0EA5E9] text-slate-900 dark:text-white text-xs font-mono"
+                                                         />
+                                                     </div>
+                                                 </div>
 
-                                                <div>
-                                                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Access Role</label>
-                                                    <div className="grid grid-cols-3 gap-3">
-                                                        {(['operator', 'manager', 'admin'] as const)
-                                                            .filter(r => currentUserRole === 'admin' || r !== 'admin')
-                                                            .map((r) => (
-                                                                <button
-                                                                    key={r}
-                                                                    onClick={() => setInviteRole(r)}
-                                                                    className={`px-3 py-3 rounded-xl border-2 transition-all text-[10px] font-black uppercase tracking-widest ${inviteRole === r
-                                                                        ? 'bg-indigo-600 border-indigo-600 text-white'
-                                                                        : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-400 hover:border-indigo-600/30'
-                                                                        }`}
-                                                                >
-                                                                    {r}
-                                                                </button>
-                                                            ))}
-                                                    </div>
-                                                </div>
+                                                 <div>
+                                                     <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-1.5">Access Role</label>
+                                                     <div className="grid grid-cols-3 gap-2 font-mono">
+                                                         {(['operator', 'manager', 'admin'] as const)
+                                                             .filter(r => currentUserRole === 'admin' || r !== 'admin')
+                                                             .map((r) => (
+                                                                 <button
+                                                                     key={r}
+                                                                     onClick={() => setInviteRole(r)}
+                                                                     className={`px-2.5 py-2 rounded-lg border transition-all text-[10px] font-bold uppercase tracking-wider ${inviteRole === r
+                                                                         ? 'bg-[#0EA5E9] border-[#0EA5E9] text-white shadow-sm'
+                                                                         : 'bg-transparent border-slate-200 dark:border-[#22262E] text-slate-400 hover:border-[#0EA5E9]/50'
+                                                                         }`}
+                                                                 >
+                                                                     {r}
+                                                                 </button>
+                                                             ))}
+                                                     </div>
+                                                 </div>
 
-                                                {inviteError && (
-                                                    <div className="bg-rose-500/10 text-rose-500 p-4 rounded-xl text-xs font-bold border border-rose-500/20 flex items-center gap-3">
-                                                        <AlertCircle size={16} />
-                                                        {inviteError}
-                                                    </div>
-                                                )}
-                                            </div>
+                                                 {inviteError && (
+                                                     <div className="bg-rose-500/10 text-rose-500 p-3 rounded-lg text-xs font-bold border border-rose-500/20 flex items-center gap-2">
+                                                         <AlertCircle size={14} />
+                                                         {inviteError}
+                                                     </div>
+                                                 )}
+                                             </div>
 
-                                            <div className="p-8 pt-2 flex flex-col gap-3">
-                                                <button
-                                                    disabled={!inviteEmail || inviteMutation.isPending}
-                                                    onClick={() => inviteMutation.mutate({ email: inviteEmail, role: inviteRole })}
-                                                    className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-2xl font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50"
-                                                >
-                                                    {inviteMutation.isPending ? 'Connecting...' : 'Add Teammate'}
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setIsInviteOpen(false);
-                                                        setInviteError('');
-                                                    }}
-                                                    className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
+                                             <div className="p-6 pt-2 flex flex-col gap-2 font-mono">
+                                                 <button
+                                                     onClick={() => inviteMutation.mutate({ email: inviteEmail, role: inviteRole })}
+                                                     disabled={inviteMutation.isPending || !inviteEmail}
+                                                     className="w-full py-2.5 bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-50 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md"
+                                                 >
+                                                     {inviteMutation.isPending ? 'Sending...' : 'Send Invitation'}
+                                                 </button>
+                                                 <button
+                                                     onClick={() => setIsInviteOpen(false)}
+                                                     className="w-full py-2 bg-transparent text-slate-400 hover:text-slate-200 text-xs font-bold uppercase tracking-wider"
+                                                 >
+                                                     Cancel
+                                                 </button>
+                                             </div>
+                                         </div>
+                                     </div>
                                 )}
                             </div>
                         )}
@@ -705,12 +702,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                 <button
                                     onClick={() => setDeleteOption('migrate')}
                                     className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center text-center gap-3 ${deleteOption === 'migrate'
-                                        ? 'bg-indigo-500/10 border-indigo-500 shadow-lg shadow-indigo-500/10'
+                                        ? 'bg-[#0EA5E9]/10 border-[#0EA5E9] shadow-lg shadow-[#0EA5E9]/10'
                                         : 'bg-slate-50 dark:bg-slate-800/50 border-transparent hover:border-slate-200 dark:hover:border-slate-700'}`}
                                 >
-                                    <ArrowRight size={24} className={deleteOption === 'migrate' ? 'text-indigo-500' : 'text-slate-400'} />
+                                    <ArrowRight size={24} className={deleteOption === 'migrate' ? 'text-[#0EA5E9]' : 'text-slate-400'} />
                                     <div>
-                                        <div className={`font-bold ${deleteOption === 'migrate' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-300'}`}>Migrate</div>
+                                        <div className={`font-bold ${deleteOption === 'migrate' ? 'text-[#0EA5E9]' : 'text-slate-600 dark:text-slate-300'}`}>Migrate</div>
                                         <div className="text-[10px] text-slate-400 uppercase font-black">Move Events</div>
                                     </div>
                                 </button>

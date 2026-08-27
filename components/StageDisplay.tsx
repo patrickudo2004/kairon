@@ -128,65 +128,65 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     const isWarning = timeLeft >= 0 && timeLeft <= 60;
 
     return (
-        <div className="w-screen h-screen bg-[#000000] text-white overflow-hidden flex flex-col justify-between p-6 md:p-12 font-sans select-none relative">
+        <div className="w-screen h-screen bg-[#000000] text-white overflow-hidden flex flex-col justify-between p-4 sm:p-6 md:p-10 font-sans select-none relative box-border">
             
             {/* Perimeter Tally Flash Border on Overtime / Hold */}
             {isOvertime && (
-                <div className="absolute inset-0 border-8 md:border-[16px] border-[#EF4444] pointer-events-none z-50 animate-pulse" />
+                <div className="absolute inset-0 border-4 sm:border-8 md:border-[16px] border-[#EF4444] pointer-events-none z-50 animate-pulse" />
             )}
             {program.isOnHold && !isOvertime && (
-                <div className="absolute inset-0 border-8 md:border-[16px] border-[#F59E0B] pointer-events-none z-50 animate-pulse" />
+                <div className="absolute inset-0 border-4 sm:border-8 md:border-[16px] border-[#F59E0B] pointer-events-none z-50 animate-pulse" />
             )}
 
             {/* Controls Container */}
             {!isThumbnail && (
-                <div className="absolute top-4 right-4 z-50 flex items-center gap-2 opacity-10 hover:opacity-100 transition-opacity p-2 rounded">
+                <div className="absolute top-3 right-3 z-50 flex items-center gap-2 opacity-10 hover:opacity-100 transition-opacity p-2 rounded">
                     {toggleTheme && (
                         <button
                             onClick={toggleTheme}
-                            className="p-2.5 bg-[#121418] border border-[#22262E] rounded text-[#8A93A4] hover:text-white"
+                            className="p-2 sm:p-2.5 bg-[#121418] border border-[#22262E] rounded text-[#8A93A4] hover:text-white"
                             title="Toggle Theme"
                         >
-                            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                            {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
                         </button>
                     )}
                     <button
                         onClick={toggleFullscreen}
-                        className="p-2.5 bg-[#121418] border border-[#22262E] rounded text-[#8A93A4] hover:text-white"
+                        className="p-2 sm:p-2.5 bg-[#121418] border border-[#22262E] rounded text-[#8A93A4] hover:text-white"
                         title="Toggle Fullscreen"
                     >
-                        {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                        {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
                     </button>
                 </div>
             )}
 
             {/* Top Bar: Current Item + Speaker */}
-            <div className="flex justify-between items-start z-10 border-b border-[#22262E]/60 pb-6">
+            <div className="flex justify-between items-start z-10 border-b border-[#22262E]/60 pb-3 sm:pb-5 shrink-0">
                 <div className="max-w-[70%]">
-                    <div className="text-xs md:text-sm font-mono text-[#8A93A4] uppercase tracking-widest mb-1 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-[#0EA5E9]" />
+                    <div className="text-[10px] sm:text-xs md:text-sm font-mono text-[#8A93A4] uppercase tracking-widest mb-0.5 sm:mb-1 flex items-center gap-1.5 sm:gap-2">
+                        <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#0EA5E9]" />
                         <span>CURRENT ITEM • SLOT {currentSlotIndex + 1} OF {program.slots.length}</span>
                     </div>
-                    <h1 className="text-3xl md:text-6xl font-bold uppercase tracking-tight text-white leading-tight">
+                    <h1 className="text-xl sm:text-3xl md:text-5xl lg:text-6xl font-bold uppercase tracking-tight text-white leading-tight truncate">
                         {currentSlot.title}
                     </h1>
                     {currentSlot.speaker && (
-                        <p className="text-lg md:text-2xl text-[#0EA5E9] font-mono font-medium mt-1">
+                        <p className="text-sm sm:text-lg md:text-2xl text-[#0EA5E9] font-mono font-medium mt-0.5 sm:mt-1 truncate">
                             {currentSlot.speaker}
                         </p>
                     )}
                 </div>
 
-                <div className="text-right">
-                    <div className="text-xs md:text-sm font-mono text-[#8A93A4] uppercase tracking-widest mb-1">STATUS</div>
+                <div className="text-right shrink-0">
+                    <div className="text-[10px] sm:text-xs md:text-sm font-mono text-[#8A93A4] uppercase tracking-widest mb-0.5 sm:mb-1">STATUS</div>
                     {isTimerActive ? (
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#10B981]/10 border border-[#10B981]/30 rounded text-[#10B981] font-mono text-base md:text-xl font-bold tracking-wider">
-                            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-tally" />
+                        <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 bg-[#10B981]/10 border border-[#10B981]/30 rounded text-[#10B981] font-mono text-xs sm:text-base md:text-xl font-bold tracking-wider">
+                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#10B981] animate-tally" />
                             <span>ON AIR</span>
                         </div>
                     ) : (
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#F59E0B]/10 border border-[#F59E0B]/30 rounded text-[#F59E0B] font-mono text-base md:text-xl font-bold tracking-wider">
-                            <span className="w-2 h-2 rounded-full bg-[#F59E0B]" />
+                        <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 bg-[#F59E0B]/10 border border-[#F59E0B]/30 rounded text-[#F59E0B] font-mono text-xs sm:text-base md:text-xl font-bold tracking-wider">
+                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#F59E0B]" />
                             <span>STANDBY</span>
                         </div>
                     )}
@@ -194,21 +194,23 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
             </div>
 
             {/* Center Massive Countdown Readout */}
-            <div className="flex-1 flex flex-col items-center justify-center relative my-4">
+            <div className="flex-1 flex flex-col items-center justify-center relative my-auto min-h-0 overflow-hidden">
                 <div className={`font-mono font-bold leading-none tracking-tight tabular-nums select-none transition-colors ${
                     isOvertime 
                         ? 'text-[#EF4444] animate-pulse' 
                         : (isWarning ? 'text-[#F59E0B] animate-pulse' : 'text-white')
                 }`}
                 style={{
-                    fontSize: isVisible && !promptMessage?.isStrobe ? '12vw' : '32vw',
-                    transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-8vh)' : 'none'
+                    fontSize: isVisible && !promptMessage?.isStrobe 
+                        ? 'clamp(2.5rem, 12vw, 15vh)' 
+                        : 'clamp(3.5rem, min(24vw, 36vh), 28vw)',
+                    transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-3vh)' : 'none'
                 }}>
                     {formatDuration(timeLeft)}
                 </div>
 
                 {isOvertime && (
-                    <div className="text-xl md:text-3xl font-mono text-[#EF4444] font-bold uppercase tracking-widest mt-2 animate-bounce">
+                    <div className="text-xs sm:text-lg md:text-2xl font-mono text-[#EF4444] font-bold uppercase tracking-widest mt-1 sm:mt-2 animate-bounce shrink-0">
                         OVERTIME • PLEASE WRAP UP
                     </div>
                 )}
@@ -216,9 +218,9 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
 
             {/* Prompt Stage Message Overlay */}
             {isVisible && promptMessage && !promptMessage.isStrobe && (
-                <div className="absolute top-[55vh] left-0 right-0 z-40 flex justify-center px-8 animate-in slide-in-from-bottom-6 duration-300">
-                    <div className="bg-[#121418]/95 border-2 border-[#10B981] rounded-xl px-8 py-4 shadow-2xl">
-                        <h2 className="text-[6vw] font-mono font-bold uppercase text-[#10B981] tracking-tight text-center">
+                <div className="absolute top-[50vh] left-0 right-0 z-40 flex justify-center px-4 sm:px-8 animate-in slide-in-from-bottom-6 duration-300">
+                    <div className="bg-[#121418]/95 border-2 border-[#10B981] rounded-xl px-4 sm:px-8 py-2 sm:py-4 shadow-2xl">
+                        <h2 className="text-lg sm:text-[4vw] font-mono font-bold uppercase text-[#10B981] tracking-tight text-center">
                             {promptMessage.text}
                         </h2>
                     </div>
@@ -247,24 +249,24 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
             )}
 
             {/* Bottom Strip: Duration Target & Up Next */}
-            <div className="flex justify-between items-end border-t border-[#22262E]/60 pt-6 z-10">
-                <div>
-                    <span className="text-[10px] md:text-xs font-mono text-[#8A93A4] uppercase tracking-widest block mb-1">PLANNED DURATION</span>
-                    <span className="text-xl md:text-3xl font-mono font-bold text-white">{currentSlot.durationMinutes}m</span>
+            <div className="flex justify-between items-end border-t border-[#22262E]/60 pt-3 sm:pt-5 z-10 shrink-0 gap-2">
+                <div className="shrink-0">
+                    <span className="text-[9px] sm:text-xs font-mono text-[#8A93A4] uppercase tracking-widest block mb-0.5">PLANNED DURATION</span>
+                    <span className="text-sm sm:text-xl md:text-3xl font-mono font-bold text-white">{currentSlot.durationMinutes}m</span>
                 </div>
 
                 {!isThumbnail && program.slots[currentSlotIndex + 1] && (
-                    <div className="text-center px-4 max-w-xl">
-                        <span className="text-[10px] md:text-xs font-mono text-[#F59E0B] uppercase tracking-widest block mb-1">UP NEXT</span>
-                        <p className="text-lg md:text-2xl font-bold text-white uppercase truncate">
+                    <div className="text-center px-2 max-w-sm md:max-w-xl truncate">
+                        <span className="text-[9px] sm:text-xs font-mono text-[#F59E0B] uppercase tracking-widest block mb-0.5">UP NEXT</span>
+                        <p className="text-xs sm:text-base md:text-2xl font-bold text-white uppercase truncate">
                             {program.slots[currentSlotIndex + 1].title}
                         </p>
                     </div>
                 )}
 
-                <div className="text-right">
-                    <span className="text-[10px] md:text-xs font-mono text-[#8A93A4] uppercase tracking-widest block mb-1">EVENT</span>
-                    <span className="text-lg md:text-2xl font-bold text-white uppercase">{program.title}</span>
+                <div className="text-right shrink-0">
+                    <span className="text-[9px] sm:text-xs font-mono text-[#8A93A4] uppercase tracking-widest block mb-0.5">EVENT</span>
+                    <span className="text-xs sm:text-base md:text-2xl font-bold text-white uppercase truncate max-w-[140px] sm:max-w-[260px] block">{program.title}</span>
                 </div>
             </div>
 
