@@ -1789,6 +1789,10 @@ const AppContent: React.FC = () => {
     return <CrewHUD />;
   }
 
+  if (location.pathname === '/public' || location.pathname === '/portal') {
+    return <PublicPortal />;
+  }
+
 
   // Header UI Sync (for the mini-timer)
   const headerElapsed = useTimerSync(displayTimerStartTimestamp, displayIsTimerActive, displaySecondsElapsed);

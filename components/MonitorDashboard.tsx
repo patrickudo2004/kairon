@@ -191,7 +191,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
             title: 'Crew Tactical HUD',
             icon: Activity,
             description: 'Live cue acknowledgements for Sound, Light, and Video.',
-            path: program.slug ? `/p/${program.slug}/crew` : `/crew?id=${program.id}`,
+            path: `/crew?id=${program.id}`,
             badgeColor: 'text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/30',
             tabId: 'crew'
         },
@@ -199,7 +199,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
             title: 'Public Portal',
             icon: Smartphone,
             description: 'Mobile web schedule for audience & guests.',
-            path: program.slug ? `/p/${program.slug}` : `/p/${program.id}`,
+            path: `/public?id=${program.id}`,
             badgeColor: 'text-[#64748B] bg-[#64748B]/10 border-[#64748B]/30',
             tabId: 'public'
         }

@@ -135,17 +135,17 @@ export const CrewHUD: React.FC = () => {
     // Convex Reactive Query
     const programData = useQuery(
         api.programs.getProgramBySlug,
-        slug ? { slug } : "skip"
+        slug ? { slug } : (targetId ? { slug: targetId } : "skip")
     );
 
     const programByIdData = useQuery(
         api.programs.getProgramById,
-        !programData && targetId ? { id: targetId as any } : "skip"
+        targetId ? { id: targetId as any } : "skip"
     );
 
     const liveProgramData = useQuery(
         api.programs.getLiveProgram,
-        !programData && !programByIdData ? {} : "skip"
+        {} // Always poll live channel as fallback
     );
 
     const programRaw = programData || programByIdData || liveProgramData;
