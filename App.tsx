@@ -1554,20 +1554,46 @@ const AppContent: React.FC = () => {
     const holdState = nextHoldState !== undefined ? nextHoldState : !targetProg.isOnHold;
     const msg = targetProg.holdMessage || "";
 
+    const currentElapsed = targetId === displayProgram.id ? currentTickingSecondsRef.current : (targetProg.secondsElapsed || 0);
+
+    // If entering HOLD: pause timer & freeze elapsed
+    // If exiting HOLD: resume timer if it was running or should run
+    let nextTimerActive = false;
+    let nextTimestamp: number | null = null;
+
+    if (holdState) {
+      // Entering HOLD -> freeze countdown clock
+      nextTimerActive = false;
+      nextTimestamp = null;
+    } else {
+      // Exiting HOLD -> resume countdown clock cleanly
+      nextTimerActive = true;
+      nextTimestamp = Date.now() - (currentElapsed * 1000);
+    }
+
     // PUSH TO CLOUD - Ensure HUDs update instantly
     timerSaveMutation.mutate({
       id: targetId,
       currentSlotIndex: targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0),
-      isTimerActive: targetId === displayProgram.id ? displayIsTimerActive : (targetProg.isTimerActive || false),
-      secondsElapsed: targetId === displayProgram.id ? currentTickingSecondsRef.current : (targetProg.secondsElapsed || 0),
-      timerStartTimestamp: targetId === displayProgram.id ? displayTimerStartTimestamp : (targetProg.timerStartTimestamp || null),
+      isTimerActive: nextTimerActive,
+      secondsElapsed: currentElapsed,
+      timerStartTimestamp: nextTimestamp,
       isOnHold: holdState,
       holdMessage: msg
     });
 
     // Local update for smoothness on draft
     if (targetId === program.id) {
-      updateLocalProgram(prev => ({ ...prev, isOnHold: holdState, holdMessage: msg }));
+      updateLocalProgram(prev => ({
+        ...prev,
+        isOnHold: holdState,
+        holdMessage: msg,
+        isTimerActive: nextTimerActive,
+        secondsElapsed: currentElapsed,
+        timerStartTimestamp: nextTimestamp
+      }));
+      setIsTimerActive(nextTimerActive);
+      setTimerStartTimestamp(nextTimestamp);
     }
   };
 
@@ -1777,7 +1803,7 @@ const AppContent: React.FC = () => {
   const isHudVisible = !!(user && canControlLive && displayProgram.slots.length > 0);
 
   return (
-    <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div className="h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-hidden">
       {user && (
         <Sidebar
           activeOrg={activeOrg}
@@ -1814,7 +1840,7 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      <div className={`flex-1 flex flex-col min-h-screen pb-32 lg:pb-0 transition-all duration-300 overflow-x-hidden ${
+      <div className={`flex-1 flex flex-col h-screen transition-all duration-300 overflow-hidden ${
         user 
           ? (isSidebarCollapsed 
               ? (isHudVisible ? 'lg:pl-[192px]' : 'lg:pl-20') 
@@ -1823,7 +1849,7 @@ const AppContent: React.FC = () => {
           : ''
       }`}>
         {/* Header (Studio Precision Top Bar) */}
-        <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-[#22262E] bg-white/95 dark:bg-[#090A0C]/95 backdrop-blur-md transition-colors h-14 flex items-center shrink-0 no-print font-sans">
+        <header className="h-14 shrink-0 border-b border-slate-200 dark:border-[#22262E] bg-white/95 dark:bg-[#090A0C]/95 backdrop-blur-md transition-colors z-40 flex items-center shrink-0 no-print font-sans">
           <div className="w-full px-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
               {!user ? (
