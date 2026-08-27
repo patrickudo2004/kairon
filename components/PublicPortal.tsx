@@ -28,9 +28,16 @@ export const PublicPortal: React.FC = () => {
 
         const channel = new BroadcastChannel('kairon_displays');
         const handleMessage = (event: MessageEvent) => {
-            const { type, tabId: targetTabId } = event.data;
-            if (type === 'toggle_theme' && targetTabId === 'public') {
-                toggleTheme();
+            if (!event.data) return;
+            const { type, tabId: targetTabId, theme } = event.data;
+            if (type === 'toggle_theme' && (targetTabId === 'public' || !targetTabId)) {
+                if (theme) {
+                    if ((theme === 'dark' && !isDarkMode) || (theme === 'light' && isDarkMode)) {
+                        toggleTheme();
+                    }
+                } else {
+                    toggleTheme();
+                }
             }
         };
         channel.addEventListener('message', handleMessage);
@@ -39,7 +46,7 @@ export const PublicPortal: React.FC = () => {
             channel.removeEventListener('message', handleMessage);
             channel.close();
         };
-    }, [toggleTheme]);
+    }, [toggleTheme, isDarkMode]);
 
     const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     const searchId = searchParams.get('id');

@@ -13,10 +13,37 @@ export const CrewHUD: React.FC = () => {
     const searchId = searchParams.get('id');
     const targetId = slug || searchId || '';
     const isAutoFs = searchParams.get('autofs') === '1';
+    const urlTheme = searchParams.get('theme') as 'dark' | 'light' | null;
+
+    const [currentTheme, setCurrentTheme] = useState<'dark' | 'light'>(() => {
+        if (urlTheme) return urlTheme;
+        const saved = typeof window !== 'undefined' ? localStorage.getItem('kairon_display_theme_crew') : null;
+        if (saved === 'dark' || saved === 'light') return saved;
+        return 'dark';
+    });
 
     const [tick, setTick] = useState(0);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showFsPrompt, setShowFsPrompt] = useState(isAutoFs);
+
+    // Real-time broadcast sync for display theme toggles
+    useEffect(() => {
+        const channel = new BroadcastChannel('kairon_displays');
+        const handleMsg = (e: MessageEvent) => {
+            if (e.data && e.data.type === 'toggle_theme' && (e.data.tabId === 'crew' || !e.data.tabId)) {
+                setCurrentTheme(prev => {
+                    const next = e.data.theme || (prev === 'dark' ? 'light' : 'dark');
+                    localStorage.setItem('kairon_display_theme_crew', next);
+                    return next;
+                });
+            }
+        };
+        channel.addEventListener('message', handleMsg);
+        return () => {
+            channel.removeEventListener('message', handleMsg);
+            channel.close();
+        };
+    }, []);
 
     // Hardware Fullscreen Toggle
     const toggleFullscreen = useCallback(async () => {
@@ -282,10 +309,14 @@ export const CrewHUD: React.FC = () => {
         );
     }
 
+    const isThemeLight = currentTheme === 'light';
+
     return (
         <div 
             onDoubleClick={toggleFullscreen}
-            className="min-h-screen bg-[#090A0C] text-white overflow-hidden flex flex-col font-mono select-none relative"
+            className={`min-h-screen ${
+                isThemeLight ? 'bg-slate-50 text-slate-900' : 'bg-[#090A0C] text-white'
+            } overflow-hidden flex flex-col font-mono select-none relative transition-colors duration-300`}
         >
             {/* Auto Fullscreen Floating Banner */}
             {showFsPrompt && !isFullscreen && (
@@ -299,28 +330,55 @@ export const CrewHUD: React.FC = () => {
             )}
 
             {/* Header / Meta */}
-            <header className="px-6 py-3.5 bg-[#121418] border-b border-[#22262E] flex items-center justify-between">
+            <header className={`px-6 py-3.5 ${
+                isThemeLight ? 'bg-white border-slate-200' : 'bg-[#121418] border-[#22262E]'
+            } border-b flex items-center justify-between`}>
                 <div className="flex items-center gap-3">
                     <div className="bg-[#F59E0B] text-black text-[10px] font-mono font-bold px-2 py-0.5 rounded tracking-wider uppercase">
                         Crew HUD
                     </div>
-                    <h1 className="text-sm font-bold truncate max-w-[300px] text-white uppercase tracking-wider font-mono">
+                    <h1 className={`text-sm font-bold truncate max-w-[300px] ${
+                        isThemeLight ? 'text-slate-900' : 'text-white'
+                    } uppercase tracking-wider font-mono`}>
                         {program.title}
                     </h1>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                         <span className={`w-2 h-2 rounded-full ${program.isTimerActive ? 'bg-[#10B981] animate-tally' : 'bg-[#6A7382]'}`} />
-                        <span className="text-[10px] font-bold text-[#8A93A4] uppercase tracking-widest font-mono">
+                        <span className={`text-[10px] font-bold ${
+                            isThemeLight ? 'text-slate-500' : 'text-[#8A93A4]'
+                        } uppercase tracking-widest font-mono`}>
                             {program.isTimerActive ? 'ON AIR' : 'STANDBY'}
                         </span>
                     </div>
-                    <div className="text-[10px] font-mono font-bold text-[#8A93A4] tracking-widest">
+                    <div className={`text-[10px] font-mono font-bold ${
+                        isThemeLight ? 'text-slate-500' : 'text-[#8A93A4]'
+                    } tracking-widest`}>
                         {new Date().toLocaleTimeString()}
                     </div>
                     <button
+                        onClick={() => {
+                            const next = isThemeLight ? 'dark' : 'light';
+                            setCurrentTheme(next);
+                            localStorage.setItem('kairon_display_theme_crew', next);
+                        }}
+                        className={`p-1.5 ${
+                            isThemeLight 
+                                ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700 hover:text-black' 
+                                : 'bg-[#181B22] hover:bg-[#22262E] border-[#22262E] text-[#8A93A4] hover:text-white'
+                        } border rounded transition-all`}
+                        title="Toggle Theme"
+                    >
+                        {isThemeLight ? <Moon size={13} /> : <Sun size={13} />}
+                    </button>
+                    <button
                         onClick={toggleFullscreen}
-                        className="p-1.5 bg-[#181B22] hover:bg-[#22262E] border border-[#22262E] text-[#8A93A4] hover:text-white rounded transition-all"
+                        className={`p-1.5 ${
+                            isThemeLight 
+                                ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700 hover:text-black' 
+                                : 'bg-[#181B22] hover:bg-[#22262E] border-[#22262E] text-[#8A93A4] hover:text-white'
+                        } border rounded transition-all`}
                         title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen (F)"}
                     >
                         {isFullscreen ? <Minimize size={13} /> : <Maximize size={13} />}
@@ -328,15 +386,21 @@ export const CrewHUD: React.FC = () => {
                 </div>
             </header>
 
-            <main className="flex-1 grid grid-cols-12 gap-px bg-[#22262E] overflow-hidden">
+            <main className={`flex-1 grid grid-cols-12 gap-px ${
+                isThemeLight ? 'bg-slate-200' : 'bg-[#22262E]'
+            } overflow-hidden`}>
                 {/* Left: The "Now" Block */}
-                <div className="col-span-12 lg:col-span-8 bg-[#090A0C] p-6 lg:p-10 flex flex-col justify-between border-r border-[#22262E]">
+                <div className={`col-span-12 lg:col-span-8 ${
+                    isThemeLight ? 'bg-white border-slate-200' : 'bg-[#090A0C] border-[#22262E]'
+                } p-6 lg:p-10 flex flex-col justify-between border-r`}>
                     <div className="space-y-2">
                         <div className="text-[10px] font-mono font-bold text-[#10B981] uppercase tracking-[0.25em] flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-tally" />
                             Current Slot • {currentSlotIndex + 1} of {program.slots.length}
                         </div>
-                        <h2 className="text-3xl lg:text-5xl font-bold tracking-tight text-white uppercase font-mono leading-tight">
+                        <h2 className={`text-3xl lg:text-5xl font-bold tracking-tight ${
+                            isThemeLight ? 'text-slate-900' : 'text-white'
+                        } uppercase font-mono leading-tight`}>
                             {currentSlot?.title || 'No Active Slot'}
                         </h2>
                         {currentSlot?.speaker && (
@@ -347,15 +411,23 @@ export const CrewHUD: React.FC = () => {
                     </div>
 
                     <div className="flex items-baseline gap-4 py-6 lg:py-10">
-                        <div className={`text-[16vw] lg:text-[140px] font-mono font-bold leading-none tabular-nums tracking-tight ${remainingSeconds < 0 ? 'text-[#EF4444] animate-pulse' : (remainingSeconds <= 60 ? 'text-[#F59E0B] animate-pulse' : 'text-white')}`}>
+                        <div className={`text-[16vw] lg:text-[140px] font-mono font-bold leading-none tabular-nums tracking-tight ${
+                            remainingSeconds < 0 
+                                ? 'text-[#EF4444] animate-pulse' 
+                                : (remainingSeconds <= 60 ? 'text-[#F59E0B] animate-pulse' : (isThemeLight ? 'text-slate-950' : 'text-white'))
+                        }`}>
                             {formatCountdown(remainingSeconds)}
                         </div>
-                        <div className="text-xl lg:text-2xl font-mono font-bold text-[#6A7382] uppercase tracking-widest">
+                        <div className={`text-xl lg:text-2xl font-mono font-bold ${
+                            isThemeLight ? 'text-slate-400' : 'text-[#6A7382]'
+                        } uppercase tracking-widest`}>
                             {remainingSeconds < 0 ? 'Overtime' : 'Remaining'}
                         </div>
                     </div>
 
-                    <div className="h-3 bg-[#121418] rounded-full overflow-hidden border border-[#22262E] p-0.5">
+                    <div className={`h-3 ${
+                        isThemeLight ? 'bg-slate-100 border-slate-200' : 'bg-[#121418] border-[#22262E]'
+                    } rounded-full overflow-hidden border p-0.5`}>
                         <div
                             className="h-full bg-[#0EA5E9] rounded-full transition-all duration-1000 ease-linear"
                             style={{ width: `${Math.min(100, (derivedSecondsElapsed / ((currentSlot?.durationMinutes || 1) * 60)) * 100)}%` }}
@@ -364,21 +436,31 @@ export const CrewHUD: React.FC = () => {
                 </div>
 
                 {/* Right: Technical Cues & ACKs */}
-                <div className="col-span-12 lg:col-span-4 flex flex-col bg-[#121418]">
+                <div className={`col-span-12 lg:col-span-4 flex flex-col ${
+                    isThemeLight ? 'bg-slate-50' : 'bg-[#121418]'
+                }`}>
                     <div className="flex-1 overflow-y-auto">
                         {/* Active Cue Block */}
-                        <div className="p-6 space-y-3 border-b border-[#22262E]">
+                        <div className={`p-6 space-y-3 border-b ${
+                            isThemeLight ? 'border-slate-200' : 'border-[#22262E]'
+                        }`}>
                             <div className="flex items-center justify-between">
                                 <span className="text-[10px] font-mono font-bold text-[#10B981] uppercase tracking-[0.2em]">Active Production Cue</span>
                                 <Activity size={12} className="text-[#10B981]" />
                             </div>
-                            <div className="bg-[#181B22] border border-[#22262E] rounded-md p-4">
+                            <div className={`${
+                                isThemeLight ? 'bg-white border-slate-200' : 'bg-[#181B22] border-[#22262E]'
+                            } border rounded-md p-4`}>
                                 {currentSlot?.productionNotes ? (
-                                    <p className="text-base text-[#E1E4EA] leading-snug font-mono">
+                                    <p className={`text-base ${
+                                        isThemeLight ? 'text-slate-800' : 'text-[#E1E4EA]'
+                                    } leading-snug font-mono`}>
                                         "{currentSlot.productionNotes}"
                                     </p>
                                 ) : (
-                                    <p className="text-[#6A7382] text-xs font-mono italic">No cues entered for current slot.</p>
+                                    <p className={`${
+                                        isThemeLight ? 'text-slate-400' : 'text-[#6A7382]'
+                                    } text-xs font-mono italic`}>No cues entered for current slot.</p>
                                 )}
                             </div>
                         </div>
@@ -388,28 +470,42 @@ export const CrewHUD: React.FC = () => {
                             <div className="flex items-center justify-between">
                                 <div className="flex flex-col">
                                     <span className="text-[10px] font-mono font-bold text-[#F59E0B] uppercase tracking-[0.2em]">Upcoming Standby</span>
-                                    <span className="text-[9px] text-[#8A93A4] font-mono font-semibold uppercase truncate max-w-[200px]">Next: {nextSlot?.title || 'Conclude'}</span>
+                                    <span className={`text-[9px] ${
+                                        isThemeLight ? 'text-slate-500' : 'text-[#8A93A4]'
+                                    } font-mono font-semibold uppercase truncate max-w-[200px]`}>Next: {nextSlot?.title || 'Conclude'}</span>
                                 </div>
                                 <Clock size={12} className="text-[#F59E0B]" />
                             </div>
-                            <div className="bg-[#181B22] border border-[#22262E] rounded-md p-4 relative overflow-hidden">
+                            <div className={`${
+                                isThemeLight ? 'bg-white border-slate-200' : 'bg-[#181B22] border-[#22262E]'
+                            } border rounded-md p-4 relative overflow-hidden`}>
                                 {nextSlot?.productionNotes ? (
                                     <p className="text-base text-[#F59E0B] leading-snug font-mono">
                                         "{nextSlot.productionNotes}"
                                     </p>
                                 ) : (
-                                    <p className="text-[#6A7382] text-xs font-mono italic">No advance cues required.</p>
+                                    <p className={`${
+                                        isThemeLight ? 'text-slate-400' : 'text-[#6A7382]'
+                                    } text-xs font-mono italic`}>No advance cues required.</p>
                                 )}
                             </div>
                         </div>
 
                         {/* ACK Section */}
-                        <div className="p-6 space-y-3 border-t border-[#22262E]">
-                            <span className="text-[10px] font-mono font-bold text-[#8A93A4] uppercase tracking-[0.2em]">Confirm Readiness</span>
+                        <div className={`p-6 space-y-3 border-t ${
+                            isThemeLight ? 'border-slate-200' : 'border-[#22262E]'
+                        }`}>
+                            <span className={`text-[10px] font-mono font-bold ${
+                                isThemeLight ? 'text-slate-500' : 'text-[#8A93A4]'
+                            } uppercase tracking-[0.2em]`}>Confirm Readiness</span>
                             <div className="grid grid-cols-3 gap-2">
                                 <button
                                     onClick={() => handleAck('sound')}
-                                    className={`flex flex-col items-center justify-center py-3.5 rounded-md border transition-all ${isAcked('sound') ? 'bg-[#10B981]/20 border-[#10B981] text-[#10B981]' : 'bg-[#181B22] border-[#22262E] text-[#8A93A4] hover:text-white hover:border-[#2D333F]'}`}
+                                    className={`flex flex-col items-center justify-center py-3.5 rounded-md border transition-all ${
+                                        isAcked('sound') 
+                                            ? 'bg-[#10B981]/20 border-[#10B981] text-[#10B981]' 
+                                            : (isThemeLight ? 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300' : 'bg-[#181B22] border-[#22262E] text-[#8A93A4] hover:text-white hover:border-[#2D333F]')
+                                    }`}
                                 >
                                     <Volume2 size={18} className="mb-1" />
                                     <span className="text-[9px] font-mono font-bold uppercase">Sound</span>
@@ -417,7 +513,11 @@ export const CrewHUD: React.FC = () => {
                                 </button>
                                 <button
                                     onClick={() => handleAck('lighting')}
-                                    className={`flex flex-col items-center justify-center py-3.5 rounded-md border transition-all ${isAcked('lighting') ? 'bg-[#10B981]/20 border-[#10B981] text-[#10B981]' : 'bg-[#181B22] border-[#22262E] text-[#8A93A4] hover:text-white hover:border-[#2D333F]'}`}
+                                    className={`flex flex-col items-center justify-center py-3.5 rounded-md border transition-all ${
+                                        isAcked('lighting') 
+                                            ? 'bg-[#10B981]/20 border-[#10B981] text-[#10B981]' 
+                                            : (isThemeLight ? 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300' : 'bg-[#181B22] border-[#22262E] text-[#8A93A4] hover:text-white hover:border-[#2D333F]')
+                                    }`}
                                 >
                                     <Lightbulb size={18} className="mb-1" />
                                     <span className="text-[9px] font-mono font-bold uppercase">Lights</span>
@@ -425,7 +525,11 @@ export const CrewHUD: React.FC = () => {
                                 </button>
                                 <button
                                     onClick={() => handleAck('video')}
-                                    className={`flex flex-col items-center justify-center py-3.5 rounded-md border transition-all ${isAcked('video') ? 'bg-[#10B981]/20 border-[#10B981] text-[#10B981]' : 'bg-[#181B22] border-[#22262E] text-[#8A93A4] hover:text-white hover:border-[#2D333F]'}`}
+                                    className={`flex flex-col items-center justify-center py-3.5 rounded-md border transition-all ${
+                                        isAcked('video') 
+                                            ? 'bg-[#10B981]/20 border-[#10B981] text-[#10B981]' 
+                                            : (isThemeLight ? 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300' : 'bg-[#181B22] border-[#22262E] text-[#8A93A4] hover:text-white hover:border-[#2D333F]')
+                                    }`}
                                 >
                                     <Video size={18} className="mb-1" />
                                     <span className="text-[9px] font-mono font-bold uppercase">Video</span>
@@ -436,8 +540,12 @@ export const CrewHUD: React.FC = () => {
                     </div>
 
                     {/* Meta Footer */}
-                    <div className="p-4 bg-[#181B22] border-t border-[#22262E]">
-                        <div className="flex items-center justify-between text-[10px] font-mono font-bold text-[#8A93A4]">
+                    <div className={`p-4 ${
+                        isThemeLight ? 'bg-white border-slate-200' : 'bg-[#181B22] border-[#22262E]'
+                    } border-t`}>
+                        <div className={`flex items-center justify-between text-[10px] font-mono font-bold ${
+                            isThemeLight ? 'text-slate-500' : 'text-[#8A93A4]'
+                        }`}>
                             <span className="uppercase tracking-widest">Tactical HUD</span>
                             <span className="tabular-nums uppercase tracking-widest">
                                 {new Date().toLocaleTimeString()}
@@ -448,11 +556,13 @@ export const CrewHUD: React.FC = () => {
             </main>
 
             {/* Status Footer */}
-            <footer className="px-6 py-2 bg-[#121418] border-t border-[#22262E] flex items-center justify-between text-[9px] font-mono">
-                <div className="text-[#6A7382] uppercase font-bold tracking-widest">Kairon HUD // Ref: {targetId || 'Live'}</div>
+            <footer className={`px-6 py-2 ${
+                isThemeLight ? 'bg-white border-slate-200' : 'bg-[#121418] border-[#22262E]'
+            } border-t flex items-center justify-between text-[9px] font-mono`}>
+                <div className={`${isThemeLight ? 'text-slate-400' : 'text-[#6A7382]'} uppercase font-bold tracking-widest`}>Kairon HUD // Ref: {targetId || 'Live'}</div>
                 <div className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-                    <span className="text-[#8A93A4] font-bold uppercase">Sync Live</span>
+                    <span className={`${isThemeLight ? 'text-slate-500' : 'text-[#8A93A4]'} font-bold uppercase`}>Sync Live</span>
                 </div>
             </footer>
         </div>
