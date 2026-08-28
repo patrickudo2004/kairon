@@ -2,10 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 
 export interface ScreenInfo {
   id: string;
+  index: number;
   isPrimary: boolean;
   isInternal?: boolean;
   width: number;
   height: number;
+  availLeft: number;
+  availTop: number;
+  availWidth: number;
+  availHeight: number;
   left: number;
   top: number;
   label: string;
@@ -15,6 +20,7 @@ export const useScreenManagement = () => {
   const [isSupported, setIsSupported] = useState<boolean>(false);
   const [hasPermission, setHasPermission] = useState<boolean>(false);
   const [screens, setScreens] = useState<ScreenInfo[]>([]);
+  const [externalScreens, setExternalScreens] = useState<ScreenInfo[]>([]);
   const [hasSecondaryScreen, setHasSecondaryScreen] = useState<boolean>(false);
   const [screenDetails, setScreenDetails] = useState<any>(null);
 
@@ -24,7 +30,6 @@ export const useScreenManagement = () => {
 
     // Basic heuristic fallback for multi-screen without explicit permission
     if (typeof window !== 'undefined' && window.screen) {
-      // If window.screen.isExtended is available
       if ('isExtended' in window.screen && (window.screen as any).isExtended) {
         setHasSecondaryScreen(true);
       }
@@ -33,18 +38,28 @@ export const useScreenManagement = () => {
 
   const updateScreensList = useCallback((details: any) => {
     if (!details || !details.screens) return;
-    const list: ScreenInfo[] = details.screens.map((s: any, idx: number) => ({
-      id: s.label || `display-${idx + 1}`,
-      isPrimary: s.isPrimary,
-      isInternal: s.isInternal,
-      width: s.width,
-      height: s.height,
-      left: s.left,
-      top: s.top,
-      label: s.label || (s.isPrimary ? 'Primary Display' : `External Display ${idx}`)
-    }));
+    const list: ScreenInfo[] = details.screens.map((s: any, idx: number) => {
+      const isPrimary = s.isPrimary ?? idx === 0;
+      return {
+        id: s.label || `display-${idx + 1}`,
+        index: idx + 1,
+        isPrimary,
+        isInternal: s.isInternal,
+        width: s.width || 1920,
+        height: s.height || 1080,
+        availLeft: s.availLeft ?? s.left ?? 0,
+        availTop: s.availTop ?? s.top ?? 0,
+        availWidth: s.availWidth ?? s.width ?? 1920,
+        availHeight: s.availHeight ?? s.height ?? 1080,
+        left: s.left ?? 0,
+        top: s.top ?? 0,
+        label: s.label || (isPrimary ? 'Primary Display (Display 1)' : `External Display ${idx + 1}`)
+      };
+    });
     setScreens(list);
-    setHasSecondaryScreen(list.length > 1);
+    const externals = list.filter(s => !s.isPrimary);
+    setExternalScreens(externals);
+    setHasSecondaryScreen(externals.length > 0);
   }, []);
 
   const requestScreenAccess = useCallback(async () => {
@@ -60,7 +75,7 @@ export const useScreenManagement = () => {
       setHasPermission(true);
       updateScreensList(details);
 
-      // Listen for display changes (HDMI plugged in or unplugged)
+      // Listen for display changes (screens plugged in or unplugged)
       details.addEventListener('screenschange', () => {
         console.log('External display topology changed.');
         updateScreensList(details);
@@ -74,15 +89,29 @@ export const useScreenManagement = () => {
     }
   }, [isSupported, updateScreensList]);
 
-  const openOnSecondaryScreen = useCallback(async (path: string, windowName: string = 'kairon_secondary_screen') => {
-    // 1. If we have detailed screen info, find the secondary screen
+  const openOnTargetScreen = useCallback(async (
+    path: string,
+    targetScreenIndex?: number,
+    windowName: string = 'kairon_target_screen'
+  ) => {
+    // 1. If we have detailed screen info, find the specified target screen
     if (screenDetails && screenDetails.screens && screenDetails.screens.length > 1) {
-      const secondary = screenDetails.screens.find((s: any) => !s.isPrimary) || screenDetails.screens[1];
-      if (secondary) {
-        const left = secondary.availLeft ?? secondary.left ?? 1920;
-        const top = secondary.availTop ?? secondary.top ?? 0;
-        const width = secondary.availWidth ?? secondary.width ?? 1920;
-        const height = secondary.availHeight ?? secondary.height ?? 1080;
+      let target: any = null;
+      if (typeof targetScreenIndex === 'number') {
+        // match by 1-based index (e.g. 2 for Display 2, 3 for Display 3)
+        target = screenDetails.screens[targetScreenIndex - 1] || screenDetails.screens[targetScreenIndex];
+      }
+      
+      // If no target found, default to first external screen
+      if (!target) {
+        target = screenDetails.screens.find((s: any) => !s.isPrimary) || screenDetails.screens[1];
+      }
+
+      if (target) {
+        const left = target.availLeft ?? target.left ?? 1920;
+        const top = target.availTop ?? target.top ?? 0;
+        const width = target.availWidth ?? target.width ?? 1920;
+        const height = target.availHeight ?? target.height ?? 1080;
 
         const win = window.open(
           path,
@@ -97,12 +126,13 @@ export const useScreenManagement = () => {
     if (isSupported && !hasPermission) {
       const granted = await requestScreenAccess();
       if (granted && screenDetails) {
-        return openOnSecondaryScreen(path, windowName);
+        return openOnTargetScreen(path, targetScreenIndex, windowName);
       }
     }
 
-    // 3. Fallback: Open with large geometry offset towards right
-    const fallbackLeft = window.screen.width || 1920;
+    // 3. Fallback: Open with calculated geometry offset towards right
+    const offsetMultiplier = typeof targetScreenIndex === 'number' && targetScreenIndex > 2 ? (targetScreenIndex - 1) : 1;
+    const fallbackLeft = (window.screen.width || 1920) * offsetMultiplier;
     return window.open(
       path,
       windowName,
@@ -110,12 +140,18 @@ export const useScreenManagement = () => {
     );
   }, [screenDetails, isSupported, hasPermission, requestScreenAccess]);
 
+  const openOnSecondaryScreen = useCallback(async (path: string, windowName: string = 'kairon_secondary_screen') => {
+    return openOnTargetScreen(path, 2, windowName);
+  }, [openOnTargetScreen]);
+
   return {
     isSupported,
     hasPermission,
     screens,
+    externalScreens,
     hasSecondaryScreen,
     requestScreenAccess,
     openOnSecondaryScreen,
+    openOnTargetScreen,
   };
 };

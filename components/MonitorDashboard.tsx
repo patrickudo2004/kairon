@@ -66,7 +66,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
     displayStatuses = {}
 }) => {
     const { sendStageMessage, clearStageMessage } = useStageMessages(program.id);
-    const { isSupported: isScreenApiSupported, screens, hasSecondaryScreen, requestScreenAccess, openOnSecondaryScreen } = useScreenManagement();
+    const { isSupported: isScreenApiSupported, screens, externalScreens, hasSecondaryScreen, requestScreenAccess, openOnSecondaryScreen, openOnTargetScreen } = useScreenManagement();
 
     const [customMessage, setCustomMessage] = useState('');
     const [isStrobe, setIsStrobe] = useState(false);
@@ -216,7 +216,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                         <span className="text-xs text-[#0EA5E9] font-mono font-medium">Multi-Screen Management</span>
                     </div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight mt-1">Monitors & Live Cues</h1>
-                    <p className="text-xs text-slate-500 dark:text-[#8A93A4]">Route video outputs to HDMI stage screens, TVs, teleprompters, and tactical crew HUDs.</p>
+                    <p className="text-xs text-slate-500 dark:text-[#8A93A4]">Route video outputs to stage confidence monitors, TVs, teleprompters, and tactical crew HUDs.</p>
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -242,10 +242,15 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                     <div>
                         <div className="flex items-center gap-2">
                             <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase font-mono tracking-wider">Display Hardware Topology</h4>
-                            {hasSecondaryScreen ? (
+                            {externalScreens.length > 1 ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#10B981]/10 border border-[#10B981]/30 text-[10px] font-mono font-bold text-[#10B981]">
                                     <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-tally"></span>
-                                    SECONDARY DISPLAY DETECTED
+                                    MULTI-SCREEN MATRIX ({externalScreens.length} EXTERNAL DISPLAYS)
+                                </span>
+                            ) : hasSecondaryScreen ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#10B981]/10 border border-[#10B981]/30 text-[10px] font-mono font-bold text-[#10B981]">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-tally"></span>
+                                    1 EXTERNAL DISPLAY DETECTED (DISPLAY 2)
                                 </span>
                             ) : (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 dark:bg-[#64748B]/10 border border-slate-200 dark:border-[#64748B]/30 text-[10px] font-mono text-slate-500 dark:text-[#8A93A4]">
@@ -254,9 +259,11 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                             )}
                         </div>
                         <p className="text-[11px] text-slate-500 dark:text-[#8A93A4] mt-0.5">
-                            {hasSecondaryScreen 
-                                ? "HDMI / External output is ready. Use 'Project to Display 2' on any feed below."
-                                : "Plug in an HDMI or USB-C cable to enable instant 1-click stage projection."}
+                            {externalScreens.length > 1
+                                ? `Multi-display matrix active (${externalScreens.length} external displays). Route Stage Display to Display 2 and TV / Overflow to Display 3 simultaneously.`
+                                : hasSecondaryScreen
+                                    ? "External output is ready (HDMI, USB-C, USB, or Wireless). Use 'Project to Display 2' on any feed below."
+                                    : "Connect an external display (HDMI, USB-C, USB, or Wireless) to enable instant 1-click stage projection."}
                         </p>
                     </div>
                 </div>
@@ -305,7 +312,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                                     {status ? (
                                                         <span className="inline-flex items-center gap-1 text-[10px] font-mono text-[#10B981]">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-tally"></span>
-                                                            {status.isOnSecondary ? 'HDMI Screen 2' : 'Window Active'}
+                                                            {status.isOnSecondary ? 'Display 2 (External)' : 'Window Active (Primary)'}
                                                         </span>
                                                     ) : (
                                                         <span className="inline-flex items-center gap-1 text-[10px] font-mono text-slate-400 dark:text-[#6A7382]">
@@ -396,17 +403,38 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
 
                                 {/* Projection Buttons */}
                                 <div className="flex items-center gap-1.5 sm:gap-2 pt-2.5 border-t border-slate-200 dark:border-[#1E222A] mt-auto">
-                                    <button
-                                        onClick={() => openOnSecondaryScreen(`${opt.path}${opt.path.includes('?') ? '&' : '?'}autofs=1`, `kairon_display_${opt.tabId || 'screen2'}`)}
-                                        disabled={isLocked}
-                                        className="flex-1 py-2 px-2 bg-slate-100 dark:bg-[#1C2028] hover:bg-slate-200 dark:hover:bg-[#252B37] disabled:opacity-40 text-slate-800 dark:text-[#E1E4EA] border border-slate-300 dark:border-[#2D333F] rounded-md text-[11px] sm:text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 whitespace-nowrap min-w-0"
-                                        title="Automatically position and fullscreen on HDMI secondary screen"
-                                    >
-                                        <Cast size={13} className="text-[#0EA5E9] shrink-0" />
-                                        <span className="truncate">
-                                            <span className="hidden xl:inline">Project to </span>Display 2
-                                        </span>
-                                    </button>
+                                    {externalScreens.length > 1 ? (
+                                        <div className="flex-1 flex items-center gap-1 min-w-0">
+                                            {externalScreens.slice(0, 3).map((scr, idx) => {
+                                                const displayNum = idx + 2;
+                                                return (
+                                                    <button
+                                                        key={scr.id || idx}
+                                                        onClick={() => openOnTargetScreen(`${opt.path}${opt.path.includes('?') ? '&' : '?'}autofs=1`, displayNum, `kairon_display_${opt.tabId || 'screen'}_${displayNum}`)}
+                                                        disabled={isLocked}
+                                                        className="flex-1 py-2 px-1.5 bg-slate-100 dark:bg-[#1C2028] hover:bg-slate-200 dark:hover:bg-[#252B37] disabled:opacity-40 text-slate-800 dark:text-[#E1E4EA] border border-slate-300 dark:border-[#2D333F] rounded-md text-[10px] sm:text-xs font-mono font-bold transition-all flex items-center justify-center gap-1 shadow-sm active:scale-95 whitespace-nowrap min-w-0"
+                                                        title={`Project directly to Display ${displayNum} (${scr.width}x${scr.height})`}
+                                                    >
+                                                        <Cast size={12} className="text-[#0EA5E9] shrink-0" />
+                                                        <span className="truncate">Screen {displayNum}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => openOnSecondaryScreen(`${opt.path}${opt.path.includes('?') ? '&' : '?'}autofs=1`, `kairon_display_${opt.tabId || 'screen2'}`)}
+                                            disabled={isLocked}
+                                            className="flex-1 py-2 px-2 bg-slate-100 dark:bg-[#1C2028] hover:bg-slate-200 dark:hover:bg-[#252B37] disabled:opacity-40 text-slate-800 dark:text-[#E1E4EA] border border-slate-300 dark:border-[#2D333F] rounded-md text-[11px] sm:text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 whitespace-nowrap min-w-0"
+                                            title="Automatically position and fullscreen on secondary display"
+                                        >
+                                            <Cast size={13} className="text-[#0EA5E9] shrink-0" />
+                                            <span className="truncate">
+                                                <span className="hidden xl:inline">Project to </span>Display 2
+                                            </span>
+                                        </button>
+                                    )}
+
                                     <button
                                         onClick={() => handleOpenFullscreen(opt.path, opt.tabId)}
                                         disabled={isLocked}
