@@ -151,15 +151,15 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
         setCustomMessage('');
     };
 
-    const handleSendQuick = (text: string, type: 'warning' | 'custom' | 'strobe') => {
-        sendStageMessage(text, type, type === 'strobe');
+    const handleSendQuick = (text: string) => {
+        sendStageMessage(text, isStrobe ? 'strobe' : 'custom', isStrobe);
     };
 
     const quickCues = [
-        { label: '⚠️ WRAP UP IN 1 MINUTE', text: 'PLEASE WRAP UP IN 1 MINUTE', type: 'warning' as const },
-        { label: '🛑 STOP IMMEDIATELY', text: 'TIME IS UP - PLEASE CONCLUDE NOW', type: 'strobe' as const },
-        { label: '🎤 ADJUST MIC CLOSER', text: 'PLEASE HOLD MIC CLOSER', type: 'custom' as const },
-        { label: '⚡ SPEED UP TEMPO', text: 'SPEED UP - RUNNING BEHIND SCHEDULE', type: 'warning' as const },
+        { label: '⚠️ WRAP UP IN 1 MINUTE', text: 'WRAP UP IN 1 MINUTE' },
+        { label: '🛑 STOP IMMEDIATELY', text: 'STOP IMMEDIATELY' },
+        { label: '🎤 ADJUST MIC CLOSER', text: 'ADJUST MIC CLOSER' },
+        { label: '⚡ SPEED UP TEMPO', text: 'SPEED UP TEMPO' },
     ];
 
     const displayOptions = [
@@ -457,21 +457,48 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                             </div>
                         </div>
 
-                        <form onSubmit={handleSendCustom} className="mb-5 space-y-3">
+                        {/* Master Strobe Effect Switch */}
+                        <div className="mb-4 bg-slate-50 dark:bg-[#090A0C] p-3 rounded-lg border border-slate-200 dark:border-[#22262E] space-y-2.5">
                             <div className="flex items-center justify-between">
-                                <label className="text-[10px] font-mono font-bold text-slate-600 dark:text-[#8A93A4] uppercase tracking-wider">Custom Message</label>
+                                <span className="text-[10px] font-mono font-bold text-slate-600 dark:text-[#8A93A4] uppercase tracking-wider">
+                                    Display Mode
+                                </span>
+                                <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded ${
+                                    isStrobe ? 'bg-[#EF4444]/15 text-[#EF4444]' : 'bg-[#10B981]/15 text-[#10B981]'
+                                }`}>
+                                    {isStrobe ? '🔴 Flashing Strobe Alert' : '🟢 Standard Text Banner'}
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 font-mono">
                                 <button
                                     type="button"
-                                    onClick={() => setIsStrobe(!isStrobe)}
-                                    className={`flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase transition-all ${isStrobe
-                                        ? 'bg-[#EF4444] text-white shadow-sm'
-                                        : 'bg-slate-100 dark:bg-[#1C2028] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-[#2D333F]'
-                                        }`}
+                                    onClick={() => setIsStrobe(false)}
+                                    className={`py-2 px-2.5 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
+                                        !isStrobe
+                                            ? 'bg-white dark:bg-[#181B22] border-[#0EA5E9] text-[#0EA5E9] shadow-sm ring-1 ring-[#0EA5E9]/20'
+                                            : 'bg-transparent border-slate-200 dark:border-transparent text-slate-500 dark:text-[#6A7382] hover:text-slate-900 dark:hover:text-white'
+                                    }`}
                                 >
-                                    <Zap size={10} fill={isStrobe ? "currentColor" : "none"} />
-                                    <span>Strobe Mode: {isStrobe ? 'ON' : 'OFF'}</span>
+                                    <MessageSquare size={13} />
+                                    <span>Standard Banner</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsStrobe(true)}
+                                    className={`py-2 px-2.5 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
+                                        isStrobe
+                                            ? 'bg-[#EF4444] border-[#EF4444] text-white shadow-md'
+                                            : 'bg-transparent border-slate-200 dark:border-transparent text-slate-500 dark:text-[#6A7382] hover:text-[#EF4444]'
+                                    }`}
+                                >
+                                    <Zap size={13} fill={isStrobe ? "currentColor" : "none"} />
+                                    <span>Emergency Strobe</span>
                                 </button>
                             </div>
+                        </div>
+
+                        <form onSubmit={handleSendCustom} className="mb-5 space-y-2">
+                            <label className="block text-[10px] font-mono font-bold text-slate-600 dark:text-[#8A93A4] uppercase tracking-wider">Custom Message</label>
                             <div className="flex gap-2">
                                 <input
                                     type="text"
@@ -482,7 +509,8 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                 />
                                 <button
                                     type="submit"
-                                    className="px-3 py-2 bg-[#0EA5E9] hover:bg-[#0284C7] rounded text-white font-mono text-xs font-bold transition-all"
+                                    className="px-3.5 py-2 bg-[#0EA5E9] hover:bg-[#0284C7] rounded text-white font-mono text-xs font-bold transition-all shadow-sm"
+                                    title="Send Custom Cue"
                                 >
                                     <Send size={14} />
                                 </button>
@@ -497,8 +525,8 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                 {quickCues.map((cue) => (
                                     <button
                                         key={cue.label}
-                                        onClick={() => handleSendQuick(cue.text, cue.type)}
-                                        className="w-full text-left px-3 py-2 bg-slate-50 dark:bg-[#181B22] hover:bg-slate-100 dark:hover:bg-[#20252E] border border-slate-200 dark:border-[#22262E] hover:border-slate-300 dark:hover:border-[#2D333F] rounded text-xs font-mono font-semibold transition-all flex items-center justify-between text-slate-800 dark:text-[#E1E4EA] group"
+                                        onClick={() => handleSendQuick(cue.text)}
+                                        className="w-full text-left px-3 py-2.5 bg-slate-50 dark:bg-[#181B22] hover:bg-slate-100 dark:hover:bg-[#20252E] border border-slate-200 dark:border-[#22262E] hover:border-slate-300 dark:hover:border-[#2D333F] rounded text-xs font-mono font-semibold transition-all flex items-center justify-between text-slate-800 dark:text-[#E1E4EA] group"
                                     >
                                         <span>{cue.label}</span>
                                         <span className="text-[10px] font-mono text-slate-400 dark:text-[#6A7382] group-hover:text-[#0EA5E9]">
@@ -509,7 +537,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                             </div>
                             <button
                                 onClick={clearStageMessage}
-                                className="w-full mt-3 px-3 py-2 bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 rounded text-[#EF4444] text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                                className="w-full mt-3 px-3 py-2.5 bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 rounded text-[#EF4444] text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
                             >
                                 <Trash2 size={13} />
                                 <span>Clear Stage Overlay</span>
@@ -523,7 +551,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                             <span>Broadcast Safety Tip</span>
                         </div>
                         <p className="text-[11px] leading-relaxed text-slate-500 dark:text-[#6A7382]">
-                            Keep the Stage Monitor open on the pulpit TV. All cues auto-dismiss after 10 seconds to avoid distracting speakers.
+                            Keep the Stage Monitor open on the pulpit TV. All cues remain active on screen until explicitly dismissed using the 'Clear Stage Overlay' button.
                         </p>
                     </div>
                 </div>
