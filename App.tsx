@@ -1057,6 +1057,18 @@ const AppContent: React.FC = () => {
     updateProgramService(updatedProgram);
   };
 
+  const requestEndEventConfirmation = (targetProgramId?: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'End Live Session?',
+      message: 'Are you sure you want to conclude this live event? This will stop the live countdown and finalize records.',
+      type: 'danger',
+      onConfirm: () => {
+        handleEndEvent(targetProgramId);
+      }
+    });
+  };
+
 
   // Debounced Auto-Save with Visual Feedback
   useEffect(() => {
@@ -2028,14 +2040,15 @@ const AppContent: React.FC = () => {
                 </button>
               )}
 
-              {/* End Event / Stop Button */}
+              {/* End Event / Stop Button (Protected Confirmation) */}
               {displayIsTimerActive && (
                 <button
-                  onClick={() => handleEndEvent(displayProgram.id)}
-                  className="p-1.5 bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 text-[#EF4444] rounded transition-colors"
-                  title="End Event Session"
+                  onClick={() => requestEndEventConfirmation(displayProgram.id)}
+                  className="flex items-center gap-1 px-2.5 py-1 bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 text-[#EF4444] rounded text-xs font-mono font-semibold transition-colors shadow-sm"
+                  title="End Event Session (Confirmation Required)"
                 >
-                  <Power size={13} />
+                  <Power size={12} />
+                  <span className="hidden sm:inline">End Event</span>
                 </button>
               )}
 
@@ -2070,14 +2083,6 @@ const AppContent: React.FC = () => {
                       <AppWindow size={14} />
                     </button>
                   )}
-
-                  <button
-                    onClick={() => window.open(`${window.location.origin}/tv?id=${displayProgram.id}`, 'kairon_tv_display')}
-                    className="p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
-                    title="Launch TV / Overflow Screen"
-                  >
-                    <Tv size={14} />
-                  </button>
 
                   <button
                     onClick={() => setIsExportOpen(true)}
@@ -2395,7 +2400,7 @@ const AppContent: React.FC = () => {
           onNext={handleNext}
           onPrev={handlePrev}
           onNudge={handleNudge}
-          onEndEvent={handleEndEvent}
+          onEndEvent={requestEndEventConfirmation}
           isManualMode={displayProgram.isManualMode}
           onToggleManualMode={handleToggleManualMode}
         />,
@@ -2416,7 +2421,7 @@ const AppContent: React.FC = () => {
           onToggleManualMode={() => handleToggleManualMode(displayProgram.id)}
           onToggleHold={() => handleToggleHold(undefined, displayProgram.id)}
           onNudge={handleNudge}
-          onEndEvent={() => handleEndEvent(displayProgram.id)}
+          onEndEvent={() => requestEndEventConfirmation(displayProgram.id)}
           onViewAnalysis={(id) => navigate(`/analytics/${id}`)}
         />
       )}

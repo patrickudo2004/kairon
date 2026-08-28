@@ -147,12 +147,12 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
     const handleSendCustom = (e: React.FormEvent) => {
         e.preventDefault();
         if (!customMessage.trim()) return;
-        sendStageMessage(customMessage.trim(), isStrobe ? 'strobe' : 'custom');
+        sendStageMessage(customMessage.trim(), isStrobe ? 'strobe' : 'custom', isStrobe);
         setCustomMessage('');
     };
 
     const handleSendQuick = (text: string, type: 'warning' | 'custom' | 'strobe') => {
-        sendStageMessage(text, type);
+        sendStageMessage(text, type, type === 'strobe');
     };
 
     const quickCues = [

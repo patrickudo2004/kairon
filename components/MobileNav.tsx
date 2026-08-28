@@ -42,6 +42,8 @@ export const MobileNav: React.FC<MobileNavProps> = ({
     onSelectOrg
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const displayName = (profile as any)?.fullName?.trim() || (profile as any)?.name?.trim() || (user?.email ? user.email.split('@')[0] : 'Kairon User');
+    const initial = displayName.charAt(0).toUpperCase();
 
     const primaryItems = [
         { icon: LayoutDashboard, label: 'Home', path: '/' },
@@ -111,11 +113,11 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xl">
-                                        {profile?.name?.charAt(0) || user?.email?.charAt(0) || <User size={24} />}
+                                        {initial}
                                     </div>
                                     <div className="min-w-0">
                                         <div className="font-bold text-slate-900 dark:text-white truncate">
-                                            {profile?.name || 'Kairon User'}
+                                            {displayName}
                                         </div>
                                         <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
                                             {user?.email}

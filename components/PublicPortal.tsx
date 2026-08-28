@@ -267,23 +267,6 @@ export const PublicPortal: React.FC = () => {
         );
     }
 
-    if (program.status === 'concluded') {
-        return (
-            <div className="min-h-screen bg-[#090A0C] flex flex-col items-center justify-center p-6 text-center font-sans">
-                <div className="w-16 h-16 bg-[#181B22] border border-[#22262E] text-[#F59E0B] rounded-2xl flex items-center justify-center mb-6">
-                    <Calendar size={32} />
-                </div>
-                <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Event Concluded</h1>
-                <p className="text-[#8A93A4] text-base font-medium max-w-md mb-8">
-                    Thank you for attending <strong>{program.title}</strong>. This session is now concluded.
-                </p>
-                <Link to="/" className="text-[#0EA5E9] font-mono text-xs uppercase font-bold hover:underline">
-                    Back to Kairon
-                </Link>
-            </div>
-        );
-    }
-
     const currentSlotIndex = program.currentSlotIndex ?? 0;
     const currentSlot = program.slots[currentSlotIndex];
     const nextSlots = program.slots.slice(currentSlotIndex + 1, currentSlotIndex + 3);
@@ -338,6 +321,16 @@ export const PublicPortal: React.FC = () => {
             </div>
 
             <main className="max-w-3xl mx-auto px-6 py-10">
+                {program.status === 'concluded' && (
+                    <div className="mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center gap-3 font-mono text-xs shadow-sm">
+                        <Calendar size={18} className="shrink-0" />
+                        <div>
+                            <span className="font-bold uppercase tracking-wider block">Event Concluded</span>
+                            <span className="text-slate-600 dark:text-slate-400 font-sans text-xs">This session has concluded. You can review the order of service and session rundown below.</span>
+                        </div>
+                    </div>
+                )}
+
                 {/* Event Hero */}
                 {!isScrolled && (
                     <div className="mb-10">
