@@ -21,11 +21,16 @@ import {
     ArrowRight,
     Loader,
     Upload,
-    Building
+    Building,
+    User,
+    LogOut,
+    Sun,
+    Moon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { deleteOrganization } from '../services/orgService';
 import { migratePrograms, deleteAllProgramsInOrg, getPrograms } from '../services/programService';
+import { updateProfile, signOut } from '../services/authService';
 
 interface AdminPanelProps {
     organization: Organization;
@@ -36,7 +41,10 @@ interface AdminPanelProps {
 export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUserRole, currentUser }) => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const [activeTab, setActiveTab] = useState<'branding' | 'members' | 'danger'>('branding');
+    const [activeTab, setActiveTab] = useState<'account' | 'branding' | 'members' | 'danger'>('branding');
+    const [userName, setUserName] = useState('');
+    const [isSavingUser, setIsSavingUser] = useState(false);
+    const [userSaveSuccess, setUserSaveSuccess] = useState(false);
 
     // Branding State
     const [logoUrl, setLogoUrl] = useState(organization.logoUrl || '');
@@ -246,6 +254,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                     {/* Sidebar Nav */}
                     <div className="lg:col-span-1 space-y-2 font-mono">
                         <button
+                            onClick={() => setActiveTab('account')}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'account'
+                                ? 'bg-[#0EA5E9] text-white shadow-md'
+                                : 'text-slate-600 dark:text-[#8A93A4] hover:bg-slate-200 dark:hover:bg-[#181B22]'
+                                }`}
+                        >
+                            <User size={18} />
+                            <span className="font-semibold text-xs uppercase tracking-wider">My Profile & Account</span>
+                        </button>
+                        <button
                             onClick={() => setActiveTab('branding')}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${activeTab === 'branding'
                                 ? 'bg-[#0EA5E9] text-white shadow-md'
@@ -281,6 +299,105 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
 
                     {/* Main Content */}
                     <div className="lg:col-span-3 space-y-6">
+                        {activeTab === 'account' && (
+                            <div className="bg-white dark:bg-[#121418] rounded-2xl p-8 border border-slate-200 dark:border-[#22262E] shadow-sm font-sans space-y-8">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">My Profile & Preferences</h2>
+                                    <p className="text-slate-500 dark:text-[#8A93A4] text-sm">Manage your personal operator identity and session controls.</p>
+                                </div>
+
+                                <div className="space-y-6">
+                                    {/* Email */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 font-mono">
+                                            Registered Email
+                                        </label>
+                                        <div className="px-4 py-3 bg-slate-50 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] rounded-xl text-sm font-mono text-slate-700 dark:text-slate-300 select-all">
+                                            {currentUser?.email || 'Authenticated User'}
+                                        </div>
+                                    </div>
+
+                                    {/* Workspace Role */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 font-mono">
+                                            Current Workspace Role
+                                        </label>
+                                        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-mono font-bold uppercase">
+                                            <Shield size={14} />
+                                            <span>{currentUserRole || 'Member'}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Edit Name */}
+                                    <form onSubmit={async (e) => {
+                                        e.preventDefault();
+                                        if (!currentUser?.id || !userName.trim()) return;
+                                        setIsSavingUser(true);
+                                        try {
+                                            await updateProfile(currentUser.id, { fullName: userName.trim() });
+                                            setUserSaveSuccess(true);
+                                            queryClient.invalidateQueries({ queryKey: ['profile'] });
+                                            setTimeout(() => setUserSaveSuccess(false), 3000);
+                                        } catch (err) {
+                                            console.error("Failed to save name:", err);
+                                            alert("Failed to update profile name.");
+                                        } finally {
+                                            setIsSavingUser(false);
+                                        }
+                                    }} className="space-y-3">
+                                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+                                            Display Name
+                                        </label>
+                                        <div className="flex flex-col sm:flex-row gap-3">
+                                            <input
+                                                type="text"
+                                                value={userName}
+                                                onChange={(e) => setUserName(e.target.value)}
+                                                placeholder={currentUser?.email ? currentUser.email.split('@')[0] : "Your Name"}
+                                                className="flex-1 bg-slate-50 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#0EA5E9] text-sm text-slate-900 dark:text-white"
+                                            />
+                                            <button
+                                                type="submit"
+                                                disabled={isSavingUser || !userName.trim()}
+                                                className="px-6 py-3 bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-50 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-2"
+                                            >
+                                                {isSavingUser ? <Loader className="animate-spin" size={14} /> : <Check size={14} />}
+                                                <span>Save Name</span>
+                                            </button>
+                                        </div>
+                                        {userSaveSuccess && (
+                                            <p className="text-xs text-emerald-600 font-mono flex items-center gap-1.5 animate-in fade-in">
+                                                <Check size={13} /> Profile name updated successfully!
+                                            </p>
+                                        )}
+                                    </form>
+
+                                    {/* Sign Out Card */}
+                                    <div className="pt-6 border-t border-slate-200 dark:border-[#22262E] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                        <div>
+                                            <h4 className="font-bold text-sm text-slate-900 dark:text-white">Sign Out of Kairon</h4>
+                                            <p className="text-xs text-slate-500 dark:text-[#8A93A4]">Securely end your current operator session on this device.</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                try {
+                                                    await signOut();
+                                                    window.location.href = '/';
+                                                } catch (e) {
+                                                    window.location.reload();
+                                                }
+                                            }}
+                                            className="px-5 py-2.5 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <LogOut size={14} />
+                                            <span>Sign Out</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {activeTab === 'branding' && (
                             <div className="bg-white dark:bg-[#121418] rounded-2xl p-8 border border-slate-200 dark:border-[#22262E] shadow-sm">
                                 <div className="flex justify-between items-start mb-8">

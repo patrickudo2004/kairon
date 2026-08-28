@@ -56,11 +56,12 @@ export const useStageMessages = (programId: string | undefined) => {
 
     const sendStageMessage = async (text: string, type: string = 'alert', isStrobe: boolean = false, durationMs?: number) => {
         if (!programId) return;
+        const finalIsStrobe = Boolean(isStrobe || type === 'strobe');
         if (testMode) {
             const msg: StageMessage = {
                 text,
                 type,
-                isStrobe,
+                isStrobe: finalIsStrobe,
                 expiresAt: Date.now() + (durationMs || (24 * 60 * 60 * 1000))
             };
             localStorage.setItem(`prompt_${programId}`, JSON.stringify(msg));
@@ -72,7 +73,7 @@ export const useStageMessages = (programId: string | undefined) => {
                 programId,
                 text,
                 type,
-                isStrobe,
+                isStrobe: finalIsStrobe,
                 durationMs
             });
         } catch (err) {

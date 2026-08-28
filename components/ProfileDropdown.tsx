@@ -106,9 +106,6 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile,
                                 <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                                     {user?.email}
                                 </p>
-                                <p className="text-[10px] text-slate-400 font-mono mt-1 select-all cursor-copy" title="Click to copy User ID">
-                                    ID: {user?.id}
-                                </p>
                             </div>
                         </div>
                     </div>
