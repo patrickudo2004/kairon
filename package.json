@@ -1,7 +1,9 @@
 {
   "name": "kairon",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Broadcast Stage & Rundown Engine for Live Events and Ministry",
+  "author": "Patrick Udo <patrickudo2004@users.noreply.github.com>",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -76,6 +78,9 @@
         "AppImage",
         "deb"
       ],
+      "maintainer": "Patrick Udo <patrickudo2004@users.noreply.github.com>",
+      "desktopName": "Kairon",
+      "syncDesktopName": true,
       "category": "AudioVideo"
     }
   }
