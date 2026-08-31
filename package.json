@@ -88,9 +88,6 @@
         "AppImage",
         "deb"
       ],
-      "maintainer": "Patrick Udo <patrickudo2004@users.noreply.github.com>",
-      "desktopName": "Kairon",
-      "syncDesktopName": true,
       "category": "AudioVideo"
     }
   }
