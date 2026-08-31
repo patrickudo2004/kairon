@@ -17,14 +17,29 @@ export interface ScreenInfo {
 }
 
 export const useScreenManagement = () => {
-  const [isSupported, setIsSupported] = useState<boolean>(false);
-  const [hasPermission, setHasPermission] = useState<boolean>(false);
+  const isElectron = typeof window !== 'undefined' && Boolean((window as any).electron?.isElectron);
+  const [isSupported, setIsSupported] = useState<boolean>(isElectron);
+  const [hasPermission, setHasPermission] = useState<boolean>(isElectron);
   const [screens, setScreens] = useState<ScreenInfo[]>([]);
   const [externalScreens, setExternalScreens] = useState<ScreenInfo[]>([]);
   const [hasSecondaryScreen, setHasSecondaryScreen] = useState<boolean>(false);
   const [screenDetails, setScreenDetails] = useState<any>(null);
 
   useEffect(() => {
+    // 1. Electron Native Screen Discovery
+    if (isElectron && (window as any).electron?.getScreens) {
+      (window as any).electron.getScreens().then((list: ScreenInfo[]) => {
+        if (Array.isArray(list) && list.length > 0) {
+          setScreens(list);
+          const externals = list.filter(s => !s.isPrimary);
+          setExternalScreens(externals);
+          setHasSecondaryScreen(externals.length > 0);
+        }
+      }).catch((err: any) => console.warn('Electron getScreens error:', err));
+      return;
+    }
+
+    // 2. Web Browser Window Management API
     const supported = typeof window !== 'undefined' && 'getScreenDetails' in window;
     setIsSupported(supported);
 
@@ -34,7 +49,7 @@ export const useScreenManagement = () => {
         setHasSecondaryScreen(true);
       }
     }
-  }, []);
+  }, [isElectron]);
 
   const updateScreensList = useCallback((details: any) => {
     if (!details || !details.screens) return;
@@ -94,6 +109,20 @@ export const useScreenManagement = () => {
     targetScreenIndex?: number,
     windowName: string = 'kairon_target_screen'
   ) => {
+    // 0. Electron Native Multi-Window Projection (Instant & Borderless)
+    if (isElectron && (window as any).electron?.openTargetScreen) {
+      try {
+        const result = await (window as any).electron.openTargetScreen({
+          url: path,
+          screenIndex: targetScreenIndex || 2,
+          windowId: windowName,
+        });
+        if (result?.success) return null;
+      } catch (err) {
+        console.warn('Electron openTargetScreen error, falling back:', err);
+      }
+    }
+
     // 1. If we have detailed screen info, find the specified target screen
     if (screenDetails && screenDetails.screens && screenDetails.screens.length > 1) {
       let target: any = null;
