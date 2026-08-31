@@ -1,81 +1,100 @@
-# Kairon - Conference Timer
+# Kairon — Broadcast Stage & Rundown Engine
 
-Kairon is a professional, cloud-powered conference time management application designed for event coordinators, AV teams, and speakers. It bridges the gap between planning and live execution with a synchronized real-time flow, AI-powered drafting, and robust multi-device coordination powered by Convex.
+**Kairon** is a professional, cloud-synchronized live production rundown engine and multi-display stage timer designed for church media booths, conference coordinators, broadcast engineers, and speakers.
 
-## 🌟 Key Features
+Powered by **React 19**, **Convex Real-Time Database**, and **Electron**, Kairon bridges live scheduling with zero-latency stage and confidence monitor projection across multiple physical displays.
 
-### 1. **Live Event Execution**
-   - **Smart Live Timer**: Large, high-visibility countdown for the current session.
-   - **Auto-Advance & Auto-Heal (Autopilot)**: Automatically transitions to the next slot when the timer hits zero. When Autopilot is enabled, any slot overrun automatically shaves duration off remaining segments locally (zero token cost) to protect the event's hard curfew.
-   - **Smart Sync**: Automatically calculates the correct slot and time elapsed based on the scheduled start time. Real-time synchronization ensures all screens (TV, Stage, Admin) are perfectly aligned in sub-second latency.
-   - **Manual Controls**: Play, Pause, Next, and Previous controls for on-the-fly adjustments.
+---
 
-### 2. **Advanced Program Editor**
-   - **Drag-and-Drop Interface**: Reorder sessions intuitively by dragging rows.
-   - **Time Budgeting**: Set a target end time and get real-time feedback on whether you are under or over budget.
-   - **AI Drafting**: Integrated with Google Gemini API to convert raw text (emails, agendas) into structured schedules.
-   - **Slot Management**: Duplicate existing slots, add detailed notes/abstracts, and categorize sessions (Keynote, Talk, Panel, Break).
+## 🌟 Key Capabilities
 
-### 3. **Collaborative Display System**
-   - **Real-Time Collaboration**: Changes made by any team member are instantly pushed to all other connected screens.
-   - **QR Code Generation**: Instantly generate QR codes for TV, Stage, or Public Portal views for easy scanning on mobile devices.
-   - **Integrated Teleprompter (Fifth View)**: A dedicated `/prompter` display that loads dynamic scripts/outlines alongside the countdown, featuring auto-scroll synced directly to the timer duration.
-   - **Multi-Track Command Center**: A unified dashboard tab displaying concurrent live timelines side-by-side with separate controllers for each parallel track.
+### 1. 🖥️ Native Cross-Platform Desktop App
+* **Windows, macOS & Linux**: Packaged as a dedicated standalone desktop application (`.exe` installer & portable, `.dmg`, `.AppImage`, and `.deb`).
+* **Broadcast Power Management**: Native wake-lock prevents operator laptops and pulpit monitors from dimming or going to sleep during long sermons and live services.
+* **Global Real-Time Cloud Sync**: Seamlessly synchronize across booth PCs, pastor MacBooks, sound engineering iPads, and attendee mobile devices.
 
-### 4. **Resiliency & Performance**
-   - **Local Offline Fallback**: In the event of network failure, local BroadcastChannel synchronization is triggered automatically. The operator deck continues to control and synchronize all local monitor tabs (TV, Stage, Prompter) on the same machine without internet.
-   - **High-Contrast Ambient Themes**: Supports custom `"ambient-yellow"` and `"ambient-white"` high-intensity themes specifically designed to cut through reflections from bright stage wash lights on pulpits.
-   - **Bundle Code-Splitting**: Optimized packaging shaves ~2MB off the initial entrypoint bundle by lazily loading report generation and charting assets, making the app load instantly on weak venue cellular connections.
+### 2. 📺 Multi-Screen Matrix Routing
+* **Hardware Display Detection**: Automatically identifies all connected physical monitors (HDMI, DisplayPort, USB-C, USB tablets, or Wireless Miracast/AirPlay).
+* **1-Click Targeted Projection**: Route the **Stage & Pulpit Display to Screen 2** and the **TV / Overflow Screen to Screen 3** simultaneously with zero window dragging and zero browser pop-up prompts.
 
-### 5. **Export & Persistence**
-   - **PDF Export**: Generate professional, clean PDF schedules optimized for print (A4/Letter).
-   - **Clipboard Copy**: One-click copy of the formatted text schedule for emails or documents.
-   - **Multi-Program Management**: Create, delete, and duplicate entire programs via the Dashboard or Calendar.
-   - **Auto-Save**: All work is automatically synced to the Convex cloud in real-time.
+### 3. ⚡ Stage Cue Dispatcher & Emergency Strobe
+* **Standard Banner Mode**: Dispatches polite, high-contrast prompt banners directly to the speaker's pulpit display.
+* **Emergency Flashing Strobe Mode**: Triggers a high-visibility, full-screen red emergency strobe alert when a speaker urgently needs to wrap up.
+* **1:1 Exact Matching**: Button cues (*"WRAP UP IN 1 MINUTE"*, *"STOP IMMEDIATELY"*, *"ADJUST MIC CLOSER"*, *"SPEED UP TEMPO"*) reflect identically on the pulpit screen.
+* **Operator Hold**: Cues remain active on screen until explicitly dismissed using the *Clear Stage Overlay* button.
 
-### 6. **User Experience**
-   - **Theme Support**: Toggle between Light, Dark, and Ambient high-contrast modes.
-   - **Responsive Design**: Fully functional on desktops, tablets, and mobile devices (mobile view tailored controls).
-   - **Calendar View**: Visual overview of events across the month.
+### 4. ⏱️ Live Event Execution & Autopilot
+* **Smart Live Timer**: Ultra-high contrast count-up and countdown timer with over-budget negative counters.
+* **Autopilot (Auto-Advance & Auto-Heal)**: Automatically transitions segments at zero, dynamically shaving overruns off remaining slots to protect hard curfews.
+* **Tactical Controls**: Instant pause, resume, manual mode toggle, and live ±1 minute nudge adjustments.
+* **Protected End Event Dialog**: Safety confirmation modal prevents accidental broadcast termination.
+
+### 5. 📡 Collaborative Display Fleet
+* **Stage & Pulpit Display (`/stage`)**: Clean, distraction-free oversized timer with tally borders and operator cue overlays.
+* **TV / Overflow Screen (`/tv`)**: Left-hand live rundown schedule + right-hand on-air broadcast clock.
+* **Crew Tactical HUD (`/crew`)**: Technical booth overview with sound/video readiness toggles and stage feedback.
+* **Public Attendee Portal (`/public`)**: Mobile-optimized schedule preview for audience members with persistent access on concluded events.
+* **Teleprompter (`/prompter`)**: Auto-scrolling dynamic outline synced directly to slot duration.
+
+---
+
+## 🚀 Quick Start & Development
+
+### Web Development
+```bash
+# Install dependencies
+npm install
+
+# Start Vite dev server (http://localhost:3000)
+npm run dev
+
+# Run automated end-to-end tests
+npx playwright test tests/scenarios.spec.ts --workers=1
+```
+
+### Desktop App Development
+```bash
+# Launch Kairon in desktop mode (Vite + Electron concurrently)
+npm run electron:dev
+```
+
+---
+
+## 📦 Building Native Desktop Installers
+
+Kairon includes pre-configured cross-platform build scripts via `electron-builder`:
+
+| Target Platform | Command | Generated Artifacts |
+| :--- | :--- | :--- |
+| **Windows** | `npm run electron:build:win` | `release/Kairon Setup 0.0.0.exe` & `release/Kairon 0.0.0.exe` (Portable) |
+| **macOS** | `npm run electron:build:mac` | `release/Kairon.dmg` & `release/Kairon.zip` (Universal Apple Silicon & Intel) |
+| **Linux** | `npm run electron:build:linux` | `release/Kairon.AppImage` & `release/kairon.deb` |
+
+---
+
+## 🤖 Automated CI/CD Releases (GitHub Actions)
+
+Kairon includes an automated multi-OS release workflow (`.github/workflows/release.yml`).
+
+To build and publish installers to your **GitHub Releases** page:
+1. Tag a release commit:
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+2. GitHub Actions will automatically spin up Windows, macOS, and Linux runners in parallel, package all three installer formats, and publish them to your GitHub Releases page for 1-click download.
+
+---
 
 ## 🛠 Tech Stack
 
-- **Frontend**: React 19, TypeScript
-- **Backend & Sync**: Convex (Cloud Functions, Real-time Database)
-- **State Management**: Zustand, React Query
-- **Styling**: Vanilla CSS, Lucide React (Icons)
-- **Routing**: React Router DOM
-- **AI Integration**: Google GenAI SDK (Gemini 2.0 Flash)
-- **Utilities**: `react-qr-code`, `html2canvas`, `jspdf`
+* **Frontend**: React 19, TypeScript, Tailwind CSS, Lucide Icons
+* **Desktop Runtime**: Electron 44, Electron-Builder
+* **Cloud & Real-Time Sync**: Convex Cloud Database & Serverless Functions
+* **Testing & QA**: Playwright E2E Test Suite
+* **AI Scheduling**: Google Gemini 2.0 Flash API
 
-## 📖 How to Use
+---
 
-### Creating an Event
-1.  **Dashboard**: Start from the Home screen or Calendar view.
-2.  **Add Details**: Enter title, date, and start time.
-3.  **Build Schedule**: Use the **Editor** to add slots manually or use the **AI Draft** button to paste a rough agenda.
-4.  **Refine**: Drag slots to reorder, add specific details, or duplicate slots for similar sessions.
-
-### Running an Event
-1.  **Go Live**: Switch to the **Live** tab.
-2.  **Auto-Start**: If the current time matches the scheduled start time, the timer will start automatically.
-3.  **Monitor**: Use the **List** tab to see the full rundown while keeping an eye on the active slot.
-
-### Sharing
-1.  Click the **Share** icon in the header.
-2.  Choose **Viewer Link** for attendees/AV or **Co-Editor Link** for colleagues.
-3.  Copy the link or show/download the QR code.
-
-## 💡 Important Note on Data
-
-This application uses **Cloud-First Synchronization**. 
-*   Your data is securely stored and synced via Convex.
-*   Changes are pushed instantly to all active displays (TV, Stage, Portal).
-*   Even if your connection drops, the app remains functional and syncs your changes as soon as you are reconnected.
-
-## 🎨 Design System
-
-The app follows a modern, clean aesthetic:
-- **Light Mode**: Crisp white and slate grays with Indigo accents (`indigo-600`).
-- **Dark Mode**: Deep slate backgrounds (`slate-950`) with high-contrast text for low-light conference environments.
-- **Print Mode**: Uses a specific CSS print sheet (`@media print`) to hide UI elements and format the data as a legible table.
+## 📄 License
+Private & Proprietary — Developed for live production and church ministry broadcast environments.
