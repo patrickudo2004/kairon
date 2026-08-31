@@ -4,6 +4,10 @@
   "version": "1.0.0",
   "description": "Broadcast Stage & Rundown Engine for Live Events and Ministry",
   "author": "Patrick Udo <patrickudo2004@users.noreply.github.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/patrickudo2004/kairon.git"
+  },
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -55,6 +59,11 @@
     "directories": {
       "output": "release"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "patrickudo2004",
+      "repo": "kairon"
+    },
     "files": [
       "dist/**/*",
       "electron/**/*",
@@ -71,6 +80,7 @@
         "dmg",
         "zip"
       ],
+      "identity": null,
       "category": "public.app-category.video"
     },
     "linux": {
