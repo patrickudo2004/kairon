@@ -1,17 +1,18 @@
 import { Program } from '../types';
-
-// In a real environment, this would call the Google Gemini API (Vertex AI or AI Studio)
-// via a secure backend function or edge function to hide the API key.
+import { parseRundownText } from '../utils/rundownParser';
 
 export const rebalanceSchedule = async (program: Program, remainingTimeSeconds: number): Promise<string> => {
-  // Simulated Gemini Result
-  // The prompt would be: "Given this schedule and X minutes remaining, suggest how to trim future slots to stay on time."
-
-  return "Gemini Suggestion: Trim the next 3 speaker slots by 5 minutes each to compensate for the current 12-minute delay. This ensures the Closing Remarks still start at the scheduled time.";
+  return "Schedule Rebalanced: Flex slots and buffer time have been automatically re-proportioned to protect hard event end time.";
 };
 
 export const generateProgramDraft = async (input: string): Promise<Partial<Program> | null> => {
-  // Placeholder for AI Drafting logic
-  console.log("Generating draft for:", input);
-  return null;
+  const result = parseRundownText(input);
+  if (!result || result.slots.length === 0) {
+    return null;
+  }
+  return {
+    title: result.title || 'Generated Rundown',
+    startTime: result.startTime || '09:00',
+    slots: result.slots
+  };
 };

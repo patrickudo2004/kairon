@@ -328,6 +328,11 @@ const ServiceReportPDF: React.FC<ServiceReportPDFProps> = ({ program, stats, log
                 <View style={styles.cellMain}>
                   <Text style={styles.cellDataHeader}>{item.title}</Text>
                   <Text style={styles.cellDataSub}>{item.speaker || 'No Speaker'}</Text>
+                  {item.details ? (
+                    <Text style={{ fontSize: 7, color: '#64748b', marginTop: 2, fontStyle: 'italic' }}>
+                      {item.details}
+                    </Text>
+                  ) : null}
                 </View>
                 <View style={styles.cellNum}>
                   <Text style={styles.cellDataNum}>{item.plannedVal}m</Text>
