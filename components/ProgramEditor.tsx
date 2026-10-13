@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Program, Slot, SLOT_PRESETS } from '../types';
-import { Trash2, Plus, GripVertical, Sparkles, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, Users, Globe, Link as LinkIcon, Share2, Crown, Cast, Shield } from 'lucide-react';
+import { Trash2, Plus, GripVertical, Sparkles, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, Users, Globe, Link as LinkIcon, Share2, Crown, Cast, Shield, BookOpen, Check } from 'lucide-react';
 import { generateProgramDraft } from '../services/geminiService';
+import { parseRundownText, PRODUCTION_TEMPLATES } from '../utils/rundownParser';
 import { EmbedSnippet } from './EmbedSnippet';
 
 import {
@@ -106,16 +107,42 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
     });
   };
 
-  const handleMagicDraft = async () => {
+  const parsedPreview = useMemo(() => {
+    if (!aiInput.trim()) return null;
+    return parseRundownText(aiInput);
+  }, [aiInput]);
+
+  const handleApplyTemplate = (templateId: string) => {
+    const tmpl = PRODUCTION_TEMPLATES.find(t => t.id === templateId);
+    if (!tmpl) return;
+    const newSlots: Slot[] = tmpl.slots.map(s => ({
+      ...s,
+      id: crypto.randomUUID ? crypto.randomUUID() : `slot-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+    }));
+    onUpdate({
+      ...program,
+      title: program.title === 'New Event' || !program.title ? tmpl.name : program.title,
+      startTime: program.startTime || tmpl.startTime,
+      slots: newSlots
+    });
+    setIsAIDialogOpen(false);
+    setAiInput('');
+  };
+
+  const handleMagicDraft = () => {
     if (!aiInput.trim()) return;
-    setIsGenerating(true);
-    const newProgram = await generateProgramDraft(aiInput);
-    if (newProgram) {
-      const merged = { ...program, ...newProgram, id: program.id, date: program.date };
+    const result = parseRundownText(aiInput);
+    if (result && result.slots.length > 0) {
+      const merged: Program = {
+        ...program,
+        title: result.title && (program.title === 'New Event' || !program.title) ? result.title : program.title,
+        startTime: result.startTime || program.startTime,
+        slots: result.slots
+      };
       onUpdate(merged);
       setIsAIDialogOpen(false);
+      setAiInput('');
     }
-    setIsGenerating(false);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -360,48 +387,124 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
         </button>
       )}
 
-      {/* AI Draft Modal */}
+      {/* Smart Rundown Importer Modal */}
       {isAIDialogOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans">
-          <div className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-lg w-full max-w-xl overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-slate-200 dark:border-[#22262E] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles size={16} className="text-[#0EA5E9]" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white font-mono uppercase">AI Schedule Drafter</h3>
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-4 border-b border-slate-200 dark:border-[#22262E] flex items-center justify-between bg-slate-50/50 dark:bg-[#0D0F12]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-[#0EA5E9]/10 text-[#0EA5E9]">
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white font-mono uppercase tracking-wide">
+                    Smart Rundown Importer
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-[#8A93A4] font-mono">
+                    Deterministic offline parser • Zero cloud tokens • 100% private
+                  </p>
+                </div>
               </div>
-              {!isPro && (
-                <span className="px-2 py-0.5 rounded bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[9px] font-mono font-bold text-[#F59E0B]">
-                  PRO FEATURE
-                </span>
+              <button
+                onClick={() => setIsAIDialogOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg p-1 leading-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Quick Production Templates */}
+            <div className="p-4 border-b border-slate-200 dark:border-[#22262E] bg-slate-50 dark:bg-[#090A0C]">
+              <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 dark:text-[#8A93A4] mb-2 flex items-center gap-1.5">
+                <BookOpen size={12} className="text-[#0EA5E9]" />
+                <span>Quick Production Templates</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {PRODUCTION_TEMPLATES.map((tmpl) => (
+                  <button
+                    key={tmpl.id}
+                    onClick={() => handleApplyTemplate(tmpl.id)}
+                    className="p-2 rounded-lg border border-slate-200 dark:border-[#22262E] bg-white dark:bg-[#121418] hover:border-[#0EA5E9] hover:bg-[#0EA5E9]/5 text-left transition-all group"
+                  >
+                    <div className="font-mono font-bold text-[11px] text-slate-900 dark:text-white group-hover:text-[#0EA5E9] truncate">
+                      {tmpl.name.split(' (')[0]}
+                    </div>
+                    <div className="font-mono text-[9px] text-slate-400 dark:text-[#6A7382]">
+                      {tmpl.slots.length} items • {tmpl.slots.reduce((a, b) => a + b.durationMinutes, 0)}m
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Textarea Paste Area */}
+            <div className="p-4 overflow-y-auto flex-1 flex flex-col gap-3">
+              <div>
+                <label className="block text-[10px] font-mono font-bold text-slate-500 dark:text-[#8A93A4] uppercase tracking-wider mb-1.5">
+                  Or Paste Order of Service / Agenda Text
+                </label>
+                <textarea
+                  value={aiInput}
+                  onChange={(e) => setAiInput(e.target.value)}
+                  placeholder="Paste WhatsApp messages, order of service, or schedules. Examples:&#10;1. Opening Prayer - Pastor David (5 mins)&#10;2. Praise & Worship - Choir (20 mins)&#10;3. Bible Reading: Psalm 23 - Sister Grace (5m)&#10;4. Sermon: Word of Faith - Bishop David (45m)"
+                  className="w-full h-36 bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] rounded-lg p-3 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#4B5563] focus:outline-none focus:border-[#0EA5E9] resize-none"
+                />
+              </div>
+
+              {/* Live Parsed Preview */}
+              {parsedPreview && parsedPreview.slots.length > 0 && (
+                <div className="border border-slate-200 dark:border-[#22262E] rounded-lg p-3 bg-slate-50/50 dark:bg-[#090A0C]/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-[10px] font-bold text-[#10B981] uppercase tracking-wider flex items-center gap-1">
+                      <Check size={12} />
+                      Parsed {parsedPreview.slots.length} slots ({parsedPreview.slots.reduce((a, b) => a + b.durationMinutes, 0)}m total)
+                    </span>
+                    {parsedPreview.title && (
+                      <span className="font-mono text-[10px] text-slate-400 truncate max-w-[200px]">
+                        Event: {parsedPreview.title}
+                      </span>
+                    )}
+                  </div>
+                  <div className="max-h-28 overflow-y-auto space-y-1.5 pr-1">
+                    {parsedPreview.slots.map((s, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-[11px] font-mono p-1.5 bg-white dark:bg-[#121418] rounded border border-slate-200 dark:border-[#22262E]">
+                        <div className="truncate flex-1 mr-2">
+                          <span className="text-slate-400 mr-1.5">{idx + 1}.</span>
+                          <span className="font-semibold text-slate-900 dark:text-white">{s.title}</span>
+                          {s.speaker && <span className="text-[#0EA5E9] ml-2 font-medium">({s.speaker})</span>}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-semibold">{s.type}</span>
+                          <span className="text-[#10B981] font-bold">{s.durationMinutes}m</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
 
-            <div className="p-4">
-              <p className="text-xs text-slate-500 dark:text-[#8A93A4] mb-3">
-                Paste an agenda, order of service text, or rough notes. Gemini will structure it into rundown slots.
-              </p>
-              <textarea
-                value={aiInput}
-                onChange={(e) => setAiInput(e.target.value)}
-                placeholder="e.g. '10:00 Welcome (5m), 10:05 Praise & Worship (25m), 10:30 Sermon by Pastor John (35m)...'"
-                className="w-full h-40 bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] rounded p-3 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#4B5563] focus:outline-none focus:border-[#0EA5E9] resize-none"
-              />
-            </div>
-
-            <div className="p-4 border-t border-slate-200 dark:border-[#22262E] flex items-center justify-end gap-2 bg-slate-50 dark:bg-[#0E1013]">
-              <button
-                onClick={() => setIsAIDialogOpen(false)}
-                className="px-3 py-1.5 text-xs font-mono text-slate-500 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleMagicDraft}
-                disabled={isGenerating || !aiInput.trim()}
-                className="px-4 py-1.5 bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-40 text-white rounded text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-sm"
-              >
-                {isGenerating ? <span>⏳ Drafting...</span> : <span>Generate Rundown ❯</span>}
-              </button>
+            {/* Footer Actions */}
+            <div className="p-4 border-t border-slate-200 dark:border-[#22262E] flex items-center justify-between bg-slate-50 dark:bg-[#0E1013]">
+              <span className="text-[10px] font-mono text-slate-400">
+                Supports WhatsApp, bullets, tabs, and time ranges (09:00 - 09:30)
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsAIDialogOpen(false)}
+                  className="px-3.5 py-2 text-xs font-mono text-slate-500 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleMagicDraft}
+                  disabled={!parsedPreview || parsedPreview.slots.length === 0}
+                  className="px-4 py-2 bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-40 text-white rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-sm"
+                >
+                  <span>Import {parsedPreview?.slots.length ? `${parsedPreview.slots.length} Slots` : 'Rundown'} ❯</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

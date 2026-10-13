@@ -2,7 +2,7 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Slot, SLOT_PRESETS } from '../types';
-import { Trash2, GripVertical, Copy, ChevronDown, ChevronUp, AlertCircle, Tv, MessageSquare, Clock } from 'lucide-react';
+import { Trash2, GripVertical, Copy, ChevronDown, ChevronUp, AlertCircle, Tv, MessageSquare, Clock, FileText } from 'lucide-react';
 
 interface SortableSlotProps {
   slot: Slot;
@@ -157,7 +157,20 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
 
       {/* Expandable Production Notes & Cues Drawer */}
       {isExpanded && (
-        <div className="p-3 bg-slate-50 dark:bg-[#090A0C] border-t border-slate-200 dark:border-[#22262E] grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono animate-in fade-in duration-150">
+        <div className="p-3 bg-slate-50 dark:bg-[#090A0C] border-t border-slate-200 dark:border-[#22262E] grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-mono animate-in fade-in duration-150">
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 dark:text-[#8A93A4] uppercase mb-1 flex items-center gap-1.5">
+              <FileText size={11} className="text-[#10B981]" />
+              Session Details / Rundown Notes
+            </label>
+            <textarea
+              value={slot.details || ''}
+              readOnly={isReadOnly}
+              onChange={(e) => onSlotChange(slot.id, 'details', e.target.value)}
+              placeholder="e.g. 'Scripture: Psalm 23, prayer points, agenda summary...'"
+              className="w-full h-16 bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded p-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#4B5563] focus:outline-none focus:border-[#10B981] resize-none"
+            />
+          </div>
           <div>
             <label className="block text-[10px] font-bold text-slate-500 dark:text-[#8A93A4] uppercase mb-1 flex items-center gap-1.5">
               <MessageSquare size={11} className="text-[#0EA5E9]" />

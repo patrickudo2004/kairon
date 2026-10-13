@@ -158,6 +158,22 @@ const isProgramContentEqual = (p1: Program, p2: Program): boolean => {
 };
 
 
+const getProtectedMinimumDuration = (slot: Slot): number => {
+  const type = (slot.type || '').toLowerCase();
+  const title = (slot.title || '').toLowerCase();
+  
+  // Protect core Sermons, Word, Keynotes from excessive compression
+  if (type === 'sermon' || type === 'keynote' || /sermon|the word|message|keynote/.test(title)) {
+    return Math.max(15, Math.floor(slot.durationMinutes * 0.6));
+  }
+  // Protect worship from dropping below 5 min or 50%
+  if (type === 'worship' || /worship|praise/.test(title)) {
+    return Math.max(5, Math.floor(slot.durationMinutes * 0.5));
+  }
+  // Short items, announcements, offerings, breaks can shave down to 1 min minimum
+  return 1;
+};
+
 const healScheduleOverruns = (program: Program, currentSlotIndex: number, overrunSeconds: number): any[] => {
   const remainingSlots = program.slots.slice(currentSlotIndex + 1);
   if (remainingSlots.length === 0) return program.slots;
@@ -171,23 +187,23 @@ const healScheduleOverruns = (program: Program, currentSlotIndex: number, overru
   let absorbed = 0;
 
   // Step 1: Try to absorb from "flex/buffer" slots first
-  const flexTypes = ['break', 'transition', 'announcements', 'buffer', 'music', 'worship'];
+  const flexTypes = ['break', 'transition', 'announcements', 'buffer'];
   const remainingFlexSlots = newSlots.slice(currentSlotIndex + 1).filter(s => 
     flexTypes.includes((s.type || '').toLowerCase())
   );
 
   for (let s of remainingFlexSlots) {
     if (absorbed >= minutesToAbsorb) break;
-    const currentDuration = s.durationMinutes;
-    const maxShave = Math.max(0, currentDuration - 1); // keep at least 1 min
+    const minFloor = getProtectedMinimumDuration(s);
+    const maxShave = Math.max(0, s.durationMinutes - minFloor);
     const shave = Math.min(minutesToAbsorb - absorbed, maxShave);
     if (shave > 0) {
-      s.durationMinutes -= shave;
+      s.durationMinutes = Math.max(minFloor, s.durationMinutes - shave);
       absorbed += shave;
     }
   }
 
-  // Step 2: If we still need to absorb time, shave from other slots down to 1 minute
+  // Step 2: If we still need to absorb time, shave from other slots respecting protected floors
   if (absorbed < minutesToAbsorb) {
     const remainingOtherSlots = newSlots.slice(currentSlotIndex + 1).filter(s => 
       !flexTypes.includes((s.type || '').toLowerCase())
@@ -195,11 +211,11 @@ const healScheduleOverruns = (program: Program, currentSlotIndex: number, overru
     
     for (let s of remainingOtherSlots) {
       if (absorbed >= minutesToAbsorb) break;
-      const currentDuration = s.durationMinutes;
-      const maxShave = Math.max(0, currentDuration - 1); // keep at least 1 min
+      const minFloor = getProtectedMinimumDuration(s);
+      const maxShave = Math.max(0, s.durationMinutes - minFloor);
       const shave = Math.min(minutesToAbsorb - absorbed, maxShave);
       if (shave > 0) {
-        s.durationMinutes -= shave;
+        s.durationMinutes = Math.max(minFloor, s.durationMinutes - shave);
         absorbed += shave;
       }
     }
