@@ -52,7 +52,7 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
         let interval: number;
         if (isEnding && holdToEnd < 100) {
             interval = window.setInterval(() => {
-                setHoldToEnd((prev) => Math.min(100, prev + 5));
+                setHoldToEnd((prev) => Math.min(100, prev + 2.5));
             }, 50);
         } else if (!isEnding && holdToEnd > 0) {
             interval = window.setInterval(() => {
