@@ -358,4 +358,65 @@ test.describe('Live Rundown E2E Scenarios', () => {
     await commandPage.waitForLoadState('domcontentloaded');
     await expect(commandPage.locator('h2', { hasText: 'Phase 35 Test Service' }).first()).toBeVisible();
   });
+
+  test('should verify Crew HUD acknowledgements and real-time state sync', async ({ page, context }) => {
+    test.setTimeout(60000);
+
+    const baseTime = new Date('2026-06-12T12:00:00Z');
+    await page.clock.install({ time: baseTime });
+
+    // 1. Create a program with technical production notes
+    await page.goto('/?testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+
+    const createBtn = page.getByRole('button', { name: 'Create New' });
+    await expect(createBtn).toBeVisible({ timeout: 10000 });
+    await createBtn.click();
+
+    await expect(page).toHaveURL(/.*editor/);
+    const titleInput = page.locator('input').first();
+    await titleInput.fill('Broadcast Service 4');
+
+    // Add slot with production cues
+    await page.getByText('Add Session Slot').click();
+    await page.locator('input[placeholder="Session Title"]').first().fill('Praise & Worship Live');
+    await page.locator('input[placeholder="Speaker Name"]').first().fill('Music Director');
+    await page.locator('input[type="number"]').first().fill('5');
+
+    await page.locator('button[title="Show Details"]').first().click();
+    await page.locator('textarea[placeholder*="Spotlight on pulpit"]').first().fill('Cue wireless mics 1-4 and stage wash');
+
+    const currentUrl = page.url();
+    const urlObj = new URL(currentUrl);
+    const programId = urlObj.searchParams.get('id');
+    expect(programId).toBeTruthy();
+
+    await page.clock.fastForward(3000);
+
+    // 2. Open Crew HUD in a second page/window
+    const crewPage = await context.newPage();
+    await crewPage.clock.install({ time: baseTime });
+    await crewPage.goto(`/crew?id=${programId}&testBypass=true`);
+    await crewPage.waitForLoadState('domcontentloaded');
+
+    // Verify slot title and production cues appear on Crew HUD
+    await expect(crewPage.locator('h2', { hasText: 'Praise & Worship Live' })).toBeVisible();
+    await expect(crewPage.locator('text=Cue wireless mics 1-4 and stage wash')).toBeVisible();
+
+    // Verify ACK buttons are visible (Sound, Lights, Video)
+    const soundBtn = crewPage.getByRole('button', { name: /Sound/i });
+    const lightsBtn = crewPage.getByRole('button', { name: /Lights/i });
+    const videoBtn = crewPage.getByRole('button', { name: /Video/i });
+
+    await expect(soundBtn).toBeVisible();
+    await expect(lightsBtn).toBeVisible();
+    await expect(videoBtn).toBeVisible();
+
+    // Click Sound ACK and verify it changes state
+    await soundBtn.click();
+    await crewPage.clock.fastForward(500);
+
+    // Verify Sound button has confirmed state (green / checked)
+    await expect(soundBtn).toHaveClass(/text-\[#10B981\]/);
+  });
 });

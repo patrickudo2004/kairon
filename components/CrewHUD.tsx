@@ -266,24 +266,55 @@ export const CrewHUD: React.FC = () => {
     };
 
     const remainingSeconds = currentSlot ? (currentSlot.durationMinutes * 60) - derivedSecondsElapsed : 0;
-
     const [localAcks, setLocalAcks] = useState<Set<string>>(new Set());
+    const programIdentifier = program?.id || targetId || '';
+    const cloudAcks = useQuery(
+        api.programs.getAcknowledgements,
+        programIdentifier ? { programId: String(programIdentifier) } : "skip"
+    ) || [];
 
-    // Safely attempt cloud mutation if available
-    let acknowledgeMutation: any = null;
-    try {
-        acknowledgeMutation = useMutation((api.programs as any).acknowledgeCrew || (api.programs as any).acknowledge);
-    } catch (e) {}
+    const acknowledgeCueMutation = useMutation(api.programs.acknowledgeCue);
+
+    // BroadcastChannel for instant local inter-window and multi-tab synchronization
+    useEffect(() => {
+        const channel = new BroadcastChannel('kairon_acks');
+        const handleAckMsg = (e: MessageEvent) => {
+            if (e.data && e.data.type === 'crew_ack' && e.data.slotId && e.data.role) {
+                setLocalAcks(prev => new Set(prev).add(`${e.data.slotId}-${e.data.role}`));
+            }
+        };
+        channel.addEventListener('message', handleAckMsg);
+        return () => {
+            channel.removeEventListener('message', handleAckMsg);
+            channel.close();
+        };
+    }, []);
 
     const handleAck = async (role: 'sound' | 'lighting' | 'video') => {
         if (!program || !currentSlot) return;
         const ackKey = `${currentSlot.id}-${role}`;
         setLocalAcks(prev => new Set(prev).add(ackKey));
         
+        // 1. Broadcast locally for immediate reaction across all open displays/monitors
         try {
-            if (acknowledgeMutation && programRaw?._id) {
-                await acknowledgeMutation({
-                    programId: programRaw._id as any,
+            const channel = new BroadcastChannel('kairon_acks');
+            channel.postMessage({
+                type: 'crew_ack',
+                programId: programIdentifier,
+                slotId: currentSlot.id,
+                role,
+                timestamp: Date.now()
+            });
+            channel.close();
+        } catch (bErr) {
+            console.warn('BroadcastChannel error on ack:', bErr);
+        }
+
+        // 2. Persist to Convex cloud
+        try {
+            if (programIdentifier) {
+                await acknowledgeCueMutation({
+                    programId: String(programIdentifier),
                     slotId: currentSlot.id,
                     role,
                 });
@@ -295,7 +326,9 @@ export const CrewHUD: React.FC = () => {
 
     const isAcked = (role: string) => {
         if (!currentSlot) return false;
-        return localAcks.has(`${currentSlot.id}-${role}`);
+        const key = `${currentSlot.id}-${role}`;
+        if (localAcks.has(key)) return true;
+        return Array.isArray(cloudAcks) && cloudAcks.some((a: any) => a.slotId === currentSlot.id && a.role === role);
     };
 
     const isThemeLight = currentTheme === 'light';

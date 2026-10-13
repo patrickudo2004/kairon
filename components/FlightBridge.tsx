@@ -49,9 +49,26 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
         isConvexId ? { programId: program.id as any } : "skip"
     ) || [];
 
+    const [localAcks, setLocalAcks] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        const channel = new BroadcastChannel('kairon_acks');
+        const handleAckMsg = (e: MessageEvent) => {
+            if (e.data && e.data.type === 'crew_ack' && e.data.slotId && e.data.role) {
+                setLocalAcks(prev => new Set(prev).add(`${e.data.slotId}-${e.data.role}`));
+            }
+        };
+        channel.addEventListener('message', handleAckMsg);
+        return () => {
+            channel.removeEventListener('message', handleAckMsg);
+            channel.close();
+        };
+    }, []);
+
     const currentSlot = program.slots[currentSlotIndex];
 
     const isAcked = (role: string) => {
+        if (currentSlot && localAcks.has(`${currentSlot.id}-${role}`)) return true;
         return acks.some(a => a.slotId === currentSlot?.id && a.role === role);
     };
     const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;

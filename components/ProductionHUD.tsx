@@ -41,10 +41,27 @@ export const ProductionHUD: React.FC<ProductionHUDProps> = ({
         isConvexId ? { programId: programId as any } : "skip"
     ) || [];
 
+    const [localAcks, setLocalAcks] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        const channel = new BroadcastChannel('kairon_acks');
+        const handleAckMsg = (e: MessageEvent) => {
+            if (e.data && e.data.type === 'crew_ack' && e.data.slotId && e.data.role) {
+                setLocalAcks(prev => new Set(prev).add(`${e.data.slotId}-${e.data.role}`));
+            }
+        };
+        channel.addEventListener('message', handleAckMsg);
+        return () => {
+            channel.removeEventListener('message', handleAckMsg);
+            channel.close();
+        };
+    }, []);
+
     const program = useQuery(api.programs.getProgramById, programId ? { id: programId as any } : "skip");
     const currentSlot = program?.slots[program?.currentSlotIndex ?? 0];
 
     const isAcked = (role: string) => {
+        if (currentSlot && localAcks.has(`${currentSlot.id}-${role}`)) return true;
         return acks.some(a => a.slotId === currentSlot?.id && a.role === role);
     };
 

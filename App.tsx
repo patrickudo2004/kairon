@@ -1839,9 +1839,25 @@ const AppContent: React.FC = () => {
     isConvexId ? { programId: displayProgram.id as any } : "skip"
   ) || [];
 
-  const isSoundAcked = crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'sound');
-  const isLightsAcked = crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'lighting');
-  const isVideoAcked = crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'video');
+  const [headerLocalAcks, setHeaderLocalAcks] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const channel = new BroadcastChannel('kairon_acks');
+    const handleAckMsg = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'crew_ack' && e.data.slotId && e.data.role) {
+        setHeaderLocalAcks(prev => new Set(prev).add(`${e.data.slotId}-${e.data.role}`));
+      }
+    };
+    channel.addEventListener('message', handleAckMsg);
+    return () => {
+      channel.removeEventListener('message', handleAckMsg);
+      channel.close();
+    };
+  }, []);
+
+  const isSoundAcked = (currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-sound`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'sound');
+  const isLightsAcked = (currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-lighting`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'lighting');
+  const isVideoAcked = (currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-video`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'video');
 
   return (
     <div className="h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-hidden">
