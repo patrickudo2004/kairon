@@ -3,6 +3,7 @@ import { Program } from '../types';
 import { Play, Pause, SkipForward, SkipBack, Eye, CheckCircle, ClipboardList, MousePointerClick, Zap, Minus, Plus, Power, AlertTriangle, Shield, Clock } from 'lucide-react';
 import { useTimerSync } from '../hooks/useTimerSync';
 import { formatDuration } from '../utils/time';
+import { HoldToConfirmButton } from './HoldToConfirmButton';
 
 interface LiveTimerProps {
   program: Program;
@@ -42,31 +43,6 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
 
   // Sync the timer heart-beat with the global anchor
   const elapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
-
-  // Safety Hold logic for End Event
-  const [holdToEnd, setHoldToEnd] = useState(0);
-  const [isEnding, setIsEnding] = useState(false);
-
-  useEffect(() => {
-    let interval: number;
-    if (isEnding && holdToEnd < 100) {
-      interval = window.setInterval(() => {
-        setHoldToEnd((prev) => Math.min(100, prev + 5));
-      }, 50);
-    } else if (!isEnding && holdToEnd > 0) {
-      interval = window.setInterval(() => {
-        setHoldToEnd((prev) => Math.max(0, prev - 10));
-      }, 50);
-    }
-
-    if (holdToEnd >= 100 && onEndEvent) {
-      onEndEvent(program.id);
-      setHoldToEnd(0);
-      setIsEnding(false);
-    }
-
-    return () => clearInterval(interval);
-  }, [isEnding, holdToEnd, onEndEvent]);
 
   // Time calculations
   const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
@@ -360,23 +336,14 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             </button>
 
             {/* End Event Hold-to-Confirm */}
-            <button
-              onMouseDown={() => setIsEnding(true)}
-              onMouseUp={() => setIsEnding(false)}
-              onMouseLeave={() => setIsEnding(false)}
-              onTouchStart={() => setIsEnding(true)}
-              onTouchEnd={() => setIsEnding(false)}
-              className="relative overflow-hidden bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 text-[#EF4444] px-4 py-2.5 rounded-md font-mono text-xs font-bold uppercase tracking-wider transition-all select-none flex items-center gap-1.5 shadow-sm"
-            >
-              <div
-                className="absolute inset-0 bg-[#EF4444] opacity-30 origin-left transition-transform duration-75"
-                style={{ transform: `scaleX(${holdToEnd / 100})` }}
+            {onEndEvent && (
+              <HoldToConfirmButton
+                onConfirm={() => onEndEvent(program.id)}
+                durationMs={2000}
+                label="END EVENT"
+                holdingLabel="HOLD TO END"
               />
-              <Power size={14} className="relative z-10" />
-              <span className="relative z-10">
-                {holdToEnd > 0 ? `HOLD (${holdToEnd}%)` : 'END EVENT'}
-              </span>
-            </button>
+            )}
 
           </div>
 

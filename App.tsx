@@ -646,7 +646,7 @@ const AppContent: React.FC = () => {
   // Decides if we show the "Global Live" event or the "Local Draft" event.
   // ---------------------------------------------------------
   const isLiveEventActive = !!globalLiveProgram;
-  const isTargetSameAsLocal = isLiveEventActive && (String(globalLiveProgram?.id) === String(program.id) || String(globalLiveProgram?.id) === String(selectedLiveId));
+  const isTargetSameAsLocal = isLiveEventActive && (String(globalLiveProgram?.id) === String(program.id));
 
   const displayProgram = isLiveEventActive ? globalLiveProgram! : program;
   const displayCurrentSlotIndex = isLiveEventActive ? (globalLiveProgram?.currentSlotIndex ?? 0) : currentSlotIndex;
@@ -1334,6 +1334,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (!displayProgram || !displayProgram.id) return;
     if (displayProgram.isManualMode) return;
+    if (!displayIsTimerActive) return; // FIX: Never auto-advance or unpause if timer is paused!
 
     const currentIdx = displayCurrentSlotIndex;
     const elapsed = displaySecondsElapsed;
@@ -1351,10 +1352,10 @@ const AppContent: React.FC = () => {
     const durationSeconds = currentSlot.durationMinutes * 60;
 
     if (elapsed >= durationSeconds && lastAdvancedIndexRef.current !== currentIdx) {
-      lastAdvancedIndexRef.current = currentIdx; // Lock it!
-      // Throttle Auto-Advance (Mutation Lock)
+      // Throttle Auto-Advance (Mutation Lock): Check throttle BEFORE assigning lock
       if (Date.now() - lastAdvanceTimeRef.current < 2000) return;
       lastAdvanceTimeRef.current = Date.now();
+      lastAdvancedIndexRef.current = currentIdx; // Lock it once we pass throttle!
 
       console.log('AUTO-ADVANCE TRIGGERED FOR:', displayProgram.title);
       handleSlotComplete(currentSlot.id, currentSlot.durationMinutes);
@@ -1479,10 +1480,10 @@ const AppContent: React.FC = () => {
         lastAdvancedIndexRef.current = -1;
         lastProcessedIndexRef.current = -1;
       }
-      // For PLAY: Use localSecondsOverride (from manual start) or existing display elapsed
+      // For PLAY: Use localSecondsOverride (from manual start) or existing display/target elapsed
       const secondsToUse = localSecondsOverride !== undefined 
         ? localSecondsOverride 
-        : (targetIdStr === String(displayProgram.id) ? displaySecondsElapsed : 0);
+        : (targetIdStr === String(displayProgram.id) ? displaySecondsElapsed : (target.secondsElapsed || 0));
       
       const shiftedStart = now - (secondsToUse * 1000);
 
@@ -2246,7 +2247,7 @@ const AppContent: React.FC = () => {
                         onToggleHold={handleToggleHold}
                         onNext={handleNext}
                         onPrev={handlePrev}
-                        onEndEvent={handleEndEvent}
+                        onEndEvent={(id) => requestEndEventConfirmation(id || displayProgram.id)}
                         onNudge={handleNudge}
                         readOnly={isReadOnly && userRole !== 'operator'}
                         isAutopilotEnabled={isAutopilotEnabled}
@@ -2272,13 +2273,47 @@ const AppContent: React.FC = () => {
                         isTimerActive={isTimerActive}
                         currentSlotIndex={currentSlotIndex}
                         isPro={isPro}
-                        onEndEvent={handleEndEvent}
+                        onEndEvent={(id) => requestEndEventConfirmation(id || program.id)}
                         onNudge={handleNudge}
                         onUpdate={(p) => {
                           if ((p as any)._triggerRebalance) {
                             handleAiRebalance(p);
                             return;
                           }
+
+                          // ACTIVE SLOT UUID STABILITY:
+                          // If slots are reordered or deleted while program is live or being edited,
+                          // track the active slot by immutable UUID rather than raw index shift.
+                          const activeSlotId = program.slots[currentSlotIndex]?.id;
+                          if (activeSlotId && p.slots.length > 0) {
+                            const newActiveIdx = p.slots.findIndex(s => s.id === activeSlotId);
+                            if (newActiveIdx !== -1 && newActiveIdx !== currentSlotIndex) {
+                              setCurrentSlotIndex(newActiveIdx);
+                              if (p.status === 'live') {
+                                timerSaveMutation.mutate({
+                                  id: p.id,
+                                  currentSlotIndex: newActiveIdx,
+                                  isTimerActive,
+                                  secondsElapsed,
+                                  timerStartTimestamp
+                                });
+                              }
+                            } else if (newActiveIdx === -1) {
+                              // Active slot was deleted; clamp index safely
+                              const clampedIdx = Math.max(0, Math.min(currentSlotIndex, p.slots.length - 1));
+                              setCurrentSlotIndex(clampedIdx);
+                              if (p.status === 'live') {
+                                timerSaveMutation.mutate({
+                                  id: p.id,
+                                  currentSlotIndex: clampedIdx,
+                                  isTimerActive,
+                                  secondsElapsed,
+                                  timerStartTimestamp
+                                });
+                              }
+                            }
+                          }
+
                           updateLocalProgram(p);
                           if (p.slots.length === 0) {
                             setCurrentSlotIndex(0);
