@@ -40,12 +40,25 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
     const [previewSlotIndex, setPreviewSlotIndex] = useState(currentSlotIndex);
     const [isSyncingWithLive, setIsSyncingWithLive] = useState(true);
 
-    // Keep preview in sync with live slot if sync is active
+    // Keep preview in sync with live slot if sync is active, and reset prompter scroll to top on new slot
     useEffect(() => {
         if (isSyncingWithLive) {
             setPreviewSlotIndex(currentSlotIndex);
+            if (scrollContainerRef.current) {
+                scrollContainerRef.current.scrollTop = 0;
+            }
         }
     }, [currentSlotIndex, isSyncingWithLive]);
+
+    // Automatically track countdown scrolling when live timer is running
+    useEffect(() => {
+        if (isTimerActive && !isThumbnail) {
+            setIsScrolling(true);
+            setScrollSpeed('sync');
+        } else if (!isTimerActive) {
+            setIsScrolling(false);
+        }
+    }, [isTimerActive, isThumbnail]);
 
     const currentSlot = program.slots[previewSlotIndex];
     const elapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
@@ -378,7 +391,13 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
                     </div>
 
                     <div className="my-10 flex flex-col items-center justify-center">
-                        <div className={`font-mono font-black tabular-nums leading-none tracking-tighter transition-all duration-500 text-[12vw] md:text-[8vw] ${timeLeft < 0 ? 'text-rose-500 animate-pulse' : timeLeft < 60 ? 'text-amber-500' : ''}`}>
+                        <div className={`font-mono font-black tabular-nums leading-none tracking-tighter transition-all duration-500 text-[12vw] md:text-[8vw] ${
+                            timeLeft < 0 
+                                ? 'text-rose-600 dark:text-rose-500 animate-pulse' 
+                                : timeLeft < 60 
+                                    ? (activeTheme === 'light' ? 'text-amber-800' : 'text-amber-400') 
+                                    : (activeTheme === 'light' ? 'text-slate-950' : 'text-white')
+                        }`}>
                             {formatDuration(timeLeft)}
                         </div>
                         <span className="text-xs font-bold uppercase tracking-[0.3em] opacity-40 mt-2">
