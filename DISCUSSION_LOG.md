@@ -53,3 +53,54 @@ This file serves as a persistent record of architectural decisions, feature disc
     - **Phase 3**: Production (Prompter Messaging & Speaker Views).
     - **Phase 4**: Market Expansion (Reports, Ticketing investigation).
 
+---
+
+## 2026-10-13: Production Architecture, Offline Strategy, Mobile Projection & SaaS Monetization
+**Context**: Kairon is in active live production use at Winners Chapel Manchester with praise from pastors and media crew. `main` branch is locked to protect live services (including upcoming Midweek and Sunday services). All new development, testing, and debugging moved to the dedicated `develop` branch.
+
+### 1. Offline & Databaseless Execution Architecture
+* **RAM (Execution) vs. Disk (Storage)**:
+  - An offline version does not require a database server at all.
+  - Runtime clock calculation operates in computer RAM via pure epoch math: `timeLeft = plannedDuration - (Date.now() - anchorTimestamp)`.
+  - Data persists on disk as portable `.kairon` / `.json` files inside `Documents/Kairon/Workspaces/<OrgName>/<Year>/<Month>/`.
+* **Multi-Screen Sync Without a Database**:
+  - Main operator window communicates to secondary screens (Screen 2: Pulpit, Screen 3: TV) on the same machine via **Electron IPC (Inter-Process Communication)** or **`BroadcastChannel`** in memory in < 1 millisecond.
+  - Optional local Wi-Fi WebSocket relay enables stage tablets (iPads/Android) to sync across the local church router even if the venue's internet drops.
+
+### 2. Cloud vs. Local: The "Local-First Relay" Strategy
+* **Maintain Convex for Identity & Global Sync**:
+  - Convex remains the central cloud engine for authentication (Google OAuth, email), multi-user roles, Stripe billing status, and mobile/tablet synchronization.
+  - Desktop app operates as a "Local-First Relay": executes math locally, powers HDMI outputs with 0ms latency, and asynchronously syncs slot actuals and history to Convex when online.
+
+### 3. Mobile Device Projection (Android & iOS for Budget Venues)
+* **Wired Output (USB-C to HDMI)**:
+  - iOS (USB-C iPhone 15+ & modern iPads): Supports external display output and dual-screen app views (Controls on device, clean stage timer on external display).
+  - Android: Devices supporting DisplayPort Alternate Mode (e.g. Samsung DeX) turn phones into full desktop operating systems with extended displays.
+* **The Web-Native "No Cables" Approach (Recommended for Budget Churches)**:
+  - Stage screen runs via Smart TV browser, $20 Amazon Fire Stick, or Chromecast loading `https://kairon.app/stage?id=...`.
+  - The operator or pastor controls everything from their Android phone or iPhone in their hand. Zero cables, zero adapters.
+
+### 4. Market Landscape & Pricing Model
+* **Competitive Analysis**:
+  - *Shoflo*: Enterprise-only, $1,000–$3,000+/year, quote-based.
+  - *Stagetimer.io*: $15–$17.50/month ($180–$210/year) for Pro; $40+/mo for Premium.
+  - *Rundown Studio*: $29–$49/month.
+  - *Ontime*: Open-source, requires technical installation/routing.
+* **Kairon's Competitive Moat**:
+  - Autopilot (Deterministic schedule auto-healing protecting curfew).
+  - Zero-drag 1-click multi-screen matrix routing (Screen 2 Pulpit, Screen 3 TV).
+  - High-contrast Pulpit Themes (Ambient Yellow & Ambient White) penetrating stage spotlights.
+  - Emergency red strobe alert and silent cue dispatcher.
+* **Recommended Packaging Strategy**:
+  - **Community Tier (Free)**: Web-only, single active program, "Powered by Kairon" watermark.
+  - **Pro Tier ($9.99/mo or $99/yr)**: Full Desktop App (Win/Mac/Linux), 100% offline resilience, custom church branding (remove watermark), multi-screen matrix, Autopilot, cue dispatcher, teleprompter, and PDF reports.
+  - **Campus / Enterprise Tier ($24.99/mo or $249/yr)**: Command Center multi-track live monitoring for multi-room/multi-campus churches, RBAC.
+  - **Weekend Pass ($19 one-time)**: 7-day Pro access for one-off conferences and weddings.
+* **Licensing Rule**: 14-day silent grace period; never lock out a user or disrupt a live service on a Sunday or Wednesday.
+
+### 5. Immediate Next Steps & Workflow Order
+1. **Safeguard Active Production**: Keep `main` frozen. Service prep for Wednesday Midweek and upcoming Sunday proceeds on production.
+2. **Current Bug Fixes First**: Resolve existing UI/UX and timing stops within the current app on `develop` before building new offline/desktop features.
+3. **Desktop Google OAuth**: Implement external browser OAuth loop via system shell to resolve Google's embedded webview block.
+4. **Offline Desktop App**: Build local JSON workspace loader and IPC relay once existing app bugs are resolved.
+
