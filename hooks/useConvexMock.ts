@@ -131,7 +131,16 @@ export const useQuery = (query: any, args: any) => {
         return path.includes('getMyOrganizations') ? [org] : org;
     }
     if (path.includes('getAcknowledgements')) {
-        return [];
+        const local = localStorage.getItem('test_acknowledgements');
+        const list = local ? JSON.parse(local) : [];
+        if (args?.programId) {
+            const cleanArg = String(args.programId).replace('local-', '');
+            return list.filter((a: any) => {
+                const cleanA = String(a.programId).replace('local-', '');
+                return cleanA === cleanArg;
+            });
+        }
+        return list;
     }
     return null;
 };
@@ -165,6 +174,31 @@ export const useMutation = (mutation: any) => {
                 ...(args.name ? { name: args.name } : {})
             }));
             window.dispatchEvent(new Event('storage'));
+            return { success: true };
+        }
+        if (path.includes('acknowledgeCue')) {
+            const local = localStorage.getItem('test_acknowledgements');
+            const list = local ? JSON.parse(local) : [];
+            const timestamp = Date.now();
+            const existingIdx = list.findIndex((a: any) =>
+                String(a.programId).replace('local-', '') === String(args.programId).replace('local-', '') &&
+                a.slotId === args.slotId &&
+                a.role === args.role
+            );
+            if (existingIdx >= 0) {
+                list[existingIdx].timestamp = timestamp;
+            } else {
+                list.push({
+                    _id: `ack-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                    programId: args.programId,
+                    slotId: args.slotId,
+                    role: args.role,
+                    timestamp,
+                });
+            }
+            localStorage.setItem('test_acknowledgements', JSON.stringify(list));
+            window.dispatchEvent(new Event('storage'));
+            window.dispatchEvent(new Event('program_update'));
             return { success: true };
         }
         return {};

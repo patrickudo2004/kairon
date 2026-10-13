@@ -26,7 +26,7 @@ export const useScreenManagement = () => {
   const [screenDetails, setScreenDetails] = useState<any>(null);
 
   useEffect(() => {
-    // 1. Electron Native Screen Discovery
+    // 1. Electron Native Screen Discovery & Dynamic Hardware Events
     if (isElectron && (window as any).electron?.getScreens) {
       (window as any).electron.getScreens().then((list: ScreenInfo[]) => {
         if (Array.isArray(list) && list.length > 0) {
@@ -36,7 +36,22 @@ export const useScreenManagement = () => {
           setHasSecondaryScreen(externals.length > 0);
         }
       }).catch((err: any) => console.warn('Electron getScreens error:', err));
-      return;
+
+      let cleanupListener: (() => void) | undefined;
+      if (typeof (window as any).electron?.onScreensUpdated === 'function') {
+        cleanupListener = (window as any).electron.onScreensUpdated((list: ScreenInfo[]) => {
+          if (Array.isArray(list)) {
+            setScreens(list);
+            const externals = list.filter(s => !s.isPrimary);
+            setExternalScreens(externals);
+            setHasSecondaryScreen(externals.length > 0);
+          }
+        });
+      }
+
+      return () => {
+        if (cleanupListener) cleanupListener();
+      };
     }
 
     // 2. Web Browser Window Management API

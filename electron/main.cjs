@@ -43,34 +43,7 @@ function createMainWindow() {
   });
 }
 
-app.whenReady().then(() => {
-  // Prevent OS from sleeping during live church broadcasts
-  try {
-    powerBlockerId = powerSaveBlocker.start('prevent-display-sleep');
-  } catch (err) {
-    console.warn('Could not start powerSaveBlocker:', err);
-  }
-
-  createMainWindow();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
-    }
-  });
-});
-
-app.on('window-all-closed', () => {
-  if (powerBlockerId !== null && powerSaveBlocker.isStarted(powerBlockerId)) {
-    powerSaveBlocker.stop(powerBlockerId);
-  }
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
-
-// IPC: Return all connected hardware screens
-ipcMain.handle('get-screens', () => {
+function getScreenList() {
   const displays = screen.getAllDisplays();
   const primaryDisplay = screen.getPrimaryDisplay();
 
@@ -92,6 +65,90 @@ ipcMain.handle('get-screens', () => {
       label: d.label || (isPrimary ? 'Primary Display (Display 1)' : `External Display ${idx + 1}`),
     };
   });
+}
+
+function broadcastScreenUpdates() {
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+    mainWindow.webContents.send('screens-updated', getScreenList());
+  }
+}
+
+app.whenReady().then(() => {
+  // Prevent OS from sleeping during live church broadcasts
+  try {
+    powerBlockerId = powerSaveBlocker.start('prevent-display-sleep');
+  } catch (err) {
+    console.warn('Could not start powerSaveBlocker:', err);
+  }
+
+  // Setup dynamic hardware display plug/unplug listeners
+  screen.on('display-added', (event, newDisplay) => {
+    console.log('Hardware display connected:', newDisplay.id);
+    broadcastScreenUpdates();
+  });
+
+  screen.on('display-removed', (event, oldDisplay) => {
+    console.log('Hardware display disconnected:', oldDisplay.id);
+    broadcastScreenUpdates();
+
+    // Safety: If an external display was unplugged (e.g. HDMI pull),
+    // reposition any stranded secondary windows to the primary display to prevent orphans
+    try {
+      const remainingDisplays = screen.getAllDisplays();
+      const primary = screen.getPrimaryDisplay();
+      Object.entries(secondaryWindows).forEach(([key, win]) => {
+        if (win && !win.isDestroyed()) {
+          const bounds = win.getBounds();
+          const isOnValidDisplay = remainingDisplays.some((d) => {
+            return (
+              bounds.x >= d.bounds.x &&
+              bounds.x < d.bounds.x + d.bounds.width &&
+              bounds.y >= d.bounds.y &&
+              bounds.y < d.bounds.y + d.bounds.height
+            );
+          });
+          if (!isOnValidDisplay) {
+            console.warn(`Secondary window [${key}] lost display. Repositioning to primary screen.`);
+            win.setFullScreen(false);
+            win.setBounds({
+              x: primary.bounds.x + 60,
+              y: primary.bounds.y + 60,
+              width: Math.min(1280, primary.bounds.width - 120),
+              height: Math.min(720, primary.bounds.height - 120),
+            });
+          }
+        }
+      });
+    } catch (repositionErr) {
+      console.warn('Error repositioning disconnected windows:', repositionErr);
+    }
+  });
+
+  screen.on('display-metrics-changed', () => {
+    broadcastScreenUpdates();
+  });
+
+  createMainWindow();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createMainWindow();
+    }
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (powerBlockerId !== null && powerSaveBlocker.isStarted(powerBlockerId)) {
+    powerSaveBlocker.stop(powerBlockerId);
+  }
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+// IPC: Return all connected hardware screens
+ipcMain.handle('get-screens', () => {
+  return getScreenList();
 });
 
 // IPC: Open targeted secondary display window at exact monitor bounds
