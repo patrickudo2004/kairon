@@ -45,6 +45,19 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   const [aiInput, setAiInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set());
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const isLocal = !origin || origin.startsWith('file:') || origin.includes('localhost') || origin.includes('127.0.0.1');
+    const base = isLocal ? 'https://kairon.app' : origin;
+    const url = `${base}/p/${program.slug || program.id}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    }
+  };
 
   // Sensors for DnD
   const sensors = useSensors(
@@ -328,15 +341,27 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
           </button>
           
           {program.isPublic && (
-            <a
-              href={`/p/${program.slug || program.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-white rounded text-xs font-mono flex items-center gap-1 transition-colors"
-            >
-              <Share2 size={12} />
-              <span>Preview</span>
-            </a>
+            <>
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="px-3 py-1 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-white rounded text-xs font-mono flex items-center gap-1.5 transition-colors"
+                title="Copy attendee web link to clipboard"
+              >
+                {isCopied ? <Check size={12} className="text-[#10B981]" /> : <Copy size={12} />}
+                <span>{isCopied ? 'COPIED!' : 'COPY LINK'}</span>
+              </button>
+
+              <a
+                href={`/p/${program.slug || program.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-white rounded text-xs font-mono flex items-center gap-1 transition-colors"
+              >
+                <Share2 size={12} />
+                <span>PREVIEW</span>
+              </a>
+            </>
           )}
         </div>
       </div>

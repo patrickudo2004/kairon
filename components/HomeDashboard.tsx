@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Program } from '../types';
-import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy, AlertTriangle, X, Eye, BarChart3, Edit3 } from 'lucide-react';
+import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy, AlertTriangle, X, Eye, BarChart3, Edit3, Search, ChevronDown, ChevronRight, Filter, Layers } from 'lucide-react';
 import { PreviewDrawer } from './PreviewDrawer';
 
 interface HomeDashboardProps {
@@ -287,13 +287,122 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
     if (activeProgramId) setSelectedCardId(activeProgramId);
   }, [activeProgramId]);
 
+  // Search, Range Filter & Grouping State for Past Events
+  const [searchQuery, setSearchQuery] = useState('');
+  const [historyScope, setHistoryScope] = useState<'90days' | 'all' | 'older'>('90days');
+  const [groupBy, setGroupBy] = useState<'month' | 'series' | 'flat'>('month');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
   // Sort programs: Newest date first
-  const sortedPrograms = [...programs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const sortedPrograms = React.useMemo(() => {
+    return [...programs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [programs]);
 
   // Use local-safe date calculation (YYYY-MM-DD)
   const today = new Date().toLocaleDateString('en-CA');
-  const upcoming = sortedPrograms.filter(p => (p.date || '') >= today);
-  const past = sortedPrograms.filter(p => (p.date || '') < today);
+  const upcoming = React.useMemo(() => sortedPrograms.filter(p => (p.date || '') >= today), [sortedPrograms, today]);
+  const pastAll = React.useMemo(() => sortedPrograms.filter(p => (p.date || '') < today), [sortedPrograms, today]);
+
+  // 90-day cutoff date string
+  const ninetyDaysAgo = React.useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 90);
+    return d.toISOString().split('T')[0];
+  }, []);
+
+  const pastRecentCount = React.useMemo(() => pastAll.filter(p => (p.date || '') >= ninetyDaysAgo).length, [pastAll, ninetyDaysAgo]);
+  const pastOlderCount = React.useMemo(() => pastAll.filter(p => (p.date || '') < ninetyDaysAgo).length, [pastAll, ninetyDaysAgo]);
+
+  // Scoped Past Events based on range filter
+  const pastScoped = React.useMemo(() => {
+    return pastAll.filter(p => {
+      const pDate = p.date || '';
+      if (historyScope === '90days') return pDate >= ninetyDaysAgo;
+      if (historyScope === 'older') return pDate < ninetyDaysAgo;
+      return true;
+    });
+  }, [pastAll, historyScope, ninetyDaysAgo]);
+
+  // Filtered by Search Query
+  const filteredPast = React.useMemo(() => {
+    if (!searchQuery.trim()) return pastScoped;
+    const q = searchQuery.toLowerCase().trim();
+    return pastScoped.filter(p => {
+      const matchTitle = p.title.toLowerCase().includes(q);
+      const matchSub = (p.subtitle || '').toLowerCase().includes(q);
+      const matchDate = (p.date || '').includes(q);
+      const matchSlots = p.slots.some(s => 
+        s.title.toLowerCase().includes(q) || 
+        (s.speaker || '').toLowerCase().includes(q) ||
+        (s.details || '').toLowerCase().includes(q)
+      );
+      return matchTitle || matchSub || matchDate || matchSlots;
+    });
+  }, [pastScoped, searchQuery]);
+
+  // Grouped Past Events
+  const groupedPast = React.useMemo(() => {
+    if (groupBy === 'flat') return { 'All Past Events': filteredPast };
+
+    const groups: Record<string, Program[]> = {};
+
+    if (groupBy === 'month') {
+      filteredPast.forEach(p => {
+        let key = 'Earlier';
+        if (p.date) {
+          const d = new Date(p.date);
+          if (!isNaN(d.getTime())) {
+            key = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+          }
+        }
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(p);
+      });
+      return groups;
+    }
+
+    if (groupBy === 'series') {
+      filteredPast.forEach(p => {
+        let key = p.title.trim();
+        if (/sunday/i.test(key)) key = 'Sunday Services';
+        else if (/midweek|wednesday|communion/i.test(key)) key = 'Midweek Services';
+        else if (/conference|summit/i.test(key)) key = 'Conferences & Summits';
+        else if (/wedding/i.test(key)) key = 'Weddings & Celebrations';
+        else key = 'Special Events';
+
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(p);
+      });
+      return groups;
+    }
+
+    return { 'All Past Events': filteredPast };
+  }, [filteredPast, groupBy]);
+
+  // Expand the first group by default
+  useEffect(() => {
+    const keys = Object.keys(groupedPast);
+    if (keys.length > 0 && expandedGroups.size === 0) {
+      setExpandedGroups(new Set([keys[0]]));
+    }
+  }, [groupedPast]);
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const expandAllGroups = () => {
+    setExpandedGroups(new Set(Object.keys(groupedPast)));
+  };
+
+  const collapseAllGroups = () => {
+    setExpandedGroups(new Set());
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-6 pb-24">
@@ -304,7 +413,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <LayoutDashboard className="text-indigo-600 dark:text-indigo-500" />
             My Programs
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">Manage your conference schedules</p>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">Manage your broadcast & live service schedules</p>
         </div>
         <button
           onClick={onCreateNew}
@@ -318,7 +427,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
       {/* Active/Upcoming Section */}
       <div className="mb-10">
         <h2 className="text-sm font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-          <Clock size={16} /> Upcoming & Active
+          <Clock size={16} /> Upcoming & Active ({upcoming.length})
         </h2>
 
         {upcoming.length > 0 ? (
@@ -347,32 +456,150 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
         )}
       </div>
 
-      {/* Past Section */}
+      {/* Past Section with Search, 90-Day Range & Grouping */}
       <div>
-        <h2 className="text-sm font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-          <History size={16} /> Past Events
-        </h2>
-        {past.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {past.map(program => (
-              <ProgramCard
-                key={program.id}
-                program={program}
-                isPast={true}
-                isActive={program.id === selectedCardId}
-                isLive={activeSessions.some(as => String(as.id) === String(program.id))}
-                onSelect={(p, s) => { setSelectedCardId(p.id); onSelectProgram(p, s); }}
-                onPreview={setPreviewProgram}
-                onDelete={onDelete}
-                onDuplicate={onDuplicate}
-                onViewAnalytics={onViewAnalytics}
-                onStopLive={onStopLive}
-                onPlay={(p, s) => onPlay?.(p, s)}
-              />
-            ))}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <h2 className="text-sm font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider flex items-center gap-2">
+            <History size={16} /> Past Events ({pastAll.length})
+          </h2>
+
+          {/* Quick Scope Filter Pills */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-xl text-xs font-mono">
+            <button
+              onClick={() => setHistoryScope('90days')}
+              className={`px-3 py-1 rounded-lg transition-all ${historyScope === '90days' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-bold shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+            >
+              Recent 90 Days ({pastRecentCount})
+            </button>
+            <button
+              onClick={() => setHistoryScope('older')}
+              className={`px-3 py-1 rounded-lg transition-all ${historyScope === 'older' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-bold shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+            >
+              Older ({pastOlderCount})
+            </button>
+            <button
+              onClick={() => setHistoryScope('all')}
+              className={`px-3 py-1 rounded-lg transition-all ${historyScope === 'all' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-bold shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}
+            >
+              All ({pastAll.length})
+            </button>
+          </div>
+        </div>
+
+        {/* Search & Grouping Bar */}
+        <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-3 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+          <div className="relative w-full sm:flex-1">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by title, speaker, scripture, or date..."
+              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-xl pl-9 pr-8 py-2 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end font-mono text-xs">
+            <div className="flex items-center gap-1.5 text-slate-500 shrink-0">
+              <Layers size={13} />
+              <span className="text-[11px] uppercase font-semibold">Group:</span>
+            </div>
+            <select
+              value={groupBy}
+              onChange={(e) => setGroupBy(e.target.value as any)}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-xl px-2.5 py-2 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+            >
+              <option value="month">📅 By Month</option>
+              <option value="series">🏷️ By Regular Title</option>
+              <option value="flat">📋 Flat List</option>
+            </select>
+
+            {groupBy !== 'flat' && (
+              <div className="flex items-center gap-1 ml-1">
+                <button
+                  onClick={expandAllGroups}
+                  className="px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-lg text-[10px] text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                  title="Expand all groups"
+                >
+                  Expand
+                </button>
+                <button
+                  onClick={collapseAllGroups}
+                  className="px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-lg text-[10px] text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                  title="Collapse all groups"
+                >
+                  Collapse
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Grouped Accordions or Cards */}
+        {filteredPast.length > 0 ? (
+          <div className="space-y-4">
+            {Object.entries(groupedPast).map(([groupTitle, groupPrograms]) => {
+              const isGroupExpanded = expandedGroups.has(groupTitle);
+              return (
+                <div key={groupTitle} className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white/50 dark:bg-slate-900/20 shadow-sm">
+                  {/* Collapsible Accordion Header */}
+                  <button
+                    onClick={() => toggleGroup(groupTitle)}
+                    className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-900 flex items-center justify-between transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="text-slate-400">
+                        {isGroupExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      </div>
+                      <h3 className="font-bold text-sm text-slate-900 dark:text-white tracking-wide">
+                        {groupTitle}
+                      </h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold">
+                        {groupPrograms.length} {groupPrograms.length === 1 ? 'event' : 'events'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      {isGroupExpanded ? 'Click to collapse' : 'Click to expand'}
+                    </span>
+                  </button>
+
+                  {/* Accordion Content */}
+                  {isGroupExpanded && (
+                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-150">
+                      {groupPrograms.map(program => (
+                        <ProgramCard
+                          key={program.id}
+                          program={program}
+                          isPast={true}
+                          isActive={program.id === selectedCardId}
+                          isLive={activeSessions.some(as => String(as.id) === String(program.id))}
+                          onSelect={(p, s) => { setSelectedCardId(p.id); onSelectProgram(p, s); }}
+                          onPreview={setPreviewProgram}
+                          onDelete={onDelete}
+                          onDuplicate={onDuplicate}
+                          onViewAnalytics={onViewAnalytics}
+                          onStopLive={onStopLive}
+                          onPlay={(p, s) => onPlay?.(p, s)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
-          <p className="text-slate-400 dark:text-slate-600 text-sm italic">No past history.</p>
+          <div className="p-8 text-center text-slate-400 dark:text-slate-600 font-mono text-xs border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+            {searchQuery ? `No past events matching "${searchQuery}".` : 'No past history in selected range.'}
+          </div>
         )}
       </div>
 

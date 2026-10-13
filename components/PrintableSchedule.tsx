@@ -21,7 +21,15 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
   const startMinutes = timeToMinutes(program.startTime || "09:00");
   let runningMinutes = startMinutes;
 
-  const publicPortalUrl = `${window.location.origin}/p/${program.slug}`;
+  const getCanonicalPublicUrl = () => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const isLocal = !origin || origin.startsWith('file:') || origin.includes('localhost') || origin.includes('127.0.0.1');
+    const base = isLocal ? 'https://kairon.app' : origin;
+    const identifier = program.slug || program.id;
+    return `${base}/p/${identifier}`;
+  };
+
+  const publicPortalUrl = getCanonicalPublicUrl();
 
   return (
     <div id="printable-area" className="only-print bg-white text-black p-6 font-sans">
@@ -64,17 +72,17 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
               day: 'numeric' 
             })}
           </div>
-          {program.slug && (
+          {(program.isPublic || program.slug) && (
             <div className="flex flex-col items-center gap-1">
               <div className="p-1 border border-slate-200 rounded-lg bg-white">
                 <QRCode
                   value={publicPortalUrl}
-                  size={48}
+                  size={52}
                   style={{ height: "auto", maxWidth: "100%", width: "100%" }}
                   viewBox={`0 0 256 256`}
                 />
               </div>
-              <span className="text-[7px] font-black text-slate-400 tracking-widest uppercase">Scan for Live Rundown</span>
+              <span className="text-[7px] font-black text-slate-500 tracking-widest uppercase">Scan for Live Rundown</span>
             </div>
           )}
         </div>
