@@ -101,7 +101,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
     // Invite Modal State
     const [isInviteOpen, setIsInviteOpen] = useState(false);
     const [inviteEmail, setInviteEmail] = useState('');
-    const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'operator'>('operator');
+    const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'operator' | 'speaker'>('operator');
     const [inviteError, setInviteError] = useState('');
     const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -138,7 +138,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
     });
 
     const inviteMutation = useMutation({
-        mutationFn: (data: { email: string, role: 'admin' | 'manager' | 'operator' }) =>
+        mutationFn: (data: { email: string, role: 'admin' | 'manager' | 'operator' | 'speaker' }) =>
             import('../services/orgService').then(s => s.inviteMember(organization.id, data.email, data.role)),
         onSuccess: (data: any) => {
             setIsInviteOpen(false);
@@ -584,8 +584,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                                              {member.email} {isMe && <span className="text-[#0EA5E9] font-bold ml-1 tracking-tight text-[10px] uppercase">(You)</span>}
                                                          </p>
                                                          <p className="text-[10px] text-slate-400 dark:text-[#8A93A4] uppercase tracking-widest flex items-center gap-1 mt-1 font-mono font-bold">
-                                                             {member.role === 'admin' ? <Shield size={10} className="text-[#EF4444]" /> : member.role === 'manager' ? <Users size={10} className="text-[#0EA5E9]" /> : <Mail size={10} className="text-slate-400" />}
-                                                             {member.role === 'admin' ? 'Administrator' : member.role === 'manager' ? 'Manager' : 'Operator'}
+                                                             {member.role === 'admin' ? <Shield size={10} className="text-[#EF4444]" /> : member.role === 'manager' ? <Users size={10} className="text-[#0EA5E9]" /> : member.role === 'speaker' ? <Sparkles size={10} className="text-amber-400" /> : <Mail size={10} className="text-slate-400" />}
+                                                             {member.role === 'admin' ? 'Administrator' : member.role === 'manager' ? 'Manager' : member.role === 'speaker' ? 'Pastor / Speaker' : 'Operator'}
                                                          </p>
                                                      </div>
                                                  </div>
@@ -622,6 +622,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                                                          {currentUserRole === 'admin' && <option value="admin">Admin</option>}
                                                                          <option value="manager">Manager</option>
                                                                          <option value="operator">Operator</option>
+                                                                        <option value="speaker">Speaker</option>
                                                                      </select>
                                                                  )}
 
@@ -687,8 +688,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
 
                                                  <div>
                                                      <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-1.5">Access Role</label>
-                                                     <div className="grid grid-cols-3 gap-2 font-mono">
-                                                         {(['operator', 'manager', 'admin'] as const)
+                                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono">
+                                                         {(['operator', 'speaker', 'manager', 'admin'] as const)
                                                              .filter(r => currentUserRole === 'admin' || r !== 'admin')
                                                              .map((r) => (
                                                                  <button

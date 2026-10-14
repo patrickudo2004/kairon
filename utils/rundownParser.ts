@@ -18,69 +18,109 @@ export interface RundownTemplate {
 // Built-in Production Rundown Templates
 export const PRODUCTION_TEMPLATES: RundownTemplate[] = [
   {
-    id: 'wcm-sunday',
-    name: 'Sunday Service (Winners Chapel)',
-    description: '10-part standard Sunday broadcast rundown with praise, announcements, choir, and sermon',
+    id: 'church-sunday',
+    name: 'Sunday Church Service',
+    description: '10-part Sunday service rundown with praise, announcements, offering, choir, and sermon',
     startTime: '09:00',
     slots: [
-      { title: 'Opening Prayer', speaker: 'Deacon / Pastor', durationMinutes: 5, type: 'Talk', details: 'Thanksgiving for God\'s faithfulness and open heavens' },
-      { title: 'Praise & Worship', speaker: 'Worship Team', durationMinutes: 25, type: 'Worship', details: 'High praise and intense worship into God\'s presence' },
-      { title: 'Bible Reading', speaker: 'Scripture Reader', durationMinutes: 5, type: 'Talk', details: 'Monthly prophetic focus scripture' },
-      { title: 'Hymn', speaker: 'Congregation', durationMinutes: 7, type: 'Music', details: 'Church hymnal' },
-      { title: 'Announcements & Testimonies', speaker: 'Media / Announcements', durationMinutes: 15, type: 'Talk', details: 'Weekly broadcast video notices and recorded testimonies' },
-      { title: 'First Timers Welcome', speaker: 'Hospitality', durationMinutes: 5, type: 'Talk', details: 'Welcoming first-time worshippers' },
-      { title: 'Offering & Tithes', speaker: 'Pastor', durationMinutes: 10, type: 'Talk', details: 'Covenant day of prosperity ministration' },
-      { title: 'Choir Ministration', speaker: 'Kingdom Voices Choir', durationMinutes: 7, type: 'Music', details: 'Special anthem / choir presentation' },
-      { title: 'The Word / Altar Call', speaker: 'Resident Pastor', durationMinutes: 45, type: 'Sermon', details: 'Prophetic sermon delivery and altar call for salvation' },
-      { title: 'Prophetic Blessings & Closing', speaker: 'Resident Pastor', durationMinutes: 6, type: 'Talk', details: 'Declaration of blessings and shared grace' }
+      { title: 'Opening Prayer', speaker: 'Minister / Leader', durationMinutes: 5, type: 'Talk', details: 'Thanksgiving for God\'s faithfulness and open heavens' },
+      { title: 'Praise & Worship', speaker: 'Worship Team', durationMinutes: 25, type: 'Worship', details: 'High praise and congregational worship' },
+      { title: 'Scripture Reading', speaker: 'Scripture Reader', durationMinutes: 5, type: 'Talk', details: 'Weekly sermon focus passage' },
+      { title: 'Congregational Hymn', speaker: 'Worship Team', durationMinutes: 7, type: 'Music', details: 'Hymn of devotion' },
+      { title: 'Announcements & Welcome', speaker: 'Host / MC', durationMinutes: 10, type: 'Talk', details: 'Community notices and welcome to first-time guests' },
+      { title: 'Tithes & Offering', speaker: 'Minister', durationMinutes: 10, type: 'Talk', details: 'Worship through giving and prayer of blessing' },
+      { title: 'Special Ministration', speaker: 'Choir / Soloist', durationMinutes: 7, type: 'Music', details: 'Special musical selection or choir anthem' },
+      { title: 'The Sermon / Altar Call', speaker: 'Lead Pastor / Speaker', durationMinutes: 40, type: 'Sermon', details: 'Main message delivery and invitation for prayer' },
+      { title: 'Final Blessing & Closing', speaker: 'Lead Pastor', durationMinutes: 6, type: 'Talk', details: 'Benediction and dismissal' }
     ]
   },
   {
-    id: 'wcm-midweek',
-    name: 'Midweek Communion Service (Wednesday)',
-    description: '11-part intercessory prayer, high praise, word, and holy communion service',
+    id: 'church-midweek',
+    name: 'Midweek Service',
+    description: 'Midweek prayer, praise, word, and communion service',
     startTime: '18:30',
     slots: [
-      { title: 'Opening Prayer', speaker: 'Minister', durationMinutes: 5, type: 'Talk', details: 'Thanksgiving for preserved lives' },
+      { title: 'Opening Prayer', speaker: 'Leader', durationMinutes: 5, type: 'Talk', details: 'Thanksgiving and dedication' },
       { title: 'Praise & Worship', speaker: 'Worship Team', durationMinutes: 15, type: 'Worship', details: 'Midweek praise ministration' },
-      { title: 'Intercession 1–3', speaker: 'Prayer Leader', durationMinutes: 15, type: 'Talk', details: 'Prayers for church growth and impact' },
-      { title: 'Announcements & Testimonies', speaker: 'Minister', durationMinutes: 10, type: 'Talk', details: 'Testimonies of answered prayers' },
-      { title: 'Intercession 4–6', speaker: 'Prayer Leader', durationMinutes: 15, type: 'Talk', details: 'Prayers for members and the nation' },
-      { title: 'Personal Supplication', speaker: 'Congregation', durationMinutes: 5, type: 'Talk', details: 'Individual petitions before God' },
-      { title: 'Offering', speaker: 'Minister', durationMinutes: 7, type: 'Talk', details: 'Midweek worship offering' },
-      { title: 'High Praise', speaker: 'Worship Team', durationMinutes: 8, type: 'Music', details: 'Celebration and dance before the Word' },
-      { title: 'The Word & Teaching', speaker: 'Pastor', durationMinutes: 30, type: 'Sermon', details: 'Midweek scripture exposition' },
-      { title: 'Holy Communion & Blessing', speaker: 'Pastor', durationMinutes: 10, type: 'Talk', details: 'Breaking of bread and communion administration' },
-      { title: 'Closing Remarks & Grace', speaker: 'Pastor', durationMinutes: 5, type: 'Talk', details: 'Benediction and fellowship' }
+      { title: 'Intercessory Prayer Session', speaker: 'Prayer Leader', durationMinutes: 15, type: 'Talk', details: 'Corporate petitions and intercessions' },
+      { title: 'Testimonies & Notices', speaker: 'Host', durationMinutes: 8, type: 'Talk', details: 'Testimonies and weekly highlights' },
+      { title: 'Offering', speaker: 'Leader', durationMinutes: 7, type: 'Talk', details: 'Midweek offering and thanksgiving' },
+      { title: 'Exhortation & Teaching', speaker: 'Pastor / Teacher', durationMinutes: 30, type: 'Sermon', details: 'Bible study and practical teaching' },
+      { title: 'Communion & Benediction', speaker: 'Pastor', durationMinutes: 10, type: 'Talk', details: 'Breaking of bread and final blessings' }
     ]
   },
   {
     id: 'corporate-conference',
-    name: 'Conference / Summit Schedule',
-    description: 'Keynotes, panel discussion, break, and workshop',
+    name: 'Corporate Summit / Conference',
+    description: 'Keynotes, fireside chats, panel discussions, break, and Q&A',
     startTime: '09:00',
     slots: [
-      { title: 'Registration & Welcome Coffee', speaker: 'Organizers', durationMinutes: 30, type: 'Break', details: 'Badge pickup and morning refreshments' },
-      { title: 'Opening Keynote Address', speaker: 'Keynote Speaker', durationMinutes: 45, type: 'Keynote', details: 'State of the industry and vision for the summit' },
-      { title: 'Executive Panel Discussion', speaker: 'Panelists & Moderator', durationMinutes: 45, type: 'Panel', details: 'Q&A and interactive panel discourse' },
+      { title: 'Registration & Welcome Coffee', speaker: 'Organizers', durationMinutes: 30, type: 'Break', details: 'Badge pickup and morning networking' },
+      { title: 'Opening Keynote Address', speaker: 'Keynote Speaker', durationMinutes: 45, type: 'Keynote', details: 'State of the industry and summit vision' },
+      { title: 'Executive Panel Discussion', speaker: 'Panelists & Moderator', durationMinutes: 45, type: 'Panel', details: 'Interactive panel debate with audience Q&A' },
       { title: 'Networking Break & Demos', speaker: 'Attendees', durationMinutes: 20, type: 'Break', details: 'Sponsor booth exhibition' },
-      { title: 'Deep-Dive Workshop', speaker: 'Workshop Lead', durationMinutes: 60, type: 'Talk', details: 'Hands-on practical session' },
-      { title: 'Closing Remarks & Next Steps', speaker: 'Conference Chair', durationMinutes: 15, type: 'Talk', details: 'Wrap-up and feedback collection' }
+      { title: 'Fireside Chat & Deep-Dive', speaker: 'Guest Leader', durationMinutes: 40, type: 'Talk', details: 'Unscripted executive conversation' },
+      { title: 'Closing Remarks & Awards', speaker: 'Conference Chair', durationMinutes: 15, type: 'Talk', details: 'Wrap-up, summary, and evening reception details' }
     ]
   },
   {
     id: 'wedding-ceremony',
     name: 'Wedding Ceremony',
-    description: 'Prelude, processional, vows, rings, and recessional',
+    description: 'Prelude, processional, vows, rings, signing, and recessional',
     startTime: '13:00',
     slots: [
-      { title: 'Guest Arrival & Prelude Music', speaker: 'Pianist / Strings', durationMinutes: 30, type: 'Music', details: 'Atmospheric seating music' },
-      { title: 'Processional & Bridal Entry', speaker: 'Wedding Party', durationMinutes: 10, type: 'Music', details: 'Bridesmaids and bridal entrance' },
+      { title: 'Guest Arrival & Prelude', speaker: 'Pianist / Strings', durationMinutes: 30, type: 'Music', details: 'Seating background music' },
+      { title: 'Processional & Bridal Entry', speaker: 'Bridal Party', durationMinutes: 10, type: 'Music', details: 'Processional entrance' },
       { title: 'Welcome & Convocation', speaker: 'Officiant', durationMinutes: 5, type: 'Talk', details: 'Opening declaration of holy matrimony' },
-      { title: 'Exchange of Vows & Rings', speaker: 'Couple & Officiant', durationMinutes: 15, type: 'Talk', details: 'Sacred covenants and ring blessing' },
-      { title: 'Pronouncement & Blessing', speaker: 'Officiant', durationMinutes: 5, type: 'Talk', details: 'Pronouncement of marriage' },
+      { title: 'Exchange of Vows & Rings', speaker: 'Couple & Officiant', durationMinutes: 15, type: 'Talk', details: 'Sacred covenants and ring blessings' },
       { title: 'Signing of Marriage Register', speaker: 'Couple & Witnesses', durationMinutes: 10, type: 'Music', details: 'Legal register signing with musical accompaniment' },
-      { title: 'Presentation & Recessional', speaker: 'New Couple', durationMinutes: 5, type: 'Music', details: 'Recessional out to reception' }
+      { title: 'Pronouncement & Presentation', speaker: 'Officiant', durationMinutes: 5, type: 'Talk', details: 'Pronouncement of marriage' },
+      { title: 'Recessional', speaker: 'New Couple', durationMinutes: 5, type: 'Music', details: 'Recessional out to reception' }
+    ]
+  },
+  {
+    id: 'product-book-launch',
+    name: 'Product / Book Launch',
+    description: 'Red carpet arrival, teaser video, keynote, unveiling, and signing',
+    startTime: '18:00',
+    slots: [
+      { title: 'Arrival & Welcome Drinks', speaker: 'Host / MC', durationMinutes: 30, type: 'Break', details: 'Red carpet photography and mingling' },
+      { title: 'Welcome & Opening Remarks', speaker: 'Host', durationMinutes: 10, type: 'Talk', details: 'Context and introduction of the work' },
+      { title: 'Product / Book Teaser Video', speaker: 'AV Media Booth', durationMinutes: 5, type: 'Video', details: 'Official cinematic trailer presentation' },
+      { title: 'Author / Founder Keynote', speaker: 'Author / Creator', durationMinutes: 25, type: 'Keynote', details: 'The journey, inspiration, and core message' },
+      { title: 'Official Unveiling Ceremony', speaker: 'Dignitaries & Author', durationMinutes: 10, type: 'Talk', details: 'Unveiling the cover/product with photo-op' },
+      { title: 'Panel Discussion & Q&A', speaker: 'Author & Guest Reviewers', durationMinutes: 25, type: 'Panel', details: 'Audience questions and critique' },
+      { title: 'Book Signing & Networking', speaker: 'Author & Attendees', durationMinutes: 30, type: 'Break', details: 'Exclusive book signing session' }
+    ]
+  },
+  {
+    id: 'memorial-funeral',
+    name: 'Memorial / Funeral Service',
+    description: 'Prelude, tributes, scripture reading, sermon, and committal',
+    startTime: '11:00',
+    slots: [
+      { title: 'Prelude & Seating', speaker: 'Organist / Choir', durationMinutes: 20, type: 'Music', details: 'Reflective hymns and seating of mourners' },
+      { title: 'Opening Prayer & Hymn', speaker: 'Officiating Minister', durationMinutes: 8, type: 'Talk', details: 'Opening invocation and congregational hymn' },
+      { title: 'Biography & Family Tributes', speaker: 'Family Representatives', durationMinutes: 20, type: 'Talk', details: 'Reading of life story and personal reflections' },
+      { title: 'Scripture Readings', speaker: 'Family Member', durationMinutes: 5, type: 'Talk', details: 'Comforting passages (Psalm 23 / 1 Cor 15)' },
+      { title: 'Choir Selection / Solo', speaker: 'Choir', durationMinutes: 5, type: 'Music', details: 'Song of comfort and hope' },
+      { title: 'Funeral Sermon / Exhortation', speaker: 'Officiating Minister', durationMinutes: 20, type: 'Sermon', details: 'Message of eternal hope and resurrection' },
+      { title: 'Benediction & Procession', speaker: 'Officiating Minister', durationMinutes: 7, type: 'Talk', details: 'Final committal prayer and recessional' }
+    ]
+  },
+  {
+    id: 'awards-gala',
+    name: 'Awards & Gala Dinner',
+    description: 'Cocktail arrival, dinner, live entertainment, award presentations, and closing',
+    startTime: '19:00',
+    slots: [
+      { title: 'Red Carpet & Cocktail Reception', speaker: 'Guests & Press', durationMinutes: 45, type: 'Break', details: 'Cocktails and arrival photos' },
+      { title: 'Opening Address & Welcome', speaker: 'Gala Host / MC', durationMinutes: 10, type: 'Talk', details: 'Welcome to the awards evening' },
+      { title: 'Dinner Service & Background Music', speaker: 'Live Band / Orchestra', durationMinutes: 50, type: 'Music', details: 'Dinner course served' },
+      { title: 'Keynote & Special Feature', speaker: 'Guest of Honor', durationMinutes: 15, type: 'Keynote', details: 'Inspiring keynote address' },
+      { title: 'Award Presentations (Categories 1–5)', speaker: 'Presenters & Winners', durationMinutes: 40, type: 'Talk', details: 'Trophy presentations and acceptance speeches' },
+      { title: 'Headline Entertainment', speaker: 'Guest Artist / Performer', durationMinutes: 20, type: 'Music', details: 'Live musical showcase' },
+      { title: 'Vote of Thanks & After-Party', speaker: 'Gala Host', durationMinutes: 10, type: 'Talk', details: 'Closing remarks and dance floor open' }
     ]
   }
 ];

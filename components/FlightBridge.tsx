@@ -5,6 +5,7 @@ import { formatDuration } from '../utils/time';
 import { useQuery } from '../hooks/useConvexMock';
 import { api } from '../convex/_generated/api';
 import { Volume2, Lightbulb, Video } from 'lucide-react';
+import { HoldToConfirmButton } from './HoldToConfirmButton';
 
 interface FlightBridgeProps {
     program: Program;
@@ -210,8 +211,8 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                         onClick={() => onToggleTimer(program, false, secondsElapsed)}
                         className={`w-16 h-16 rounded-xl flex items-center justify-center transition-all shadow-md active:scale-95 ${
                             isTimerActive
-                                ? 'bg-[#1C2028] hover:bg-[#252B37] text-white border border-[#2D333F]'
-                                : 'bg-[#10B981] hover:bg-[#059669] text-white shadow-[#10B981]/20'
+                                ? (isDarkMode ? 'bg-[#1C2028] hover:bg-[#252B37] text-white border border-[#2D333F]' : 'bg-slate-900 hover:bg-slate-800 text-white border border-slate-700 shadow-md')
+                                : (isDarkMode ? 'bg-[#10B981] hover:bg-[#059669] text-white shadow-[#10B981]/20' : 'bg-[#059669] hover:bg-[#047857] text-white shadow-md border border-[#047857]')
                         }`}
                         title={isTimerActive ? "Pause Timer" : "Start Timer"}
                     >
@@ -247,21 +248,14 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                         <span className="uppercase">Hold</span>
                     </button>
 
-                    <button
-                        onMouseDown={handleHoldStart}
-                        onMouseUp={handleHoldEnd}
-                        onMouseLeave={handleHoldEnd}
-                        onTouchStart={handleHoldStart}
-                        onTouchEnd={handleHoldEnd}
-                        className={`flex-1 relative flex items-center justify-center gap-1.5 py-2 rounded-md border text-xs font-bold select-none active:scale-[0.98] transition-all shadow-sm overflow-hidden shrink-0 ${isDarkMode ? 'bg-[#EF4444]/10 border-[#EF4444]/30 text-[#EF4444] hover:bg-[#EF4444]/20' : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'}`}
-                    >
-                        <div
-                            className="absolute bottom-0 left-0 h-full bg-[#EF4444]/20 transition-all duration-75 pointer-events-none"
-                            style={{ width: `${holdToEndProgress}%` }}
-                        />
-                        <AlertCircle size={13} className="shrink-0" />
-                        <span className="uppercase whitespace-nowrap">End Event</span>
-                    </button>
+                    <HoldToConfirmButton
+                        durationMs={2000}
+                        onConfirm={() => onEndEvent(program.id)}
+                        label="End Event"
+                        holdingLabel="Hold to End"
+                        className="flex-1 py-2 text-xs font-bold font-mono"
+                        title="Press and hold 2 seconds to end session"
+                    />
                 </div>
 
                 {/* Sub-controls: Row 3 - Auto/Manual Toggle */}

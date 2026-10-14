@@ -4,7 +4,7 @@ import { useQuery, useMutation } from '../hooks/useConvexMock';
 import { api } from '../convex/_generated/api';
 import { Program } from '../types';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
-import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon, RefreshCw, Volume2, Lightbulb, Video, CheckCircle2, Activity, Maximize, Minimize } from 'lucide-react';
+import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon, RefreshCw, Volume2, Lightbulb, Video, CheckCircle2, Activity, Maximize, Minimize, MessageSquare, Send, Radio, Sparkles } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 
 export const CrewHUD: React.FC = () => {
@@ -275,6 +275,118 @@ export const CrewHUD: React.FC = () => {
 
     const acknowledgeCueMutation = useMutation(api.programs.acknowledgeCue);
 
+    // Crew Tactical Chat State
+    const [activeRightTab, setActiveRightTab] = useState<'cues' | 'chat'>('cues');
+    const [unreadChatCount, setUnreadChatCount] = useState(0);
+    const [chatInput, setChatInput] = useState('');
+    const [selectedRole, setSelectedRole] = useState<'sound' | 'lighting' | 'video' | 'speaker' | 'operator'>('sound');
+    const [localMessages, setLocalMessages] = useState<Array<{
+        id: string;
+        senderName: string;
+        senderRole: string;
+        message: string;
+        timestamp: number;
+    }>>([]);
+
+    const cloudMessages = useQuery(
+        (api as any).chat?.getMessages,
+        programIdentifier ? { programId: String(programIdentifier) } : "skip"
+    ) || [];
+
+    const sendChatMessageMutation = useMutation((api as any).chat?.sendMessage);
+
+    const allMessages = React.useMemo(() => {
+        const map = new Map<string, any>();
+        for (const m of (cloudMessages as any[])) {
+            const key = m._id || `${m.timestamp}-${m.message}`;
+            map.set(key, {
+                id: m._id,
+                senderName: m.senderName,
+                senderRole: m.senderRole,
+                message: m.message,
+                timestamp: m.timestamp
+            });
+        }
+        for (const m of localMessages) {
+            const key = m.id || `${m.timestamp}-${m.message}`;
+            if (!map.has(key)) {
+                map.set(key, m);
+            }
+        }
+        return Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp);
+    }, [cloudMessages, localMessages]);
+
+    useEffect(() => {
+        const channel = new BroadcastChannel('kairon_crew_chat');
+        const handleChatMsg = (e: MessageEvent) => {
+            if (e.data && e.data.type === 'crew_message' && e.data.payload) {
+                setLocalMessages(prev => [...prev, e.data.payload]);
+                if (activeRightTab !== 'chat') {
+                    setUnreadChatCount(c => c + 1);
+                }
+            }
+        };
+        channel.addEventListener('message', handleChatMsg);
+        return () => {
+            channel.removeEventListener('message', handleChatMsg);
+            channel.close();
+        };
+    }, [activeRightTab]);
+
+    const handleSendChatMessage = async (textToSend?: string) => {
+        const text = (textToSend || chatInput).trim();
+        if (!text) return;
+
+        const roleLabels: Record<string, string> = {
+            sound: 'Sound Crew',
+            lighting: 'Lights Crew',
+            video: 'Video Crew',
+            speaker: 'Pastor / Speaker',
+            operator: 'Booth Operator'
+        };
+
+        const newMsg = {
+            id: `local-${Date.now()}-${Math.random()}`,
+            senderName: roleLabels[selectedRole] || 'Crew Member',
+            senderRole: selectedRole,
+            message: text,
+            timestamp: Date.now()
+        };
+
+        setLocalMessages(prev => [...prev, newMsg]);
+        setChatInput('');
+
+        try {
+            const channel = new BroadcastChannel('kairon_crew_chat');
+            channel.postMessage({ type: 'crew_message', payload: newMsg });
+            channel.close();
+        } catch (bErr) {
+            console.warn('BroadcastChannel error on chat:', bErr);
+        }
+
+        try {
+            if (programIdentifier && sendChatMessageMutation) {
+                await sendChatMessageMutation({
+                    programId: String(programIdentifier),
+                    senderName: roleLabels[selectedRole] || 'Crew Member',
+                    senderRole: selectedRole,
+                    message: text
+                });
+            }
+        } catch (e) {
+            console.warn("Could not push crew chat message to Convex (local fallback active):", e);
+        }
+    };
+
+    const QUICK_TACTICAL_CHIPS = [
+        { label: '🎤 Mic Low', msg: 'Mic volume is low on pulpit' },
+        { label: '⏳ Hold (+2m)', msg: 'Please extend this segment by 2 minutes' },
+        { label: '📹 Cam Live', msg: 'Camera 1 is live, please face forward' },
+        { label: '💡 Dim Lights', msg: 'Dim house lights for prayer/worship' },
+        { label: '🚨 Wrap Up', msg: 'Standby to wrap up in 60 seconds' },
+        { label: '✅ All Clear', msg: 'Booth is ready, sound & visuals verified' },
+    ];
+
     // BroadcastChannel for instant local inter-window and multi-tab synchronization
     useEffect(() => {
         const channel = new BroadcastChannel('kairon_acks');
@@ -473,11 +585,46 @@ export const CrewHUD: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Right: Technical Cues & ACKs */}
+                {/* Right: Technical Cues & ACKs + Tactical Comms */}
                 <div className={`col-span-12 lg:col-span-4 flex flex-col ${
                     isThemeLight ? 'bg-slate-50' : 'bg-[#121418]'
                 }`}>
-                    <div className="flex-1 overflow-y-auto">
+                    {/* Tab Navigation Switcher */}
+                    <div className={`flex items-center border-b shrink-0 ${isThemeLight ? 'border-slate-200 bg-slate-100' : 'border-[#22262E] bg-[#181B22]'}`}>
+                        <button
+                            onClick={() => setActiveRightTab('cues')}
+                            className={`flex-1 py-3 text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2 border-b-2 transition-all ${
+                                activeRightTab === 'cues'
+                                    ? 'border-[#0EA5E9] text-[#0EA5E9] bg-white dark:bg-[#121418]'
+                                    : `${isThemeLight ? 'text-slate-500 hover:text-slate-900' : 'text-[#8A93A4] hover:text-white'} border-transparent`
+                            }`}
+                        >
+                            <Activity size={14} />
+                            <span>Technical Cues</span>
+                        </button>
+                        <button
+                            onClick={() => {
+                                setActiveRightTab('chat');
+                                setUnreadChatCount(0);
+                            }}
+                            className={`flex-1 py-3 text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-2 border-b-2 transition-all relative ${
+                                activeRightTab === 'chat'
+                                    ? 'border-[#0EA5E9] text-[#0EA5E9] bg-white dark:bg-[#121418]'
+                                    : `${isThemeLight ? 'text-slate-500 hover:text-slate-900' : 'text-[#8A93A4] hover:text-white'} border-transparent`
+                            }`}
+                        >
+                            <MessageSquare size={14} />
+                            <span>Crew Comms</span>
+                            {unreadChatCount > 0 && (
+                                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-rose-500 text-white animate-pulse">
+                                    {unreadChatCount}
+                                </span>
+                            )}
+                        </button>
+                    </div>
+
+                    {activeRightTab === 'cues' ? (
+                        <div className="flex-1 overflow-y-auto">
                         {/* Active Cue Block */}
                         <div className={`p-6 space-y-3 border-b ${
                             isThemeLight ? 'border-slate-200' : 'border-[#22262E]'
@@ -576,6 +723,137 @@ export const CrewHUD: React.FC = () => {
                             </div>
                         </div>
                     </div>
+                ) : (
+                        <div className="flex-1 flex flex-col overflow-hidden">
+                            {/* Role selector bar */}
+                            <div className={`px-4 py-2.5 border-b shrink-0 flex items-center justify-between ${
+                                isThemeLight ? 'bg-slate-100 border-slate-200' : 'bg-[#181B22] border-[#22262E]'
+                            }`}>
+                                <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    <Radio size={12} className="text-[#0EA5E9] animate-pulse" />
+                                    Your Role:
+                                </span>
+                                <div className="flex items-center gap-1 font-mono text-[10px]">
+                                    {(['sound', 'lighting', 'video', 'speaker', 'operator'] as const).map(role => (
+                                        <button
+                                            key={role}
+                                            onClick={() => setSelectedRole(role)}
+                                            className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider transition-all ${
+                                                selectedRole === role
+                                                    ? 'bg-[#0EA5E9] text-white shadow-sm'
+                                                    : isThemeLight
+                                                        ? 'bg-slate-200 text-slate-600 hover:text-slate-900'
+                                                        : 'bg-[#121418] text-[#8A93A4] hover:text-white'
+                                            }`}
+                                        >
+                                            {role === 'speaker' ? 'Pastor' : role === 'lighting' ? 'Lights' : role}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Messages stream */}
+                            <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono">
+                                {allMessages.length === 0 ? (
+                                    <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 opacity-60">
+                                        <MessageSquare size={32} className="mb-2" />
+                                        <p className="text-xs font-bold uppercase tracking-wider">No Crew Messages Yet</p>
+                                        <p className="text-[10px] mt-1">Tap a quick chip below or type a message to silently ping the booth & stage.</p>
+                                    </div>
+                                ) : (
+                                    allMessages.map((msg, i) => {
+                                        const isSpeaker = msg.senderRole === 'speaker';
+                                        const isAudio = msg.senderRole === 'sound';
+                                        const isLights = msg.senderRole === 'lighting';
+                                        const isVideo = msg.senderRole === 'video';
+
+                                        return (
+                                            <div
+                                                key={msg.id || i}
+                                                className={`p-3 rounded-xl border text-xs leading-relaxed transition-all ${
+                                                    isSpeaker 
+                                                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                                                        : isAudio
+                                                            ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300'
+                                                            : isLights
+                                                                ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300'
+                                                                : isVideo
+                                                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                                                                    : (isThemeLight ? 'bg-white border-slate-200 text-slate-800' : 'bg-[#181B22] border-[#22262E] text-slate-200')
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between mb-1 text-[9px] font-bold uppercase tracking-wider opacity-80">
+                                                    <span className="flex items-center gap-1.5">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                                        {msg.senderName}
+                                                    </span>
+                                                    <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                                                </div>
+                                                <div className="text-xs font-sans font-medium">{msg.message}</div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+
+                            {/* 1-Tap Quick Comms Radio Chips */}
+                            <div className={`p-2.5 border-t shrink-0 ${
+                                isThemeLight ? 'bg-slate-100 border-slate-200' : 'bg-[#181B22] border-[#22262E]'
+                            }`}>
+                                <div className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                                    <Sparkles size={10} className="text-[#0EA5E9]" />
+                                    <span>Quick Radio Chips:</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-1.5">
+                                    {QUICK_TACTICAL_CHIPS.map((chip, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => handleSendChatMessage(chip.msg)}
+                                            className={`px-2 py-1.5 rounded-lg border text-[10px] font-mono font-bold text-left truncate transition-all ${
+                                                isThemeLight
+                                                    ? 'bg-white border-slate-200 text-slate-700 hover:border-[#0EA5E9] hover:text-[#0EA5E9]'
+                                                    : 'bg-[#121418] border-[#22262E] text-[#8A93A4] hover:border-[#0EA5E9] hover:text-white'
+                                            }`}
+                                            title={chip.msg}
+                                        >
+                                            {chip.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Chat Input Bar */}
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    handleSendChatMessage();
+                                }}
+                                className={`p-3 border-t shrink-0 flex items-center gap-2 ${
+                                    isThemeLight ? 'bg-white border-slate-200' : 'bg-[#121418] border-[#22262E]'
+                                }`}
+                            >
+                                <input
+                                    type="text"
+                                    value={chatInput}
+                                    onChange={(e) => setChatInput(e.target.value)}
+                                    placeholder="Send tactical note to crew..."
+                                    className={`flex-1 px-3 py-2 rounded-xl text-xs font-mono outline-none border transition-all ${
+                                        isThemeLight
+                                            ? 'bg-slate-50 border-slate-200 text-slate-900 focus:border-[#0EA5E9]'
+                                            : 'bg-[#181B22] border-[#22262E] text-white focus:border-[#0EA5E9]'
+                                    }`}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!chatInput.trim()}
+                                    className="p-2.5 bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-40 text-white rounded-xl transition-all shadow-sm"
+                                    title="Send Message"
+                                >
+                                    <Send size={14} />
+                                </button>
+                            </form>
+                        </div>
+                    )}
 
                     {/* Meta Footer */}
                     <div className={`p-4 ${

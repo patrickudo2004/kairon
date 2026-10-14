@@ -23,6 +23,7 @@ import { useTimerSync } from './hooks/useTimerSync';
 
 // Components
 import { FlightBridge } from './components/FlightBridge';
+import { HoldToConfirmButton } from './components/HoldToConfirmButton';
 
 // Components
 import LiveTimer from './components/LiveTimer';
@@ -2073,16 +2074,16 @@ const AppContent: React.FC = () => {
                 </button>
               )}
 
-              {/* End Event / Stop Button (Protected Confirmation) */}
+              {/* End Event / Stop Button (Protected Hold Confirmation) */}
               {displayIsTimerActive && (
-                <button
-                  onClick={() => requestEndEventConfirmation(displayProgram.id)}
-                  className="flex items-center gap-1 px-2.5 py-1 bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 text-[#EF4444] rounded text-xs font-mono font-semibold transition-colors shadow-sm"
-                  title="End Event Session (Confirmation Required)"
-                >
-                  <Power size={12} />
-                  <span className="hidden sm:inline">End Event</span>
-                </button>
+                <HoldToConfirmButton
+                  durationMs={2000}
+                  onConfirm={() => requestEndEventConfirmation(displayProgram.id)}
+                  label="End Event"
+                  holdingLabel="Hold to End"
+                  className="px-2.5 py-1 text-xs font-mono font-semibold"
+                  title="Press and hold 2 seconds to end this live session"
+                />
               )}
 
               {/* Network Status Indicator */}

@@ -72,7 +72,7 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
               day: 'numeric' 
             })}
           </div>
-          {(program.isPublic || program.slug) && (
+          {publicPortalUrl && (
             <div className="flex flex-col items-center gap-1">
               <div className="p-1 border border-slate-200 rounded-lg bg-white">
                 <QRCode
