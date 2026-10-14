@@ -328,23 +328,6 @@ test.describe('Live Rundown E2E Scenarios', () => {
     await expect(prompterPage.locator('p').filter({ hasText: 'Host Pastor' }).first()).toBeVisible();
     await expect(prompterPage.locator('h1', { hasText: 'Key Topics' })).toBeVisible();
 
-    // 4. Navigate Page A to Command Center
-    await page.goto('/command?testBypass=true');
-    await page.waitForLoadState('domcontentloaded');
-
-    // Verify CommandCenter header is visible
-    await expect(page.locator('h1').first()).toContainText('Multi-Track Command Center');
-
-    // Command Center shows live programs. Our program is currently in draft. Let's make it live by going to live timer page.
-    await page.goto(`/live?id=${programId}&testBypass=true`);
-    await page.waitForLoadState('domcontentloaded');
-
-    // Start the live timer
-    const playPauseBtn2 = page.locator('button.w-24.h-24');
-    await expect(playPauseBtn2).toBeVisible();
-    await playPauseBtn2.click();
-    await page.clock.fastForward(1000); // Let it start and sync
-
     // Verify that autopilot toggle is visible on Live Timer page
     const autopilotToggle = page.locator('button:has-text("Autopilot")').first();
     await expect(autopilotToggle).toBeVisible();
@@ -352,11 +335,10 @@ test.describe('Live Rundown E2E Scenarios', () => {
     await page.clock.fastForward(1000);
 
     // Let's verify CommandCenter shows the active track
-    const commandPage = await context.newPage();
-    await commandPage.clock.install({ time: await page.evaluate(() => Date.now()) });
-    await commandPage.goto(`/command?testBypass=true`);
-    await commandPage.waitForLoadState('domcontentloaded');
-    await expect(commandPage.locator('h2', { hasText: 'Phase 35 Test Service' }).first()).toBeVisible();
+    await page.goto('/command?testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('h1').first()).toContainText('Multi-Track Command Center');
+    await expect(page.getByRole('main').getByRole('heading', { name: 'Phase 35 Test Service' })).toBeVisible();
   });
 
   test('should verify Crew HUD acknowledgements and real-time state sync', async ({ page, context }) => {

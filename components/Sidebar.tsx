@@ -207,14 +207,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`fixed left-0 top-0 h-full bg-white dark:bg-[#090A0C] border-r border-slate-200 dark:border-[#22262E] text-slate-900 dark:text-white transition-all duration-200 z-50 flex flex-col no-print hidden lg:flex font-sans ${isCollapsed ? 'w-16' : 'w-60'}`}
         >
             {/* Brand / Logo Header */}
-            <div className="p-3.5 flex items-center justify-between border-b border-slate-200 dark:border-[#22262E]">
+            <div className="p-3 flex items-center justify-between border-b border-slate-200 dark:border-[#22262E]">
                 {!isCollapsed && (
                     <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-7 h-7 rounded bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center shrink-0">
+                        <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
                             {activeOrg?.logoUrl ? (
-                                <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain p-0.5" />
+                                <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
                             ) : (
-                                <Mic className="text-[#0EA5E9]" size={15} />
+                                <Mic className="text-[#0EA5E9]" size={18} />
                             )}
                         </div>
                         <span className="font-mono font-bold text-sm tracking-wider text-slate-900 dark:text-white truncate uppercase">
@@ -223,11 +223,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                 )}
                 {isCollapsed && (
-                    <div className="w-7 h-7 mx-auto rounded bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center">
+                    <div className="w-9 h-9 mx-auto rounded-lg bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center overflow-hidden shadow-xs">
                         {activeOrg?.logoUrl ? (
-                            <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain p-0.5" />
+                            <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
                         ) : (
-                            <Mic className="text-[#0EA5E9]" size={15} />
+                            <Mic className="text-[#0EA5E9]" size={18} />
                         )}
                     </div>
                 )}

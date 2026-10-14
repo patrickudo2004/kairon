@@ -111,14 +111,14 @@ export const UserGuide: React.FC = () => {
                                 10:05 - Coffee Break (15m)
                             </div>
                         </div>
-                        <div className="bg-gradient-to-br from-violet-500 to-indigo-600 rounded-3xl p-6 text-white flex flex-col justify-between">
+                        <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl p-6 text-white flex flex-col justify-between">
                             <div>
-                                <Sparkles size={32} className="mb-4 text-violet-200" />
-                                <h4 className="text-xl font-bold mb-2">AI Rebalancer</h4>
-                                <p className="text-sm text-violet-100 leading-tight">Running late? Click the sparkles. Gemini will analyze your Convex data and suggest a strategy to get back on track.</p>
+                                <Zap size={32} className="mb-4 text-amber-300" />
+                                <h4 className="text-xl font-bold mb-2">Smart Importer & Autopilot</h4>
+                                <p className="text-sm text-indigo-100 leading-tight">1-click import from plain text or choose from 7 industry presets (Sunday Church, Midweek, Summit, Wedding, Launch, Memorial, Gala). Plus zero-token local Autopilot that automatically protects hard service end-times.</p>
                             </div>
-                            <div className="mt-6 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-violet-200">
-                                <Receipt size={14} /> Pro Feature
+                            <div className="mt-6 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-indigo-200">
+                                <CheckCircle size={14} /> 100% Offline & Free
                             </div>
                         </div>
                     </div>
@@ -393,7 +393,7 @@ export const UserGuide: React.FC = () => {
                     <div className="flex items-center gap-4 mb-8">
                         <div className="h-10 w-1 bg-amber-500 rounded-full"></div>
                         <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                            🤖 10. Autopilot Autopilot (Auto-Heal)
+                            🤖 10. Autopilot Mode (Auto-Heal)
                         </h2>
                     </div>
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-6">

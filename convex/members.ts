@@ -59,7 +59,7 @@ export const addMemberByEmail = mutation({
     args: {
         organizationId: v.id("organizations"),
         email: v.string(),
-        role: v.union(v.literal("admin"), v.literal("manager"), v.literal("operator")),
+        role: v.union(v.literal("admin"), v.literal("manager"), v.literal("operator"), v.literal("speaker")),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
@@ -269,7 +269,7 @@ export const removeMember = mutation({
 export const updateMemberRole = mutation({
     args: {
         memberId: v.id("members"),
-        role: v.union(v.literal("admin"), v.literal("manager"), v.literal("operator"))
+        role: v.union(v.literal("admin"), v.literal("manager"), v.literal("operator"), v.literal("speaker"))
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Program, Slot, SLOT_PRESETS } from '../types';
-import { Trash2, Plus, GripVertical, Sparkles, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, Users, Globe, Link as LinkIcon, Share2, Crown, Cast, Shield, BookOpen, Check } from 'lucide-react';
+import { Trash2, Plus, GripVertical, Sparkles, Wand2, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, ChevronRight, Users, Globe, Link as LinkIcon, Share2, Crown, Cast, Shield, BookOpen, Check } from 'lucide-react';
 import { generateProgramDraft } from '../services/geminiService';
 import { parseRundownText, PRODUCTION_TEMPLATES } from '../utils/rundownParser';
 import { EmbedSnippet } from './EmbedSnippet';
@@ -215,10 +215,11 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
           {!isCoEditor && !isReadOnly && (
             <button
               onClick={() => setIsAIDialogOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0EA5E9] hover:bg-[#0284C7] text-white rounded-md font-mono text-xs font-semibold transition-all shadow-sm"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0EA5E9] hover:bg-[#0284C7] text-white rounded-md font-mono text-xs font-semibold transition-all shadow-sm active:scale-95"
+              title="Import from WhatsApp or load pre-built production templates"
             >
-              <Sparkles size={13} />
-              <span>AI Draft</span>
+              <Wand2 size={13} />
+              <span>Smart Importer</span>
             </button>
           )}
         </div>
@@ -365,6 +366,38 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
           )}
         </div>
       </div>
+
+      {/* Quick Production Template Pills Strip */}
+      {!isReadOnly && (
+        <div className="mb-6 p-3 bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md shadow-xs">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-[#8A93A4] uppercase tracking-wider flex items-center gap-1.5">
+              <BookOpen size={12} className="text-[#0EA5E9]" />
+              Quick Production Templates (1-Click Load)
+            </span>
+            <button
+              onClick={() => setIsAIDialogOpen(true)}
+              className="text-[10px] font-mono font-bold text-[#0EA5E9] hover:underline flex items-center gap-1"
+            >
+              <span>Paste Text / WhatsApp</span>
+              <ChevronRight size={11} />
+            </button>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            {PRODUCTION_TEMPLATES.map((tmpl) => (
+              <button
+                key={tmpl.id}
+                onClick={() => handleApplyTemplate(tmpl.id)}
+                className="px-2.5 py-1.5 bg-slate-50 dark:bg-[#181B22] hover:bg-[#0EA5E9]/10 hover:border-[#0EA5E9] border border-slate-200 dark:border-[#2D333F] rounded text-xs font-mono font-medium text-slate-800 dark:text-[#E1E4EA] hover:text-[#0EA5E9] dark:hover:text-[#0EA5E9] transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0 active:scale-95 shadow-xs"
+                title={`${tmpl.description} (${tmpl.slots.length} slots)`}
+              >
+                <span>{tmpl.name}</span>
+                <span className="text-[10px] text-slate-400 dark:text-[#6A7382]">({tmpl.slots.length})</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* DnD Rundown Slot Stack */}
       <DndContext

@@ -99,7 +99,7 @@ export const getOrgMembers = async (orgId: string): Promise<any[]> => {
     return data || [];
 };
 
-export const inviteMember = async (orgId: string, email: string, role: 'admin' | 'manager' | 'operator'): Promise<string> => {
+export const inviteMember = async (orgId: string, email: string, role: 'admin' | 'manager' | 'operator' | 'speaker'): Promise<string> => {
     return await convex.mutation(api.members.addMemberByEmail, {
         organizationId: orgId as any,
         email,

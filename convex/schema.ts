@@ -32,13 +32,13 @@ export default defineSchema({
     members: defineTable({
         organizationId: v.id("organizations"),
         userId: v.string(),
-        role: v.union(v.literal("admin"), v.literal("manager"), v.literal("operator")),
+        role: v.union(v.literal("admin"), v.literal("manager"), v.literal("operator"), v.literal("speaker")),
     }).index("by_org", ["organizationId"]).index("by_user", ["userId"]),
 
     invites: defineTable({
         email: v.string(),
         organizationId: v.id("organizations"),
-        role: v.union(v.literal("admin"), v.literal("manager"), v.literal("operator")),
+        role: v.union(v.literal("admin"), v.literal("manager"), v.literal("operator"), v.literal("speaker")),
         invitedBy: v.string(),
     }).index("by_email", ["email"]).index("by_org", ["organizationId"]),
 
@@ -92,4 +92,13 @@ export default defineSchema({
         role: v.union(v.literal("sound"), v.literal("lighting"), v.literal("video")),
         timestamp: v.number(),
     }).index("by_slot", ["programId", "slotId"]),
+
+    crewChat: defineTable({
+        organizationId: v.id("organizations"),
+        programId: v.string(),
+        senderName: v.string(),
+        senderRole: v.string(),
+        message: v.string(),
+        timestamp: v.number(),
+    }).index("by_program", ["programId", "timestamp"]).index("by_org", ["organizationId", "timestamp"]),
 });

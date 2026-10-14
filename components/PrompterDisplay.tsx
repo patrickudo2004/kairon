@@ -231,7 +231,7 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
             case 'ambient-white':
                 return 'bg-black text-white';
             case 'light':
-                return 'bg-slate-50 text-slate-900';
+                return 'bg-[#F1F5F9] text-slate-900';
             case 'dark':
             default:
                 return 'bg-slate-950 text-white';
