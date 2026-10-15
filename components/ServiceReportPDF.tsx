@@ -1,21 +1,12 @@
 import React from 'react';
-import { Page, Text, View, Document, StyleSheet, Font, Image } from '@react-pdf/renderer';
+import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
 import { Program, Slot } from '../types';
-
-// Register standard fonts
-Font.register({
-  family: 'Inter',
-  fonts: [
-    { src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-regular-webfont.ttf', fontWeight: 400 },
-    { src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-bold-webfont.ttf', fontWeight: 700 },
-    { src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-black-webfont.ttf', fontWeight: 900 }
-  ]
-});
 
 const styles = StyleSheet.create({
   page: {
     padding: 30,
-    fontFamily: 'Inter',
+    paddingBottom: 45,
+    fontFamily: 'Helvetica',
     backgroundColor: '#ffffff',
   },
   header: {
@@ -313,9 +304,9 @@ const ServiceReportPDF: React.FC<ServiceReportPDFProps> = ({ program, stats, log
           </View>
         </View>
 
-        {/* Table */}
+        {/* Table with repeating header on page overflow */}
         <View style={styles.table}>
-          <View style={styles.tableHeader}>
+          <View style={styles.tableHeader} fixed>
             <Text style={[styles.tableHeaderCell, styles.cellMain]}>Session / Speaker</Text>
             <Text style={[styles.tableHeaderCell, styles.cellNum]}>Planned</Text>
             <Text style={[styles.tableHeaderCell, styles.cellNum]}>Actual</Text>
@@ -368,10 +359,10 @@ const ServiceReportPDF: React.FC<ServiceReportPDFProps> = ({ program, stats, log
             <Text style={styles.insightTitle}>Production Insight</Text>
             <Text style={styles.insightText}>
               {stats.totalVariance > 5
-                ? "Your event drifted significantly off-schedule. Consider adding 'Buffer' slots or re-evaluating slot durations for this type of session in Gemini AI."
+                ? `Service ran ${stats.totalVariance}m past scheduled allocation. Pacing in earlier segments exceeded target windows. Autopilot rebalancing or buffer allocation can help protect hard-stop dismissals.`
                 : stats.totalVariance < -5
-                  ? "The event finished quite early. You may have additional time for Q&A or audience engagement next time."
-                  : "Excellent pacing! This service was delivered almost exactly as planned. Your team is highly synchronized."
+                  ? `Service concluded ${Math.abs(stats.totalVariance)}m ahead of budget. Pacing was brisk; review whether ministry flow, altar call response, or congregation interaction was given full allocated room.`
+                  : "Excellent pacing! This service was delivered almost exactly as planned (within ±5m). Your team and pulpit pacing are highly synchronized."
               }
             </Text>
           </View>

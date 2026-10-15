@@ -72,12 +72,20 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
     const [isStrobe, setIsStrobe] = useState(false);
     const [copiedPath, setCopiedPath] = useState<string | null>(null);
     const [openQrCodes, setOpenQrCodes] = useState<Record<string, boolean>>({});
-    const [localThemes, setLocalThemes] = useState<Record<string, 'dark' | 'light'>>({
+    const [localThemes, setLocalThemes] = useState<Record<string, 'dark' | 'light' | 'ambient-yellow' | 'ambient-white'>>({
         stage: 'dark',
         tv: 'dark',
         public: 'dark',
         prompter: 'dark'
     });
+    const [cueAutoDismiss, setCueAutoDismiss] = useState<number | 'sticky'>(30); // 15, 30, 60, sticky
+    const autoDismissTimeoutRef = useRef<any>(null);
+
+    useEffect(() => {
+        return () => {
+            if (autoDismissTimeoutRef.current) clearTimeout(autoDismissTimeoutRef.current);
+        };
+    }, []);
 
     const handleCopyLink = (path: string, key: string) => {
         const fullUrl = window.location.origin + path;
@@ -96,11 +104,14 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
         }));
     };
 
-    const handleRemoteToggleTheme = (tabId: string) => {
-        const currentTheme = displayStatuses?.[tabId]?.isDarkMode !== undefined
-            ? (displayStatuses[tabId].isDarkMode ? 'dark' : 'light')
-            : localThemes[tabId];
-        const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    const handleRemoteToggleTheme = (tabId: string, specificTheme?: 'dark' | 'light' | 'ambient-yellow' | 'ambient-white') => {
+        const isMultiTheme = tabId === 'stage' || tabId === 'prompter';
+        const themeOrder: ('dark' | 'ambient-yellow' | 'ambient-white' | 'light')[] = isMultiTheme
+            ? ['dark', 'ambient-yellow', 'ambient-white', 'light']
+            : ['dark', 'light'];
+
+        const currentTheme = localThemes[tabId] || 'dark';
+        const nextTheme = specificTheme || themeOrder[(themeOrder.indexOf(currentTheme) + 1) % themeOrder.length];
 
         setLocalThemes(prev => ({
             ...prev,
@@ -110,7 +121,8 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
         const channel = new BroadcastChannel('kairon_displays');
         channel.postMessage({
             type: 'toggle_theme',
-            tabId
+            tabId,
+            theme: nextTheme
         });
         channel.close();
     };
@@ -144,15 +156,36 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
         }
     };
 
+    const dispatchCueWithTimeout = (text: string, type: 'strobe' | 'custom', strobe: boolean) => {
+        if (autoDismissTimeoutRef.current) {
+            clearTimeout(autoDismissTimeoutRef.current);
+            autoDismissTimeoutRef.current = null;
+        }
+        sendStageMessage(text, type, strobe);
+        if (cueAutoDismiss !== 'sticky') {
+            autoDismissTimeoutRef.current = setTimeout(() => {
+                clearStageMessage();
+            }, cueAutoDismiss * 1000);
+        }
+    };
+
     const handleSendCustom = (e: React.FormEvent) => {
         e.preventDefault();
         if (!customMessage.trim()) return;
-        sendStageMessage(customMessage.trim(), isStrobe ? 'strobe' : 'custom', isStrobe);
+        dispatchCueWithTimeout(customMessage.trim(), isStrobe ? 'strobe' : 'custom', isStrobe);
         setCustomMessage('');
     };
 
     const handleSendQuick = (text: string) => {
-        sendStageMessage(text, isStrobe ? 'strobe' : 'custom', isStrobe);
+        dispatchCueWithTimeout(text, isStrobe ? 'strobe' : 'custom', isStrobe);
+    };
+
+    const handleClearOverlay = () => {
+        if (autoDismissTimeoutRef.current) {
+            clearTimeout(autoDismissTimeoutRef.current);
+            autoDismissTimeoutRef.current = null;
+        }
+        clearStageMessage();
     };
 
     const quickCues = [
@@ -525,6 +558,39 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                             </div>
                         </div>
 
+                        {/* Auto-Dismiss Timer Setting */}
+                        <div className="mb-4 bg-slate-50 dark:bg-[#090A0C] p-3 rounded-lg border border-slate-200 dark:border-[#22262E] space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-mono font-bold text-slate-600 dark:text-[#8A93A4] uppercase tracking-wider">
+                                    Cue Auto-Dismiss
+                                </span>
+                                <span className="text-[10px] font-mono font-bold text-[#0EA5E9]">
+                                    {cueAutoDismiss === 'sticky' ? 'Permanent' : `Auto-Clear in ${cueAutoDismiss}s`}
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-1.5 font-mono text-[10px]">
+                                {[
+                                    { label: '15s', value: 15 },
+                                    { label: '30s', value: 30 },
+                                    { label: '60s', value: 60 },
+                                    { label: 'Sticky', value: 'sticky' }
+                                ].map((opt) => (
+                                    <button
+                                        key={opt.label}
+                                        type="button"
+                                        onClick={() => setCueAutoDismiss(opt.value as any)}
+                                        className={`py-1.5 px-1 rounded border font-bold transition-all text-center ${
+                                            cueAutoDismiss === opt.value
+                                                ? 'bg-[#0EA5E9] text-white border-[#0EA5E9]'
+                                                : 'bg-white dark:bg-[#181B22] border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white'
+                                        }`}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         <form onSubmit={handleSendCustom} className="mb-5 space-y-2">
                             <label className="block text-[10px] font-mono font-bold text-slate-600 dark:text-[#8A93A4] uppercase tracking-wider">Custom Message</label>
                             <div className="flex gap-2">
@@ -564,7 +630,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                 ))}
                             </div>
                             <button
-                                onClick={clearStageMessage}
+                                onClick={handleClearOverlay}
                                 className="w-full mt-3 px-3 py-2.5 bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/30 rounded text-[#EF4444] text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
                             >
                                 <Trash2 size={13} />

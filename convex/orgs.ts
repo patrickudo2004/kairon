@@ -45,9 +45,9 @@ export const getOrganizationById = query({
 
         if (!orgId) return null;
         const org = await ctx.db.get(orgId);
-        if (org && org.logoUrl && !org.logoUrl.startsWith("http")) {
+        if (org && (org as any).logoUrl && !(org as any).logoUrl.startsWith("http")) {
             try {
-                const url = await ctx.storage.getUrl(org.logoUrl);
+                const url = await ctx.storage.getUrl((org as any).logoUrl);
                 if (url) {
                     return { ...org, logoUrl: url };
                 }
@@ -163,6 +163,19 @@ export const getOrgMembers = query({
 export const grantProStatusByEmail = mutation({
     args: { email: v.string() },
     handler: async (ctx, args) => {
+        const callerId = await getAuthUserId(ctx);
+        if (!callerId) throw new Error("Unauthorized: Must be logged in");
+
+        const isAdmin = await ctx.db
+            .query("members")
+            .withIndex("by_user", (q) => q.eq("userId", callerId))
+            .filter((q) => q.eq(q.field("role"), "admin"))
+            .first();
+
+        if (!isAdmin) {
+            throw new Error("Unauthorized: Only administrators can grant Pro status");
+        }
+
         // 1. Find the user by email
         const user = await ctx.db
             .query("users")
@@ -199,6 +212,8 @@ export const grantProStatusByEmail = mutation({
 export const generateUploadUrl = mutation({
     args: {},
     handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Unauthorized: Must be logged in to upload assets");
         return await ctx.storage.generateUploadUrl();
     },
 });

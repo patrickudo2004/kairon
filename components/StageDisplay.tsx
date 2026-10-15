@@ -33,13 +33,13 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
 }) => {
     const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     const isAutoFs = searchParams.get('autofs') === '1';
-    const urlTheme = searchParams.get('theme') as 'dark' | 'light' | null;
+    const urlTheme = searchParams.get('theme') as string | null;
 
-    const [currentTheme, setCurrentTheme] = useState<'dark' | 'light'>(() => {
-        if (urlTheme) return urlTheme;
-        if (customTheme === 'dark' || customTheme === 'light') return customTheme;
+    const [currentTheme, setCurrentTheme] = useState<'dark' | 'light' | 'ambient-yellow' | 'ambient-white'>(() => {
+        if (urlTheme === 'dark' || urlTheme === 'light' || urlTheme === 'ambient-yellow' || urlTheme === 'ambient-white') return urlTheme;
+        if (customTheme === 'dark' || customTheme === 'light' || customTheme === 'ambient-yellow' || customTheme === 'ambient-white') return customTheme;
         const saved = typeof window !== 'undefined' ? localStorage.getItem('kairon_display_theme_stage') : null;
-        if (saved === 'dark' || saved === 'light') return saved;
+        if (saved === 'dark' || saved === 'light' || saved === 'ambient-yellow' || saved === 'ambient-white') return saved as any;
         return isDarkMode ? 'dark' : 'light';
     });
 
@@ -49,7 +49,8 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
         const handleMsg = (e: MessageEvent) => {
             if (e.data && e.data.type === 'toggle_theme' && (e.data.tabId === 'stage' || !e.data.tabId)) {
                 setCurrentTheme(prev => {
-                    const next = e.data.theme || (prev === 'dark' ? 'light' : 'dark');
+                    const themeOrder: ('dark' | 'ambient-yellow' | 'ambient-white' | 'light')[] = ['dark', 'ambient-yellow', 'ambient-white', 'light'];
+                    const next = e.data.theme || themeOrder[(themeOrder.indexOf(prev) + 1) % themeOrder.length];
                     localStorage.setItem('kairon_display_theme_stage', next);
                     return next;
                 });
@@ -151,13 +152,75 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     const isOvertime = timeLeft < 0;
     const isWarning = timeLeft >= 0 && timeLeft <= 60;
     const isThemeLight = currentTheme === 'light';
+    const isThemeAmbientYellow = currentTheme === 'ambient-yellow';
+    const isThemeAmbientWhite = currentTheme === 'ambient-white';
+
+    // Milestone Flash state (discreet stage confidence border pulse at T-5m, T-2m, T-0m)
+    const [milestoneFlash, setMilestoneFlash] = useState<'green' | 'amber' | 'red' | null>(null);
+    useEffect(() => {
+        if (!isTimerActive || isOvertime || program.isOnHold) {
+            setMilestoneFlash(null);
+            return;
+        }
+        if (timeLeft === 300) {
+            setMilestoneFlash('green');
+            const timer = setTimeout(() => setMilestoneFlash(null), 3000);
+            return () => clearTimeout(timer);
+        } else if (timeLeft === 120) {
+            setMilestoneFlash('amber');
+            const timer = setTimeout(() => setMilestoneFlash(null), 3000);
+            return () => clearTimeout(timer);
+        } else if (timeLeft === 0) {
+            setMilestoneFlash('red');
+            const timer = setTimeout(() => setMilestoneFlash(null), 3500);
+            return () => clearTimeout(timer);
+        }
+    }, [timeLeft, isTimerActive, isOvertime, program.isOnHold]);
+
+    // Theme Class Mappings
+    const rootThemeClass = isThemeLight
+        ? 'bg-white text-slate-900'
+        : isThemeAmbientYellow
+        ? 'bg-[#000000] text-[#FBBF24]'
+        : isThemeAmbientWhite
+        ? 'bg-[#000000] text-[#F8FAFC]'
+        : 'bg-[#000000] text-white';
+
+    const borderThemeClass = isThemeLight
+        ? 'border-slate-200'
+        : isThemeAmbientYellow
+        ? 'border-[#F59E0B]/30'
+        : isThemeAmbientWhite
+        ? 'border-slate-800'
+        : 'border-[#22262E]/60';
+
+    const subTextThemeClass = isThemeLight
+        ? 'text-slate-500'
+        : isThemeAmbientYellow
+        ? 'text-[#D97706]'
+        : isThemeAmbientWhite
+        ? 'text-[#94A3B8]'
+        : 'text-[#8A93A4]';
+
+    const speakerThemeClass = isThemeLight
+        ? 'text-[#0369A1]'
+        : isThemeAmbientYellow
+        ? 'text-[#F59E0B]'
+        : isThemeAmbientWhite
+        ? 'text-[#38BDF8]'
+        : 'text-[#0EA5E9]';
+
+    const cycleTheme = () => {
+        const themeOrder: ('dark' | 'ambient-yellow' | 'ambient-white' | 'light')[] = ['dark', 'ambient-yellow', 'ambient-white', 'light'];
+        const next = themeOrder[(themeOrder.indexOf(currentTheme) + 1) % themeOrder.length];
+        setCurrentTheme(next);
+        localStorage.setItem('kairon_display_theme_stage', next);
+    };
 
     return (
         <div 
             onDoubleClick={toggleFullscreen}
-            className={`w-screen h-screen ${
-                isThemeLight ? 'bg-white text-slate-900' : 'bg-[#000000] text-white'
-            } overflow-hidden flex flex-col justify-between p-4 sm:p-6 md:p-10 font-sans select-none relative box-border transition-colors duration-300`}
+            className={`w-screen h-screen ${rootThemeClass} overflow-hidden flex flex-col justify-between p-4 sm:p-6 md:p-10 font-sans select-none relative box-border transition-colors duration-300`}
         >
             {/* Auto Fullscreen Floating Banner */}
             {showFsPrompt && !isFullscreen && !isThumbnail && (
@@ -178,23 +241,33 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                 <div className="absolute inset-0 border-4 sm:border-8 md:border-[16px] border-[#F59E0B] pointer-events-none z-50 animate-pulse" />
             )}
 
+            {/* Milestone Flash Notification (Discreet Border Alert at T-5m, T-2m, T-0m) */}
+            {milestoneFlash && !isOvertime && !program.isOnHold && (
+                <div className={`absolute inset-0 border-4 sm:border-8 md:border-[16px] pointer-events-none z-50 animate-pulse ${
+                    milestoneFlash === 'green' ? 'border-[#10B981]' :
+                    milestoneFlash === 'amber' ? 'border-[#F59E0B]' :
+                    'border-[#EF4444]'
+                }`} />
+            )}
+
             {/* Controls Container */}
             {!isThumbnail && (
                 <div className="absolute top-3 right-3 z-50 flex items-center gap-2 opacity-20 hover:opacity-100 transition-opacity p-2 rounded">
                     <button
-                        onClick={() => {
-                            const next = isThemeLight ? 'dark' : 'light';
-                            setCurrentTheme(next);
-                            localStorage.setItem('kairon_display_theme_stage', next);
-                        }}
-                        className={`p-2 sm:p-2.5 rounded border transition-all ${
+                        onClick={cycleTheme}
+                        className={`p-2 sm:p-2.5 rounded border transition-all text-xs font-mono uppercase font-bold flex items-center gap-1.5 ${
                             isThemeLight 
                                 ? 'bg-slate-100 border-slate-300 text-slate-700 hover:text-black' 
+                                : isThemeAmbientYellow
+                                ? 'bg-black border-amber-500/40 text-amber-400 hover:text-white'
+                                : isThemeAmbientWhite
+                                ? 'bg-black border-slate-700 text-slate-200 hover:text-white'
                                 : 'bg-[#121418] border-[#22262E] text-[#8A93A4] hover:text-white'
                         }`}
-                        title="Toggle Theme"
+                        title={`Theme: ${currentTheme.toUpperCase()} (Click to cycle)`}
                     >
                         {isThemeLight ? <Moon size={16} /> : <Sun size={16} />}
+                        <span className="hidden sm:inline text-[10px]">{currentTheme === 'ambient-yellow' ? 'Amb-Yel' : currentTheme === 'ambient-white' ? 'Amb-Wht' : currentTheme}</span>
                     </button>
                     <button
                         onClick={toggleFullscreen}
@@ -211,32 +284,24 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
             )}
 
             {/* Top Bar: Current Item + Speaker */}
-            <div className={`flex justify-between items-start z-10 border-b ${
-                isThemeLight ? 'border-slate-200' : 'border-[#22262E]/60'
-            } pb-3 sm:pb-5 shrink-0`}>
+            <div className={`flex justify-between items-start z-10 border-b ${borderThemeClass} pb-3 sm:pb-5 shrink-0`}>
                 <div className="max-w-[70%]">
-                    <div className={`text-[10px] sm:text-xs md:text-sm font-mono ${
-                        isThemeLight ? 'text-slate-500' : 'text-[#8A93A4]'
-                    } uppercase tracking-widest mb-0.5 sm:mb-1 flex items-center gap-1.5 sm:gap-2`}>
+                    <div className={`text-[10px] sm:text-xs md:text-sm font-mono ${subTextThemeClass} uppercase tracking-widest mb-0.5 sm:mb-1 flex items-center gap-1.5 sm:gap-2`}>
                         <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#0EA5E9]" />
                         <span>CURRENT ITEM • SLOT {currentSlotIndex + 1} OF {program.slots.length}</span>
                     </div>
-                    <h1 className={`text-xl sm:text-3xl md:text-5xl lg:text-6xl font-bold uppercase tracking-tight ${
-                        isThemeLight ? 'text-slate-900' : 'text-white'
-                    } leading-tight truncate`}>
+                    <h1 className={`text-xl sm:text-3xl md:text-5xl lg:text-6xl font-bold uppercase tracking-tight leading-tight truncate`}>
                         {currentSlot.title}
                     </h1>
                     {currentSlot.speaker && (
-                        <p className="text-sm sm:text-lg md:text-2xl text-[#0EA5E9] font-mono font-medium mt-0.5 sm:mt-1 truncate">
+                        <p className={`text-sm sm:text-lg md:text-2xl ${speakerThemeClass} font-mono font-medium mt-0.5 sm:mt-1 truncate`}>
                             {currentSlot.speaker}
                         </p>
                     )}
                 </div>
 
                 <div className="text-right shrink-0">
-                    <div className={`text-[10px] sm:text-xs md:text-sm font-mono ${
-                        isThemeLight ? 'text-slate-500' : 'text-[#8A93A4]'
-                    } uppercase tracking-widest mb-0.5 sm:mb-1`}>STATUS</div>
+                    <div className={`text-[10px] sm:text-xs md:text-sm font-mono ${subTextThemeClass} uppercase tracking-widest mb-0.5 sm:mb-1`}>STATUS</div>
                     {isTimerActive ? (
                         <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 bg-[#10B981]/10 border border-[#10B981]/30 rounded text-[#10B981] font-mono text-xs sm:text-base md:text-xl font-bold tracking-wider">
                             <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#10B981] animate-tally" />
@@ -251,34 +316,53 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                 </div>
             </div>
 
-            {/* Center Massive Countdown Readout */}
+            {/* Center Massive Countdown Readout (Scale & Glide Choreography) */}
             <div className="flex-1 flex flex-col items-center justify-center relative my-auto min-h-0 overflow-hidden">
-                <div className={`font-mono font-black leading-none tracking-tight tabular-nums select-none transition-colors ${
-                    isOvertime 
-                        ? 'text-[#EF4444] animate-pulse' 
-                        : (isWarning ? 'text-[#F59E0B] animate-pulse' : (isThemeLight ? 'text-slate-950' : 'text-white'))
-                }`}
-                style={{
-                    fontSize: isVisible && !promptMessage?.isStrobe 
-                        ? 'clamp(3rem, 14vw, 18vh)' 
-                        : 'clamp(4.5rem, min(28vw, 42vh), 34vw)',
-                    transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-3vh)' : 'none'
-                }}>
+                <div 
+                    className={`font-mono font-black leading-none tracking-tight tabular-nums select-none ${
+                        isOvertime 
+                            ? 'text-[#EF4444] animate-pulse' 
+                            : (isWarning ? 'text-[#F59E0B] animate-pulse' : (isThemeLight ? 'text-slate-950' : (isThemeAmbientYellow ? 'text-[#FBBF24]' : (isThemeAmbientWhite ? 'text-[#F8FAFC]' : 'text-white'))))
+                    }`}
+                    style={{
+                        fontSize: 'clamp(4.5rem, min(28vw, 42vh), 34vw)',
+                        transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-14vh) scale(0.68)' : 'translateY(0) scale(1)',
+                        transformOrigin: 'center center',
+                        transition: 'transform 500ms cubic-bezier(0.16, 1, 0.3, 1), color 300ms ease'
+                    }}
+                >
                     {formatDuration(timeLeft)}
                 </div>
 
                 {isOvertime && (
-                    <div className="text-xs sm:text-lg md:text-2xl font-mono text-[#EF4444] font-bold uppercase tracking-widest mt-1 sm:mt-2 animate-bounce shrink-0">
+                    <div 
+                        className="text-xs sm:text-lg md:text-2xl font-mono text-[#EF4444] font-bold uppercase tracking-widest mt-1 sm:mt-2 animate-bounce shrink-0 transition-transform duration-500"
+                        style={{
+                            transform: isVisible && !promptMessage?.isStrobe ? 'translateY(-14vh)' : 'translateY(0)'
+                        }}
+                    >
                         OVERTIME • PLEASE WRAP UP
                     </div>
                 )}
             </div>
 
-            {/* Prompt Stage Message Overlay */}
-            {isVisible && promptMessage && !promptMessage.isStrobe && (
-                <div className="absolute top-[50vh] left-0 right-0 z-40 flex justify-center px-4 sm:px-8 animate-in slide-in-from-bottom-6 duration-300">
-                    <div className={`${isThemeLight ? 'bg-white/95 border-[#10B981]' : 'bg-[#121418]/95 border-[#10B981]'} border-2 rounded-xl px-4 sm:px-8 py-2 sm:py-4 shadow-2xl`}>
-                        <h2 className="text-lg sm:text-[4vw] font-mono font-bold uppercase text-[#10B981] tracking-tight text-center">
+            {/* Prompt Stage Message Overlay (Smooth Blooming Animation in Center Stage) */}
+            {promptMessage && !promptMessage.isStrobe && (
+                <div 
+                    className="absolute inset-x-0 top-[52%] z-40 flex justify-center px-4 sm:px-8 pointer-events-none"
+                    style={{
+                        opacity: isVisible ? 1 : 0,
+                        transform: isVisible ? 'translateY(-50%) scale(1)' : 'translateY(-40%) scale(0.8)',
+                        transition: 'opacity 500ms cubic-bezier(0.16, 1, 0.3, 1), transform 500ms cubic-bezier(0.16, 1, 0.3, 1)'
+                    }}
+                >
+                    <div className={`${
+                        isThemeLight 
+                            ? 'bg-white/98 border-[#10B981] shadow-2xl text-slate-950' 
+                            : 'bg-[#121418]/95 border-[#10B981] shadow-[0_0_60px_rgba(16,185,129,0.35)] text-white'
+                    } border-2 rounded-2xl px-6 sm:px-12 py-4 sm:py-7 max-w-4xl w-full mx-auto flex items-center justify-center gap-3 sm:gap-4 backdrop-blur-xl pointer-events-auto`}>
+                        <span className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-[#10B981] animate-ping shrink-0" />
+                        <h2 className="text-xl sm:text-3xl md:text-5xl font-mono font-black uppercase text-[#10B981] tracking-tight text-center leading-tight drop-shadow-sm">
                             {promptMessage.text}
                         </h2>
                     </div>
@@ -307,15 +391,11 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
             )}
 
             {/* Bottom Strip: Duration Target & Up Next */}
-            <div className={`flex justify-between items-end border-t ${
-                isThemeLight ? 'border-slate-200' : 'border-[#22262E]/60'
-            } pt-3 sm:pt-5 z-10 shrink-0 gap-2`}>
+            <div className={`flex justify-between items-end border-t ${borderThemeClass} pt-3 sm:pt-5 z-10 shrink-0 gap-2`}>
                 <div className="shrink-0">
-                    <span className={`text-[9px] sm:text-xs font-mono ${
-                        isThemeLight ? 'text-slate-500' : 'text-[#8A93A4]'
-                    } uppercase tracking-widest block mb-0.5`}>PLANNED DURATION</span>
+                    <span className={`text-[9px] sm:text-xs font-mono ${subTextThemeClass} uppercase tracking-widest block mb-0.5`}>PLANNED DURATION</span>
                     <span className={`text-sm sm:text-xl md:text-3xl font-mono font-bold ${
-                        isThemeLight ? 'text-slate-900' : 'text-white'
+                        isThemeAmbientYellow ? 'text-[#FBBF24]' : (isThemeAmbientWhite ? 'text-[#F8FAFC]' : (isThemeLight ? 'text-slate-900' : 'text-white'))
                     }`}>{currentSlot.durationMinutes}m</span>
                 </div>
 
@@ -323,7 +403,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                     <div className="text-center px-2 max-w-sm md:max-w-xl truncate">
                         <span className="text-[9px] sm:text-xs font-mono text-[#F59E0B] uppercase tracking-widest block mb-0.5">UP NEXT</span>
                         <p className={`text-xs sm:text-base md:text-2xl font-bold ${
-                            isThemeLight ? 'text-slate-900' : 'text-white'
+                            isThemeAmbientYellow ? 'text-[#FBBF24]' : (isThemeAmbientWhite ? 'text-[#F8FAFC]' : (isThemeLight ? 'text-slate-900' : 'text-white'))
                         } uppercase truncate`}>
                             {program.slots[currentSlotIndex + 1].title}
                         </p>
@@ -331,11 +411,9 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                 )}
 
                 <div className="text-right shrink-0">
-                    <span className={`text-[9px] sm:text-xs font-mono ${
-                        isThemeLight ? 'text-slate-500' : 'text-[#8A93A4]'
-                    } uppercase tracking-widest block mb-0.5`}>EVENT</span>
+                    <span className={`text-[9px] sm:text-xs font-mono ${subTextThemeClass} uppercase tracking-widest block mb-0.5`}>EVENT</span>
                     <span className={`text-xs sm:text-base md:text-2xl font-bold ${
-                        isThemeLight ? 'text-slate-900' : 'text-white'
+                        isThemeAmbientYellow ? 'text-[#FBBF24]' : (isThemeAmbientWhite ? 'text-[#F8FAFC]' : (isThemeLight ? 'text-slate-900' : 'text-white'))
                     } uppercase truncate max-w-[140px] sm:max-w-[260px] block`}>{program.title}</span>
                 </div>
             </div>

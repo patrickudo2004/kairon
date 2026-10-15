@@ -70,14 +70,36 @@ const TVView: React.FC<TVViewProps> = ({
     const nextSlot = program.slots[currentSlotIndex + 1];
     const rundownContainerRef = useRef<HTMLDivElement>(null);
 
-    // Auto-scroll rundown to keep current slot visible while allowing full scrolling to slot 1
-    useEffect(() => {
-        if (!rundownContainerRef.current || !program.slots?.[currentSlotIndex]) return;
-        const activeElement = document.getElementById(`tv-slot-${program.slots[currentSlotIndex]?.id}`);
-        if (activeElement) {
-            activeElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const isThumbnailMode = isThumbnail || searchParams.get('mode') === 'thumbnail';
+    const userScrolledTimeoutRef = useRef<number | null>(null);
+    const [isUserInteracting, setIsUserInteracting] = useState(false);
+
+    const handleUserScroll = () => {
+        setIsUserInteracting(true);
+        if (userScrolledTimeoutRef.current) {
+            window.clearTimeout(userScrolledTimeoutRef.current);
         }
-    }, [currentSlotIndex, program.slots]);
+        userScrolledTimeoutRef.current = window.setTimeout(() => {
+            setIsUserInteracting(false);
+        }, 15000);
+    };
+
+    // Auto-scroll rundown to keep current slot centered inside container (never bubbles up to parent windows)
+    useEffect(() => {
+        if (isThumbnailMode || isUserInteracting) return;
+        const container = rundownContainerRef.current;
+        const activeSlot = program.slots?.[currentSlotIndex];
+        if (!container || !activeSlot) return;
+
+        const activeElement = document.getElementById(`tv-slot-${activeSlot.id}`);
+        if (activeElement) {
+            const containerRect = container.getBoundingClientRect();
+            const elementRect = activeElement.getBoundingClientRect();
+            const relativeTop = elementRect.top - containerRect.top + container.scrollTop;
+            const targetScroll = Math.max(0, relativeTop - (container.clientHeight / 2) + (elementRect.height / 2));
+            container.scrollTo({ top: targetScroll, behavior: 'smooth' });
+        }
+    }, [currentSlotIndex, isUserInteracting, isThumbnailMode, program.slots]);
 
     const isVisible = !!promptMessage;
 
@@ -221,6 +243,9 @@ const TVView: React.FC<TVViewProps> = ({
                 {/* Left Column: Dense Rundown Feed */}
                 <div 
                     ref={rundownContainerRef}
+                    onWheel={handleUserScroll}
+                    onTouchMove={handleUserScroll}
+                    onScroll={handleUserScroll}
                     className="col-span-12 lg:col-span-5 flex flex-col space-y-2.5 overflow-y-auto pr-2 py-1 scroll-smooth"
                 >
                     {program.slots.map((slot, idx) => {
@@ -308,9 +333,9 @@ const TVView: React.FC<TVViewProps> = ({
                         } border rounded-full overflow-hidden mt-4`}>
                             <div
                                 className={`h-full transition-all duration-1000 ease-linear ${
-                                    isOvertime ? 'bg-[#EF4444]' : 'bg-[#10B981]'
+                                    isOvertime ? 'bg-[#EF4444] animate-pulse' : 'bg-[#10B981]'
                                 }`}
-                                style={{ width: `${progressPercent}%` }}
+                                style={{ width: isOvertime ? '100%' : `${progressPercent}%` }}
                             />
                         </div>
                     </div>

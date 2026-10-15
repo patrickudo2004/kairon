@@ -14,6 +14,7 @@ interface HomeWrapperProps {
     createProgram: (date: string) => void;
     deleteProgram: (id: string) => void;
     duplicateProgram: (p: Program) => void;
+    onTurnaround?: (id: string) => void;
     onPlay: (p: Program, seconds?: number) => void;
     mode: string;
 }
@@ -26,6 +27,7 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
     createProgram,
     deleteProgram,
     duplicateProgram,
+    onTurnaround,
     onPlay,
     mode
 }) => {
@@ -87,6 +89,7 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
                 onCreateNew={() => { createProgram(new Date().toISOString().split('T')[0]); }}
                 onDelete={deleteProgram}
                 onDuplicate={duplicateProgram}
+                onTurnaround={onTurnaround}
                 onPlay={(p, s) => onPlay(p, s)}
             />
 

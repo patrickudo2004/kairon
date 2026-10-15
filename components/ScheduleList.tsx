@@ -47,12 +47,26 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Scroll active item into view
+  const userScrolledTimeoutRef = useRef<number | null>(null);
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
+
+  const handleUserScroll = () => {
+    setIsUserInteracting(true);
+    if (userScrolledTimeoutRef.current) {
+      window.clearTimeout(userScrolledTimeoutRef.current);
+    }
+    userScrolledTimeoutRef.current = window.setTimeout(() => {
+      setIsUserInteracting(false);
+    }, 15000);
+  };
+
+  // Scroll active item into view only if not actively interacting
   useEffect(() => {
+    if (isUserInteracting) return;
     if (activeItemRef.current) {
       activeItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [currentSlotIndex]);
+  }, [currentSlotIndex, isUserInteracting]);
 
   const toggleDetails = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -76,7 +90,11 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-4 pb-24 font-sans">
+    <div 
+      onWheel={handleUserScroll}
+      onTouchMove={handleUserScroll}
+      className="max-w-3xl mx-auto p-4 pb-24 font-sans"
+    >
       <div className="flex items-center justify-between mb-6 sticky top-0 bg-slate-50/95 dark:bg-[#090A0C]/95 backdrop-blur py-4 z-10 border-b border-slate-200 dark:border-[#22262E] transition-colors">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Full Schedule</h2>
@@ -84,7 +102,7 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
         </div>
         <div className="text-right font-mono">
           <div className="text-[10px] font-bold text-slate-500 dark:text-[#8A93A4] uppercase tracking-wider">Current Time</div>
-          <div className="text-xl font-mono font-bold text-[#0EA5E9]">
+          <div className="text-xl font-mono font-bold text-sky-700 dark:text-sky-400">
             {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
         </div>
@@ -127,11 +145,11 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
               >
                 {/* Time Column */}
                 <div className="flex flex-col items-center min-w-[3.5rem] border-r border-slate-200 dark:border-[#22262E] pr-4 pt-1 font-mono">
-                  <span className={`text-sm font-bold ${isCurrent ? 'text-[#0EA5E9] dark:text-white' : 'text-slate-500 dark:text-[#8A93A4]'}`}>
+                  <span className={`text-sm font-bold ${isCurrent ? 'text-sky-700 dark:text-sky-400' : 'text-slate-500 dark:text-[#8A93A4]'}`}>
                     {minutesToTime(slotStart)}
                   </span>
                   {isCurrent && program.status === 'live' && (
-                    <span className="mt-2 text-[10px] font-bold uppercase text-[#0EA5E9] bg-[#0EA5E9]/10 border border-[#0EA5E9]/20 px-1.5 py-0.5 rounded animate-pulse">
+                    <span className="mt-2 text-[10px] font-bold uppercase text-sky-700 dark:text-sky-400 bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 rounded animate-pulse">
                       Now
                     </span>
                   )}
@@ -143,7 +161,7 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
                     <div className="flex items-center gap-2">
                       {/* Dropdown Toggle */}
                       <button
-                        className="text-slate-400 hover:text-[#0EA5E9] transition-colors p-0.5 rounded hover:bg-slate-100 dark:hover:bg-[#181B22]"
+                        className="text-slate-400 hover:text-sky-700 dark:hover:text-sky-400 transition-colors p-0.5 rounded hover:bg-slate-100 dark:hover:bg-[#181B22]"
                       >
                         {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                       </button>
@@ -154,7 +172,7 @@ const ScheduleList: React.FC<ScheduleListProps> = ({
                     </div>
 
                     {isCurrent && program.status === 'live' && (
-                      <div className="font-mono font-bold whitespace-nowrap text-[#0EA5E9]">
+                      <div className="font-mono font-bold whitespace-nowrap text-sky-700 dark:text-sky-400">
                         -{formatDuration(remainingSeconds)}
                       </div>
                     )}

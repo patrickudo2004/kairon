@@ -1,4 +1,3 @@
-// Common presets for the UI, but user can type anything
 export const SLOT_PRESETS = [
   'Talk',
   'Break',
@@ -6,7 +5,12 @@ export const SLOT_PRESETS = [
   'Panel',
   'Worship',
   'Sermon',
-  'Music'
+  'Music',
+  'Prayer',
+  'Offering',
+  'Communion',
+  'Media',
+  'Ceremony'
 ] as const;
 
 export type SlotType = string;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Program } from '../types';
-import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy, AlertTriangle, X, Eye, BarChart3, Edit3, Search, ChevronDown, ChevronRight, Filter, Layers } from 'lucide-react';
+import { Calendar, Clock, ArrowRight, Play, Plus, History, LayoutDashboard, Trash2, Copy, AlertTriangle, X, Eye, BarChart3, Edit3, Search, ChevronDown, ChevronRight, Filter, Layers, FastForward } from 'lucide-react';
 import { PreviewDrawer } from './PreviewDrawer';
 
 interface HomeDashboardProps {
@@ -13,6 +13,7 @@ interface HomeDashboardProps {
   onCreateNew: () => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onTurnaround?: (id: string) => void;
   onStopLive?: (id: string) => void;
   onPlay?: (program: Program, seconds?: number) => void;
 }
@@ -26,13 +27,15 @@ interface ProgramCardProps {
   onPreview: (program: Program) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onTurnaround?: (id: string) => void;
   onViewAnalytics: (id: string) => void;
   onStopLive?: (id: string) => void;
   onPlay?: (program: Program, seconds?: number) => void;
 }
 
-const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, isLive, onSelect, onPreview, onDelete, onDuplicate, onViewAnalytics, onStopLive, onPlay }) => {
+const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isActive, isLive, onSelect, onPreview, onDelete, onDuplicate, onTurnaround, onViewAnalytics, onStopLive, onPlay }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || 'editor';
@@ -42,15 +45,24 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
     setShowDeleteConfirm(true);
   };
 
-  const confirmDelete = (e: React.MouseEvent) => {
+  const confirmDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    onDelete(program.id);
-    setShowDeleteConfirm(false);
+    try {
+      setIsDeleting(true);
+      await onDelete(program.id);
+    } catch (err) {
+      console.error('Failed to delete program:', err);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   const cancelDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setShowDeleteConfirm(false);
+    if (!isDeleting) {
+      setShowDeleteConfirm(false);
+    }
   };
 
   const handleDuplicate = (e: React.MouseEvent) => {
@@ -166,6 +178,16 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
           <Copy size={14} />
         </button>
 
+        {onTurnaround && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onTurnaround(program.id); }}
+            className="w-10 flex items-center justify-center hover:bg-white/10 text-white/50 hover:text-white transition-colors border-l border-white/5"
+            title="Turnaround to Next Service (+2h shift)"
+          >
+            <FastForward size={14} className="text-[#A855F7]" />
+          </button>
+        )}
+
         {/* Primary Pillar: Edit/Workspace */}
         <button
           onClick={(e) => { e.stopPropagation(); navigate(`/editor?id=${program.id}&mode=${mode}`); }}
@@ -246,15 +268,24 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
             <div className="flex gap-3 mt-6">
               <button
                 onClick={cancelDelete}
-                className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium transition-colors"
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 text-slate-700 dark:text-slate-300 rounded-xl font-medium transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
-                className="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-medium shadow-lg shadow-rose-500/20 transition-colors"
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl font-medium shadow-lg shadow-rose-500/20 transition-colors flex items-center justify-center gap-2"
               >
-                Delete
+                {isDeleting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  'Delete'
+                )}
               </button>
             </div>
           </div>
@@ -273,6 +304,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onCreateNew,
   onDelete,
   onDuplicate,
+  onTurnaround,
   onStopLive,
   onPlay
 }) => {
@@ -442,6 +474,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 onPreview={setPreviewProgram}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
+                onTurnaround={onTurnaround}
                 onViewAnalytics={onViewAnalytics}
                 onStopLive={onStopLive}
                 onPlay={(p, s) => onPlay?.(p, s)}
@@ -507,33 +540,35 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end font-mono text-xs">
-            <div className="flex items-center gap-1.5 text-slate-500 shrink-0">
-              <Layers size={13} />
-              <span className="text-[11px] uppercase font-semibold">Group:</span>
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto font-mono text-xs">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 text-slate-500 shrink-0">
+                <Layers size={13} />
+                <span className="hidden sm:inline text-[11px] uppercase font-semibold">Group:</span>
+              </div>
+              <select
+                value={groupBy}
+                onChange={(e) => setGroupBy(e.target.value as any)}
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-xl px-2.5 py-2 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+              >
+                <option value="month">📅 By Month</option>
+                <option value="series">🏷️ By Regular Title</option>
+                <option value="flat">📋 Flat List</option>
+              </select>
             </div>
-            <select
-              value={groupBy}
-              onChange={(e) => setGroupBy(e.target.value as any)}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-xl px-2.5 py-2 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
-            >
-              <option value="month">📅 By Month</option>
-              <option value="series">🏷️ By Regular Title</option>
-              <option value="flat">📋 Flat List</option>
-            </select>
 
             {groupBy !== 'flat' && (
-              <div className="flex items-center gap-1 ml-1">
+              <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={expandAllGroups}
-                  className="px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-lg text-[10px] text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                  className="px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-lg text-[10px] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
                   title="Expand all groups"
                 >
                   Expand
                 </button>
                 <button
                   onClick={collapseAllGroups}
-                  className="px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-lg text-[10px] text-slate-500 hover:text-slate-900 dark:hover:text-white"
+                  className="px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-lg text-[10px] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
                   title="Collapse all groups"
                 >
                   Collapse
@@ -546,7 +581,8 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
         {/* Grouped Accordions or Cards */}
         {filteredPast.length > 0 ? (
           <div className="space-y-4">
-            {Object.entries(groupedPast).map(([groupTitle, groupPrograms]) => {
+            {Object.entries(groupedPast).map(([groupTitle, rawProgs]) => {
+              const groupPrograms = (rawProgs as Program[]) || [];
               const isGroupExpanded = expandedGroups.has(groupTitle);
               return (
                 <div key={groupTitle} className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white/50 dark:bg-slate-900/20 shadow-sm">
@@ -585,6 +621,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
                           onPreview={setPreviewProgram}
                           onDelete={onDelete}
                           onDuplicate={onDuplicate}
+                          onTurnaround={onTurnaround}
                           onViewAnalytics={onViewAnalytics}
                           onStopLive={onStopLive}
                           onPlay={(p, s) => onPlay?.(p, s)}

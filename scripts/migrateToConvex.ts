@@ -1,3 +1,4 @@
+// @ts-ignore
 import { createClient } from '@supabase/supabase-js';
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";

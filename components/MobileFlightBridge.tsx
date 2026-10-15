@@ -339,10 +339,11 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
 
                     <button
                       onMouseDown={() => setIsEnding(true)}
-                      onMouseUp={() => setIsEnding(false)}
-                      onMouseLeave={() => setIsEnding(false)}
+                      onMouseUp={() => { setIsEnding(false); setHoldToEnd(0); }}
+                      onMouseLeave={() => { setIsEnding(false); setHoldToEnd(0); }}
                       onTouchStart={() => setIsEnding(true)}
-                      onTouchEnd={() => setIsEnding(false)}
+                      onTouchEnd={() => { setIsEnding(false); setHoldToEnd(0); }}
+                      onTouchCancel={() => { setIsEnding(false); setHoldToEnd(0); }}
                       className="relative w-full h-16 group overflow-hidden bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 shadow-lg shadow-rose-500/20 active:scale-[0.98] transition-all"
                     >
                       <div

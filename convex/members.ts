@@ -322,11 +322,27 @@ export const getMyMembershipInOrg = query({
         const userId = await getAuthUserId(ctx);
         if (!userId) return null;
 
-        return await ctx.db
+        const membership = await ctx.db
             .query("members")
             .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
             .filter((q) => q.eq(q.field("userId"), userId))
             .unique();
+
+        if (membership) return membership;
+
+        // Fallback: Check if user is creator/owner of the organization
+        const org = await ctx.db.get(args.organizationId);
+        if (org && (org.createdBy === userId || String(org.createdBy) === String(userId))) {
+            return {
+                _id: "synthetic_admin" as any,
+                _creationTime: Date.now(),
+                organizationId: args.organizationId,
+                userId: userId as string,
+                role: "admin",
+            };
+        }
+
+        return null;
     },
 });
 
