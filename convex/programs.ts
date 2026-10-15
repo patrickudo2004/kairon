@@ -14,7 +14,14 @@ export async function checkPermissions(ctx: any, organizationId: Id<"organizatio
         .filter((q: any) => q.eq(q.field("userId"), userId))
         .unique();
 
-    if (!membership) throw new Error("Unauthorized: Not a member of this organization");
+    if (!membership) {
+        // Fallback: Check if user is creator/owner of the organization
+        const org = await ctx.db.get(organizationId);
+        if (org && (org.createdBy === userId || String(org.createdBy) === String(userId))) {
+            return { userId, role: "admin" as const };
+        }
+        throw new Error("Unauthorized: Not a member of this organization");
+    }
 
     const roles = ["operator", "manager", "admin"];
     const memberLevel = roles.indexOf(membership.role);
@@ -105,21 +112,15 @@ export const getLiveProgram = query({
                     .filter((q) => q.eq(q.field("status"), "live"))
                     .first();
                 if (liveInOrg) return liveInOrg;
+
+                // Fallback within org: latest updated program in this organization
+                const latestInOrg = await ctx.db
+                    .query("programs")
+                    .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId!))
+                    .order("desc")
+                    .first();
+                if (latestInOrg) return latestInOrg;
             }
-
-            // Fallback 1: Any program marked as live
-            const anyLive = await ctx.db
-                .query("programs")
-                .filter((q) => q.eq(q.field("status"), "live"))
-                .first();
-            if (anyLive) return anyLive;
-
-            // Fallback 2: The latest updated program in the database
-            const latest = await ctx.db
-                .query("programs")
-                .order("desc")
-                .first();
-            if (latest) return latest;
         } catch (e) {
             console.warn("getLiveProgram query fallback error:", e);
         }
@@ -130,6 +131,7 @@ export const getLiveProgram = query({
 export const stopAllActiveSessions = mutation({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
+        await checkPermissions(ctx, args.organizationId, "operator");
         const activePrograms = await ctx.db
             .query("programs")
             .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
@@ -330,7 +332,11 @@ export const finalizeProgram = mutation({
         await checkPermissions(ctx, program.organizationId, "manager");
 
         if (program.status === "archived") throw new Error("Program is already archived");
-        await ctx.db.patch(program._id, { status: "archived" });
+        await ctx.db.patch(program._id, { 
+            status: "archived",
+            isTimerActive: false,
+            timerStartTimestamp: null
+        });
     },
 });
 
@@ -351,6 +357,10 @@ export const updateTimerState = mutation({
     handler: async (ctx, args) => {
         const program = await resolveProgram(ctx, args.id);
         if (!program) throw new Error("Program not found");
+
+        if (program.status === "archived") {
+            throw new Error("Cannot modify an archived Service Report.");
+        }
 
         // Verify permissions - Operators can control the timer
         await checkPermissions(ctx, program.organizationId, "operator");
@@ -416,8 +426,7 @@ export const acknowledgeCue = mutation({
     handler: async (ctx, args) => {
         const program = await resolveProgram(ctx, args.programId);
         if (!program) throw new Error("Program not found");
-        await checkPermissions(ctx, program.organizationId, "operator");
-
+        // Volunteer crew access tactical HUDs via mobile phone links without requiring an operator login
         const timestamp = Date.now();
 
         // Check if already acknowledged for this slot/role

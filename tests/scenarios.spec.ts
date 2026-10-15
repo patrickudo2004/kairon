@@ -32,15 +32,15 @@ test.describe('Live Rundown E2E Scenarios', () => {
 
     // Add first slot (1 minute duration)
     await page.getByText('Add Session Slot').click();
-    await page.locator('input[placeholder="Session Title"]').first().fill('Opening Praise & Worship');
-    await page.locator('input[placeholder="Speaker Name"]').first().fill('Worship Team');
-    await page.locator('input[type="number"]').first().fill('1');
+    await page.locator('input[placeholder="Session Title"]:visible').first().fill('Opening Praise & Worship');
+    await page.locator('input[placeholder="Speaker Name"]:visible').first().fill('Worship Team');
+    await page.locator('input[type="number"]:visible').first().fill('1');
 
     // Add second slot (10 minutes duration)
     await page.getByText('Add Session Slot').click();
-    await page.locator('input[placeholder="Session Title"]').nth(1).fill('Sermon - Pastor John');
-    await page.locator('input[placeholder="Speaker Name"]').nth(1).fill('Pastor John');
-    await page.locator('input[type="number"]').nth(1).fill('10');
+    await page.locator('input[placeholder="Session Title"]:visible').nth(1).fill('Sermon - Pastor John');
+    await page.locator('input[placeholder="Speaker Name"]:visible').nth(1).fill('Pastor John');
+    await page.locator('input[type="number"]:visible').nth(1).fill('10');
 
     // Grab the program ID from the URL
     const currentUrl = page.url();

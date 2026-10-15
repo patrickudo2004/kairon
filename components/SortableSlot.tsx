@@ -51,11 +51,10 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
         isDragging ? 'border-[#0EA5E9] shadow-2xl' : 'border-slate-200 dark:border-[#22262E] hover:border-slate-300 dark:hover:border-[#2D333F]'
       } rounded-md transition-all duration-150 font-sans shadow-sm`}
     >
-      {/* Main Row */}
-      <div className="flex flex-col md:flex-row items-center gap-3 p-3">
-        
+      {/* Desktop Row Layout */}
+      <div className="hidden md:flex items-center gap-3 p-3">
         {/* Time Column */}
-        <div className="md:w-20 flex flex-col items-center justify-center border-r border-slate-200 dark:border-[#22262E] pr-3 mr-1 pointer-events-none">
+        <div className="w-20 flex flex-col items-center justify-center border-r border-slate-200 dark:border-[#22262E] pr-3 mr-1 pointer-events-none shrink-0">
           <span className="text-[9px] font-mono font-bold text-slate-400 dark:text-[#6A7382] uppercase tracking-wider">Start</span>
           <span className="text-xs font-mono font-bold text-[#0EA5E9]">{getSlotStartTime(index)}</span>
         </div>
@@ -64,7 +63,7 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
           <div 
             {...attributes} 
             {...listeners}
-            className="text-slate-400 dark:text-[#6A7382] hover:text-slate-900 dark:hover:text-white cursor-grab active:cursor-grabbing p-1.5 hover:bg-slate-100 dark:hover:bg-[#1E222A] rounded transition-colors touch-none"
+            className="text-slate-400 dark:text-[#6A7382] hover:text-slate-900 dark:hover:text-white cursor-grab active:cursor-grabbing p-1.5 hover:bg-slate-100 dark:hover:bg-[#1E222A] rounded transition-colors touch-none shrink-0"
             title="Drag to reorder"
           >
             <GripVertical size={16} />
@@ -72,12 +71,11 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
         )}
 
         <div className="flex-1 grid grid-cols-12 gap-3 w-full items-center">
-          
           {/* Title & Expand Toggle */}
-          <div className="col-span-12 md:col-span-8 xl:col-span-4 flex items-center gap-1.5">
+          <div className="col-span-12 xl:col-span-5 flex items-center gap-1.5 min-w-0">
             <button
               onClick={() => onToggleDetails(slot.id)}
-              className="text-slate-400 dark:text-[#6A7382] hover:text-slate-900 dark:hover:text-white transition-colors p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#1E222A]"
+              className="text-slate-400 dark:text-[#6A7382] hover:text-slate-900 dark:hover:text-white transition-colors p-1.5 rounded hover:bg-slate-100 dark:hover:bg-[#1E222A] shrink-0"
               title={isExpanded ? "Hide Details" : "Show Details"}
             >
               {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -88,24 +86,24 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
               readOnly={isReadOnly}
               onChange={(e) => onSlotChange(slot.id, 'title', e.target.value)}
               placeholder="Session Title"
-              className={`w-full bg-transparent text-slate-900 dark:text-white font-semibold text-sm focus:outline-none focus:border-b border-[#0EA5E9] placeholder-slate-400 dark:placeholder-[#4B5563] ${isReadOnly ? 'cursor-default' : ''}`}
+              className={`w-full bg-transparent text-slate-900 dark:text-white font-semibold text-sm focus:outline-none focus:border-b border-[#0EA5E9] placeholder-slate-400 dark:placeholder-[#4B5563] truncate ${isReadOnly ? 'cursor-default' : ''}`}
             />
           </div>
 
           {/* Speaker */}
-          <div className="col-span-12 md:col-span-4 xl:col-span-3">
+          <div className="col-span-6 xl:col-span-3 min-w-0">
             <input
               type="text"
               value={slot.speaker}
               readOnly={isReadOnly}
               onChange={(e) => onSlotChange(slot.id, 'speaker', e.target.value)}
               placeholder="Speaker Name"
-              className={`w-full bg-transparent text-[#0EA5E9] font-mono text-xs focus:outline-none focus:border-b border-[#0EA5E9] placeholder-slate-400 dark:placeholder-[#4B5563] ${isReadOnly ? 'cursor-default' : ''}`}
+              className={`w-full bg-transparent text-[#0EA5E9] font-mono text-xs focus:outline-none focus:border-b border-[#0EA5E9] placeholder-slate-400 dark:placeholder-[#4B5563] truncate ${isReadOnly ? 'cursor-default' : ''}`}
             />
           </div>
 
           {/* Duration Minutes */}
-          <div className="col-span-6 md:col-span-6 xl:col-span-2">
+          <div className="col-span-3 xl:col-span-2">
             <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] rounded px-2 py-1">
               <Clock size={12} className="text-slate-400 dark:text-[#6A7382]" />
               <input
@@ -121,7 +119,7 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
           </div>
 
           {/* Type Preset */}
-          <div className="col-span-6 md:col-span-6 xl:col-span-3 flex items-center justify-end gap-1.5">
+          <div className="col-span-3 xl:col-span-2 flex items-center justify-end gap-1.5">
             <input
               type="text"
               list="slot-types"
@@ -129,29 +127,124 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
               readOnly={isReadOnly}
               onChange={(e) => onSlotChange(slot.id, 'type', e.target.value)}
               placeholder="Type"
-              className="bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] text-slate-900 dark:text-white text-xs font-mono rounded px-2 py-1 w-24 text-center focus:outline-none focus:border-[#0EA5E9]"
+              className="bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] text-slate-900 dark:text-white text-xs font-mono rounded px-2 py-1 w-20 text-center focus:outline-none focus:border-[#0EA5E9]"
             />
 
             {!isReadOnly && (
               <div className="flex items-center gap-1 border-l border-slate-200 dark:border-[#22262E] pl-1.5">
                 <button
                   onClick={() => onDuplicate(index)}
-                  className="p-1 text-slate-400 dark:text-[#6A7382] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1E222A] rounded transition-colors"
+                  className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 dark:text-[#6A7382] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1E222A] rounded transition-colors touch-manipulation"
                   title="Duplicate slot"
                 >
-                  <Copy size={13} />
+                  <Copy size={14} />
                 </button>
                 <button
                   onClick={() => onRemove(slot.id)}
-                  className="p-1 text-slate-400 dark:text-[#6A7382] hover:text-[#EF4444] hover:bg-slate-100 dark:hover:bg-[#1E222A] rounded transition-colors"
+                  className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 dark:text-[#6A7382] hover:text-[#EF4444] hover:bg-slate-100 dark:hover:bg-[#1E222A] rounded transition-colors touch-manipulation"
                   title="Remove slot"
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size={14} />
                 </button>
               </div>
             )}
           </div>
+        </div>
+      </div>
 
+      {/* Mobile Card Layout (Ergonomic & Non-Overflowing) */}
+      <div className="flex md:hidden flex-col p-3 gap-2.5">
+        {/* Top Badges & Actions */}
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-[#1E222A] pb-2">
+          {/* Start Time & Duration */}
+          <div className="flex items-center gap-1.5">
+            <span className="px-2 py-0.5 rounded bg-[#0EA5E9]/10 text-[#0EA5E9] font-mono font-bold text-[11px] whitespace-nowrap">
+              {getSlotStartTime(index)}
+            </span>
+            <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] rounded px-1.5 py-0.5">
+              <Clock size={11} className="text-slate-400" />
+              <input
+                type="number"
+                min="1"
+                value={slot.durationMinutes}
+                readOnly={isReadOnly}
+                onChange={(e) => onSlotChange(slot.id, 'durationMinutes', Math.max(1, parseInt(e.target.value) || 0))}
+                className="w-7 bg-transparent font-mono text-[11px] font-bold text-slate-900 dark:text-white text-right focus:outline-none"
+              />
+              <span className="text-[9px] font-mono text-slate-400">m</span>
+            </div>
+          </div>
+
+          {/* Type & Action Buttons */}
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              list="slot-types"
+              value={slot.type}
+              readOnly={isReadOnly}
+              onChange={(e) => onSlotChange(slot.id, 'type', e.target.value)}
+              placeholder="Type"
+              className="bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] text-slate-900 dark:text-white text-[10px] font-mono rounded px-1.5 py-0.5 w-16 text-center focus:outline-none"
+            />
+            {!isReadOnly && (
+              <>
+                <button
+                  onClick={() => onDuplicate(index)}
+                  className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white rounded touch-manipulation"
+                  title="Duplicate slot"
+                >
+                  <Copy size={14} />
+                </button>
+                <button
+                  onClick={() => onRemove(slot.id)}
+                  className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-rose-500 rounded touch-manipulation"
+                  title="Remove slot"
+                >
+                  <Trash2 size={14} />
+                </button>
+                <div 
+                  {...attributes} 
+                  {...listeners}
+                  className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-grab active:cursor-grabbing touch-none"
+                  title="Drag to reorder"
+                >
+                  <GripVertical size={16} />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Title Row */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => onToggleDetails(slot.id)}
+            className="text-slate-400 p-1 rounded hover:bg-slate-100 dark:hover:bg-[#1E222A] shrink-0"
+            title={isExpanded ? "Hide Details" : "Show Details"}
+          >
+            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          <input
+            type="text"
+            value={slot.title}
+            readOnly={isReadOnly}
+            onChange={(e) => onSlotChange(slot.id, 'title', e.target.value)}
+            placeholder="Session Title"
+            className={`w-full bg-transparent text-slate-900 dark:text-white font-semibold text-sm focus:outline-none focus:border-b border-[#0EA5E9] placeholder-slate-400 ${isReadOnly ? 'cursor-default' : ''}`}
+          />
+        </div>
+
+        {/* Speaker Row */}
+        <div className="flex items-center gap-2 pl-6">
+          <span className="text-[10px] font-mono text-slate-400 dark:text-[#6A7382] uppercase shrink-0">Speaker:</span>
+          <input
+            type="text"
+            value={slot.speaker}
+            readOnly={isReadOnly}
+            onChange={(e) => onSlotChange(slot.id, 'speaker', e.target.value)}
+            placeholder="No speaker assigned"
+            className={`w-full bg-transparent text-[#0EA5E9] font-mono text-xs focus:outline-none focus:border-b border-[#0EA5E9] placeholder-slate-400 ${isReadOnly ? 'cursor-default' : ''}`}
+          />
         </div>
       </div>
 

@@ -67,12 +67,54 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
         ? liveTimeLeft
         : (currentSlot ? currentSlot.durationMinutes * 60 : 0);
 
-    // Theme Evaluation
-    const activeTheme = customTheme || (isDarkMode ? 'dark' : 'light');
+    const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const urlTheme = searchParams.get('theme') as 'dark' | 'light' | 'ambient-yellow' | 'ambient-white' | null;
+
+    const [prompterTheme, setPrompterTheme] = useState<'dark' | 'light' | 'ambient-yellow' | 'ambient-white'>(() => {
+        if (urlTheme) return urlTheme;
+        if (customTheme && ['dark', 'light', 'ambient-yellow', 'ambient-white'].includes(customTheme)) return customTheme as any;
+        const saved = typeof window !== 'undefined' ? localStorage.getItem('kairon_display_theme_prompter') : null;
+        if (saved && ['dark', 'light', 'ambient-yellow', 'ambient-white'].includes(saved)) return saved as any;
+        return isDarkMode ? 'dark' : 'light';
+    });
+
+    useEffect(() => {
+        const channel = new BroadcastChannel('kairon_displays');
+        const handleMsg = (e: MessageEvent) => {
+            if (e.data && e.data.type === 'toggle_theme' && (e.data.tabId === 'prompter' || !e.data.tabId)) {
+                setPrompterTheme(prev => {
+                    const themeOrder: ('dark' | 'ambient-yellow' | 'ambient-white' | 'light')[] = ['dark', 'ambient-yellow', 'ambient-white', 'light'];
+                    const next = e.data.theme || themeOrder[(themeOrder.indexOf(prev) + 1) % themeOrder.length];
+                    localStorage.setItem('kairon_display_theme_prompter', next);
+                    return next;
+                });
+            }
+        };
+        channel.addEventListener('message', handleMsg);
+        return () => {
+            channel.removeEventListener('message', handleMsg);
+            channel.close();
+        };
+    }, []);
+
+    const activeTheme = prompterTheme;
+
+    const [isUserScrolling, setIsUserScrolling] = useState(false);
+    const userScrolledTimeoutRef = useRef<number | null>(null);
+
+    const handleUserWheel = () => {
+        setIsUserScrolling(true);
+        if (userScrolledTimeoutRef.current) {
+            window.clearTimeout(userScrolledTimeoutRef.current);
+        }
+        userScrolledTimeoutRef.current = window.setTimeout(() => {
+            setIsUserScrolling(false);
+        }, 8000);
+    };
 
     // Auto-scroll loop
     useEffect(() => {
-        if (!isScrolling || isThumbnail || !scrollContainerRef.current) {
+        if (!isScrolling || isThumbnail || !scrollContainerRef.current || isUserScrolling) {
             if (requestRef.current) {
                 cancelAnimationFrame(requestRef.current);
                 requestRef.current = null;
@@ -111,9 +153,8 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
                 requestRef.current = null;
             }
         };
-    }, [isScrolling, scrollSpeed, elapsed, currentSlot, isThumbnail]);
+    }, [isScrolling, scrollSpeed, elapsed, currentSlot, isThumbnail, isUserScrolling]);
 
-    const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     const isAutoFs = searchParams.get('autofs') === '1';
     const [showFsPrompt, setShowFsPrompt] = useState(isAutoFs);
 
@@ -172,17 +213,24 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
     const renderMarkdownContent = (text: string) => {
         if (!text) {
             return (
-                <div className="bg-indigo-500/[0.03] dark:bg-indigo-500/[0.05] border border-indigo-500/10 rounded-3xl p-8 max-w-xl my-6">
-                    <p className="font-bold text-lg mb-3">📝 No outlines or details provided for this segment.</p>
-                    <p className="text-sm opacity-70 leading-relaxed mb-4">
-                        To add notes or speaker outlines that auto-scroll on this teleprompter:
+                <div className="border border-current/20 rounded-3xl p-8 max-w-xl my-6 bg-current/[0.03]">
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="w-2 h-2 rounded-full bg-[#10B981] animate-tally" />
+                        <span className="text-xs font-mono font-bold uppercase tracking-widest text-[#0EA5E9]">
+                            Live Stage Segment
+                        </span>
+                    </div>
+                    <h2 className="text-2xl font-bold uppercase tracking-tight mb-2">
+                        {currentSlot.title}
+                    </h2>
+                    {currentSlot.speaker && (
+                        <p className="text-lg opacity-80 mb-4 font-mono font-semibold">
+                            Speaker: {currentSlot.speaker}
+                        </p>
+                    )}
+                    <p className="text-sm opacity-60 font-mono leading-relaxed">
+                        No teleprompter script configured for this segment. Refer to stage confidence timer for countdown pacing.
                     </p>
-                    <ol className="list-decimal list-inside text-sm opacity-70 space-y-2 leading-relaxed">
-                        <li>Go to the <strong>Program Editor</strong> tab.</li>
-                        <li>Click the dropdown chevron button (next to the title of the desired slot) to expand it.</li>
-                        <li>Fill in the <strong>Teleprompter Details</strong> textarea (supports markdown formatting).</li>
-                        <li>The changes will automatically save and sync to this screen in real time.</li>
-                    </ol>
                 </div>
             );
         }
@@ -285,6 +333,21 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
                 >
                     <Maximize size={14} />
                     <span>⛶ Click anywhere or press F11 to lock Fullscreen</span>
+                </div>
+            )}
+
+            {/* Standby Hold Overlay (Waiting for Cue) */}
+            {program.isOnHold && (
+                <div className="absolute inset-0 bg-[#0A0D14]/95 backdrop-blur-md flex flex-col items-center justify-center z-50 animate-in fade-in duration-200 select-none">
+                    <div className="w-20 h-20 rounded-full bg-amber-500/10 border-2 border-amber-500/40 flex items-center justify-center mb-6 animate-pulse">
+                        <Pause size={40} className="text-amber-400" />
+                    </div>
+                    <div className="text-4xl md:text-6xl font-black font-mono tracking-widest text-amber-400 uppercase text-center px-4">
+                        WAITING FOR CUE
+                    </div>
+                    <p className="text-slate-400 font-mono text-sm uppercase tracking-widest mt-4">
+                        Standby • Service paused by booth
+                    </p>
                 </div>
             )}
             
@@ -427,6 +490,8 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
                 {/* Right Pane: Reading outlines with smooth scrolling */}
                 <div 
                     ref={scrollContainerRef}
+                    onWheel={handleUserWheel}
+                    onTouchMove={handleUserWheel}
                     className="flex-1 overflow-y-auto p-12 relative"
                 >
                     <div className="max-w-[800px] mx-auto pb-48 select-text">

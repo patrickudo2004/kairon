@@ -14,33 +14,53 @@ interface AnalyticsDashboardProps {
 
 const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpdateSlot }) => {
     const stats = useMemo(() => {
-        let totalPlanned = 0;
-        let totalActual = 0;
+        let completedPlanned = 0;
+        let completedActual = 0;
+        let allPlanned = 0;
         let overruns = 0;
-        const items = program.slots.map(slot => {
-            const plannedVal = slot.durationMinutes;
-            const actualVal = slot.actualDuration || 0;
-            const variance = actualVal - plannedVal;
+        let completedCount = 0;
+        let totalAbsDev = 0;
 
-            totalPlanned += plannedVal;
-            totalActual += actualVal;
-            if (variance > 0) overruns++;
+        const items = program.slots.map(slot => {
+            const plannedVal = Number(slot.durationMinutes) || 0;
+            allPlanned += plannedVal;
+
+            const isCompleted = typeof slot.actualDuration === 'number' && slot.actualDuration > 0;
+            const actualVal = isCompleted ? slot.actualDuration! : 0;
+            const variance = isCompleted ? actualVal - plannedVal : 0;
+
+            if (isCompleted) {
+                completedPlanned += plannedVal;
+                completedActual += actualVal;
+                completedCount++;
+                totalAbsDev += Math.abs(variance);
+                if (variance > 0) overruns++;
+            }
 
             return {
                 ...slot,
                 plannedVal,
                 actualVal,
                 variance,
+                isCompleted,
             };
         });
 
+        // Bounded Schedule Adherence Score in [0, 100]%
+        const adherence = completedPlanned > 0
+            ? Math.max(0, Math.round((1 - (totalAbsDev / completedPlanned)) * 100))
+            : 100;
+
         return {
             items,
-            totalPlanned,
-            totalActual,
-            totalVariance: totalActual - totalPlanned,
+            totalPlanned: completedPlanned > 0 ? completedPlanned : allPlanned,
+            allPlanned,
+            totalActual: completedActual,
+            totalVariance: completedPlanned > 0 ? completedActual - completedPlanned : 0,
             overruns,
-            efficiency: totalPlanned > 0 ? Math.round((totalPlanned / totalActual) * 100) : 100
+            efficiency: adherence,
+            completedCount,
+            hasCompletedSlots: completedCount > 0,
         };
     }, [program]);
 
@@ -106,23 +126,50 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                     </button>
                     <button
                         onClick={() => {
-                            const headers = ['Title', 'Speaker', 'Planned Duration (m)', 'Actual Duration (m)', 'Variance (m)'];
-                            const rows = stats.items.map(item => [
-                                `"${item.title}"`,
-                                `"${item.speaker || ''}"`,
+                            const escapeCSV = (value: string | number | undefined | null) => {
+                                if (value === null || value === undefined) return '""';
+                                let str = String(value);
+                                if (/^[=+@-]/.test(str)) {
+                                    str = `'${str}`; // CWE-1236 mitigation
+                                }
+                                return `"${str.replace(/"/g, '""')}"`;
+                            };
+
+                            const metaRows = [
+                                `Organization,${escapeCSV(organization?.name || 'Kairon Production')}`,
+                                `Event Title,${escapeCSV(program.title)}`,
+                                `Date,${escapeCSV(program.date)}`,
+                                `Scheduled Start,${escapeCSV(program.startTime)}`,
+                                `Scheduled End,${escapeCSV(program.endTime || 'Open')}`,
+                                `Total Planned (Completed),${stats.totalPlanned}m`,
+                                `Total Actual Runtime,${stats.totalActual}m`,
+                                `Net Variance,${stats.totalVariance > 0 ? `+${stats.totalVariance}` : stats.totalVariance}m`,
+                                `Schedule Adherence,${stats.efficiency}%`,
+                                ``
+                            ];
+
+                            const headers = ['Order', 'Session / Slot', 'Speaker / Leader', 'Type', 'Planned (m)', 'Actual (m)', 'Variance (m)', 'Status'];
+                            const rows = stats.items.map((item, idx) => [
+                                idx + 1,
+                                escapeCSV(item.title),
+                                escapeCSV(item.speaker || 'No Speaker'),
+                                escapeCSV(item.type || 'Standard'),
                                 item.plannedVal,
-                                item.actualVal,
-                                item.variance,
+                                item.isCompleted ? item.actualVal : 'N/A',
+                                item.isCompleted ? (item.variance > 0 ? `+${item.variance}` : item.variance) : 'N/A',
+                                escapeCSV(item.isCompleted ? (item.variance > 0 ? 'OVERRUN' : 'ON TIME') : (item.actualVal === 0 ? 'SKIPPED' : 'PENDING')),
                             ]);
-                            const csvContent = "data:text/csv;charset=utf-8," 
-                                + headers.join(",") + "\n" 
-                                + rows.map(e => e.join(",")).join("\n");
-                            const encodedUri = encodeURI(csvContent);
+
+                            const csvContent = '\uFEFF' + metaRows.join('\r\n') + '\r\n' + headers.join(',') + '\r\n' + rows.map(r => r.join(',')).join('\r\n');
+                            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                            const url = URL.createObjectURL(blob);
                             const link = document.createElement("a");
-                            link.setAttribute("href", encodedUri);
-                            link.setAttribute("download", `kairon_report_${program.title.replace(/\s+/g, '_')}.csv`);
+                            link.href = url;
+                            link.download = `kairon_report_${program.title.replace(/[^a-zA-Z0-9_-]/g, '_')}.csv`;
                             document.body.appendChild(link);
                             link.click();
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(url);
                         }}
                         className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] rounded-xl text-xs font-mono font-bold uppercase tracking-wider text-slate-600 dark:text-[#8A93A4] transition-colors border border-slate-200 dark:border-[#22262E]"
                     >
@@ -248,12 +295,12 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                                 <div className="flex h-1.5 w-full bg-slate-100 dark:bg-[#181B22] rounded-full overflow-hidden">
                                     <div
                                         className="bg-[#0EA5E9] h-full border-r border-white/20"
-                                        style={{ width: `${Math.min(100, (item.plannedVal / Math.max(item.plannedVal, item.actualVal)) * 100)}%` }}
+                                        style={{ width: `${Math.min(100, Math.max(0, (item.plannedVal / Math.max(1, Math.max(item.plannedVal, item.actualVal))) * 100))}%` }}
                                     />
                                     {item.variance > 0 && (
                                         <div
                                             className="bg-[#EF4444] h-full"
-                                            style={{ width: `${(item.variance / item.actualVal) * 100}%` }}
+                                            style={{ width: `${Math.min(100, Math.max(0, (item.variance / Math.max(1, item.actualVal)) * 100))}%` }}
                                         />
                                     )}
                                 </div>
@@ -283,7 +330,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                                     </td>
                                     <td className="px-6 print:px-2 py-4 print:py-2 text-sm text-slate-500 dark:text-[#8A93A4]">{item.plannedVal}m</td>
                                     <td className="px-6 print:px-2 py-4 print:py-2 text-sm font-bold text-slate-900 dark:text-white">
-                                        {item.actualVal > 0 ? `${item.actualVal}m` : '---'}
+                                        {item.actualVal > 0 ? `${item.actualVal}m` : (item.isCompleted ? '0m' : '---')}
                                     </td>
                                     <td className="px-6 print:px-2 py-4 print:py-2">
                                         {item.actualVal > 0 ? (
@@ -301,12 +348,12 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                                         <div className="flex h-1.5 w-full bg-slate-100 dark:bg-[#181B22] rounded-full overflow-hidden">
                                             <div
                                                 className="bg-[#0EA5E9] h-full border-r border-white/20"
-                                                style={{ width: `${Math.min(100, (item.plannedVal / Math.max(item.plannedVal, item.actualVal)) * 100)}%` }}
+                                                style={{ width: `${Math.min(100, Math.max(0, (item.plannedVal / Math.max(1, Math.max(item.plannedVal, item.actualVal))) * 100))}%` }}
                                             />
                                             {item.variance > 0 && (
                                                 <div
                                                     className="bg-[#EF4444] h-full"
-                                                    style={{ width: `${(item.variance / item.actualVal) * 100}%` }}
+                                                    style={{ width: `${Math.min(100, Math.max(0, (item.variance / Math.max(1, item.actualVal)) * 100))}%` }}
                                                 />
                                             )}
                                         </div>
@@ -324,10 +371,10 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ program, onUpda
                     <h3 className="text-xl font-bold font-mono uppercase tracking-wider mb-2 text-[#0EA5E9]">Production Insight</h3>
                     <p className="max-w-xl text-slate-600 dark:text-[#8A93A4] text-sm font-medium leading-relaxed">
                         {stats.totalVariance > 5
-                            ? "Your event drifted significantly off-schedule. Consider adding 'Buffer' slots or re-evaluating slot durations for this type of session in Gemini AI."
+                            ? `Service ran ${stats.totalVariance}m past scheduled allocation. Pacing in earlier segments exceeded target windows. Autopilot rebalancing or buffer allocation can help protect hard-stop dismissals.`
                             : stats.totalVariance < -5
-                                ? "The event finished quite early. You may have additional time for Q&A or audience engagement next time."
-                                : "Excellent pacing! This service was delivered almost exactly as planned. Your team is highly synchronized."
+                                ? `Service concluded ${Math.abs(stats.totalVariance)}m ahead of budget. Pacing was brisk; review whether ministry flow, altar call response, or congregation interaction was given full allocated room.`
+                                : "Excellent pacing! This service was delivered almost exactly as planned (within ±5m). Your team and pulpit pacing are highly synchronized."
                         }
                     </p>
                 </div>

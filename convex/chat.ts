@@ -45,8 +45,8 @@ export const sendMessage = mutation({
             .filter((q) => q.eq(q.field("userId"), userId))
             .first();
 
-        const org = await ctx.db.get(program.organizationId);
-        const isOwner = org?.createdBy === userId;
+        const org = await ctx.db.get(program.organizationId as any);
+        const isOwner = (org as any)?.createdBy === userId;
 
         if (!membership && !isOwner) {
             throw new Error("Forbidden: You must be a registered team member of this organization to send messages.");
@@ -80,8 +80,8 @@ export const clearMessages = mutation({
             .filter((q) => q.eq(q.field("userId"), userId))
             .first();
 
-        const org = await ctx.db.get(program.organizationId);
-        const isOwner = org?.createdBy === userId;
+        const org = await ctx.db.get(program.organizationId as any);
+        const isOwner = (org as any)?.createdBy === userId;
 
         if (!membership && !isOwner) {
             throw new Error("Forbidden");

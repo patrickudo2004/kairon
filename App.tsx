@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams, Navigate, useParams } from 'react-router-dom';
-import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, User as UserIcon, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus, ExternalLink, Tv, AppWindow, SkipBack, SkipForward, Pause, Clock, Monitor, Building, MessageSquare, Bell, Crown, Volume2, Lightbulb, Video, Plus, Minus, BarChart3, Power } from 'lucide-react';
+import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, User as UserIcon, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus, ExternalLink, Tv, AppWindow, SkipBack, SkipForward, Pause, Clock, Monitor, Building, MessageSquare, Bell, Crown, Volume2, Lightbulb, Video, Plus, Minus, BarChart3, Power, Keyboard } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Services
@@ -59,6 +59,7 @@ import { CommandCenter } from './components/CommandCenter';
 import { ConfirmationModal } from './components/ConfirmationModal';
 import { CrewHUD } from './components/CrewHUD';
 import { MobileFlightBridge } from './components/MobileFlightBridge';
+import { BroadcastHotkeysModal } from './components/BroadcastHotkeysModal';
 
 import { MobileNav } from './components/MobileNav';
 
@@ -188,9 +189,10 @@ const healScheduleOverruns = (program: Program, currentSlotIndex: number, overru
   let absorbed = 0;
 
   // Step 1: Try to absorb from "flex/buffer" slots first
-  const flexTypes = ['break', 'transition', 'announcements', 'buffer'];
+  const flexTypes = ['break', 'transition', 'announcements', 'buffer', 'offering'];
   const remainingFlexSlots = newSlots.slice(currentSlotIndex + 1).filter(s => 
-    flexTypes.includes((s.type || '').toLowerCase())
+    flexTypes.includes((s.type || '').toLowerCase()) ||
+    /announcement|notice|offering|giving|break|transition|buffer/i.test(s.title || '')
   );
 
   for (let s of remainingFlexSlots) {
@@ -275,7 +277,7 @@ const AppContent: React.FC = () => {
         let changed = false;
         const next = { ...prev };
         for (const [key, value] of Object.entries(next)) {
-          if (now - value.timestamp > 3000) {
+          if (now - (value as any).timestamp > 3000) {
             delete next[key];
             changed = true;
           }
@@ -350,6 +352,25 @@ const AppContent: React.FC = () => {
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
 
+  // Workspace Switch Isolation: Reset active program and timer state when switching workspaces
+  const prevOrgIdRef = React.useRef<string | null>(activeOrgId);
+  useEffect(() => {
+    if (prevOrgIdRef.current !== null && prevOrgIdRef.current !== activeOrgId) {
+      setProgram(getInitialProgram());
+      setIsTimerActive(false);
+      setTimerStartTimestamp(null);
+      setSecondsElapsed(0);
+      setCurrentSlotIndex(0);
+      setSelectedLiveId(null);
+      if (searchParams.has('id')) {
+        const next = new URLSearchParams(searchParams);
+        next.delete('id');
+        setSearchParams(next, { replace: true });
+      }
+    }
+    prevOrgIdRef.current = activeOrgId;
+  }, [activeOrgId, searchParams, setSearchParams]);
+
   // --- Permissions & Membership ---
   // Fetch membership for current user in active org
   const myMembership = useConvexQuery(
@@ -359,10 +380,13 @@ const AppContent: React.FC = () => {
 
   const userRole = myMembership?.role; // 'admin', 'manager', 'operator'
 
-  // Permissions Logic
-  const isAdmin = userRole === 'admin';
+  // Permissions Logic (Auto-grant admin to org creator/owner or in local test bypass)
+  const isOwner = !!(user?.id && (activeOrg?.createdBy === user?.id || String(activeOrg?.createdBy) === String(user?.id)));
+  const isTestBypassMode = typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
+  const isAdmin = userRole === 'admin' || isOwner || isTestBypassMode;
   const isManager = userRole === 'manager';
   const isOperator = userRole === 'operator';
+  const canManagePrograms = isAdmin || isManager;
 
   // 1. URL-based overrides (purely aesthetic for Admins/Managers)
   const isUrlReadOnly = mode === 'viewer' || mode === 'ReadOnly';
@@ -481,13 +505,16 @@ const AppContent: React.FC = () => {
     }
   });
 
-  const handleToggleAutopilot = (enabled: boolean) => {
-    setIsAutopilotEnabled(enabled);
-    try {
-      localStorage.setItem('kairon_autopilot_enabled', String(enabled));
-    } catch (err) {
-      console.error(err);
-    }
+  const handleToggleAutopilot = (enabled?: boolean | unknown) => {
+    setIsAutopilotEnabled(prev => {
+      const next = typeof enabled === 'boolean' ? enabled : !prev;
+      try {
+        localStorage.setItem('kairon_autopilot_enabled', String(next));
+      } catch (err) {
+        console.error(err);
+      }
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -788,7 +815,7 @@ const AppContent: React.FC = () => {
         // Guard: Ensure we only hydrate if the fetched program matches the currently requested URL ID
         const urlIdClean = urlId?.replace('local-', '');
         const fetchedIdClean = fetchedProgram.id?.replace('local-', '');
-        const fetchedUuidClean = fetchedProgram.uuid?.replace('local-', '');
+        const fetchedUuidClean = (fetchedProgram as any).uuid?.replace('local-', '');
         const fetchedSlugClean = fetchedProgram.slug?.replace('local-', '');
         
         if (urlId) {
@@ -802,7 +829,7 @@ const AppContent: React.FC = () => {
         const currentProg = programRef.current;
         const isSameProgram = fetchedProgram.id === currentProg.id || 
           (currentProg.id?.startsWith('local-') && 
-            (fetchedProgram.uuid === currentProg.id.replace('local-', '') || 
+            ((fetchedProgram as any).uuid === currentProg.id.replace('local-', '') || 
              fetchedProgram.slug === currentProg.id.replace('local-', '')));
 
         const isNewProgram = !isSameProgram;
@@ -1214,7 +1241,10 @@ const AppContent: React.FC = () => {
   };
 
   const createProgram = (date: string) => {
-    if (!isAdmin && !isManager) return;
+    if (!canManagePrograms) {
+      alert("Only workspace administrators and managers can create events.");
+      return;
+    }
     const newProgram: Program = {
       ...getInitialProgram(activeOrgId || undefined),
       id: `local-${crypto.randomUUID()}`, // Prefix to distinguish local-only programs
@@ -1224,26 +1254,37 @@ const AppContent: React.FC = () => {
   };
 
   const deleteProgram = async (id: string) => {
-    if ((!isAdmin && !isManager) || !id) return;
+    if (!id) return;
+    if (!canManagePrograms) {
+      alert("Only workspace administrators and managers can delete events.");
+      return;
+    }
 
     try {
-      // Guard: Don't call backend if it's a local-only program
-      if (!id.startsWith('local-')) {
-        await deleteProgramService(id);
+      await deleteProgramService(id);
+
+      // Invalidate cache to refresh home and calendar views
+      queryClient.invalidateQueries({ queryKey: ['programs'] });
+      queryClient.invalidateQueries({ queryKey: ['programs', activeOrgId] });
+      queryClient.invalidateQueries({ queryKey: ['activeSessions'] });
+
+      // Dispatch event to immediately notify all local reactive queries
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('program_update'));
       }
 
-      // Invalidate cache to refresh home view
-      queryClient.invalidateQueries({ queryKey: ['programs'] });
-
       // If we deleted the current program, load another one
-      if (program.id === id) {
-        // Fetch programs to find another one
-        const allPrograms = await getPrograms();
-        if (allPrograms.length > 0) {
-          loadProgram(allPrograms[0]);
+      const cleanDeletedId = id.replace('local-', '');
+      const isCurrentDeleted = program.id === id || program.id.replace('local-', '') === cleanDeletedId;
+      if (isCurrentDeleted) {
+        // Fetch programs with activeOrgId so we don't get an empty list
+        const allPrograms = await getPrograms(activeOrgId ?? undefined);
+        const remaining = allPrograms.filter(p => p.id !== id && p.id.replace('local-', '') !== cleanDeletedId);
+        if (remaining.length > 0) {
+          loadProgram(remaining[0]);
         } else {
           // Reset to initial if all deleted
-          const reset = getInitialProgram();
+          const reset = getInitialProgram(activeOrgId ?? undefined);
           loadProgram(reset);
         }
       }
@@ -1254,7 +1295,10 @@ const AppContent: React.FC = () => {
   };
 
   const duplicateProgram = (id: string) => {
-    if (!isAdmin && !isManager) return;
+    if (!canManagePrograms) {
+      alert("Only workspace administrators and managers can duplicate events.");
+      return;
+    }
     void (async () => {
       try {
         const original = await getProgramById(id);
@@ -1280,10 +1324,78 @@ const AppContent: React.FC = () => {
         const saved = await createProgramService(newProgram);
 
         queryClient.invalidateQueries({ queryKey: ['programs'] });
+        queryClient.invalidateQueries({ queryKey: ['programs', activeOrgId] });
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('program_update'));
+        }
         loadProgram(saved);
       } catch (error) {
         console.error('Failed to duplicate program:', error);
         alert('Failed to duplicate program. Please try again.');
+      }
+    })();
+  };
+
+  const handleTurnaroundProgram = (id: string) => {
+    if (!canManagePrograms) {
+      alert("Only workspace administrators and managers can create turnaround services.");
+      return;
+    }
+    void (async () => {
+      try {
+        const original = await getProgramById(id);
+        if (!original) return;
+
+        // Calculate next title
+        const getNextServiceTitle = (title: string): string => {
+          if (/1st\s+Service/i.test(title)) return title.replace(/1st\s+Service/gi, '2nd Service');
+          if (/First\s+Service/i.test(title)) return title.replace(/First\s+Service/gi, 'Second Service');
+          if (/2nd\s+Service/i.test(title)) return title.replace(/2nd\s+Service/gi, '3rd Service');
+          if (/Second\s+Service/i.test(title)) return title.replace(/Second\s+Service/gi, 'Third Service');
+          if (/3rd\s+Service/i.test(title)) return title.replace(/3rd\s+Service/gi, '4th Service');
+          if (/Third\s+Service/i.test(title)) return title.replace(/Third\s+Service/gi, 'Fourth Service');
+          if (/Service\s+1/i.test(title)) return title.replace(/Service\s+1/gi, 'Service 2');
+          if (/Service\s+2/i.test(title)) return title.replace(/Service\s+2/gi, 'Service 3');
+          return `${title} (Next Service)`;
+        };
+
+        // Shift start time by +120m (2 hours)
+        const shiftTime = (timeStr?: string, minutes = 120): string => {
+          if (!timeStr) return "11:00";
+          const [h, m] = timeStr.split(':').map(Number);
+          if (isNaN(h) || isNaN(m)) return timeStr;
+          const total = (h * 60 + m + minutes) % (24 * 60);
+          const newH = Math.floor(total / 60);
+          const newM = total % 60;
+          return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+        };
+
+        const newProgram: Program = {
+          ...original,
+          id: `local-${crypto.randomUUID()}`,
+          title: getNextServiceTitle(original.title),
+          startTime: shiftTime(original.startTime, 120),
+          status: 'draft',
+          isTimerActive: false,
+          timerStartTimestamp: null,
+          secondsElapsed: 0,
+          currentSlotIndex: 0,
+          isOnHold: false,
+          holdMessage: '',
+          slots: original.slots.map(s => ({
+            ...s,
+            id: crypto.randomUUID(),
+            actualDuration: undefined
+          }))
+        };
+
+        const saved = await createProgramService(newProgram);
+        queryClient.invalidateQueries({ queryKey: ['programs'] });
+        loadProgram(saved);
+        navigate('/editor');
+      } catch (error) {
+        console.error('Failed to turnaround service:', error);
+        alert('Failed to turnaround service. Please try again.');
       }
     })();
   };
@@ -1755,6 +1867,97 @@ const AppContent: React.FC = () => {
       : 'text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200'
     }`;
 
+  const [isHotkeysOpen, setIsHotkeysOpen] = useState(false);
+
+  // Global Tactical Broadcast Hotkeys
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Ignore keystrokes when typing inside text inputs, textareas, or contentEditable
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      // '?' toggles Hotkeys Modal
+      if (e.key === '?') {
+        e.preventDefault();
+        setIsHotkeysOpen(prev => !prev);
+        return;
+      }
+
+      // 'Escape' closes Hotkeys Modal if open
+      if (e.key === 'Escape') {
+        if (isHotkeysOpen) {
+          e.preventDefault();
+          setIsHotkeysOpen(false);
+          return;
+        }
+      }
+
+      // If hotkeys modal is open, let user press Esc or ? to close, ignore other triggers
+      if (isHotkeysOpen) return;
+
+      // Broadcast hotkeys
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handleToggleTimer();
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        handleNext();
+      } else if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        handlePrev();
+      } else if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        handleNudge(1);
+      } else if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        handleNudge(-1);
+      } else if (e.key === 'h' || e.key === 'H') {
+        e.preventDefault();
+        handleToggleHold();
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        handleToggleManualMode();
+      } else if (e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        handleToggleAutopilot();
+      } else if (e.key === '1') {
+        e.preventDefault();
+        navigate('/editor');
+      } else if (e.key === '2') {
+        e.preventDefault();
+        navigate('/live');
+      } else if (e.key === '3') {
+        e.preventDefault();
+        navigate('/monitors');
+      } else if (e.key === '4') {
+        e.preventDefault();
+        navigate(displayProgram?.id ? `/analytics/${displayProgram.id}` : '/list');
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [
+    isHotkeysOpen,
+    handleToggleTimer,
+    handleNext,
+    handlePrev,
+    handleNudge,
+    handleToggleHold,
+    handleToggleManualMode,
+    handleToggleAutopilot,
+    displayProgram?.id,
+    navigate
+  ]);
+
   // Wrappers (Replaced with external components)
 
   // --- Public Path Logic ---
@@ -1801,25 +2004,30 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Special Route Handling: TV Mode
+  // Special Route Handling: TV Mode, Stage, Prompter, Crew HUD, Public
   // We render this exclusively, bypassing the main application shell (header, footer, etc.)
-  if (location.pathname === '/tv') {
+  // Support both standard BrowserRouter paths (/stage) and compiled Electron hash paths (#stage, #/stage)
+  const rawHash = (location.hash || '').replace(/^#\/?/, '').split('?')[0].toLowerCase();
+  const rawPath = (location.pathname || '').replace(/^\//, '').split('?')[0].toLowerCase();
+  const currentRouteToken = rawHash || rawPath;
+
+  if (currentRouteToken === 'tv' || location.pathname === '/tv') {
     return <TVWrapper />;
   }
 
-  if (location.pathname === '/stage') {
+  if (currentRouteToken === 'stage' || location.pathname === '/stage') {
     return <StageWrapper />;
   }
 
-  if (location.pathname === '/prompter') {
+  if (currentRouteToken === 'prompter' || location.pathname === '/prompter') {
     return <PrompterWrapper />;
   }
 
-  if (location.pathname === '/crew') {
+  if (currentRouteToken === 'crew' || location.pathname === '/crew') {
     return <CrewHUD />;
   }
 
-  if (location.pathname === '/public' || location.pathname === '/portal') {
+  if (currentRouteToken === 'public' || currentRouteToken === 'portal' || location.pathname === '/public' || location.pathname === '/portal') {
     return <PublicPortal />;
   }
 
@@ -1917,17 +2125,17 @@ const AppContent: React.FC = () => {
               ) : (
                 <>
                   <div className="flex-1 min-w-0 overflow-hidden">
-                    <div className="flex items-center gap-2">
-                      <h2 className="font-semibold text-sm text-slate-900 dark:text-white truncate max-w-[160px] sm:max-w-xs md:max-w-sm">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h2 className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white truncate max-w-[110px] sm:max-w-xs md:max-w-sm">
                         {displayProgram.title}
                       </h2>
                       {displayIsTimerActive ? (
-                        <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#10B981]/10 border border-[#10B981]/30 text-[10px] font-mono font-bold text-[#10B981]">
+                        <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#10B981]/10 border border-[#10B981]/30 text-[10px] font-mono font-bold text-[#10B981] shrink-0">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-tally" />
                           LIVE
                         </span>
                       ) : (
-                        <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[10px] font-mono font-bold text-[#F59E0B]">
+                        <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[10px] font-mono font-bold text-[#F59E0B] shrink-0">
                           STANDBY
                         </span>
                       )}
@@ -1939,8 +2147,8 @@ const AppContent: React.FC = () => {
 
             {/* Live Control Center & Header Timer */}
             {!isReadOnly && displayProgram.slots.length > 0 && (
-              <div className="flex items-center gap-2 md:gap-3 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] px-2.5 py-1 rounded-md shadow-sm">
-                <div className={`text-sm md:text-base font-mono font-bold tabular-nums min-w-[55px] md:min-w-[70px] text-center ${
+              <div className="flex items-center gap-1 sm:gap-2 md:gap-3 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] px-1.5 sm:px-2.5 py-1 rounded-md shadow-sm shrink-0">
+                <div className={`text-xs sm:text-sm md:text-base font-mono font-bold tabular-nums min-w-[45px] sm:min-w-[55px] md:min-w-[70px] text-center ${
                   displayIsTimerActive 
                     ? (headerTimeLeft < 0 ? 'text-[#EF4444] animate-pulse' : 'text-[#10B981]') 
                     : 'text-slate-500 dark:text-[#8A93A4]'
@@ -1948,49 +2156,49 @@ const AppContent: React.FC = () => {
                   {currentHeaderSlot ? formatDuration(headerTimeLeft) : '00:00'}
                 </div>
 
-                <div className="w-[1px] h-4 bg-slate-200 dark:bg-[#22262E]" />
+                <div className="w-[1px] h-3 sm:h-4 bg-slate-200 dark:bg-[#22262E]" />
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5 sm:gap-1">
                   <button
                     onClick={() => handleToggleTimer()}
-                    className={`p-1.5 rounded transition-all ${
+                    className={`p-1 sm:p-1.5 rounded transition-all ${
                       displayIsTimerActive 
                         ? 'bg-slate-200 dark:bg-[#1C2028] text-slate-900 dark:text-white border border-slate-300 dark:border-[#2D333F]' 
                         : 'bg-[#10B981] text-white hover:bg-[#059669]'
                     }`}
                     title={displayIsTimerActive ? "Pause Timer" : "Start Event"}
                   >
-                    {displayIsTimerActive ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}
+                    {displayIsTimerActive ? <Pause size={12} fill="currentColor" /> : <Play size={12} fill="currentColor" />}
                   </button>
 
                   <button
                     onClick={() => handlePrev()}
                     disabled={displayCurrentSlotIndex === 0}
-                    className={`p-1.5 rounded transition-all ${
+                    className={`hidden sm:inline-flex p-1 sm:p-1.5 rounded transition-all ${
                       displayCurrentSlotIndex === 0 
                         ? 'text-slate-300 dark:text-[#4B5563] cursor-not-allowed' 
                         : 'text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22]'
                     }`}
                     title="Previous Slot"
                   >
-                    <SkipBack size={13} />
+                    <SkipBack size={12} />
                   </button>
 
                   <button
                     onClick={() => handleNext()}
                     disabled={displayCurrentSlotIndex === displayProgram.slots.length - 1}
-                    className={`p-1.5 rounded transition-all ${
+                    className={`p-1 sm:p-1.5 rounded transition-all ${
                       displayCurrentSlotIndex === displayProgram.slots.length - 1 
                         ? 'text-slate-300 dark:text-[#4B5563] cursor-not-allowed' 
                         : 'text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22]'
                     }`}
                     title="Next Slot"
                   >
-                    <SkipForward size={13} />
+                    <SkipForward size={12} />
                   </button>
 
                   {/* Nudge Controls */}
-                  <div className="hidden sm:inline-flex items-center bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] rounded p-0.5 mx-0.5">
+                  <div className="hidden md:inline-flex items-center bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] rounded p-0.5 mx-0.5">
                     <button
                       onClick={() => handleNudge(-1)}
                       className="px-1.5 py-0.5 hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-all font-mono text-[10px] font-bold"
@@ -2009,14 +2217,14 @@ const AppContent: React.FC = () => {
 
                   <button
                     onClick={() => handleToggleHold()}
-                    className={`p-1.5 rounded transition-all ${
+                    className={`p-1 sm:p-1.5 rounded transition-all ${
                       displayProgram.isOnHold 
                         ? 'bg-[#F59E0B] text-black' 
                         : 'text-slate-600 dark:text-[#8A93A4] hover:text-[#F59E0B] hover:bg-slate-100 dark:hover:bg-[#181B22]'
                     }`}
                     title="Toggle Hold"
                   >
-                    <Clock size={13} />
+                    <Clock size={12} />
                   </button>
 
                   <div className="w-[1px] h-4 bg-slate-200 dark:bg-[#22262E] mx-0.5 hidden sm:block" />
@@ -2061,7 +2269,7 @@ const AppContent: React.FC = () => {
               </div>
             )}
 
-            <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               {/* Post-Event Analytics Report Button */}
               {displayProgram?.id && (
                 <button
@@ -2079,35 +2287,43 @@ const AppContent: React.FC = () => {
                 <HoldToConfirmButton
                   durationMs={2000}
                   onConfirm={() => requestEndEventConfirmation(displayProgram.id)}
-                  label="End Event"
-                  holdingLabel="Hold to End"
-                  className="px-2.5 py-1 text-xs font-mono font-semibold"
+                  label="End"
+                  holdingLabel="Hold"
+                  className="px-2 py-1 text-xs font-mono font-semibold"
                   title="Press and hold 2 seconds to end this live session"
                 />
               )}
 
               {/* Network Status Indicator */}
-              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded text-[10px] font-mono text-slate-600 dark:text-[#8A93A4]">
+              <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded text-[10px] font-mono text-slate-600 dark:text-[#8A93A4]">
                 {isOnline ? <Wifi size={11} className="text-[#10B981]" /> : <WifiOff size={11} className="text-[#EF4444]" />}
-                <span>{isOnline ? 'ONLINE' : 'OFFLINE'}</span>
+                <span className="hidden md:inline">{isOnline ? 'ONLINE' : 'OFFLINE'}</span>
               </div>
 
               {!isReadOnly && (
                 <button
                   onClick={toggleTheme}
-                  className="p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
+                  className="hidden sm:inline-flex p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
                   title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
                 >
                   {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
                 </button>
               )}
 
+              <button
+                onClick={() => setIsHotkeysOpen(true)}
+                className="hidden sm:inline-flex p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
+                title="Broadcast Hotkeys Reference (?)"
+              >
+                <Keyboard size={14} />
+              </button>
+
               {!isReadOnly && user && (
                 <>
                   {canControlLive && isFlightBridgeSupported && (
                     <button
                       onClick={() => openFlightBridge()}
-                      className={`p-1.5 rounded border transition-colors ${
+                      className={`hidden sm:inline-flex p-1.5 rounded border transition-colors ${
                         pipWindow 
                           ? 'bg-[#0EA5E9]/20 border-[#0EA5E9] text-[#0EA5E9]' 
                           : 'bg-slate-50 dark:bg-[#121418] border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white'
@@ -2120,7 +2336,7 @@ const AppContent: React.FC = () => {
 
                   <button
                     onClick={() => setIsExportOpen(true)}
-                    className="p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
+                    className="hidden sm:inline-flex p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
                     title="Export Schedule"
                   >
                     <Download size={14} />
@@ -2140,7 +2356,7 @@ const AppContent: React.FC = () => {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto pb-20 md:pb-0 relative custom-scrollbar">
+        <main className="flex-1 overflow-y-auto pb-36 lg:pb-8 relative custom-scrollbar">
           {/* Venue Dock (Pill Switcher) */}
           <VenueDock 
             activeSessions={activeSessions}
@@ -2214,6 +2430,7 @@ const AppContent: React.FC = () => {
                         createProgram={createProgram}
                         deleteProgram={deleteProgram}
                         duplicateProgram={duplicateProgram}
+                        onTurnaround={handleTurnaroundProgram}
                         onPlay={handlePlayProgram}
                         mode={mode}
                       />
@@ -2306,6 +2523,9 @@ const AppContent: React.FC = () => {
                         isTimerActive={isTimerActive}
                         currentSlotIndex={currentSlotIndex}
                         isPro={isPro}
+                        isAutopilotEnabled={isAutopilotEnabled}
+                        onToggleAutopilot={handleToggleAutopilot}
+                        onTurnaround={() => handleTurnaroundProgram(program.id)}
                         onEndEvent={(id) => requestEndEventConfirmation(id || program.id)}
                         onNudge={handleNudge}
                         onUpdate={(p) => {
@@ -2452,6 +2672,11 @@ const AppContent: React.FC = () => {
         type={confirmDialog.type}
         onConfirm={confirmDialog.onConfirm}
         onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+      />
+
+      <BroadcastHotkeysModal
+        isOpen={isHotkeysOpen}
+        onClose={() => setIsHotkeysOpen(false)}
       />
 
       {pipWindow && createPortal(

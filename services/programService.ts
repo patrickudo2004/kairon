@@ -147,14 +147,28 @@ export const updateProgram = async (program: Program): Promise<void> => {
 };
 
 export const deleteProgram = async (id: string): Promise<void> => {
+    const cleanId = id.replace('local-', '');
     if (isTestBypass()) {
         const local = localStorage.getItem('test_programs');
         let list: Program[] = local ? JSON.parse(local) : [];
-        list = list.filter((p) => p.id !== id);
+        list = list.filter((p: any) => 
+            p.id !== id && 
+            p.id?.replace('local-', '') !== cleanId && 
+            p._id !== id &&
+            p._id !== cleanId
+        );
         updateTestPrograms(list);
         return;
     }
     await convex.mutation(api.programs.deleteProgram, { id: id as any });
+    try {
+        localStorage.removeItem(`kairon_offline_cache_${id}`);
+        localStorage.removeItem(`kairon_offline_cache_${cleanId}`);
+        localStorage.removeItem(`kairon_offline_cache_${id}_prompter`);
+        localStorage.removeItem(`kairon_offline_cache_${cleanId}_prompter`);
+    } catch {
+        // ignore storage errors
+    }
 };
 
 export const migratePrograms = async (targetOrganizationId: string, programIds: string[]) => {

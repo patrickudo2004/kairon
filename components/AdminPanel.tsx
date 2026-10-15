@@ -25,7 +25,8 @@ import {
     User,
     LogOut,
     Sun,
-    Moon
+    Moon,
+    Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { deleteOrganization } from '../services/orgService';

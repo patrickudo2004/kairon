@@ -9,6 +9,9 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: '0.0.0.0',
+      watch: {
+        ignored: ['**/playwright-report/**', '**/test-results/**']
+      },
       proxy: {
         '/api': {
           target: 'http://localhost:3000',

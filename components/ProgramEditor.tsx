@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Program, Slot, SLOT_PRESETS } from '../types';
-import { Trash2, Plus, GripVertical, Sparkles, Wand2, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, ChevronRight, Users, Globe, Link as LinkIcon, Share2, Crown, Cast, Shield, BookOpen, Check } from 'lucide-react';
+import { Trash2, Plus, GripVertical, Sparkles, Wand2, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, ChevronRight, Users, Globe, Link as LinkIcon, Share2, Crown, Cast, Shield, BookOpen, Check, FastForward } from 'lucide-react';
 import { generateProgramDraft } from '../services/geminiService';
 import { parseRundownText, PRODUCTION_TEMPLATES } from '../utils/rundownParser';
 import { EmbedSnippet } from './EmbedSnippet';
@@ -32,6 +32,14 @@ interface ProgramEditorProps {
   isCoEditor?: boolean;
   isReadOnly?: boolean;
   isPro?: boolean;
+  isTimerActive?: boolean;
+  currentSlotIndex?: number;
+  isAdminOnline?: boolean;
+  onEndEvent?: (id?: string) => void;
+  onNudge?: (minutes: number) => void;
+  isAutopilotEnabled?: boolean;
+  onToggleAutopilot?: (enabled?: boolean) => void;
+  onTurnaround?: () => void;
 }
 
 const ProgramEditor: React.FC<ProgramEditorProps> = ({
@@ -39,7 +47,10 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   onUpdate,
   isCoEditor = false,
   isReadOnly = false,
-  isPro = false
+  isPro = false,
+  isAutopilotEnabled = true,
+  onToggleAutopilot,
+  onTurnaround
 }) => {
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
   const [aiInput, setAiInput] = useState('');
@@ -188,7 +199,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
     <div className="max-w-5xl mx-auto p-4 md:p-6 pb-32 overflow-x-hidden font-sans">
 
       {/* Header Actions */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 border-b border-slate-200 dark:border-[#22262E] pb-5">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4 border-b border-slate-200 dark:border-[#22262E] pb-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-[#1C2028] border border-slate-200 dark:border-[#2D333F] text-[10px] font-mono tracking-widest text-slate-600 dark:text-[#9BA3AF] uppercase">Rundown Architect</span>
@@ -198,25 +209,42 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
           <p className="text-xs text-slate-500 dark:text-[#8A93A4]">Structure your service rundown, assign cues, and configure timing targets.</p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {remainingMinutes !== null && Math.abs(remainingMinutes) > 0 && !isReadOnly && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Autopilot Engine Toggle / Status */}
+          <button
+            type="button"
+            onClick={() => onToggleAutopilot && onToggleAutopilot(!isAutopilotEnabled)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-mono text-xs font-semibold transition-all border shadow-xs ${
+              isAutopilotEnabled
+                ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30 hover:bg-[#10B981]/20'
+                : 'bg-slate-100 dark:bg-[#181B22] text-slate-500 dark:text-[#8A93A4] border-slate-200 dark:border-[#2D333F]'
+            }`}
+            title={isAutopilotEnabled ? "Autopilot active: Deterministic local math rebalances remaining slots if overrun occurs" : "Autopilot disabled (click to arm)"}
+          >
+            <div className={`w-1.5 h-1.5 rounded-full ${isAutopilotEnabled ? 'bg-[#10B981] animate-tally' : 'bg-slate-400'}`} />
+            <span>AUTOPILOT: {isAutopilotEnabled ? 'ARMED' : 'OFF'}</span>
+          </button>
+
+          {/* Multi-Service Turnaround Button */}
+          {!isReadOnly && onTurnaround && (
             <button
-              onClick={() => {
-                (onUpdate as any)({ ...program, _triggerRebalance: true });
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/30 rounded-md font-mono text-xs font-semibold transition-all"
+              type="button"
+              onClick={onTurnaround}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-[#1C2028] hover:bg-slate-200 dark:hover:bg-[#252B37] text-slate-800 dark:text-[#E1E4EA] border border-slate-300 dark:border-[#2D333F] rounded-md font-mono text-xs font-semibold transition-all shadow-xs active:scale-95"
+              title="Duplicate & auto-shift schedule for next service (+2 hours, reset runtime state)"
             >
-              <Sparkles size={13} />
-              <span>AI Rebalance</span>
-              {!isPro && <Crown size={10} className="text-[#F59E0B] ml-1" />}
+              <FastForward size={13} className="text-[#A855F7]" />
+              <span>Turnaround Service</span>
             </button>
           )}
 
-          {!isCoEditor && !isReadOnly && (
+          {/* Smart Rundown Importer Action Button */}
+          {!isReadOnly && (
             <button
+              type="button"
               onClick={() => setIsAIDialogOpen(true)}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0EA5E9] hover:bg-[#0284C7] text-white rounded-md font-mono text-xs font-semibold transition-all shadow-sm active:scale-95"
-              title="Import from WhatsApp or load pre-built production templates"
+              title="Import rundown from WhatsApp text, service bulletin, or run of show"
             >
               <Wand2 size={13} />
               <span>Smart Importer</span>
@@ -224,6 +252,40 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
           )}
         </div>
       </div>
+
+      {/* Quick Production Template Pills Strip - TOP LEVEL */}
+      {!isReadOnly && (
+        <div className="mb-6 p-3 bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md shadow-xs">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-[#8A93A4] uppercase tracking-wider flex items-center gap-1.5">
+              <BookOpen size={12} className="text-[#0EA5E9]" />
+              Quick Production Templates (1-Click Load)
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsAIDialogOpen(true)}
+              className="text-[10px] font-mono font-bold text-[#0EA5E9] hover:underline flex items-center gap-1"
+            >
+              <span>Paste Text / WhatsApp</span>
+              <ChevronRight size={11} />
+            </button>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            {PRODUCTION_TEMPLATES.map((tmpl) => (
+              <button
+                key={tmpl.id}
+                type="button"
+                onClick={() => handleApplyTemplate(tmpl.id)}
+                className="px-2.5 py-1.5 bg-slate-50 dark:bg-[#181B22] hover:bg-[#0EA5E9]/10 hover:border-[#0EA5E9] border border-slate-200 dark:border-[#2D333F] rounded text-xs font-mono font-medium text-slate-800 dark:text-[#E1E4EA] hover:text-[#0EA5E9] dark:hover:text-[#0EA5E9] transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0 active:scale-95 shadow-xs"
+                title={`${tmpl.description} (${tmpl.slots.length} slots)`}
+              >
+                <span>{tmpl.name}</span>
+                <span className="text-[10px] text-slate-400 dark:text-[#6A7382]">({tmpl.slots.length})</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Main Configuration Panel */}
       <div className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md overflow-hidden mb-6 shadow-sm">
@@ -367,37 +429,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
         </div>
       </div>
 
-      {/* Quick Production Template Pills Strip */}
-      {!isReadOnly && (
-        <div className="mb-6 p-3 bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-[#8A93A4] uppercase tracking-wider flex items-center gap-1.5">
-              <BookOpen size={12} className="text-[#0EA5E9]" />
-              Quick Production Templates (1-Click Load)
-            </span>
-            <button
-              onClick={() => setIsAIDialogOpen(true)}
-              className="text-[10px] font-mono font-bold text-[#0EA5E9] hover:underline flex items-center gap-1"
-            >
-              <span>Paste Text / WhatsApp</span>
-              <ChevronRight size={11} />
-            </button>
-          </div>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-            {PRODUCTION_TEMPLATES.map((tmpl) => (
-              <button
-                key={tmpl.id}
-                onClick={() => handleApplyTemplate(tmpl.id)}
-                className="px-2.5 py-1.5 bg-slate-50 dark:bg-[#181B22] hover:bg-[#0EA5E9]/10 hover:border-[#0EA5E9] border border-slate-200 dark:border-[#2D333F] rounded text-xs font-mono font-medium text-slate-800 dark:text-[#E1E4EA] hover:text-[#0EA5E9] dark:hover:text-[#0EA5E9] transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0 active:scale-95 shadow-xs"
-                title={`${tmpl.description} (${tmpl.slots.length} slots)`}
-              >
-                <span>{tmpl.name}</span>
-                <span className="text-[10px] text-slate-400 dark:text-[#6A7382]">({tmpl.slots.length})</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* DnD Rundown Slot Stack */}
       <DndContext

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Program } from '../types';
-import { Play, Pause, SkipForward, SkipBack, Eye, CheckCircle, ClipboardList, MousePointerClick, Zap, Minus, Plus, Power, AlertTriangle, Shield, Clock } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Eye, CheckCircle, ClipboardList, MousePointerClick, Zap, Minus, Plus, Power, AlertTriangle, Shield, Clock, Radio } from 'lucide-react';
 import { useTimerSync } from '../hooks/useTimerSync';
-import { formatDuration } from '../utils/time';
+import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
 import { HoldToConfirmButton } from './HoldToConfirmButton';
 
 interface LiveTimerProps {
@@ -51,6 +51,27 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
   const progressPercent = durationSeconds > 0
     ? Math.min(100, Math.max(0, (timeLeft / durationSeconds) * 100))
     : 0;
+
+  // MCR Hard Cutoff Telemetry
+  const [wallClockSeconds, setWallClockSeconds] = useState(() => {
+    const d = new Date();
+    return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const d = new Date();
+      setWallClockSeconds(d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const totalPlannedMinutes = program.slots.reduce((acc, s) => acc + s.durationMinutes, 0);
+  const cutoffMinutes = program.endTime 
+    ? timeToMinutes(program.endTime) 
+    : (timeToMinutes(program.startTime || '09:00') + totalPlannedMinutes);
+  const cutoffSeconds = cutoffMinutes * 60;
+  const mcrSecondsRemaining = cutoffSeconds - wallClockSeconds;
 
   if (program.status === 'draft' && program.slots.length === 0) {
     return (
@@ -159,11 +180,34 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-mono text-slate-500 dark:text-[#8A93A4]">
-          <span>NEXT:</span>
-          <span className="text-slate-900 dark:text-white font-semibold truncate max-w-[200px]">
-            {nextSlot ? nextSlot.title : 'End of Event'}
-          </span>
+        <div className="flex items-center gap-3 text-xs font-mono">
+          {/* MCR Hard Broadcast Cutoff Monitor */}
+          <div 
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded border text-[10px] font-mono font-bold uppercase transition-all ${
+              mcrSecondsRemaining <= 0
+                ? 'bg-[#EF4444]/15 border-[#EF4444] text-[#EF4444] animate-pulse'
+                : mcrSecondsRemaining <= 600
+                  ? 'bg-[#F59E0B]/15 border-[#F59E0B] text-[#F59E0B] animate-pulse'
+                  : 'bg-slate-100 dark:bg-[#1C2028] border-slate-200 dark:border-[#2D333F] text-slate-600 dark:text-[#8A93A4]'
+            }`}
+            title={`Master Control Room (MCR) Broadcast Hard Cutoff at ${minutesToTime(cutoffMinutes, '12h')} (protects satellite window)`}
+          >
+            <Radio size={11} className={mcrSecondsRemaining <= 0 ? 'text-[#EF4444]' : (mcrSecondsRemaining <= 600 ? 'text-[#F59E0B]' : 'text-[#0EA5E9]')} />
+            <span>
+              MCR CUTOFF: {minutesToTime(cutoffMinutes, '12h')}
+              {mcrSecondsRemaining <= 0 
+                ? ` (BREACHED -${formatDuration(Math.abs(mcrSecondsRemaining))})`
+                : ` (${formatDuration(mcrSecondsRemaining)})`
+              }
+            </span>
+          </div>
+
+          <div className="hidden sm:flex items-center gap-2 text-slate-500 dark:text-[#8A93A4]">
+            <span>NEXT:</span>
+            <span className="text-slate-900 dark:text-white font-semibold truncate max-w-[160px]">
+              {nextSlot ? nextSlot.title : 'End of Event'}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -245,7 +289,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             <button
               onClick={() => onPrev(program.id)}
               disabled={currentSlotIndex === 0}
-              className="p-3.5 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] disabled:opacity-30 text-slate-800 dark:text-[#E1E4EA] border border-slate-200 dark:border-[#22262E] rounded-md transition-all active:scale-95 shadow-sm"
+              className="p-3.5 min-w-[44px] min-h-[44px] bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] disabled:opacity-30 text-slate-800 dark:text-[#E1E4EA] border border-slate-200 dark:border-[#22262E] rounded-md transition-all active:scale-95 shadow-sm flex items-center justify-center touch-manipulation"
               title="Jump to Previous Slot"
             >
               <SkipBack size={20} />
@@ -254,7 +298,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             {/* Master Play / Pause */}
             <button
               onClick={() => onToggleTimer(program, false, elapsed)}
-              className={`w-24 h-24 md:px-8 md:py-3.5 rounded-2xl md:rounded-md font-mono text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-md active:scale-95 ${
+              className={`w-24 h-24 md:px-8 md:py-3.5 rounded-2xl md:rounded-md font-mono text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-md active:scale-95 touch-manipulation ${
                 isTimerActive
                   ? 'bg-slate-100 dark:bg-[#1C2028] hover:bg-slate-200 dark:hover:bg-[#252B37] text-slate-900 dark:text-white border border-slate-300 dark:border-[#2D333F]'
                   : 'bg-[#10B981] hover:bg-[#059669] text-white shadow-[#10B981]/20'
@@ -276,7 +320,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             {/* Next Slot */}
             <button
               onClick={() => onNext(program.id)}
-              className={`p-3.5 rounded-md transition-all active:scale-95 border shadow-sm ${
+              className={`p-3.5 min-w-[44px] min-h-[44px] rounded-md transition-all active:scale-95 border shadow-sm flex items-center justify-center touch-manipulation ${
                 program.isManualMode && timeLeft <= 0
                   ? 'bg-[#F59E0B] text-black border-[#F59E0B] animate-pulse ring-2 ring-[#F59E0B]/30'
                   : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-800 dark:text-[#E1E4EA] border-slate-200 dark:border-[#22262E]'
@@ -289,18 +333,18 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             <div className="h-6 w-px bg-slate-200 dark:bg-[#22262E] mx-1 hidden sm:block"></div>
 
             {/* Nudge Controls */}
-            <div className="inline-flex items-center bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] rounded-md p-0.5 shadow-sm">
+            <div className="inline-flex items-center min-h-[44px] bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] rounded-md p-0.5 shadow-sm">
               <button
                 onClick={() => onNudge?.(-1)}
-                className="px-2.5 py-2 hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-all font-mono text-xs font-bold"
+                className="px-3 py-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-all font-mono text-xs font-bold touch-manipulation"
                 title="Nudge Down"
               >
                 <Minus size={14} />
               </button>
-              <span className="px-2 text-[10px] font-mono text-slate-400 dark:text-[#6A7382] uppercase">NUDGE</span>
+              <span className="px-2 text-[10px] font-mono text-slate-400 dark:text-[#6A7382] uppercase select-none">NUDGE</span>
               <button
                 onClick={() => onNudge?.(1)}
-                className="px-2.5 py-2 hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-all font-mono text-xs font-bold"
+                className="px-3 py-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-all font-mono text-xs font-bold touch-manipulation"
                 title="Nudge Up"
               >
                 <Plus size={14} />
@@ -310,7 +354,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             {/* Hold Toggle */}
             <button
               onClick={() => onToggleHold?.(undefined, program.id)}
-              className={`px-3.5 py-2.5 rounded-md font-mono text-xs font-semibold uppercase tracking-wider transition-all border flex items-center gap-1.5 shadow-sm ${
+              className={`px-3.5 py-2.5 min-h-[44px] rounded-md font-mono text-xs font-semibold uppercase tracking-wider transition-all border flex items-center gap-1.5 shadow-sm touch-manipulation ${
                 program.isOnHold
                   ? 'bg-[#F59E0B] text-black border-[#F59E0B]'
                   : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] text-[#F59E0B] border-slate-200 dark:border-[#22262E]'
@@ -324,7 +368,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             {/* Autopilot Toggle */}
             <button
               onClick={() => onToggleAutopilot?.(!isAutopilotEnabled)}
-              className={`px-3.5 py-2.5 rounded-md font-mono text-xs font-semibold uppercase tracking-wider transition-all border flex items-center gap-1.5 shadow-sm ${
+              className={`px-3.5 py-2.5 min-h-[44px] rounded-md font-mono text-xs font-semibold uppercase tracking-wider transition-all border flex items-center gap-1.5 shadow-sm touch-manipulation ${
                 isAutopilotEnabled
                   ? 'bg-[#A855F7] text-white border-[#A855F7]'
                   : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] text-[#A855F7] border-slate-200 dark:border-[#22262E]'

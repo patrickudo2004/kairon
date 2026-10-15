@@ -207,36 +207,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`fixed left-0 top-0 h-full bg-white dark:bg-[#090A0C] border-r border-slate-200 dark:border-[#22262E] text-slate-900 dark:text-white transition-all duration-200 z-50 flex flex-col no-print hidden lg:flex font-sans ${isCollapsed ? 'w-16' : 'w-60'}`}
         >
             {/* Brand / Logo Header */}
-            <div className="p-3 flex items-center justify-between border-b border-slate-200 dark:border-[#22262E]">
-                {!isCollapsed && (
-                    <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
-                            {activeOrg?.logoUrl ? (
-                                <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
-                            ) : (
-                                <Mic className="text-[#0EA5E9]" size={18} />
-                            )}
+            <div className={`border-b border-slate-200 dark:border-[#22262E] transition-all ${isCollapsed ? 'p-2.5 flex flex-col items-center gap-1.5' : 'p-3 flex items-center justify-between'}`}>
+                {!isCollapsed ? (
+                    <>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+                                {activeOrg?.logoUrl ? (
+                                    <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain p-1 shrink-0" />
+                                ) : (
+                                    <Mic className="text-[#0EA5E9] shrink-0" size={18} />
+                                )}
+                            </div>
+                            <span className="font-mono font-bold text-sm tracking-wider text-slate-900 dark:text-white truncate uppercase">
+                                {activeOrg?.name ? activeOrg.name : 'KAIRON'}
+                            </span>
                         </div>
-                        <span className="font-mono font-bold text-sm tracking-wider text-slate-900 dark:text-white truncate uppercase">
-                            {activeOrg?.name ? activeOrg.name : 'KAIRON'}
-                        </span>
-                    </div>
+                        <button
+                            onClick={() => onToggle(true)}
+                            className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#181B22] text-slate-400 dark:text-[#6A7382] hover:text-slate-800 dark:hover:text-white transition-colors hidden md:block"
+                            title="Collapse Sidebar"
+                        >
+                            <ChevronLeft size={15} />
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <button
+                            onClick={() => onToggle(false)}
+                            className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center shrink-0 overflow-hidden shadow-xs hover:border-[#0EA5E9] transition-all group"
+                            title="Expand Sidebar"
+                        >
+                            {activeOrg?.logoUrl ? (
+                                <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain p-1 shrink-0" />
+                            ) : (
+                                <Mic className="text-[#0EA5E9] shrink-0" size={18} />
+                            )}
+                        </button>
+                        <button
+                            onClick={() => onToggle(false)}
+                            className="w-6 h-4 flex items-center justify-center rounded text-slate-400 dark:text-[#6A7382] hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22] transition-colors"
+                            title="Expand Sidebar"
+                        >
+                            <ChevronRight size={13} />
+                        </button>
+                    </>
                 )}
-                {isCollapsed && (
-                    <div className="w-9 h-9 mx-auto rounded-lg bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center overflow-hidden shadow-xs">
-                        {activeOrg?.logoUrl ? (
-                            <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
-                        ) : (
-                            <Mic className="text-[#0EA5E9]" size={18} />
-                        )}
-                    </div>
-                )}
-                <button
-                    onClick={() => onToggle(!isCollapsed)}
-                    className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#181B22] text-slate-400 dark:text-[#6A7382] hover:text-slate-800 dark:hover:text-white transition-colors hidden md:block"
-                >
-                    {isCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
-                </button>
             </div>
 
             {/* Workspace Switcher */}

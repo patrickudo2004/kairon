@@ -20,33 +20,38 @@ export const PRODUCTION_TEMPLATES: RundownTemplate[] = [
   {
     id: 'church-sunday',
     name: 'Sunday Church Service',
-    description: '10-part Sunday service rundown with praise, announcements, offering, choir, and sermon',
+    description: '10-part Sunday service rundown (Winners Chapel canonical order of service)',
     startTime: '09:00',
     slots: [
-      { title: 'Opening Prayer', speaker: 'Minister / Leader', durationMinutes: 5, type: 'Talk', details: 'Thanksgiving for God\'s faithfulness and open heavens' },
-      { title: 'Praise & Worship', speaker: 'Worship Team', durationMinutes: 25, type: 'Worship', details: 'High praise and congregational worship' },
-      { title: 'Scripture Reading', speaker: 'Scripture Reader', durationMinutes: 5, type: 'Talk', details: 'Weekly sermon focus passage' },
-      { title: 'Congregational Hymn', speaker: 'Worship Team', durationMinutes: 7, type: 'Music', details: 'Hymn of devotion' },
-      { title: 'Announcements & Welcome', speaker: 'Host / MC', durationMinutes: 10, type: 'Talk', details: 'Community notices and welcome to first-time guests' },
-      { title: 'Tithes & Offering', speaker: 'Minister', durationMinutes: 10, type: 'Talk', details: 'Worship through giving and prayer of blessing' },
-      { title: 'Special Ministration', speaker: 'Choir / Soloist', durationMinutes: 7, type: 'Music', details: 'Special musical selection or choir anthem' },
-      { title: 'The Sermon / Altar Call', speaker: 'Lead Pastor / Speaker', durationMinutes: 40, type: 'Sermon', details: 'Main message delivery and invitation for prayer' },
-      { title: 'Final Blessing & Closing', speaker: 'Lead Pastor', durationMinutes: 6, type: 'Talk', details: 'Benediction and dismissal' }
+      { title: 'Opening Prayer', speaker: 'Minister / Leader', durationMinutes: 5, type: 'Prayer', details: 'Thanksgiving for God\'s faithfulness and open heavens' },
+      { title: 'Praise & Worship', speaker: 'Worship Team', durationMinutes: 20, type: 'Worship', details: 'High praise and congregational worship' },
+      { title: 'Bible Reading', speaker: 'Scripture Reader', durationMinutes: 5, type: 'Talk', details: 'Weekly sermon focus passage' },
+      { title: 'Hymn', speaker: 'Worship Team', durationMinutes: 5, type: 'Music', details: 'Hymn of devotion' },
+      { title: 'Announcements & Testimonies', speaker: 'Host / MC', durationMinutes: 10, type: 'Talk', details: 'Notices, church highlights, and documented praise reports' },
+      { title: 'First Timers', speaker: 'Host / Welcome Team', durationMinutes: 5, type: 'Talk', details: 'Warm welcome to new visitors and guests' },
+      { title: 'Offering', speaker: 'Minister', durationMinutes: 8, type: 'Offering', details: 'Worship through tithes, offerings, and prophetic blessing' },
+      { title: 'Choir Ministration', speaker: 'Choir / Soloist', durationMinutes: 7, type: 'Music', details: 'Special musical selection or choir anthem' },
+      { title: 'Word / Altar Call', speaker: 'Lead Pastor / Speaker', durationMinutes: 45, type: 'Sermon', details: 'Main message delivery and invitation for salvation/prayer' },
+      { title: 'Prophetic Blessings & Closing', speaker: 'Lead Pastor', durationMinutes: 5, type: 'Prayer', details: 'Benediction, prophetic declarations, and final dismissal' }
     ]
   },
   {
     id: 'church-midweek',
-    name: 'Midweek Service',
-    description: 'Midweek prayer, praise, word, and communion service',
+    name: 'Midweek Service (Wednesday)',
+    description: '11-part Midweek service rundown with intercessions, word, and communion',
     startTime: '18:30',
     slots: [
-      { title: 'Opening Prayer', speaker: 'Leader', durationMinutes: 5, type: 'Talk', details: 'Thanksgiving and dedication' },
-      { title: 'Praise & Worship', speaker: 'Worship Team', durationMinutes: 15, type: 'Worship', details: 'Midweek praise ministration' },
-      { title: 'Intercessory Prayer Session', speaker: 'Prayer Leader', durationMinutes: 15, type: 'Talk', details: 'Corporate petitions and intercessions' },
-      { title: 'Testimonies & Notices', speaker: 'Host', durationMinutes: 8, type: 'Talk', details: 'Testimonies and weekly highlights' },
-      { title: 'Offering', speaker: 'Leader', durationMinutes: 7, type: 'Talk', details: 'Midweek offering and thanksgiving' },
-      { title: 'Exhortation & Teaching', speaker: 'Pastor / Teacher', durationMinutes: 30, type: 'Sermon', details: 'Bible study and practical teaching' },
-      { title: 'Communion & Benediction', speaker: 'Pastor', durationMinutes: 10, type: 'Talk', details: 'Breaking of bread and final blessings' }
+      { title: 'Opening Prayer', speaker: 'Leader', durationMinutes: 5, type: 'Prayer', details: 'Thanksgiving and dedication' },
+      { title: 'Praise & Worship', speaker: 'Worship Team', durationMinutes: 15, type: 'Worship', details: 'Midweek praise and congregational worship' },
+      { title: 'Intercession 1–3', speaker: 'Prayer Leader', durationMinutes: 12, type: 'Prayer', details: 'Corporate intercessory petitions (rounds 1 to 3)' },
+      { title: 'Announcements & Testimony', speaker: 'Host / MC', durationMinutes: 8, type: 'Talk', details: 'Weekly announcements and verified testimonies' },
+      { title: 'Intercession 4–6', speaker: 'Prayer Leader', durationMinutes: 12, type: 'Prayer', details: 'Corporate intercessory petitions (rounds 4 to 6)' },
+      { title: 'Personal Supplication', speaker: 'Congregation', durationMinutes: 5, type: 'Prayer', details: 'Moments of personal prayer and supplication' },
+      { title: 'Offering', speaker: 'Minister', durationMinutes: 7, type: 'Offering', details: 'Midweek giving and prayer of thanksgiving' },
+      { title: 'High Praise', speaker: 'Worship Team', durationMinutes: 10, type: 'Worship', details: 'Celebration and high praise' },
+      { title: 'Word / Altar Call', speaker: 'Pastor / Teacher', durationMinutes: 35, type: 'Sermon', details: 'Spiritual teaching and salvation call' },
+      { title: 'Communion & Blessing', speaker: 'Pastor', durationMinutes: 10, type: 'Communion', details: 'Holy Communion and prophetic impartation' },
+      { title: 'Closing Remarks', speaker: 'Host', durationMinutes: 5, type: 'Talk', details: 'Final instructions and dismissal' }
     ]
   },
   {
@@ -129,11 +134,26 @@ export const PRODUCTION_TEMPLATES: RundownTemplate[] = [
 export function detectSlotType(title: string, speaker?: string): SlotType {
   const combined = `${title} ${speaker || ''}`.toLowerCase();
   
+  if (/prayer|intercession|supplication|invocation|benediction|blessing/.test(combined)) {
+    return 'Prayer';
+  }
+  if (/offering|tithe|giving|collection/.test(combined)) {
+    return 'Offering';
+  }
+  if (/communion|lord's supper|breaking of bread/.test(combined)) {
+    return 'Communion';
+  }
   if (/praise|worship|hymn|singing|choir|song|chorus|instrumental|band|anthem/.test(combined)) {
     return 'Worship';
   }
   if (/word|sermon|message|preach|altar call|teaching|exhortation/.test(combined)) {
     return 'Sermon';
+  }
+  if (/video|trailer|teaser|cinematic|film|media/.test(combined)) {
+    return 'Media';
+  }
+  if (/ceremony|vows|processional|recessional|unveiling|presentation/.test(combined)) {
+    return 'Ceremony';
   }
   if (/keynote|inaugural|presidential/.test(combined)) {
     return 'Keynote';

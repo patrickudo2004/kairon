@@ -22,7 +22,7 @@ ORDER OF SERVICE - SUNDAY 12TH OCTOBER
     expect(result.slots[0].title).toBe('Opening Prayer');
     expect(result.slots[0].speaker).toBe('Pastor David');
     expect(result.slots[0].durationMinutes).toBe(5);
-    expect(result.slots[0].type).toBe('Talk');
+    expect(result.slots[0].type).toBe('Prayer');
 
     // Slot 2: Praise & Worship
     expect(result.slots[1].title).toBe('Praise & Worship');
