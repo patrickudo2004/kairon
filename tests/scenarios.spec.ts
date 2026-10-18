@@ -24,7 +24,7 @@ test.describe('Live Rundown E2E Scenarios', () => {
 
     // Verify redirect to program editor
     await expect(page).toHaveURL(/.*editor/);
-    const titleInput = page.locator('input').first();
+    const titleInput = page.locator('input[placeholder="Event Title"]');
     await expect(titleInput).toBeVisible();
 
     // 4. Fill in program details
@@ -196,7 +196,7 @@ test.describe('Live Rundown E2E Scenarios', () => {
     await createBtn.click();
 
     await expect(page).toHaveURL(/.*editor/);
-    const titleInput = page.locator('input').first();
+    const titleInput = page.locator('input[placeholder="Event Title"]');
     await expect(titleInput).toBeVisible();
     await titleInput.fill('Multi-Tab Sync Service');
 
@@ -269,7 +269,7 @@ test.describe('Live Rundown E2E Scenarios', () => {
     await createBtn.click();
 
     await expect(page).toHaveURL(/.*editor/);
-    const titleInput = page.locator('input').first();
+    const titleInput = page.locator('input[placeholder="Event Title"]');
     await expect(titleInput).toBeVisible();
     await titleInput.fill('Phase 35 Test Service');
 
@@ -356,7 +356,7 @@ test.describe('Live Rundown E2E Scenarios', () => {
     await createBtn.click();
 
     await expect(page).toHaveURL(/.*editor/);
-    const titleInput = page.locator('input').first();
+    const titleInput = page.locator('input[placeholder="Event Title"]');
     await titleInput.fill('Broadcast Service 4');
 
     // Add slot with production cues
@@ -400,5 +400,68 @@ test.describe('Live Rundown E2E Scenarios', () => {
 
     // Verify Sound button has confirmed state (green / checked)
     await expect(soundBtn).toHaveClass(/text-\[#10B981\]/);
+  });
+
+  test('should unify Public Portal links across Editor, Printable PDF, and Monitors & Displays without blank renders', async ({ page, context }) => {
+    test.setTimeout(60000);
+
+    const baseTime = new Date('2026-06-12T12:00:00Z');
+    await page.clock.install({ time: baseTime });
+
+    await page.goto('/?testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+
+    const createBtn = page.getByRole('button', { name: 'Create New' });
+    await expect(createBtn).toBeVisible({ timeout: 10000 });
+    await createBtn.click();
+
+    await expect(page).toHaveURL(/.*editor/);
+    const titleInput = page.locator('input[placeholder="Event Title"]');
+    await expect(titleInput).toBeVisible();
+    await titleInput.fill('Winners Sunday Celebration');
+
+    await page.getByText('Add Session Slot').click();
+    await page.locator('input[placeholder="Session Title"]').first().fill('Praise & Worship');
+    await page.locator('input[placeholder="Speaker Name"]').first().fill('WCIM Choir');
+    await page.locator('input[type="number"]').first().fill('15');
+
+    // Let auto-save settle
+    await page.clock.fastForward(3000);
+
+    // 1. Check Editor Public Attendee Link and Preview href
+    const previewLink = page.locator('a', { hasText: 'PREVIEW' });
+    await expect(previewLink).toBeVisible();
+    const previewHref = await previewLink.getAttribute('href');
+    expect(previewHref).toMatch(/^\/p\/[a-z0-9-]+$/i);
+
+    // Open QR Code drawer in Editor and verify canonical URL + Printable PDF QR SVG
+    const qrBtn = page.getByRole('button', { name: /QR CODE/i });
+    await qrBtn.click();
+    const expectedSlug = previewHref!.replace('/p/', '');
+    await expect(page.locator(`text=/\\/p\\/${expectedSlug}/`).first()).toBeVisible();
+    await expect(page.locator('#printable-area svg').first()).toBeAttached();
+
+    // 2. Navigate to Monitors & Displays and check Public Portal card & live thumbnail iframe
+    await page.goto(`/monitors?id=${expectedSlug}&testBypass=true`);
+    await page.waitForLoadState('domcontentloaded');
+
+    const publicIframe = page.locator('iframe[title="Public Portal"]');
+    await expect(publicIframe).toBeVisible();
+    const iframeSrc = await publicIframe.getAttribute('src');
+    expect(iframeSrc).toContain(`/p/${expectedSlug}`);
+
+    const frame = page.frameLocator('iframe[title="Public Portal"]');
+    await expect(frame.locator('h1')).toContainText('Winners Sunday Celebration');
+    await expect(frame.locator('h3', { hasText: 'Praise & Worship' })).toBeVisible();
+
+    // 3. Open the Public Portal URL directly in a new page across mobile/tablet/desktop viewports
+    const portalPage = await context.newPage();
+    await portalPage.setViewportSize({ width: 375, height: 812 });
+    await portalPage.goto(`${previewHref}?testBypass=true`);
+    await portalPage.waitForLoadState('domcontentloaded');
+
+    await expect(portalPage.locator('h1')).toContainText('Winners Sunday Celebration');
+    await expect(portalPage.locator('h3', { hasText: 'Praise & Worship' })).toBeVisible();
+    await expect(portalPage.getByRole('button', { name: /Share/i })).toBeVisible();
   });
 });

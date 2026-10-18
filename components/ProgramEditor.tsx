@@ -301,6 +301,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
             <input
               type="text"
               readOnly={isReadOnly}
+              placeholder="Event Title"
               value={program.title}
               onChange={(e) => onUpdate({ ...program, title: e.target.value })}
               className={`w-full bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] rounded px-3 py-2 text-sm text-slate-900 dark:text-white font-semibold focus:outline-none focus:border-[#0EA5E9] ${isReadOnly ? 'cursor-default' : ''}`}
