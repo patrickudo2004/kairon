@@ -8,6 +8,9 @@ const isTestBypass = () => {
                 localStorage.setItem('testBypass', 'true');
                 return true;
             }
+            if (localStorage.getItem('kairon_booth_mode') === 'true') {
+                return true;
+            }
             return localStorage.getItem('testBypass') === 'true';
         }
         return false;
@@ -55,9 +58,11 @@ export const useQuery = (query: any, args: any) => {
         };
         window.addEventListener('storage', handleUpdate);
         window.addEventListener('program_update', handleUpdate);
+        window.addEventListener('kairon_booth_mode_changed', handleUpdate);
         return () => {
             window.removeEventListener('storage', handleUpdate);
             window.removeEventListener('program_update', handleUpdate);
+            window.removeEventListener('kairon_booth_mode_changed', handleUpdate);
         };
     }, [isTestMode]);
 
@@ -85,24 +90,30 @@ export const useQuery = (query: any, args: any) => {
     if (path.includes('getMyMembershipInOrg')) {
         return { role: "admin" };
     }
+
+    const getLocalPrograms = () => {
+        try {
+            const local = localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs');
+            return local ? JSON.parse(local) : [];
+        } catch {
+            return [];
+        }
+    };
+
     if (path.includes('getPrograms')) {
-        const local = localStorage.getItem('test_programs');
-        return local ? JSON.parse(local) : [];
+        return getLocalPrograms();
     }
     if (path.includes('getActiveSessions')) {
-        const local = localStorage.getItem('test_programs');
-        const list = local ? JSON.parse(local) : [];
+        const list = getLocalPrograms();
         return list.filter((p: any) => p.status === 'live');
     }
     if (path.includes('getLiveProgram')) {
-        const local = localStorage.getItem('test_programs');
-        const list = local ? JSON.parse(local) : [];
+        const list = getLocalPrograms();
         const live = list.find((p: any) => p.status === 'live');
         return live || null;
     }
     if (path.includes('getProgramById')) {
-        const local = localStorage.getItem('test_programs');
-        const list = local ? JSON.parse(local) : [];
+        const list = getLocalPrograms();
         const idStr = args?.id || '';
         const cleanId = idStr.replace('local-', '');
         const found = list.find((p: any) => p.id === idStr || p.id?.replace('local-', '') === cleanId || p._id === idStr);

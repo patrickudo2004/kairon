@@ -48,7 +48,9 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.kairon.studio');
 }
 
-const appIconPath = path.join(__dirname, '../public/kairon-logo.png');
+const appIconIco = path.join(__dirname, '../public/icon.ico');
+const appIconPng = path.join(__dirname, '../public/kairon-logo.png');
+const appIconPath = (process.platform === 'win32' && fs.existsSync(appIconIco)) ? appIconIco : appIconPng;
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -68,6 +70,14 @@ function createMainWindow() {
       backgroundThrottling: false,
     },
   });
+
+  if (process.platform === 'win32') {
+    try {
+      mainWindow.setIcon(appIconPath);
+    } catch (e) {
+      console.warn('[Kairon Main] Could not set window icon:', e);
+    }
+  }
 
   const showAndFocus = () => {
     if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {

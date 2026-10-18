@@ -35,12 +35,16 @@ export async function checkPermissions(ctx: any, organizationId: Id<"organizatio
 }
 
 export const getPrograms = query({
-    args: { organizationId: v.optional(v.id("organizations")) },
+    args: { organizationId: v.optional(v.union(v.id("organizations"), v.string())) },
     handler: async (ctx, args) => {
         if (!args.organizationId) return [];
+        const orgIdStr = String(args.organizationId);
+        if (orgIdStr.startsWith('local-') || orgIdStr.startsWith('test-')) return [];
+        const normalizedId = ctx.db.normalizeId("organizations", orgIdStr);
+        if (!normalizedId) return [];
         return await ctx.db
             .query("programs")
-            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId!))
+            .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
             .collect();
     },
 });
@@ -99,11 +103,16 @@ export const getProgramById = query({
 });
 
 export const getActiveSessions = query({
-    args: { organizationId: v.id("organizations") },
+    args: { organizationId: v.union(v.id("organizations"), v.string()) },
     handler: async (ctx, args) => {
+        if (!args.organizationId) return [];
+        const orgIdStr = String(args.organizationId);
+        if (orgIdStr.startsWith('local-') || orgIdStr.startsWith('test-')) return [];
+        const normalizedId = ctx.db.normalizeId("organizations", orgIdStr);
+        if (!normalizedId) return [];
         return await ctx.db
             .query("programs")
-            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+            .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
             .filter((q) => q.eq(q.field("status"), "live"))
             .collect();
     },
@@ -111,13 +120,18 @@ export const getActiveSessions = query({
 
 // Resilient live-fetch for monitors, external views, and public portals
 export const getLiveProgram = query({
-    args: { organizationId: v.optional(v.id("organizations")) },
+    args: { organizationId: v.optional(v.union(v.id("organizations"), v.string())) },
     handler: async (ctx, args) => {
         try {
             if (args.organizationId) {
+                const orgIdStr = String(args.organizationId);
+                if (orgIdStr.startsWith('local-') || orgIdStr.startsWith('test-')) return null;
+                const normalizedId = ctx.db.normalizeId("organizations", orgIdStr);
+                if (!normalizedId) return null;
+
                 const liveInOrg = await ctx.db
                     .query("programs")
-                    .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId!))
+                    .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
                     .filter((q) => q.eq(q.field("status"), "live"))
                     .first();
                 if (liveInOrg) return liveInOrg;
@@ -125,7 +139,7 @@ export const getLiveProgram = query({
                 // Fallback within org: latest updated program in this organization
                 const latestInOrg = await ctx.db
                     .query("programs")
-                    .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId!))
+                    .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
                     .order("desc")
                     .first();
                 if (latestInOrg) return latestInOrg;

@@ -3,16 +3,22 @@ import { query, mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 export const getOrgMembers = query({
-    args: { organizationId: v.id("organizations") },
+    args: { organizationId: v.union(v.id("organizations"), v.string()) },
     handler: async (ctx, args) => {
+        if (!args.organizationId) return [];
+        const orgIdStr = String(args.organizationId);
+        if (orgIdStr.startsWith('local-') || orgIdStr.startsWith('test-')) return [];
+        const normalizedId = ctx.db.normalizeId("organizations", orgIdStr);
+        if (!normalizedId) return [];
+
         const [members, pendingInvites] = await Promise.all([
             ctx.db
                 .query("members")
-                .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+                .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
                 .collect(),
             ctx.db
                 .query("invites")
-                .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+                .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
                 .collect()
         ]);
 
@@ -369,26 +375,32 @@ export const updateMemberRole = mutation({
 });
 
 export const getMyMembershipInOrg = query({
-    args: { organizationId: v.id("organizations") },
+    args: { organizationId: v.union(v.id("organizations"), v.string()) },
     handler: async (ctx, args) => {
+        if (!args.organizationId) return null;
+        const orgIdStr = String(args.organizationId);
+        if (orgIdStr.startsWith('local-') || orgIdStr.startsWith('test-')) return null;
+        const normalizedId = ctx.db.normalizeId("organizations", orgIdStr);
+        if (!normalizedId) return null;
+
         const userId = await getAuthUserId(ctx);
         if (!userId) return null;
 
         const membership = await ctx.db
             .query("members")
-            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+            .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
             .filter((q) => q.eq(q.field("userId"), userId))
             .unique();
 
         if (membership) return membership;
 
         // Fallback: Check if user is creator/owner of the organization
-        const org = await ctx.db.get(args.organizationId);
+        const org = await ctx.db.get(normalizedId);
         if (org && (org.createdBy === userId || String(org.createdBy) === String(userId))) {
             return {
                 _id: "synthetic_admin" as any,
                 _creationTime: Date.now(),
-                organizationId: args.organizationId,
+                organizationId: normalizedId,
                 userId: userId as string,
                 role: "admin",
             };

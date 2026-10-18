@@ -415,7 +415,9 @@ const AppContent: React.FC = () => {
   // Fetch membership for current user in active org
   const myMembership = useConvexQuery(
     api.members.getMyMembershipInOrg,
-    activeOrgId && isAuthenticated ? { organizationId: activeOrgId as any } : "skip"
+    activeOrgId && isAuthenticated && !isBoothMode && !String(activeOrgId).startsWith('local-')
+      ? { organizationId: activeOrgId as any }
+      : "skip"
   );
 
   const userRole = myMembership?.role; // 'admin', 'manager', 'operator'
@@ -714,12 +716,23 @@ const AppContent: React.FC = () => {
   // --- Reactive Global Live Channels (Multi-Track) ---
   const [selectedLiveId, setSelectedLiveId] = useState<string | null>(null);
   
+  const isConvexOrgId = Boolean(
+    activeOrgId &&
+    !isBoothMode &&
+    !String(activeOrgId).startsWith('local-') &&
+    !String(activeOrgId).startsWith('test-') &&
+    String(activeOrgId).length >= 19
+  );
+
   const activeSessionsRaw = useConvexQuery(
     api.programs.getActiveSessions, 
-    activeOrgId ? { organizationId: activeOrgId as any } : "skip"
+    isConvexOrgId ? { organizationId: activeOrgId as any } : "skip"
   );
 
   const activeSessions = useMemo(() => {
+    if (isBoothMode) {
+      return program.status === 'live' ? [program] : [];
+    }
     if (!activeSessionsRaw) return [];
     return activeSessionsRaw.map(s => ({
       ...s,
@@ -728,14 +741,17 @@ const AppContent: React.FC = () => {
       slug: String((s as any).slug || (s as any).uuid || s._id || s.id).replace(/^local-/, ''),
       isPublic: (s as any).isPublic ?? true,
     })) as Program[];
-  }, [activeSessionsRaw]);
+  }, [activeSessionsRaw, isBoothMode, program]);
 
   const allProgramsRaw = useConvexQuery(
     api.programs.getPrograms,
-    activeOrgId ? { organizationId: activeOrgId as any } : "skip"
+    isConvexOrgId ? { organizationId: activeOrgId as any } : "skip"
   );
 
   const programs = useMemo(() => {
+    if (isBoothMode) {
+      return [program];
+    }
     if (!allProgramsRaw) return [];
     return allProgramsRaw.map(s => ({
       ...s,
@@ -743,7 +759,7 @@ const AppContent: React.FC = () => {
       slug: String((s as any).slug || (s as any).uuid || s._id || s.id).replace(/^local-/, ''),
       isPublic: (s as any).isPublic ?? true,
     })) as Program[];
-  }, [allProgramsRaw]);
+  }, [allProgramsRaw, isBoothMode, program]);
 
   // Auto-selection & Cleanup logic
   useEffect(() => {
@@ -2390,7 +2406,7 @@ const AppContent: React.FC = () => {
 
   // Desktop app browser-auth approval page
   // This must be accessible without authentication — the user authorises the desktop session here.
-  if (location.pathname === '/desktop-auth' || currentRouteToken === 'desktop-auth') {
+  if (location.pathname === '/desktop-auth' || currentRouteToken === 'desktop-auth' || searchParams.has('desktopCode')) {
     return <DesktopAuthApproval />;
   }
 
@@ -3184,6 +3200,74 @@ const AppContent: React.FC = () => {
   );
 };
 
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("[Kairon ErrorBoundary] Caught render error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#090A0C] flex flex-col items-center justify-center p-8 text-center font-sans">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mb-6">
+            <span className="text-2xl text-amber-500">⚠️</span>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Something interrupted Kairon Studio</h2>
+          <p className="text-[#8A93A4] text-sm max-w-md mb-6 leading-relaxed">
+            {this.state.error?.message || "An unexpected error occurred while rendering the studio interface."}
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-5 py-2.5 rounded-xl bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-xs font-mono font-bold uppercase tracking-wider transition-all"
+            >
+              Reload Studio
+            </button>
+            <button
+              onClick={() => {
+                try {
+                  localStorage.setItem('kairon_booth_mode', 'true');
+                  window.location.reload();
+                } catch {}
+              }}
+              className="px-5 py-2.5 rounded-xl bg-[#181B22] hover:bg-[#22262E] text-[#8A93A4] hover:text-white border border-[#22262E] text-xs font-mono font-bold uppercase tracking-wider transition-all"
+            >
+              Launch Offline Booth Mode
+            </button>
+            <button
+              onClick={() => {
+                try {
+                  localStorage.removeItem('kairon_booth_mode');
+                  sessionStorage.clear();
+                  window.location.href = '/';
+                } catch {}
+              }}
+              className="px-5 py-2.5 rounded-xl bg-transparent hover:bg-red-500/10 text-red-400 text-xs font-mono font-bold uppercase tracking-wider transition-all"
+            >
+              Clear Session & Reset
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const queryClient = new QueryClient();
 
 const App: React.FC = () => {
@@ -3191,7 +3275,9 @@ const App: React.FC = () => {
     <ConvexAuthProvider client={convex}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <AppContent />
+          <AppErrorBoundary>
+            <AppContent />
+          </AppErrorBoundary>
         </BrowserRouter>
       </QueryClientProvider>
     </ConvexAuthProvider>
