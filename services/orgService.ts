@@ -5,7 +5,11 @@ import { getSession } from './authService';
 
 const isTestBypass = () => {
     try {
-        return typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
+        return typeof window !== 'undefined' && (
+            window.location.search.includes('testBypass=true') || 
+            localStorage.getItem('testBypass') === 'true' ||
+            localStorage.getItem('kairon_booth_mode') === 'true'
+        );
     } catch {
         return false;
     }
