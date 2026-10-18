@@ -42,6 +42,9 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
 
     // Keep preview in sync with live slot if sync is active, and reset prompter scroll to top on new slot
     useEffect(() => {
+        if (!isThumbnail && typeof document !== 'undefined') {
+            document.title = 'Kairon Output [PROMPTER]';
+        }
         if (isSyncingWithLive) {
             setPreviewSlotIndex(currentSlotIndex);
             if (scrollContainerRef.current) {

@@ -45,6 +45,9 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
 
     // Real-time broadcast sync for display theme toggles
     useEffect(() => {
+        if (!isThumbnail && typeof document !== 'undefined') {
+            document.title = 'Kairon Output [STAGE]';
+        }
         const channel = new BroadcastChannel('kairon_displays');
         const handleMsg = (e: MessageEvent) => {
             if (e.data && e.data.type === 'toggle_theme' && (e.data.tabId === 'stage' || !e.data.tabId)) {

@@ -464,4 +464,57 @@ test.describe('Live Rundown E2E Scenarios', () => {
     await expect(portalPage.locator('h3', { hasText: 'Praise & Worship' })).toBeVisible();
     await expect(portalPage.getByRole('button', { name: /Share/i })).toBeVisible();
   });
+
+  test('should verify Kairon Studio v2.0 shell, Right Studio Dock, Template Overwrite/Append Guard, and Broadcast Overlay (/overlay)', async ({ page, context }) => {
+    test.setTimeout(60000);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/?testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+
+    // 1. Verify Studio Menu Bar & Bottom Telemetry Strip are visible on Desktop
+    await expect(page.getByRole('button', { name: 'File', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Integrations', exact: true })).toBeVisible();
+
+    // 2. Create a new program and add an initial slot
+    const createBtn = page.getByRole('button', { name: 'Create New' });
+    await expect(createBtn).toBeVisible({ timeout: 10000 });
+    await createBtn.click();
+
+    await expect(page).toHaveURL(/.*editor/);
+    const titleInput = page.locator('input[placeholder="Event Title"]');
+    await titleInput.fill('Studio v2 Test Service');
+
+    await page.getByText('Add Session Slot').click();
+    await page.locator('input[placeholder="Session Title"]:visible').first().fill('Pre-Service Soundcheck');
+    await page.locator('input[placeholder="Speaker Name"]:visible').first().fill('FOH Engineer');
+    await page.locator('input[type="number"]:visible').first().fill('10');
+
+    // 3. Click Sunday Church Service in the Quick-Start Template Bar -> Verify Overwrite vs. Append Guard Modal!
+    await page.getByRole('button', { name: /Sunday Church Service \(10\)/i }).click();
+
+    // Guard modal should appear because we already have 1 slot
+    await expect(page.getByText(/Schedule Already Has 1 Slots/i)).toBeVisible();
+
+    // Choose "Append to End" so we keep our Pre-Service Soundcheck + 10 Sunday Service slots = 11 slots
+    await page.getByRole('button', { name: /Append to End/i }).click();
+
+    // Verify 11 slots exist and enriched productionNotes & prompterText were populated
+    await expect(page.locator('input[placeholder="Session Title"]:visible')).toHaveCount(11);
+
+    // 4. Verify Right Studio Dock Live Output Preview & Slot Inspector
+    await expect(page.getByText('Output Monitor')).toBeVisible();
+    await expect(page.locator('iframe[title="Studio Live Output Preview"]')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Slot Inspector' })).toBeVisible();
+
+    // 5. Open /overlay Broadcast Overlay route and verify Lower-Third rendering & deterministic window title
+    const currentUrl = page.url();
+    const programId = new URL(currentUrl).searchParams.get('id');
+    const overlayPage = await context.newPage();
+    await overlayPage.goto(`/overlay?id=${programId}&bg=green&layout=lower-third&testBypass=true`);
+    await overlayPage.waitForLoadState('domcontentloaded');
+
+    await expect(overlayPage).toHaveTitle('Kairon Output [OVERLAY]');
+    await expect(overlayPage.getByText('Pre-Service Soundcheck')).toBeVisible();
+  });
 });

@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuthActions } from '@convex-dev/auth/react';
+import { useSearchParams } from 'react-router-dom';
 import { Mic, Mail, ArrowRight, Loader, Sun, Moon, Sparkles, UserPlus, Building, ShieldCheck, Zap } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
+import { DesktopAuthWaiting } from './DesktopAuthWaiting';
+
+const isElectronRuntime = typeof window !== 'undefined' && Boolean((window as any).electron?.isElectron);
 
 interface AuthProps {
     inviteDetails?: {
@@ -11,15 +15,29 @@ interface AuthProps {
     } | null;
 }
 
+
 export const Auth: React.FC<AuthProps> = ({ inviteDetails }) => {
     const { signIn } = useAuthActions();
+    const [searchParams] = useSearchParams();
     const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [mode, setMode] = useState<'signin' | 'signup'>('signin');
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [step, setStep] = useState<'signIn' | 'verifyCode'>('signIn');
     const [code, setCode] = useState('');
+    const [offlineMode, setOfflineMode] = useState(false);
     const { isDarkMode, toggleTheme } = useUIStore();
+
+    // In Electron, unless the user explicitly chose offline mode, show the
+    // browser handshake auth screen instead of the embedded sign-in form.
+    // Exception: if a desktopCode is in the query string the user is already
+    // coming back from the browser login — fall through to the standard form.
+    const hasDesktopCode = !!searchParams.get('desktopCode');
+    if (isElectronRuntime && !offlineMode && !hasDesktopCode) {
+        return <DesktopAuthWaiting onOfflineMode={() => setOfflineMode(true)} />;
+    }
+
+
 
     const handleGoogleSignIn = async () => {
         try {

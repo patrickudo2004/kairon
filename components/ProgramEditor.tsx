@@ -42,6 +42,10 @@ interface ProgramEditorProps {
   isAutopilotEnabled?: boolean;
   onToggleAutopilot?: (enabled?: boolean) => void;
   onTurnaround?: () => void;
+  selectedSlotId?: string | null;
+  onSelectSlotId?: (id: string) => void;
+  onSaveKaironFile?: () => void;
+  onOpenKaironFile?: () => void;
 }
 
 const ProgramEditor: React.FC<ProgramEditorProps> = ({
@@ -52,7 +56,11 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   isPro = false,
   isAutopilotEnabled = true,
   onToggleAutopilot,
-  onTurnaround
+  onTurnaround,
+  selectedSlotId,
+  onSelectSlotId,
+  onSaveKaironFile,
+  onOpenKaironFile,
 }) => {
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
   const [aiInput, setAiInput] = useState('');
@@ -60,6 +68,12 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set());
   const [isCopied, setIsCopied] = useState(false);
   const [showPublicQr, setShowPublicQr] = useState(false);
+  const [pendingImport, setPendingImport] = useState<{
+    title?: string;
+    startTime?: string;
+    slots: Slot[];
+    sourceLabel: string;
+  } | null>(null);
 
   const publicPortalUrl = getPublicPortalUrl(program);
   const publicPortalPath = getPublicPortalPath(program);
@@ -91,6 +105,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   );
 
   const handleSlotChange = (id: string, field: keyof Slot, value: any) => {
+    if (onSelectSlotId) onSelectSlotId(id);
     const newSlots = program.slots.map(s => s.id === id ? { ...s, [field]: value } : s);
     onUpdate({ ...program, slots: newSlots });
   };
@@ -110,6 +125,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
     const newSlots = [...program.slots];
     newSlots.splice(index + 1, 0, newSlot);
     onUpdate({ ...program, slots: newSlots });
+    if (onSelectSlotId) onSelectSlotId(newSlot.id);
   };
 
   const addSlot = () => {
@@ -122,9 +138,11 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
     };
     const newSlots = [...program.slots, newSlot];
     onUpdate({ ...program, slots: newSlots });
+    if (onSelectSlotId) onSelectSlotId(newSlot.id);
   };
 
   const toggleSlotDetails = (id: string) => {
+    if (onSelectSlotId) onSelectSlotId(id);
     setExpandedSlots(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -138,6 +156,28 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
     return parseRundownText(aiInput);
   }, [aiInput]);
 
+  const commitSlotImport = (
+    payload: { title?: string; startTime?: string; slots: Slot[] },
+    mode: 'replace' | 'append'
+  ) => {
+    const nextSlots = mode === 'append' ? [...program.slots, ...payload.slots] : payload.slots;
+    onUpdate({
+      ...program,
+      title:
+        payload.title && (mode === 'replace' || program.title === 'New Event' || !program.title)
+          ? payload.title
+          : program.title,
+      startTime: payload.startTime || program.startTime,
+      slots: nextSlots,
+    });
+    if (nextSlots[0] && onSelectSlotId) {
+      onSelectSlotId(nextSlots[0].id);
+    }
+    setPendingImport(null);
+    setIsAIDialogOpen(false);
+    setAiInput('');
+  };
+
   const handleApplyTemplate = (templateId: string) => {
     const tmpl = PRODUCTION_TEMPLATES.find(t => t.id === templateId);
     if (!tmpl) return;
@@ -145,29 +185,34 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
       ...s,
       id: crypto.randomUUID ? crypto.randomUUID() : `slot-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
     }));
-    onUpdate({
-      ...program,
-      title: program.title === 'New Event' || !program.title ? tmpl.name : program.title,
-      startTime: program.startTime || tmpl.startTime,
-      slots: newSlots
-    });
-    setIsAIDialogOpen(false);
-    setAiInput('');
+
+    if (program.slots.length > 0) {
+      setPendingImport({
+        title: tmpl.name,
+        startTime: tmpl.startTime,
+        slots: newSlots,
+        sourceLabel: tmpl.name,
+      });
+      return;
+    }
+
+    commitSlotImport({ title: tmpl.name, startTime: tmpl.startTime, slots: newSlots }, 'replace');
   };
 
   const handleMagicDraft = () => {
     if (!aiInput.trim()) return;
     const result = parseRundownText(aiInput);
     if (result && result.slots.length > 0) {
-      const merged: Program = {
-        ...program,
-        title: result.title && (program.title === 'New Event' || !program.title) ? result.title : program.title,
-        startTime: result.startTime || program.startTime,
-        slots: result.slots
-      };
-      onUpdate(merged);
-      setIsAIDialogOpen(false);
-      setAiInput('');
+      if (program.slots.length > 0) {
+        setPendingImport({
+          title: result.title,
+          startTime: result.startTime,
+          slots: result.slots,
+          sourceLabel: `Smart Importer (${result.slots.length} slots)`,
+        });
+        return;
+      }
+      commitSlotImport(result, 'replace');
     }
   };
 
@@ -226,6 +271,29 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
             <div className={`w-1.5 h-1.5 rounded-full ${isAutopilotEnabled ? 'bg-[#10B981] animate-tally' : 'bg-slate-400'}`} />
             <span>AUTOPILOT: {isAutopilotEnabled ? 'ARMED' : 'OFF'}</span>
           </button>
+
+          {/* Portable .kairon File Open & Save Buttons */}
+          {!isReadOnly && onOpenKaironFile && (
+            <button
+              type="button"
+              onClick={onOpenKaironFile}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-700 dark:text-[#E1E4EA] border border-slate-300 dark:border-[#2D333F] rounded-md font-mono text-xs font-semibold transition-all shadow-xs"
+              title="Open a portable .kairon or .csv rundown file from disk (Ctrl+O)"
+            >
+              <span>Open .kairon</span>
+            </button>
+          )}
+
+          {onSaveKaironFile && (
+            <button
+              type="button"
+              onClick={onSaveKaironFile}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-700 dark:text-[#E1E4EA] border border-slate-300 dark:border-[#2D333F] rounded-md font-mono text-xs font-semibold transition-all shadow-xs"
+              title="Save this rundown as a portable .kairon file (Ctrl+S)"
+            >
+              <span>Save .kairon</span>
+            </button>
+          )}
 
           {/* Multi-Service Turnaround Button */}
           {!isReadOnly && onTurnaround && (
@@ -647,6 +715,57 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
                   <span>Import {parsedPreview?.slots.length ? `${parsedPreview.slots.length} Slots` : 'Rundown'} ❯</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Overwrite vs. Append Confirmation Guard Modal */}
+      {pendingImport && (
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-[130] p-4 font-sans animate-in fade-in duration-150"
+          onClick={() => setPendingImport(null)}
+        >
+          <div
+            className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-xl w-full max-w-md p-5 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-[#F59E0B]/15 text-[#F59E0B] shrink-0">
+                <AlertCircle size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-mono font-bold uppercase text-slate-900 dark:text-white">
+                  Schedule Already Has {program.slots.length} Slots
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-[#8A93A4] mt-1 leading-relaxed">
+                  How would you like to load <strong className="text-slate-900 dark:text-white">{pendingImport.sourceLabel}</strong> ({pendingImport.slots.length} items) into this rundown?
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => commitSlotImport(pendingImport, 'replace')}
+                className="w-full py-2.5 px-4 rounded-lg bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-xs font-mono font-bold uppercase tracking-wider transition-all"
+              >
+                Replace Existing Schedule ({pendingImport.slots.length} Slots)
+              </button>
+              <button
+                type="button"
+                onClick={() => commitSlotImport(pendingImport, 'append')}
+                className="w-full py-2.5 px-4 rounded-lg bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-300 dark:border-[#2D333F] text-slate-800 dark:text-white text-xs font-mono font-bold uppercase tracking-wider transition-all"
+              >
+                Append to End ({program.slots.length + pendingImport.slots.length} Total Slots)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingImport(null)}
+                className="w-full py-2 px-4 rounded-lg text-slate-500 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white text-xs font-mono"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

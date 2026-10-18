@@ -101,4 +101,16 @@ export default defineSchema({
         message: v.string(),
         timestamp: v.number(),
     }).index("by_program", ["programId", "timestamp"]).index("by_org", ["organizationId", "timestamp"]),
+
+    desktopAuthSessions: defineTable({
+        code: v.string(),
+        status: v.union(v.literal("pending"), v.literal("approved"), v.literal("expired")),
+        jwtToken: v.optional(v.string()),
+        refreshToken: v.optional(v.string()),
+        userEmail: v.optional(v.string()),
+        userName: v.optional(v.string()),
+        createdAt: v.number(),
+        expiresAt: v.number(),
+    }).index("by_code", ["code"]),
 });
+
