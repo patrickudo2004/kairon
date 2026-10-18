@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Copy, Check, Code, ExternalLink, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { getCanonicalWebOrigin } from '../utils/url';
 
 interface EmbedSnippetProps {
     slug: string;
@@ -10,8 +11,8 @@ export const EmbedSnippet: React.FC<EmbedSnippetProps> = ({ slug }) => {
 
     const [isExpanded, setIsExpanded] = useState(false);
 
-    // In a real app, this would be the actual domain
-    const embedUrl = `${window.location.origin}/#/p/${slug}?embed=true`;
+    const cleanSlug = String(slug || '').replace(/^local-/, '');
+    const embedUrl = `${getCanonicalWebOrigin()}/p/${cleanSlug}?embed=true`;
     const iframeCode = `<iframe 
   src="${embedUrl}" 
   width="100%" 

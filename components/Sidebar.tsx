@@ -38,6 +38,7 @@ interface SidebarProps {
     isOnline: boolean;
     programTitle: string;
     programId: string | null;
+    editorProgramId?: string | null;
     activeSessions: Program[];
     selectedLiveId: string | null;
     onSelectLive: (id: string) => void;
@@ -180,12 +181,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onToggle,
     onCreateOrg,
     onStopAllSessions,
-    programId
+    programId,
+    editorProgramId
 }) => {
     const location = useLocation();
 
     const getLinkPath = (base: string) => {
-        const idToUse = selectedLiveId || programId;
+        const idToUse = base === '/editor' ? (editorProgramId || programId) : (selectedLiveId || programId);
         if (!idToUse || idToUse.startsWith('local-')) return base;
         return `${base}?id=${idToUse}`;
     };

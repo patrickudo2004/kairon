@@ -120,6 +120,14 @@ export const getLiveProgram = query({
                     .order("desc")
                     .first();
                 if (latestInOrg) return latestInOrg;
+            } else {
+                // Public/unauthenticated fallback: check if any public program is currently live
+                const anyLive = await ctx.db
+                    .query("programs")
+                    .withIndex("by_status", (q) => q.eq("status", "live"))
+                    .order("desc")
+                    .first();
+                if (anyLive && anyLive.isPublic !== false) return anyLive;
             }
         } catch (e) {
             console.warn("getLiveProgram query fallback error:", e);
@@ -153,25 +161,34 @@ export const getProgramBySlug = query({
     handler: async (ctx, args) => {
         if (!args.slug) return null;
         try {
-            // 1. Try by exact slug
+            const cleanSlug = args.slug.replace(/^local-/, '');
+
+            // 1. Try by exact slug (or cleaned slug)
             const bySlug = await ctx.db
                 .query("programs")
-                .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+                .withIndex("by_slug", (q) => q.eq("slug", cleanSlug))
                 .first();
             if (bySlug) return bySlug;
 
+            if (cleanSlug !== args.slug) {
+                const byRawSlug = await ctx.db
+                    .query("programs")
+                    .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+                    .first();
+                if (byRawSlug) return byRawSlug;
+            }
+
             // 2. Try as Convex ID
-            const normalizedId = ctx.db.normalizeId("programs", args.slug);
+            const normalizedId = ctx.db.normalizeId("programs", cleanSlug);
             if (normalizedId) {
                 const doc = await ctx.db.get(normalizedId);
                 if (doc) return doc;
             }
 
             // 3. Try as UUID
-            const cleanUuid = args.slug.replace('local-', '');
             const byUuid = await ctx.db
                 .query("programs")
-                .withIndex("by_uuid", (q) => q.eq("uuid", cleanUuid))
+                .withIndex("by_uuid", (q) => q.eq("uuid", cleanSlug))
                 .first();
             if (byUuid) return byUuid;
 
@@ -179,8 +196,8 @@ export const getProgramBySlug = query({
             const fallback = await ctx.db
                 .query("programs")
                 .filter((q) => q.or(
-                    q.eq(q.field("uuid"), args.slug),
-                    q.eq(q.field("slug"), args.slug),
+                    q.eq(q.field("uuid"), cleanSlug),
+                    q.eq(q.field("slug"), cleanSlug),
                     q.eq(q.field("title"), args.slug)
                 ))
                 .first();
@@ -207,26 +224,37 @@ export const createProgram = mutation({
         // Verify permissions
         await checkPermissions(ctx, args.organizationId, "manager");
 
-        if (args.uuid) {
+        const cleanUuid = args.uuid ? args.uuid.replace(/^local-/, '') : undefined;
+
+        if (cleanUuid) {
             const existing = await ctx.db
                 .query("programs")
-                .withIndex("by_uuid", (q) => q.eq("uuid", args.uuid))
+                .withIndex("by_uuid", (q) => q.eq("uuid", cleanUuid))
                 .first();
             if (existing) {
                 const { uuid, ...patch } = args;
-                await ctx.db.patch(existing._id, patch);
+                await ctx.db.patch(existing._id, {
+                    ...patch,
+                    slug: existing.slug || cleanUuid,
+                    isPublic: args.isPublic ?? existing.isPublic ?? true,
+                });
                 return existing._id;
             }
         }
-        return await ctx.db.insert("programs", {
+        const insertedId = await ctx.db.insert("programs", {
             ...args,
-            slug: args.uuid || undefined,
-            isPublic: true,
+            uuid: cleanUuid,
+            slug: cleanUuid || undefined,
+            isPublic: args.isPublic ?? true,
             status: "draft",
             isTimerActive: false,
             secondsElapsed: 0,
             currentSlotIndex: 0,
         });
+        if (!cleanUuid) {
+            await ctx.db.patch(insertedId, { slug: String(insertedId) });
+        }
+        return insertedId;
     },
 });
 
@@ -283,10 +311,16 @@ export async function resolveProgram(ctx: any, id: string) {
         if (doc) return doc;
     }
 
-    const cleanUuid = id.replace('local-', '');
-    return await ctx.db
+    const cleanUuid = id.replace(/^local-/, '');
+    const byUuid = await ctx.db
         .query("programs")
         .withIndex("by_uuid", (q: any) => q.eq("uuid", cleanUuid))
+        .first();
+    if (byUuid) return byUuid;
+
+    return await ctx.db
+        .query("programs")
+        .withIndex("by_slug", (q: any) => q.eq("slug", cleanUuid))
         .first();
 }
 
@@ -305,7 +339,17 @@ export const updateProgram = mutation({
         if (program.status === "archived") {
             throw new Error("Cannot modify an archived Service Report.");
         }
-        await ctx.db.patch(program._id, args.patch);
+
+        // Never wipe out existing slug or isPublic with undefined during auto-save
+        const safePatch = { ...args.patch };
+        if (!safePatch.slug) {
+            safePatch.slug = program.slug || program.uuid || String(program._id);
+        }
+        if (safePatch.isPublic === undefined) {
+            safePatch.isPublic = program.isPublic ?? true;
+        }
+
+        await ctx.db.patch(program._id, safePatch);
     },
 });
 

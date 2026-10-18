@@ -29,6 +29,8 @@ interface MobileNavProps {
     onToggleTheme: () => void;
     organizations: Organization[];
     onSelectOrg: (id: string | null) => void;
+    editorProgramId?: string | null;
+    liveProgramId?: string | null;
 }
 
 export const MobileNav: React.FC<MobileNavProps> = ({
@@ -39,21 +41,29 @@ export const MobileNav: React.FC<MobileNavProps> = ({
     isDarkMode,
     onToggleTheme,
     organizations,
-    onSelectOrg
+    onSelectOrg,
+    editorProgramId,
+    liveProgramId
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const displayName = (profile as any)?.fullName?.trim() || (profile as any)?.name?.trim() || (user?.email ? user.email.split('@')[0] : 'Kairon User');
     const initial = displayName.charAt(0).toUpperCase();
 
+    const getLinkPath = (base: string) => {
+        const idToUse = base === '/editor' ? (editorProgramId || liveProgramId) : (liveProgramId || editorProgramId);
+        if (!idToUse || idToUse.startsWith('local-')) return base;
+        return `${base}?id=${idToUse}`;
+    };
+
     const primaryItems = [
         { icon: LayoutDashboard, label: 'Home', path: '/' },
-        { icon: Edit3, label: 'Edit', path: '/editor' },
-        { icon: Play, label: 'Live', path: '/live' },
-        { icon: Monitor, label: 'HUD', path: '/monitors' },
+        { icon: Edit3, label: 'Edit', path: getLinkPath('/editor') },
+        { icon: Play, label: 'Live', path: getLinkPath('/live') },
+        { icon: Monitor, label: 'HUD', path: getLinkPath('/monitors') },
     ];
 
     const secondaryItems = [
-        { icon: ClipboardList, label: 'List View', path: '/list' },
+        { icon: ClipboardList, label: 'List View', path: getLinkPath('/list') },
         { icon: Calendar, label: 'Calendar', path: '/calendar' },
         { icon: FileText, label: 'User Guide', path: '/guide' },
         { icon: Settings, label: 'Workspace', path: '/admin' },

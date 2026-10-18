@@ -89,6 +89,8 @@ export const createProgram = async (program: Program): Promise<Program> => {
         throw new Error("Organization ID is mandatory for program creation.");
     }
 
+    const cleanUuid = program.id.replace(/^local-/, '');
+    const cleanSlug = (program.slug || cleanUuid).replace(/^local-/, '');
     const id = await convex.mutation(api.programs.createProgram, {
         title: program.title,
         subtitle: program.subtitle,
@@ -96,14 +98,20 @@ export const createProgram = async (program: Program): Promise<Program> => {
         startTime: program.startTime,
         organizationId: program.organizationId as any,
         slots: program.slots,
-        uuid: program.id.replace('local-', ''),
-        isPublic: true
+        uuid: cleanUuid,
+        isPublic: program.isPublic ?? true
     });
 
-    return { ...program, id: id as string };
+    return {
+        ...program,
+        id: id as string,
+        slug: cleanSlug,
+        isPublic: program.isPublic ?? true
+    };
 };
 
 export const updateProgram = async (program: Program): Promise<void> => {
+    const cleanSlug = (program.slug || program.id || '').replace(/^local-/, '');
     if (isTestBypass()) {
         const local = localStorage.getItem('test_programs');
         let list: Program[] = local ? JSON.parse(local) : [];
@@ -113,6 +121,8 @@ export const updateProgram = async (program: Program): Promise<void> => {
                 return {
                     ...p,
                     ...program,
+                    slug: cleanSlug || p.slug,
+                    isPublic: program.isPublic ?? p.isPublic ?? true,
                     currentSlotIndex: p.currentSlotIndex,
                     isTimerActive: p.isTimerActive,
                     timerStartTimestamp: p.timerStartTimestamp,
@@ -136,8 +146,8 @@ export const updateProgram = async (program: Program): Promise<void> => {
             isManualMode: program.isManualMode,
             isOnHold: program.isOnHold,
             holdMessage: program.holdMessage,
-            slug: program.slug,
-            isPublic: program.isPublic,
+            slug: cleanSlug || undefined,
+            isPublic: program.isPublic ?? true,
             status: program.status,
             estimatedAttendees: program.estimatedAttendees,
             averageHourlyRate: program.averageHourlyRate,
@@ -235,15 +245,16 @@ export const getPublicProgram = async (slugOrId: string): Promise<Program | null
     if (isTestBypass()) {
         return await getProgramById(slugOrId);
     }
+    const cleanTarget = slugOrId.replace(/^local-/, '');
     // 1. Try slug first
-    const dataBySlug = await convex.query(api.programs.getProgramBySlug, { slug: slugOrId });
-    if (dataBySlug && (dataBySlug as any).isPublic) {
+    const dataBySlug = await convex.query(api.programs.getProgramBySlug, { slug: cleanTarget });
+    if (dataBySlug && (dataBySlug as any).isPublic !== false) {
         return transformProgram(dataBySlug);
     }
 
     // 2. Try ID fallback
-    const dataById = await convex.query(api.programs.getProgramById, { id: slugOrId as any });
-    if (dataById && (dataById as any).isPublic) {
+    const dataById = await convex.query(api.programs.getProgramById, { id: cleanTarget as any });
+    if (dataById && (dataById as any).isPublic !== false) {
         return transformProgram(dataById);
     }
 
@@ -266,8 +277,8 @@ export const transformProgram = (p: any): Program => ({
     isOnHold: p.isOnHold,
     holdMessage: p.holdMessage,
     status: p.status,
-    slug: p.slug,
-    isPublic: p.isPublic,
+    slug: String(p.slug || p.uuid || p._id || p.id || '').replace(/^local-/, ''),
+    isPublic: p.isPublic ?? true,
     organizationId: p.organizationId,
     estimatedAttendees: p.estimatedAttendees,
     averageHourlyRate: p.averageHourlyRate,
