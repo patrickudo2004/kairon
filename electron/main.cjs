@@ -48,6 +48,8 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.kairon.studio');
 }
 
+const appIconPath = path.join(__dirname, '../public/kairon-logo.png');
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1366,
@@ -55,6 +57,7 @@ function createMainWindow() {
     minWidth: 1024,
     minHeight: 700,
     title: 'Kairon Studio — Broadcast Stage & Rundown Engine',
+    icon: appIconPath,
     show: false,
     center: true,
     backgroundColor: '#090A0C',
@@ -281,6 +284,7 @@ ipcMain.handle('open-target-screen', async (event, { url, screenIndex, windowId 
       transparent: Boolean(isTransparentOverlay),
       alwaysOnTop: false,
       title: deterministicTitle,
+      icon: appIconPath,
       backgroundColor: isTransparentOverlay ? '#00000000' : '#090A0C',
       webPreferences: {
         preload: path.join(__dirname, 'preload.cjs'),

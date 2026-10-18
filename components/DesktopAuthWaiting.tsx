@@ -50,7 +50,8 @@ function QRPlaceholder({ url }: { url: string }) {
 // Main Desktop Auth Waiting Component
 // ──────────────────────────────────────────────────────────────────────────────
 export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflineMode }) => {
-  const [phase, setPhase] = useState<PhaseType>('generating');
+  const [phase, setPhase] = useState<'generating' | 'waiting' | 'approved' | 'expired' | 'error'>('generating');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [sessionCode, setSessionCode] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(600); // 10 minutes in seconds
@@ -71,13 +72,18 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
     let cancelled = false;
     const init = async () => {
       try {
+        setPhase('generating');
+        setErrorMessage(null);
         const result = await createSession({});
         if (cancelled) return;
         setSessionCode(result.code);
         setSessionId(result.id);
         setPhase('waiting');
-      } catch (err) {
+      } catch (err: any) {
         console.error('[DesktopAuth] Failed to create session:', err);
+        if (cancelled) return;
+        setErrorMessage(err.message || 'Failed to connect to cloud backend.');
+        setPhase('error');
       }
     };
     init();
@@ -198,6 +204,40 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
     );
   }
 
+  // ── Error state ──
+  if (phase === 'error') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#090A0C] gap-6 p-8 font-sans">
+        <div className="w-20 h-20 rounded-2xl bg-[#EF4444]/10 border border-[#EF4444]/30 flex items-center justify-center">
+          <WifiOff size={36} className="text-[#EF4444]" />
+        </div>
+        <div className="text-center max-w-sm">
+          <h2 className="text-xl font-bold text-white mb-2">Connection Issue</h2>
+          <p className="text-[#8A93A4] text-xs font-mono leading-relaxed mb-1">{errorMessage}</p>
+          <p className="text-slate-400 text-xs">You can retry connecting or jump straight into offline booth mode.</p>
+        </div>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button
+            onClick={handleRestart}
+            className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-[#0EA5E9] hover:bg-[#0284C7] text-white font-mono text-xs font-bold uppercase tracking-wider transition-all"
+          >
+            <RefreshCw size={16} />
+            Retry Generating Code
+          </button>
+          <button
+            onClick={() => {
+              try { localStorage.setItem('kairon_booth_mode', 'true'); } catch {}
+              onOfflineMode();
+            }}
+            className="w-full py-3 px-6 rounded-xl border border-[#22262E] bg-[#181B22] text-[#8A93A4] hover:text-white font-mono text-xs font-bold uppercase tracking-wider transition-all"
+          >
+            Continue Offline as Guest
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ── Expired state ──
   if (phase === 'expired') {
     return (
@@ -218,7 +258,10 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
             Generate New Code
           </button>
           <button
-            onClick={onOfflineMode}
+            onClick={() => {
+              try { localStorage.setItem('kairon_booth_mode', 'true'); } catch {}
+              onOfflineMode();
+            }}
             className="w-full py-3 px-6 rounded-xl border border-[#22262E] text-[#8A93A4] hover:text-white font-mono text-xs font-bold uppercase tracking-wider transition-all"
           >
             Continue Offline
@@ -231,14 +274,16 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
   // ── Generating / Waiting state ──
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#090A0C] p-8 font-sans">
-      {/* Logo */}
-      <div className="inline-flex items-center gap-2.5 mb-10">
-        <div className="w-10 h-10 rounded-xl bg-[#121418] border border-[#22262E] flex items-center justify-center text-[#0EA5E9]">
-          <Mic size={20} />
-        </div>
+      {/* Official Kairon Logo */}
+      <div className="inline-flex items-center gap-3 mb-8">
+        <img
+          src="/kairon-logo.png"
+          alt="Kairon Studio"
+          className="w-12 h-12 rounded-2xl border border-[#22262E] shadow-xl shadow-[#0EA5E9]/15 object-contain"
+        />
         <div>
-          <span className="text-white font-bold text-lg tracking-tight">Kairon Studio</span>
-          <div className="text-[10px] font-mono text-[#8A93A4] uppercase tracking-widest">Desktop</div>
+          <span className="text-white font-bold text-xl tracking-tight">Kairon Studio</span>
+          <div className="text-[10px] font-mono text-[#0EA5E9] uppercase tracking-widest font-semibold">Broadcast Workstation</div>
         </div>
       </div>
 
@@ -317,7 +362,10 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
 
         {/* Offline / Guest bypass */}
         <button
-          onClick={onOfflineMode}
+          onClick={() => {
+            try { localStorage.setItem('kairon_booth_mode', 'true'); } catch {}
+            onOfflineMode();
+          }}
           className="flex items-center gap-2 text-[#8A93A4] hover:text-white text-xs font-mono font-bold uppercase tracking-widest transition-colors"
         >
           <Zap size={13} />
