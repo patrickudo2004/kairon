@@ -18,13 +18,26 @@ export const PublicPortal: React.FC = () => {
     // Monitor Convex connection status
     const [connStatus, setConnStatus] = useState<string>('connecting');
 
-    // Global Theme Sync
-    const isDarkMode = useUIStore((state) => state.isDarkMode);
-    const toggleTheme = useUIStore((state) => state.toggleTheme);
+    // Global Theme Sync + URL Theme Override (for MonitorDashboard thumbnails)
+    const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const searchId = searchParams.get('id');
+    const themeParam = searchParams.get('theme');
+    const isThumbnail = searchParams.get('mode') === 'thumbnail';
+    const targetId = (slug || searchId || '').replace(/^local-/, '');
 
-    // Remote Theme Control Listener
+    const globalDarkMode = useUIStore((state) => state.isDarkMode);
+    const toggleTheme = useUIStore((state) => state.toggleTheme);
+    const isDarkMode = themeParam ? themeParam !== 'light' : globalDarkMode;
+
     useEffect(() => {
-        const isThumbnail = new URLSearchParams(window.location.search).get('mode') === 'thumbnail';
+        if (typeof window === 'undefined') return;
+        const root = window.document.documentElement;
+        if (isDarkMode) root.classList.add('dark');
+        else root.classList.remove('dark');
+    }, [isDarkMode]);
+
+    // Remote Theme Control Listener & Display Telemetry Heartbeat
+    useEffect(() => {
         const isIframe = window.self !== window.top;
         if (isThumbnail || isIframe) return;
 
@@ -43,16 +56,38 @@ export const PublicPortal: React.FC = () => {
             }
         };
         channel.addEventListener('message', handleMessage);
+
+        const sendHeartbeat = () => {
+            const isBrowserFullscreen =
+                Math.abs(window.screen.width - window.innerWidth) <= 1 &&
+                Math.abs(window.screen.height - window.innerHeight) <= 1;
+            const isFullscreen = !!(
+                document.fullscreenElement ||
+                (document as any).webkitFullscreenElement ||
+                (document as any).mozFullScreenElement ||
+                (document as any).msFullscreenElement ||
+                isBrowserFullscreen
+            );
+            const isOnSecondary = Math.abs(window.screenX) >= 100 || Math.abs(window.screenY) >= 100;
+
+            channel.postMessage({
+                type: 'heartbeat',
+                tabId: 'public',
+                isFullscreen,
+                isOnSecondary,
+                isDarkMode
+            });
+        };
+
+        sendHeartbeat();
+        const heartbeatInterval = setInterval(sendHeartbeat, 1000);
         
         return () => {
+            clearInterval(heartbeatInterval);
             channel.removeEventListener('message', handleMessage);
             channel.close();
         };
-    }, [toggleTheme, isDarkMode]);
-
-    const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-    const searchId = searchParams.get('id');
-    const targetId = (slug || searchId || '').replace(/^local-/, '');
+    }, [toggleTheme, isDarkMode, isThumbnail]);
 
     // Convex Reactive Query
     const programData = useQuery(
@@ -73,20 +108,27 @@ export const PublicPortal: React.FC = () => {
 
     const programRaw = programData || programByIdData || (!targetId || (programData === null && programByIdData === null) ? liveProgramData : undefined);
 
-    // Local Program Fallback for offline or draft IDs
-    const [localProgram, setLocalProgram] = useState<Program | null>(() => {
+    const readLocalFallback = React.useCallback((): Program | null => {
         try {
-            // Check offline cache keys
+            const matchesTarget = (p: any) => {
+                if (!p) return false;
+                if (!targetId) return true;
+                const pId = String(p.id || p._id || '').replace(/^local-/, '');
+                const pSlug = String(p.slug || p.uuid || '').replace(/^local-/, '');
+                return pId === targetId || pSlug === targetId || p.id === targetId || p.slug === targetId;
+            };
+
             const cacheKeys = [
                 `kairon_offline_cache_${targetId}`,
-                `kairon_offline_cache_live`,
-                'kairon_program'
+                `kairon_offline_cache_local-${targetId}`,
+                'kairon_program',
+                'kairon_offline_cache_live',
             ];
             for (const key of cacheKeys) {
                 const raw = localStorage.getItem(key);
                 if (raw) {
                     const parsed = JSON.parse(raw);
-                    if (parsed && (parsed.id === targetId || parsed.slug === targetId || !targetId || parsed.status === 'live')) {
+                    if (matchesTarget(parsed)) {
                         return parsed;
                     }
                 }
@@ -99,9 +141,20 @@ export const PublicPortal: React.FC = () => {
                 if (allRaw) {
                     const all = JSON.parse(allRaw);
                     if (Array.isArray(all) && all.length > 0) {
-                        const match = all.find((p: Program) => p.id === targetId || p.slug === targetId);
+                        const match = all.find((p: Program) => matchesTarget(p));
                         if (match) return match;
-                        return all[0];
+                        if (!targetId) return all[0];
+                    }
+                }
+            }
+
+            // Last-resort local fallback if kairon_offline_cache_live or kairon_program exists with slots
+            for (const key of ['kairon_offline_cache_live', 'kairon_program']) {
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && Array.isArray(parsed.slots) && parsed.slots.length > 0) {
+                        return parsed;
                     }
                 }
             }
@@ -109,19 +162,37 @@ export const PublicPortal: React.FC = () => {
             console.warn("Could not read local fallback program in PublicPortal:", e);
         }
         return null;
-    });
+    }, [targetId]);
 
-    // Offline BroadcastChannel Sync
+    // Local Program Fallback for offline or draft IDs
+    const [localProgram, setLocalProgram] = useState<Program | null>(() => readLocalFallback());
+
+    useEffect(() => {
+        const refreshed = readLocalFallback();
+        if (refreshed) {
+            setLocalProgram(refreshed);
+        }
+    }, [readLocalFallback]);
+
+    // Offline BroadcastChannel & Storage Sync
     useEffect(() => {
         const channel = new BroadcastChannel('kairon_offline_sync');
         const handleSync = (event: MessageEvent) => {
             if (!event.data) return;
             const data = event.data;
             setLocalProgram(prev => {
-                if (prev && data.id && prev.id !== data.id && prev.slug !== data.id) {
-                    return prev;
+                const incomingId = String(data.id || data.program?.id || '').replace(/^local-/, '');
+                const incomingSlug = String(data.program?.slug || '').replace(/^local-/, '');
+                if (targetId && incomingId && incomingId !== targetId && incomingSlug !== targetId) {
+                    if (prev) return prev;
                 }
-                const base = prev || {
+                if (data.program) {
+                    return {
+                        ...data.program,
+                        id: data.id || data.program.id
+                    } as Program;
+                }
+                const base = prev || readLocalFallback() || {
                     id: data.id || 'live',
                     title: 'Live Service',
                     date: new Date().toISOString().split('T')[0],
@@ -146,12 +217,18 @@ export const PublicPortal: React.FC = () => {
                 } as Program;
             });
         };
+        const handleStorage = () => {
+            const refreshed = readLocalFallback();
+            if (refreshed) setLocalProgram(refreshed);
+        };
         channel.addEventListener('message', handleSync);
+        window.addEventListener('storage', handleStorage);
         return () => {
             channel.removeEventListener('message', handleSync);
+            window.removeEventListener('storage', handleStorage);
             channel.close();
         };
-    }, []);
+    }, [targetId, readLocalFallback]);
 
     // Ticker for connection diagnostics and countdowns
     useEffect(() => {
@@ -283,7 +360,6 @@ export const PublicPortal: React.FC = () => {
 
     const remainingSeconds = currentSlot ? (currentSlot.durationMinutes * 60) - derivedSecondsElapsed : 0;
     const isTimerActive = program.isTimerActive ?? false;
-    const isThumbnail = new URLSearchParams(window.location.search).get('mode') === 'thumbnail';
     const canonicalShareUrl = getPublicPortalUrl(program);
 
     const handleSharePortal = async () => {
@@ -353,7 +429,10 @@ export const PublicPortal: React.FC = () => {
                 </div>
             </div>
 
-            <main className="max-w-3xl mx-auto px-6 py-10">
+            <main
+                className={`${isThumbnail ? 'max-w-5xl px-10 py-8' : 'max-w-3xl px-6 py-10'} mx-auto`}
+                style={isThumbnail ? { zoom: 1.55 } : undefined}
+            >
                 {program.status === 'concluded' && (
                     <div className="mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center gap-3 font-mono text-xs shadow-sm">
                         <Calendar size={18} className="shrink-0" />
@@ -444,6 +523,12 @@ export const PublicPortal: React.FC = () => {
                 {/* Schedule List */}
                 <div className="space-y-3">
                     <h2 className="text-xs font-mono font-bold text-slate-400 dark:text-[#8A93A4] uppercase tracking-widest mb-4 px-1">Full Program</h2>
+                    {(!program.slots || program.slots.length === 0) && (
+                        <div className="p-8 rounded-xl border border-dashed border-slate-200 dark:border-[#22262E] bg-white/50 dark:bg-[#121418]/50 text-center">
+                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Order of Service Preparing</p>
+                            <p className="text-xs font-mono text-slate-400 dark:text-[#8A93A4]">Session items will appear here automatically as they are published.</p>
+                        </div>
+                    )}
                     {program.slots.map((slot, index) => (
                         <div
                             key={slot.id}

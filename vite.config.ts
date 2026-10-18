@@ -4,8 +4,9 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
+  const isElectronBuild = process.env.ELECTRON_BUILD === 'true' || env.ELECTRON_BUILD === 'true';
   return {
-    base: './',
+    base: isElectronBuild ? './' : '/',
     server: {
       port: 3000,
       host: '0.0.0.0',

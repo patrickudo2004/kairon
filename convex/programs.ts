@@ -50,34 +50,43 @@ export const getProgramById = query({
     handler: async (ctx, args) => {
         if (!args.id) return null;
         try {
+            const cleanId = args.id.replace(/^local-/, '');
+
             // 1. Try as standard Convex ID (safely normalized)
-            const normalizedId = ctx.db.normalizeId("programs", args.id);
+            const normalizedId = ctx.db.normalizeId("programs", cleanId);
             if (normalizedId) {
                 const doc = await ctx.db.get(normalizedId);
                 if (doc) return doc;
             }
 
-            // 2. Try as UUID (for monitors/legacy links) - Strip local- prefix if present
-            const cleanUuid = args.id.replace('local-', '');
+            // 2. Try as UUID (for monitors/legacy links)
             const byUuid = await ctx.db
                 .query("programs")
-                .withIndex("by_uuid", (q) => q.eq("uuid", cleanUuid))
+                .withIndex("by_uuid", (q) => q.eq("uuid", cleanId))
                 .first();
             if (byUuid) return byUuid;
 
-            // 3. Try as Slug
+            // 3. Try as Slug (cleaned or raw)
             const bySlug = await ctx.db
                 .query("programs")
-                .withIndex("by_slug", (q) => q.eq("slug", args.id))
+                .withIndex("by_slug", (q) => q.eq("slug", cleanId))
                 .first();
             if (bySlug) return bySlug;
+
+            if (cleanId !== args.id) {
+                const byRawSlug = await ctx.db
+                    .query("programs")
+                    .withIndex("by_slug", (q) => q.eq("slug", args.id))
+                    .first();
+                if (byRawSlug) return byRawSlug;
+            }
 
             // 4. Try fallback search in programs
             const fallback = await ctx.db
                 .query("programs")
                 .filter((q) => q.or(
-                    q.eq(q.field("uuid"), args.id),
-                    q.eq(q.field("slug"), args.id),
+                    q.eq(q.field("uuid"), cleanId),
+                    q.eq(q.field("slug"), cleanId),
                     q.eq(q.field("title"), args.id)
                 ))
                 .first();
@@ -128,6 +137,14 @@ export const getLiveProgram = query({
                     .order("desc")
                     .first();
                 if (anyLive && anyLive.isPublic !== false) return anyLive;
+
+                // Secondary fallback: most recent public program so displays/portals are never empty in standby
+                const latestPublic = await ctx.db
+                    .query("programs")
+                    .order("desc")
+                    .filter((q) => q.neq(q.field("isPublic"), false))
+                    .first();
+                if (latestPublic) return latestPublic;
             }
         } catch (e) {
             console.warn("getLiveProgram query fallback error:", e);

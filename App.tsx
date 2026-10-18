@@ -698,8 +698,10 @@ const AppContent: React.FC = () => {
   // ---------------------------------------------------------
   const isLiveEventActive = !!globalLiveProgram;
   const isTargetSameAsLocal = isLiveEventActive && (String(globalLiveProgram?.id) === String(program.id));
+  const isUntouchedPlaceholder = program.id?.startsWith('local-') && program.slots.length === 0 && program.title === 'New Event' && !program.subtitle;
+  const fallbackWorkspaceProgram = (!isLiveEventActive && isUntouchedPlaceholder && programs.length > 0) ? programs[0] : null;
 
-  const displayProgram = isLiveEventActive ? globalLiveProgram! : program;
+  const displayProgram = isLiveEventActive ? globalLiveProgram! : (fallbackWorkspaceProgram || program);
   const displayCurrentSlotIndex = isLiveEventActive ? (globalLiveProgram?.currentSlotIndex ?? 0) : currentSlotIndex;
   
   const displayIsTimerActive = isLiveEventActive 
@@ -718,6 +720,37 @@ const AppContent: React.FC = () => {
     : (isTimerActive && timerStartTimestamp 
         ? Math.floor((Date.now() - timerStartTimestamp) / 1000) 
         : secondsElapsed);
+
+  // Keep localStorage caches synchronized for instant preview, iframe thumbnails, and offline fallback
+  useEffect(() => {
+    try {
+      if (program) {
+        const serializedProg = JSON.stringify(program);
+        localStorage.setItem('kairon_program', serializedProg);
+        if (program.id) {
+          localStorage.setItem(`kairon_offline_cache_${program.id}`, serializedProg);
+          localStorage.setItem(`kairon_offline_cache_${program.id.replace(/^local-/, '')}`, serializedProg);
+        }
+        if (program.slug) {
+          localStorage.setItem(`kairon_offline_cache_${program.slug.replace(/^local-/, '')}`, serializedProg);
+        }
+      }
+      if (displayProgram) {
+        const serializedDisplay = JSON.stringify(displayProgram);
+        localStorage.setItem('kairon_offline_cache_live', serializedDisplay);
+        if (displayProgram.id) {
+          localStorage.setItem(`kairon_offline_cache_${displayProgram.id}`, serializedDisplay);
+          localStorage.setItem(`kairon_offline_cache_${displayProgram.id.replace(/^local-/, '')}`, serializedDisplay);
+          localStorage.setItem(`kairon_offline_cache_${displayProgram.id}_prompter`, serializedDisplay);
+        }
+        if (displayProgram.slug) {
+          localStorage.setItem(`kairon_offline_cache_${displayProgram.slug.replace(/^local-/, '')}`, serializedDisplay);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not sync offline cache in localStorage:', err);
+    }
+  }, [program, displayProgram]);
 
 
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
@@ -775,12 +808,15 @@ const AppContent: React.FC = () => {
     api.programs.getProgramById,
     urlId ? { id: urlId as any } : "skip"
   );
-  const fetchedProgram = fetchedProgramRaw ? {
-    ...(fetchedProgramRaw as any),
-    id: String((fetchedProgramRaw as any)._id || (fetchedProgramRaw as any).id),
-    slug: String((fetchedProgramRaw as any).slug || (fetchedProgramRaw as any).uuid || (fetchedProgramRaw as any)._id || (fetchedProgramRaw as any).id).replace(/^local-/, ''),
-    isPublic: (fetchedProgramRaw as any).isPublic ?? true,
-  } as Program : undefined;
+  const fetchedProgram = useMemo(() => {
+    if (!fetchedProgramRaw) return undefined;
+    return {
+      ...(fetchedProgramRaw as any),
+      id: String((fetchedProgramRaw as any)._id || (fetchedProgramRaw as any).id),
+      slug: String((fetchedProgramRaw as any).slug || (fetchedProgramRaw as any).uuid || (fetchedProgramRaw as any)._id || (fetchedProgramRaw as any).id).replace(/^local-/, ''),
+      isPublic: (fetchedProgramRaw as any).isPublic ?? true,
+    } as Program;
+  }, [fetchedProgramRaw]);
 
   // 1. Initial Program Loading & URL Sync
   useEffect(() => {
@@ -2024,6 +2060,44 @@ const AppContent: React.FC = () => {
     }
   }, [navigate]);
 
+  // Header UI Sync (for the mini-timer) - Must execute before any early returns to satisfy Rules of Hooks
+  const headerElapsed = useTimerSync(displayTimerStartTimestamp, displayIsTimerActive, displaySecondsElapsed);
+  const currentHeaderSlot = displayProgram.slots?.[displayCurrentSlotIndex];
+  const headerTimeLeft = currentHeaderSlot ? (currentHeaderSlot.durationMinutes * 60 - headerElapsed) : 0;
+
+  // Sync the Ref for background mutations (handlers)
+  useEffect(() => {
+    currentTickingSecondsRef.current = headerElapsed;
+  }, [headerElapsed]);
+
+  const isConvexId = displayProgram.id && displayProgram.id.length >= 19 && !displayProgram.id.includes('-');
+  const crewAcks = useConvexQuery(
+    api.programs.getAcknowledgements,
+    isConvexId ? { programId: displayProgram.id as any } : "skip"
+  ) || [];
+
+  const [headerLocalAcks, setHeaderLocalAcks] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const channel = new BroadcastChannel('kairon_acks');
+    const handleAckMsg = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'crew_ack' && e.data.slotId && e.data.role) {
+        setHeaderLocalAcks(prev => new Set(prev).add(`${e.data.slotId}-${e.data.role}`));
+      }
+    };
+    channel.addEventListener('message', handleAckMsg);
+    return () => {
+      channel.removeEventListener('message', handleAckMsg);
+      channel.close();
+    };
+  }, []);
+
+  const isSoundAcked = (currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-sound`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'sound');
+  const isLightsAcked = (currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-lighting`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'lighting');
+  const isVideoAcked = (currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-video`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'video');
+
+  const exportTargetProgram = location.pathname.startsWith('/editor') ? program : displayProgram;
+
   // --- Public View Bypass (TOP LEVEL) ---
   // We check this before ANY auth or shell rendering to ensure zero-friction guest access and no flicker.
   if (isPublicPath) {
@@ -2077,45 +2151,6 @@ const AppContent: React.FC = () => {
   if (currentRouteToken === 'public' || currentRouteToken === 'portal' || location.pathname === '/public' || location.pathname === '/portal') {
     return <PublicPortal />;
   }
-
-
-  // Header UI Sync (for the mini-timer)
-  const headerElapsed = useTimerSync(displayTimerStartTimestamp, displayIsTimerActive, displaySecondsElapsed);
-  const currentHeaderSlot = displayProgram.slots?.[displayCurrentSlotIndex];
-  const headerTimeLeft = currentHeaderSlot ? (currentHeaderSlot.durationMinutes * 60 - headerElapsed) : 0;
-
-  // Sync the Ref for background mutations (handlers)
-  useEffect(() => {
-    currentTickingSecondsRef.current = headerElapsed;
-  }, [headerElapsed]);
-
-  const isConvexId = displayProgram.id && displayProgram.id.length >= 19 && !displayProgram.id.includes('-');
-  const crewAcks = useConvexQuery(
-    api.programs.getAcknowledgements,
-    isConvexId ? { programId: displayProgram.id as any } : "skip"
-  ) || [];
-
-  const [headerLocalAcks, setHeaderLocalAcks] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    const channel = new BroadcastChannel('kairon_acks');
-    const handleAckMsg = (e: MessageEvent) => {
-      if (e.data && e.data.type === 'crew_ack' && e.data.slotId && e.data.role) {
-        setHeaderLocalAcks(prev => new Set(prev).add(`${e.data.slotId}-${e.data.role}`));
-      }
-    };
-    channel.addEventListener('message', handleAckMsg);
-    return () => {
-      channel.removeEventListener('message', handleAckMsg);
-      channel.close();
-    };
-  }, []);
-
-  const isSoundAcked = (currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-sound`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'sound');
-  const isLightsAcked = (currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-lighting`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'lighting');
-  const isVideoAcked = (currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-video`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'video');
-
-  const exportTargetProgram = location.pathname.startsWith('/editor') ? program : displayProgram;
 
   return (
     <div className="h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-hidden">
