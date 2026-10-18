@@ -165,11 +165,13 @@ export const DesktopAuthApproval: React.FC = () => {
     <div className="min-h-screen bg-[#090A0C] flex flex-col items-center justify-center p-6 font-sans">
 
       {/* Logo strip */}
-      <div className="inline-flex items-center gap-2.5 mb-10">
-        <div className="w-9 h-9 rounded-xl bg-[#121418] border border-[#22262E] flex items-center justify-center text-[#0EA5E9]">
-          <Mic size={18} />
-        </div>
-        <span className="text-white font-bold text-base tracking-tight">Kairon Studio</span>
+      <div className="inline-flex items-center gap-3 mb-8">
+        <img
+          src="/kairon-logo.png"
+          alt="Kairon Studio"
+          className="w-10 h-10 rounded-xl border border-[#22262E] shadow-md shadow-[#0EA5E9]/20 object-contain"
+        />
+        <span className="text-white font-bold text-lg tracking-tight">Kairon Studio</span>
       </div>
 
       <div className="w-full max-w-sm bg-[#121418] border border-[#22262E] rounded-3xl p-8 flex flex-col items-center gap-6">

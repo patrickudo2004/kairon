@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#181B22" />
+      <stop offset="100%" stop-color="#090A0C" />
+    </radialGradient>
+    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base -->
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#bgGlow)" stroke="#22262E" stroke-width="6" />
+
+  <!-- Outer Broadcast Ring -->
+  <circle cx="256" cy="240" r="160" fill="none" stroke="#0EA5E9" stroke-width="4" stroke-opacity="0.25" stroke-dasharray="12 8" />
+
+  <!-- Broadcast Radio Waves Left -->
+  <path d="M 170 190 A 75 75 0 0 0 170 290" fill="none" stroke="#0EA5E9" stroke-width="12" stroke-linecap="round" stroke-opacity="0.8" />
+  <path d="M 135 160 A 115 115 0 0 0 135 320" fill="none" stroke="#0EA5E9" stroke-width="10" stroke-linecap="round" stroke-opacity="0.4" />
+
+  <!-- Broadcast Radio Waves Right -->
+  <path d="M 342 190 A 75 75 0 0 1 342 290" fill="none" stroke="#0EA5E9" stroke-width="12" stroke-linecap="round" stroke-opacity="0.8" />
+  <path d="M 377 160 A 115 115 0 0 1 377 320" fill="none" stroke="#0EA5E9" stroke-width="10" stroke-linecap="round" stroke-opacity="0.4" />
+
+  <!-- Center Microphone Body -->
+  <rect x="220" y="140" width="72" height="130" rx="36" fill="url(#cyanGrad)" filter="url(#glow)" />
+  <rect x="226" y="146" width="60" height="118" rx="30" fill="#0EA5E9" />
+
+  <!-- Mic Capsule Grille Lines -->
+  <line x1="230" y1="185" x2="282" y2="185" stroke="#090A0C" stroke-width="4" stroke-opacity="0.4" stroke-linecap="round" />
+  <line x1="230" y1="205" x2="282" y2="205" stroke="#090A0C" stroke-width="4" stroke-opacity="0.4" stroke-linecap="round" />
+  <line x1="230" y1="225" x2="282" y2="225" stroke="#090A0C" stroke-width="4" stroke-opacity="0.4" stroke-linecap="round" />
+
+  <!-- Mic Outer Cradle / Shockmount U-Shape -->
+  <path d="M 200 220 C 200 290, 312 290, 312 220" fill="none" stroke="#E1E4EA" stroke-width="14" stroke-linecap="round" />
+
+  <!-- Mic Stand Neck & Base -->
+  <line x1="256" y1="285" x2="256" y2="350" stroke="#E1E4EA" stroke-width="14" stroke-linecap="round" />
+  <line x1="205" y1="350" x2="307" y2="350" stroke="#E1E4EA" stroke-width="14" stroke-linecap="round" />
+
+  <!-- Studio Live On-Air Pill Indicator at Top -->
+  <rect x="216" y="58" width="80" height="24" rx="12" fill="#EF4444" />
+  <circle cx="230" cy="70" r="4" fill="#FFFFFF" />
+  <text x="242" y="75" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="900" fill="#FFFFFF" letter-spacing="1">LIVE</text>
+</svg>

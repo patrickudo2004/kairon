@@ -362,9 +362,30 @@ const AppContent: React.FC = () => {
     isAuthenticated ? {} : "skip"
   );
 
+  // Check if running in offline Booth Mode
+  const [isBoothMode, setIsBoothMode] = useState<boolean>(() => {
+    try {
+      return typeof window !== 'undefined' && localStorage.getItem('kairon_booth_mode') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const handleBoothModeSync = () => {
+      try {
+        setIsBoothMode(localStorage.getItem('kairon_booth_mode') === 'true');
+      } catch {}
+    };
+    window.addEventListener('kairon_booth_mode_changed', handleBoothModeSync);
+    return () => window.removeEventListener('kairon_booth_mode_changed', handleBoothModeSync);
+  }, []);
+
   // Derive a simple user object compatible with existing code
-  const user = isAuthenticated && convexUser
+  const user = (isAuthenticated && convexUser)
     ? { id: convexUser.id as string, email: convexUser.email as string | undefined }
+    : isBoothMode
+    ? { id: 'local-booth-operator', email: 'booth@kairon.local' }
     : null;
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -399,19 +420,19 @@ const AppContent: React.FC = () => {
 
   const userRole = myMembership?.role; // 'admin', 'manager', 'operator'
 
-  // Permissions Logic (Auto-grant admin to org creator/owner or in local test bypass)
+  // Permissions Logic (Auto-grant admin to org creator/owner, local test bypass, or booth mode)
   const isOwner = !!(user?.id && (activeOrg?.createdBy === user?.id || String(activeOrg?.createdBy) === String(user?.id)));
   const isTestBypassMode = typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
-  const isAdmin = userRole === 'admin' || isOwner || isTestBypassMode;
+  const isAdmin = userRole === 'admin' || isOwner || isTestBypassMode || isBoothMode;
   const isManager = userRole === 'manager';
   const isOperator = userRole === 'operator';
-  const canManagePrograms = isAdmin || isManager;
+  const canManagePrograms = isAdmin || isManager || isBoothMode;
 
   // 1. URL-based overrides (purely aesthetic for Admins/Managers)
   const isUrlReadOnly = mode === 'viewer' || mode === 'ReadOnly';
 
   // 2. Auth Resolution (Wait for Convex to settle)
-  const isAuthResolved = !isConvexAuthLoading && (!isAuthenticated || (isAuthenticated && myMembership !== undefined));
+  const isAuthResolved = isBoothMode || (!isConvexAuthLoading && (!isAuthenticated || (isAuthenticated && myMembership !== undefined)));
 
   // 3. Permission Evaluation (POWER-BASED)
   // Admins and Managers are NEVER restricted by mode, unless they choose to be viewers.
@@ -432,8 +453,8 @@ const AppContent: React.FC = () => {
     )
   );
 
-  const canControlLive = isAdmin || isManager || isOperator;
-  const isCoEditor = isAdmin || isManager || (mode === 'coeditor');
+  const canControlLive = isAdmin || isManager || isOperator || isBoothMode;
+  const isCoEditor = isAdmin || isManager || (mode === 'coeditor') || isBoothMode;
 
   const isReadOnlyRef = React.useRef(isReadOnly);
   useEffect(() => {
@@ -450,7 +471,7 @@ const AppContent: React.FC = () => {
   }, [activeOrg?.id, activeOrg?.subscriptionStatus]);
 
   const cachedTier = activeOrgId ? getCachedWorkspaceEntitlement(activeOrgId) : null;
-  const isPro = activeOrg?.subscriptionStatus === 'pro' || (!isOnline && cachedTier === 'pro') || isTestBypassMode;
+  const isPro = activeOrg?.subscriptionStatus === 'pro' || activeOrg?.subscriptionStatus === 'enterprise' || (!isOnline && cachedTier === 'pro') || isTestBypassMode || isBoothMode;
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [isDataHydrated, setIsDataHydrated] = useState(false);
   const [authRetryCount, setAuthRetryCount] = useState(0);
@@ -461,12 +482,43 @@ const AppContent: React.FC = () => {
     setAuthRetryCount(prev => prev + 1);
   };
 
+  const defaultOfflineOrg: Organization = useMemo(() => ({
+    id: 'local-workspace',
+    name: 'Winners Chapel Manchester',
+    slug: 'winners-chapel-manchester',
+    subscriptionStatus: 'enterprise',
+    createdBy: 'local-booth-operator',
+  }), []);
+
   // Fetch all organizations for the user
-  const { data: userOrganizations = [], isLoading: loadingOrgs } = useQuery<Organization[]>({
+  const { data: rawUserOrganizations = [], isLoading: loadingOrgs } = useQuery<Organization[]>({
     queryKey: ['myOrganizations', user?.id],
     queryFn: () => getMyOrganizations(user?.id || ''),
-    enabled: !!user
+    enabled: !!user && !isBoothMode
   });
+
+  const userOrganizations = useMemo(() => {
+    if (isBoothMode) return [defaultOfflineOrg];
+    return rawUserOrganizations;
+  }, [isBoothMode, defaultOfflineOrg, rawUserOrganizations]);
+
+  // Auto-initialize profile and active org for offline booth mode
+  useEffect(() => {
+    if (isBoothMode) {
+      if (!profile) {
+        setProfile({
+          id: 'local-booth-profile',
+          userId: 'local-booth-operator',
+          fullName: 'Booth Operator (Offline)',
+          subscriptionStatus: 'enterprise',
+        });
+      }
+      if (!activeOrg) {
+        setActiveOrg(defaultOfflineOrg);
+        setActiveOrgId(defaultOfflineOrg.id);
+      }
+    }
+  }, [isBoothMode, profile, activeOrg, defaultOfflineOrg]);
 
   // Invite ID handling for personalized banner
   const urlInviteId = searchParams.get('inviteId');
@@ -640,7 +692,11 @@ const AppContent: React.FC = () => {
   const { clearStageMessage } = useStageMessages(program.id);
 
   const handleSignOut = async () => {
-    // useAuthActions hook handles sign out in components that need to trigger it
+    try {
+      localStorage.removeItem('kairon_booth_mode');
+      setIsBoothMode(false);
+      window.dispatchEvent(new Event('kairon_booth_mode_changed'));
+    } catch {}
     await signOut();
     setProfile(null);
     setActiveOrgId(null);
