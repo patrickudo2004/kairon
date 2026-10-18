@@ -3,6 +3,7 @@ import { Program, Organization } from '../types';
 import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap, Activity, Crown, Copy, Check, QrCode, AppWindow, Moon, Sun, Cast, CheckCircle2, Sliders, Shield, Maximize } from 'lucide-react';
 import { useStageMessages } from '../hooks/useStageMessages';
 import { useScreenManagement } from '../hooks/useScreenManagement';
+import { getPublicPortalPath, getShareableDisplayUrl } from '../utils/url';
 import QRCode from 'react-qr-code';
 
 const LiveThumbnail: React.FC<{
@@ -88,7 +89,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
     }, []);
 
     const handleCopyLink = (path: string, key: string) => {
-        const fullUrl = window.location.origin + path;
+        const fullUrl = getShareableDisplayUrl(path);
         navigator.clipboard.writeText(fullUrl).then(() => {
             setCopiedPath(key);
             setTimeout(() => setCopiedPath(null), 2000);
@@ -232,7 +233,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
             title: 'Public Portal',
             icon: Smartphone,
             description: 'Mobile web schedule for audience & guests.',
-            path: `/public?id=${program.id}`,
+            path: getPublicPortalPath(program),
             badgeColor: 'text-[#64748B] bg-[#64748B]/10 border-[#64748B]/30',
             tabId: 'public'
         }
@@ -492,11 +493,19 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                 {!isLocked && openQrCodes[opt.title] && (
                                     <div className="mt-3 p-3 bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] rounded flex flex-col items-center justify-center animate-in fade-in duration-200">
                                         <div className="bg-white p-2.5 rounded border border-slate-200 dark:border-white/10 shadow-sm">
-                                            <QRCode value={window.location.origin + opt.path} size={110} />
+                                            <QRCode value={getShareableDisplayUrl(opt.path)} size={110} />
                                         </div>
                                         <p className="mt-2 text-[10px] font-mono text-slate-500 dark:text-[#8A93A4] text-center">
-                                            Scan on iPad / Teleprompter Rig
+                                            {opt.tabId === 'public' ? 'Scan on Mobile / Tablet for Live Attendee Portal' : 'Scan on iPad / Teleprompter / Crew Device'}
                                         </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopyLink(opt.path, opt.title)}
+                                            className="mt-1.5 max-w-full truncate px-2 py-0.5 rounded bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] text-[10px] font-mono text-[#0EA5E9] hover:border-[#0EA5E9]/50 transition-colors"
+                                            title="Click to copy link"
+                                        >
+                                            {getShareableDisplayUrl(opt.path)}
+                                        </button>
                                     </div>
                                 )}
 

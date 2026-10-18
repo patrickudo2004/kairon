@@ -2,6 +2,7 @@ import React from 'react';
 import QRCode from 'react-qr-code';
 import { Program, Organization } from '../types';
 import { timeToMinutes, minutesToTime } from '../utils/time';
+import { getPublicPortalUrl } from '../utils/url';
 
 interface PrintableScheduleProps {
   program: Program;
@@ -21,15 +22,7 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
   const startMinutes = timeToMinutes(program.startTime || "09:00");
   let runningMinutes = startMinutes;
 
-  const getCanonicalPublicUrl = () => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const isLocal = !origin || origin.startsWith('file:') || origin.includes('localhost') || origin.includes('127.0.0.1');
-    const base = isLocal ? 'https://kairon.app' : origin;
-    const identifier = program.slug || program.id;
-    return `${base}/p/${identifier}`;
-  };
-
-  const publicPortalUrl = getCanonicalPublicUrl();
+  const publicPortalUrl = getPublicPortalUrl(program);
 
   return (
     <div id="printable-area" className="only-print bg-white text-black p-6 font-sans">

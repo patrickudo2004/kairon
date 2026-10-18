@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
+import QRCode from 'react-qr-code';
 import { Program, Slot, SLOT_PRESETS } from '../types';
-import { Trash2, Plus, GripVertical, Sparkles, Wand2, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, ChevronRight, Users, Globe, Link as LinkIcon, Share2, Crown, Cast, Shield, BookOpen, Check, FastForward } from 'lucide-react';
+import { Trash2, Plus, GripVertical, Sparkles, Wand2, Clock, Calendar, AlertCircle, Timer, Copy, ChevronDown, ChevronUp, ChevronRight, Users, Globe, Link as LinkIcon, Share2, Crown, Cast, Shield, BookOpen, Check, FastForward, QrCode } from 'lucide-react';
 import { generateProgramDraft } from '../services/geminiService';
 import { parseRundownText, PRODUCTION_TEMPLATES } from '../utils/rundownParser';
 import { EmbedSnippet } from './EmbedSnippet';
+import { getPublicPortalUrl, getPublicPortalPath } from '../utils/url';
 
 import {
   DndContext,
@@ -57,14 +59,14 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set());
   const [isCopied, setIsCopied] = useState(false);
+  const [showPublicQr, setShowPublicQr] = useState(false);
+
+  const publicPortalUrl = getPublicPortalUrl(program);
+  const publicPortalPath = getPublicPortalPath(program);
 
   const handleCopyLink = () => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const isLocal = !origin || origin.startsWith('file:') || origin.includes('localhost') || origin.includes('127.0.0.1');
-    const base = isLocal ? 'https://kairon.app' : origin;
-    const url = `${base}/p/${program.slug || program.id}`;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(url);
+    if (navigator.clipboard && publicPortalUrl) {
+      navigator.clipboard.writeText(publicPortalUrl);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     }
@@ -379,54 +381,103 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
       </div>
 
       {/* Public Access Link Bar */}
-      <div className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md p-3.5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <div className="p-1.5 bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-[#0EA5E9] rounded">
-            <Globe size={15} />
+      <div className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md p-3.5 mb-6 flex flex-col gap-3 shadow-sm">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-2.5 min-w-0 w-full lg:w-auto">
+            <div className="p-2 bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-[#0EA5E9] rounded shrink-0">
+              <Globe size={15} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white font-mono uppercase">Public Attendee Link</h4>
+                {program.isPublic && publicPortalUrl && (
+                  <span
+                    onClick={handleCopyLink}
+                    title={publicPortalUrl}
+                    className="cursor-pointer max-w-full sm:max-w-[280px] md:max-w-[340px] truncate px-2 py-0.5 rounded bg-slate-100 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] text-[10px] font-mono text-[#0EA5E9] hover:border-[#0EA5E9]/50 transition-colors"
+                  >
+                    {publicPortalUrl}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-[#8A93A4] mt-0.5">
+                Same live attendee URL & QR code across Editor, PDF Printouts, and Display Hub.
+              </p>
+            </div>
           </div>
-          <div>
-            <h4 className="text-xs font-bold text-slate-900 dark:text-white font-mono uppercase">Public Attendee Link</h4>
-            <p className="text-[11px] text-slate-500 dark:text-[#8A93A4]">Allow congregants and guests to view live schedule countdown on their phones.</p>
+
+          <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap sm:flex-nowrap justify-start sm:justify-end">
+            <button
+              type="button"
+              onClick={() => onUpdate({ ...program, isPublic: !program.isPublic })}
+              disabled={isReadOnly}
+              className={`px-3 py-1.5 rounded text-xs font-mono font-bold transition-all border shrink-0 ${
+                program.isPublic
+                  ? 'bg-[#10B981]/10 border-[#10B981]/30 text-[#10B981]'
+                  : 'bg-slate-100 dark:bg-[#181B22] border-slate-200 dark:border-[#22262E] text-slate-500 dark:text-[#6A7382]'
+              }`}
+            >
+              {program.isPublic ? 'PUBLIC ENABLED' : 'PRIVATE'}
+            </button>
+            
+            {program.isPublic && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-white rounded text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors shrink-0 active:scale-95"
+                  title="Copy attendee web link to clipboard"
+                >
+                  {isCopied ? <Check size={12} className="text-[#10B981]" /> : <Copy size={12} />}
+                  <span>{isCopied ? 'COPIED!' : 'COPY LINK'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowPublicQr((prev) => !prev)}
+                  className={`px-3 py-1.5 border rounded text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors shrink-0 active:scale-95 ${
+                    showPublicQr
+                      ? 'bg-[#0EA5E9]/10 border-[#0EA5E9]/40 text-[#0EA5E9]'
+                      : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-white'
+                  }`}
+                  title="Show Attendee QR Code"
+                >
+                  <QrCode size={12} />
+                  <span>QR CODE</span>
+                </button>
+
+                <a
+                  href={publicPortalPath}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-white rounded text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors shrink-0 active:scale-95"
+                >
+                  <Share2 size={12} />
+                  <span>PREVIEW</span>
+                </a>
+              </>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <button
-            onClick={() => onUpdate({ ...program, isPublic: !program.isPublic })}
-            disabled={isReadOnly}
-            className={`px-3 py-1 rounded text-xs font-mono font-bold transition-all border ${
-              program.isPublic
-                ? 'bg-[#10B981]/10 border-[#10B981]/30 text-[#10B981]'
-                : 'bg-slate-100 dark:bg-[#181B22] border-slate-200 dark:border-[#22262E] text-slate-500 dark:text-[#6A7382]'
-            }`}
-          >
-            {program.isPublic ? 'PUBLIC ENABLED' : 'PRIVATE'}
-          </button>
-          
-          {program.isPublic && (
-            <>
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                className="px-3 py-1 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-white rounded text-xs font-mono flex items-center gap-1.5 transition-colors"
-                title="Copy attendee web link to clipboard"
-              >
-                {isCopied ? <Check size={12} className="text-[#10B981]" /> : <Copy size={12} />}
-                <span>{isCopied ? 'COPIED!' : 'COPY LINK'}</span>
-              </button>
-
-              <a
-                href={`/p/${program.slug || program.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-white rounded text-xs font-mono flex items-center gap-1 transition-colors"
-              >
-                <Share2 size={12} />
-                <span>PREVIEW</span>
-              </a>
-            </>
-          )}
-        </div>
+        {program.isPublic && showPublicQr && publicPortalUrl && (
+          <div className="pt-3 border-t border-slate-200 dark:border-[#22262E] flex flex-col sm:flex-row items-center gap-4 bg-slate-50/70 dark:bg-[#090A0C]/60 p-3 rounded animate-in fade-in duration-200">
+            <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs shrink-0">
+              <QRCode value={publicPortalUrl} size={96} />
+            </div>
+            <div className="text-center sm:text-left min-w-0 flex-1 space-y-1">
+              <div className="text-xs font-mono font-bold text-slate-900 dark:text-white uppercase">
+                Live Attendee Portal QR Code
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-[#8A93A4]">
+                Matches the QR code printed on exported PDF schedules and the Public Portal card in Monitors & Displays.
+              </p>
+              <div className="text-[11px] font-mono text-[#0EA5E9] break-all">
+                {publicPortalUrl}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
 

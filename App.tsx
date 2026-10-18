@@ -552,7 +552,10 @@ const AppContent: React.FC = () => {
           // Check for shadow invites and handle auto-join
           try {
             console.log("Checking for pending invites for user:", user.email);
-            const joinedOrgs = await checkPendingInvites();
+            const joinedOrgs = await checkPendingInvites({
+              inviteId: inviteId || undefined,
+              orgId: (urlOrgId || persistedOrgId) || undefined,
+            });
             if (joinedOrgs && joinedOrgs.length > 0) {
               console.log("Successfully joined organizations via shadow invites:", joinedOrgs);
               // Invalidate organizations query to show new orgs
@@ -572,7 +575,7 @@ const AppContent: React.FC = () => {
       }
     };
     setupAuth();
-  }, [user?.id, isAuthenticated, isConvexAuthLoading, checkPendingInvites, queryClient]);
+  }, [user?.id, isAuthenticated, isConvexAuthLoading, checkPendingInvites, queryClient, inviteId, urlOrgId, persistedOrgId]);
 
 
   const loadProfile = async (userId: string) => {
@@ -613,7 +616,9 @@ const AppContent: React.FC = () => {
     return activeSessionsRaw.map(s => ({
       ...s,
       // CRITICAL: Force string normalization for ID comparisons (prevents object-vs-string mismatch)
-      id: String(s._id || s.id)
+      id: String(s._id || s.id),
+      slug: String((s as any).slug || (s as any).uuid || s._id || s.id).replace(/^local-/, ''),
+      isPublic: (s as any).isPublic ?? true,
     })) as Program[];
   }, [activeSessionsRaw]);
 
@@ -626,7 +631,9 @@ const AppContent: React.FC = () => {
     if (!allProgramsRaw) return [];
     return allProgramsRaw.map(s => ({
       ...s,
-      id: String(s._id || s.id)
+      id: String(s._id || s.id),
+      slug: String((s as any).slug || (s as any).uuid || s._id || s.id).replace(/^local-/, ''),
+      isPublic: (s as any).isPublic ?? true,
     })) as Program[];
   }, [allProgramsRaw]);
 
@@ -770,7 +777,9 @@ const AppContent: React.FC = () => {
   );
   const fetchedProgram = fetchedProgramRaw ? {
     ...(fetchedProgramRaw as any),
-    id: String((fetchedProgramRaw as any)._id || (fetchedProgramRaw as any).id)
+    id: String((fetchedProgramRaw as any)._id || (fetchedProgramRaw as any).id),
+    slug: String((fetchedProgramRaw as any).slug || (fetchedProgramRaw as any).uuid || (fetchedProgramRaw as any)._id || (fetchedProgramRaw as any).id).replace(/^local-/, ''),
+    isPublic: (fetchedProgramRaw as any).isPublic ?? true,
   } as Program : undefined;
 
   // 1. Initial Program Loading & URL Sync
@@ -842,9 +851,19 @@ const AppContent: React.FC = () => {
         } else if (currentProg.id?.startsWith('local-') && fetchedProgram.id !== currentProg.id && !fetchedProgram.id.startsWith('local-')) {
           console.log("Syncing local ID to Convex ID from fetched program:", fetchedProgram.id);
           if (lastSavedProgramRef.current) {
-            lastSavedProgramRef.current = { ...lastSavedProgramRef.current, id: fetchedProgram.id };
+            lastSavedProgramRef.current = {
+              ...lastSavedProgramRef.current,
+              id: fetchedProgram.id,
+              slug: fetchedProgram.slug || lastSavedProgramRef.current.slug,
+              isPublic: fetchedProgram.isPublic ?? lastSavedProgramRef.current.isPublic ?? true,
+            };
           }
-          setProgram(prev => ({ ...prev, id: fetchedProgram.id }));
+          setProgram(prev => ({
+            ...prev,
+            id: fetchedProgram.id,
+            slug: fetchedProgram.slug || prev.slug,
+            isPublic: fetchedProgram.isPublic ?? prev.isPublic ?? true,
+          }));
           setSearchParams(prev => {
             prev.set('id', fetchedProgram.id);
             return prev;
@@ -1158,10 +1177,21 @@ const AppContent: React.FC = () => {
       const currentProg = programRef.current;
       if (savedProgram && savedProgram.id && currentProg.id !== savedProgram.id && currentProg.id?.startsWith('local-')) {
         console.log("Syncing local ID to Convex ID:", savedProgram.id);
+        const syncedSlug = (savedProgram as Program).slug || currentProg.slug || currentProg.id.replace(/^local-/, '');
         if (lastSavedProgramRef.current) {
-          lastSavedProgramRef.current = { ...lastSavedProgramRef.current, id: savedProgram.id };
+          lastSavedProgramRef.current = {
+            ...lastSavedProgramRef.current,
+            id: savedProgram.id,
+            slug: syncedSlug,
+            isPublic: (savedProgram as Program).isPublic ?? lastSavedProgramRef.current.isPublic ?? true,
+          };
         }
-        setProgram(prev => ({ ...prev, id: (savedProgram as Program).id }));
+        setProgram(prev => ({
+          ...prev,
+          id: (savedProgram as Program).id,
+          slug: syncedSlug,
+          isPublic: (savedProgram as Program).isPublic ?? prev.isPublic ?? true,
+        }));
         // Also update URL to prevent "stale local" state on refresh
         setSearchParams(prev => {
           prev.set('id', (savedProgram as Program).id);
@@ -1187,15 +1217,21 @@ const AppContent: React.FC = () => {
   }, [fetchedProgram, program]);
 
   const loadProgram = (newProgram: Program) => {
+    const normalizedSlug = String(newProgram.slug || (newProgram as any).uuid || newProgram.id || '').replace(/^local-/, '');
+    const normalizedProgram: Program = {
+      ...newProgram,
+      slug: normalizedSlug,
+      isPublic: newProgram.isPublic ?? true,
+    };
     lastAdvancedIndexRef.current = -1;
     lastProcessedIndexRef.current = -1;
-    lastSavedProgramRef.current = newProgram;
-    setProgram(newProgram);
+    lastSavedProgramRef.current = normalizedProgram;
+    setProgram(normalizedProgram);
     setSaveStatus('saved');
 
     // Safety: Only reset local viewer state if we are NOT loading the live program.
     // If loading the live program, we want to keep the current running pointers.
-    if (globalLiveProgram?.id !== newProgram.id) {
+    if (globalLiveProgram?.id !== normalizedProgram.id) {
       setCurrentSlotIndex(0);
       setSecondsElapsed(0);
       setIsTimerActive(false);
@@ -1212,7 +1248,7 @@ const AppContent: React.FC = () => {
     localStorage.removeItem('kairon_elapsed_seconds');
 
     // Navigate to editor screen with the ID in the URL for better hydration
-    navigate(`/editor?id=${newProgram.id}`);
+    navigate(`/editor?id=${normalizedProgram.id}`);
   };
 
   const handleSelectProgramFromCommand = (targetProgram: Program) => {
@@ -1245,9 +1281,9 @@ const AppContent: React.FC = () => {
       alert("Only workspace administrators and managers can create events.");
       return;
     }
+    const baseProgram = getInitialProgram(activeOrgId || undefined);
     const newProgram: Program = {
-      ...getInitialProgram(activeOrgId || undefined),
-      id: `local-${crypto.randomUUID()}`, // Prefix to distinguish local-only programs
+      ...baseProgram,
       date: date,
     };
     loadProgram(newProgram);
@@ -1304,9 +1340,12 @@ const AppContent: React.FC = () => {
         const original = await getProgramById(id);
         if (!original) return;
 
+        const newUuid = crypto.randomUUID();
         const newProgram: Program = {
           ...original,
-          id: `local-${crypto.randomUUID()}`,
+          id: `local-${newUuid}`,
+          slug: newUuid,
+          isPublic: true,
           title: `${original.title} (Copy)`,
           status: 'draft',
           isTimerActive: false,
@@ -1370,9 +1409,12 @@ const AppContent: React.FC = () => {
           return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
         };
 
+        const newUuid = crypto.randomUUID();
         const newProgram: Program = {
           ...original,
-          id: `local-${crypto.randomUUID()}`,
+          id: `local-${newUuid}`,
+          slug: newUuid,
+          isPublic: true,
           title: getNextServiceTitle(original.title),
           startTime: shiftTime(original.startTime, 120),
           status: 'draft',
@@ -1985,6 +2027,11 @@ const AppContent: React.FC = () => {
   // --- Public View Bypass (TOP LEVEL) ---
   // We check this before ANY auth or shell rendering to ensure zero-friction guest access and no flicker.
   if (isPublicPath) {
+    // Handle legacy hash links like /#/p/<slug>?embed=true
+    if (location.hash.includes('/p/')) {
+      const hashPath = location.hash.substring(location.hash.indexOf('/p/'));
+      return <Navigate to={hashPath} replace />;
+    }
     // Handle path contamination: /live/p/ or /calendar/p/
     if (location.pathname.includes('/p/') && !location.pathname.startsWith('/p/')) {
       const cleanPath = location.pathname.substring(location.pathname.indexOf('/p/'));
@@ -2068,6 +2115,8 @@ const AppContent: React.FC = () => {
   const isLightsAcked = (currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-lighting`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'lighting');
   const isVideoAcked = (currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-video`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'video');
 
+  const exportTargetProgram = location.pathname.startsWith('/editor') ? program : displayProgram;
+
   return (
     <div className="h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-hidden">
       {user && (
@@ -2082,6 +2131,7 @@ const AppContent: React.FC = () => {
           isOnline={isOnline}
           programTitle={displayProgram.title}
           programId={displayProgram.id}
+          editorProgramId={program.id}
           activeSessions={activeSessions}
           selectedLiveId={selectedLiveId}
           onSelectLive={setSelectedLiveId}
@@ -2336,7 +2386,7 @@ const AppContent: React.FC = () => {
 
                   <button
                     onClick={() => setIsExportOpen(true)}
-                    className="hidden sm:inline-flex p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
+                    className="inline-flex p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
                     title="Export Schedule"
                   >
                     <Download size={14} />
@@ -2620,7 +2670,7 @@ const AppContent: React.FC = () => {
       <ExportDialog
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}
-        program={displayProgram}
+        program={exportTargetProgram}
         options={exportOptions}
         setOptions={setExportOptions}
       />
@@ -2657,7 +2707,7 @@ const AppContent: React.FC = () => {
 
       {!location.pathname.startsWith('/analytics') && (
         <PrintableSchedule
-          program={displayProgram}
+          program={exportTargetProgram}
           includeDetails={exportOptions.includeDetails}
           includeSpeakers={exportOptions.includeSpeakers}
           includePrompter={exportOptions.includePrompter}
@@ -2729,6 +2779,8 @@ const AppContent: React.FC = () => {
           onToggleTheme={toggleTheme}
           organizations={userOrganizations}
           onSelectOrg={setActiveOrgId}
+          editorProgramId={program.id}
+          liveProgramId={displayProgram.id}
         />
       )}
     </div>

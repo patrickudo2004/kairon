@@ -4,13 +4,15 @@ import { useQuery, useConvex } from '../hooks/useConvexMock';
 import { api } from '../convex/_generated/api';
 import { Program } from '../types';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
-import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon, RefreshCw } from 'lucide-react';
+import { getPublicPortalUrl } from '../utils/url';
+import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon, RefreshCw, Copy, Check } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 
 export const PublicPortal: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
     const [isScrolled, setIsScrolled] = useState(false);
     const [secondsWaiting, setSecondsWaiting] = useState(0);
+    const [isCopied, setIsCopied] = useState(false);
 
     const convex = useConvex();
     // Monitor Convex connection status
@@ -50,12 +52,12 @@ export const PublicPortal: React.FC = () => {
 
     const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     const searchId = searchParams.get('id');
-    const targetId = slug || searchId || '';
+    const targetId = (slug || searchId || '').replace(/^local-/, '');
 
     // Convex Reactive Query
     const programData = useQuery(
         api.programs.getProgramBySlug,
-        slug ? { slug } : (targetId ? { slug: targetId } : "skip")
+        targetId ? { slug: targetId } : "skip"
     );
 
     // If slug is not found as a slug, it might be an ID
@@ -69,7 +71,7 @@ export const PublicPortal: React.FC = () => {
         {} // Always poll live channel as fallback
     );
 
-    const programRaw = programData || programByIdData || liveProgramData;
+    const programRaw = programData || programByIdData || (!targetId || (programData === null && programByIdData === null) ? liveProgramData : undefined);
 
     // Local Program Fallback for offline or draft IDs
     const [localProgram, setLocalProgram] = useState<Program | null>(() => {
@@ -282,21 +284,52 @@ export const PublicPortal: React.FC = () => {
     const remainingSeconds = currentSlot ? (currentSlot.durationMinutes * 60) - derivedSecondsElapsed : 0;
     const isTimerActive = program.isTimerActive ?? false;
     const isThumbnail = new URLSearchParams(window.location.search).get('mode') === 'thumbnail';
+    const canonicalShareUrl = getPublicPortalUrl(program);
+
+    const handleSharePortal = async () => {
+        if (typeof navigator !== 'undefined' && navigator.share) {
+            try {
+                await navigator.share({
+                    title: program.title || 'Live Event Schedule',
+                    text: `Follow the live schedule for ${program.title}`,
+                    url: canonicalShareUrl,
+                });
+                return;
+            } catch {
+                // Fallback to clipboard copy if user cancels or share fails
+            }
+        }
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+            await navigator.clipboard.writeText(canonicalShareUrl);
+            setIsCopied(true);
+            setTimeout(() => setIsCopied(false), 2000);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-[#090A0C] text-slate-900 dark:text-white transition-colors duration-200 font-sans">
             {/* Minimal Nav Header */}
             {!isThumbnail && (
-                <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#090A0C]/80 backdrop-blur-md border-b border-slate-200 dark:border-[#22262E] px-6 py-4 transition-colors">
-                    <div className="max-w-3xl mx-auto flex items-center justify-between">
+                <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#090A0C]/80 backdrop-blur-md border-b border-slate-200 dark:border-[#22262E] px-4 sm:px-6 py-3.5 transition-colors">
+                    <div className="max-w-3xl mx-auto flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                             <div className="w-7 h-7 bg-[#181B22] border border-[#2D333F] rounded-md flex items-center justify-center text-[#0EA5E9] font-bold text-xs font-mono">K</div>
                             <span className="font-bold text-slate-900 dark:text-white tracking-tight font-mono text-sm">KAIRON</span>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={handleSharePortal}
+                                className="px-3 py-1.5 rounded-md bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-[#E1E4EA] hover:border-[#0EA5E9] hover:text-[#0EA5E9] transition-colors flex items-center gap-1.5 text-xs font-mono font-semibold active:scale-95"
+                                title="Share or copy live schedule link"
+                            >
+                                {isCopied ? <Check size={14} className="text-[#10B981]" /> : <Share2 size={14} />}
+                                <span>{isCopied ? 'Copied' : 'Share'}</span>
+                            </button>
                             <button
                                 onClick={toggleTheme}
                                 className="p-2 rounded-md bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-500 dark:text-[#8A93A4] hover:text-[#0EA5E9] transition-colors"
+                                title="Toggle Light/Dark Mode"
                             >
                                 {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
                             </button>

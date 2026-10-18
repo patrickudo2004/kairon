@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Download, X, User, AlignLeft, Clipboard, Check, FileText, Tv } from 'lucide-react';
+import { Download, X, User, AlignLeft, Clipboard, Check, FileText, Tv, QrCode } from 'lucide-react';
 import { Program } from '../types';
 import { timeToMinutes, minutesToTime } from '../utils/time';
+import { getPublicPortalUrl } from '../utils/url';
 
 export interface ExportOptions {
     includeDetails: boolean;
@@ -22,10 +23,13 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, pro
 
     if (!isOpen) return null;
 
+    const publicPortalUrl = getPublicPortalUrl(program);
+
     const handleCopyText = () => {
         let text = `${program.title}\n`;
         if (program.subtitle) text += `${program.subtitle}\n`;
         text += `Date: ${program.date} | Start: ${program.startTime}\n`;
+        if (publicPortalUrl) text += `Live Schedule: ${publicPortalUrl}\n`;
         text += `----------------------------------------\n\n`;
 
         let runningMinutes = timeToMinutes(program.startTime);
@@ -61,21 +65,36 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ isOpen, onClose, pro
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 no-print">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-800">
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Download className="text-rose-600 dark:text-rose-400" size={24} />
-                        Export Schedule
-                    </h3>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
-                        <X size={24} />
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-200 dark:border-slate-800">
+                    <div>
+                        <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <Download className="text-rose-600 dark:text-rose-400" size={22} />
+                            Export Schedule
+                        </h3>
+                        <p className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5 truncate max-w-[260px]">
+                            {program.title}
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors p-1">
+                        <X size={22} />
                     </button>
                 </div>
 
-                <div className="p-6 space-y-6">
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                        Choose options for your export.
-                    </p>
+                <div className="p-5 sm:p-6 space-y-5">
+                    {publicPortalUrl && (
+                        <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex items-start gap-2.5">
+                            <QrCode size={16} className="text-[#0EA5E9] shrink-0 mt-0.5" />
+                            <div className="min-w-0 flex-1">
+                                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                    Embedded PDF QR Code Link
+                                </div>
+                                <div className="text-[11px] font-mono text-[#0EA5E9] truncate" title={publicPortalUrl}>
+                                    {publicPortalUrl}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="space-y-4">
                         <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">

@@ -32,6 +32,7 @@ import { useNavigate } from 'react-router-dom';
 import { deleteOrganization } from '../services/orgService';
 import { migratePrograms, deleteAllProgramsInOrg, getPrograms } from '../services/programService';
 import { updateProfile, signOut } from '../services/authService';
+import { getWorkspaceInviteUrl } from '../utils/url';
 
 interface AdminPanelProps {
     organization: Organization;
@@ -115,7 +116,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
     const [isHolding, setIsHolding] = useState(false);
 
     const copyInviteLink = (inviteId: string) => {
-        const url = `${window.location.origin}/?inviteId=${inviteId}`;
+        const url = getWorkspaceInviteUrl({ inviteId, orgId: organization.id });
         navigator.clipboard.writeText(url);
         setCopiedId(inviteId);
         setTimeout(() => setCopiedId(null), 2000);
@@ -521,31 +522,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                         )}
 
                         {activeTab === 'members' && (
-                            <div className="bg-white dark:bg-[#121418] rounded-2xl p-8 border border-slate-200 dark:border-[#22262E] shadow-sm relative">
-                                <div className="flex justify-between items-center mb-8">
+                            <div className="bg-white dark:bg-[#121418] rounded-2xl p-5 sm:p-8 border border-slate-200 dark:border-[#22262E] shadow-sm relative">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                                     <div>
                                         <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Team Collaboration</h2>
                                         <p className="text-slate-500 dark:text-[#8A93A4] text-sm">Members below have access to manage or view this workspace.</p>
                                     </div>
-                                    <div className="flex items-center gap-2 font-mono">
+                                    <div className="flex items-center gap-2 font-mono flex-wrap w-full sm:w-auto">
                                         <button
+                                            type="button"
                                             onClick={() => {
-                                                const url = `${window.location.origin}/?inviteId=generic&orgId=${organization.id}`;
+                                                const url = getWorkspaceInviteUrl({ inviteId: 'generic', orgId: organization.id });
                                                 navigator.clipboard.writeText(url);
                                                 setCopiedId('generic');
                                                 setTimeout(() => setCopiedId(null), 2000);
                                             }}
-                                            className="p-2 text-slate-400 hover:text-[#0EA5E9] transition-colors relative group"
+                                            className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#22262E] bg-slate-50 dark:bg-[#181B22] text-slate-700 dark:text-[#E1E4EA] hover:border-[#0EA5E9] hover:text-[#0EA5E9] transition-colors text-xs font-bold uppercase tracking-wider active:scale-95 flex-1 sm:flex-initial"
                                             title="Copy Generic Workspace Link"
                                         >
-                                            {copiedId === 'generic' ? <Check size={18} className="text-emerald-500" /> : <LinkIcon size={18} />}
-                                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-30">
-                                                Copy Workspace Link
-                                            </span>
+                                            {copiedId === 'generic' ? <Check size={15} className="text-emerald-500" /> : <LinkIcon size={15} />}
+                                            <span>{copiedId === 'generic' ? 'Link Copied' : 'Copy Invite Link'}</span>
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={() => setIsInviteOpen(true)}
-                                            className="flex items-center gap-2 px-6 py-2 bg-[#0EA5E9] text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-[#0284C7] transition-colors shadow-md"
+                                            className="flex items-center justify-center gap-2 px-5 py-2 bg-[#0EA5E9] text-white rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-[#0284C7] transition-colors shadow-md active:scale-95 flex-1 sm:flex-initial"
                                         >
                                             <UserPlus size={16} /> Invite Teammate
                                         </button>

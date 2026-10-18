@@ -144,47 +144,99 @@ export const addMemberByEmail = mutation({
 });
 
 export const checkPendingInvites = mutation({
-    args: {},
-    handler: async (ctx) => {
+    args: {
+        inviteId: v.optional(v.string()),
+        orgId: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
         if (!userId) return null;
 
         const user = await ctx.db.get(userId);
-        if (!user?.email) return null;
+        const results: string[] = [];
 
-        const email = user.email.toLowerCase();
-        const pendingInvites = await ctx.db
-            .query("invites")
-            .withIndex("by_email", (q) => q.eq("email", email))
-            .collect();
+        // 1. Check email-based invites if user has an email
+        if (user?.email) {
+            const email = user.email.toLowerCase();
+            const pendingInvites = await ctx.db
+                .query("invites")
+                .withIndex("by_email", (q) => q.eq("email", email))
+                .collect();
 
-        if (pendingInvites.length === 0) return null;
+            for (const invite of pendingInvites) {
+                const existing = await ctx.db
+                    .query("members")
+                    .withIndex("by_org", (q) => q.eq("organizationId", invite.organizationId))
+                    .filter((q) => q.eq(q.field("userId"), userId))
+                    .first();
 
-        const results = [];
-        for (const invite of pendingInvites) {
-            // Check if somehow already a member
-            const existing = await ctx.db
-                .query("members")
-                .withIndex("by_org", (q) => q.eq("organizationId", invite.organizationId))
-                .filter((q) => q.eq(q.field("userId"), userId))
-                .first();
+                if (!existing) {
+                    await ctx.db.insert("members", {
+                        organizationId: invite.organizationId,
+                        userId,
+                        role: invite.role,
+                    });
 
-            if (!existing) {
-                await ctx.db.insert("members", {
-                    organizationId: invite.organizationId,
-                    userId,
-                    role: invite.role,
-                });
+                    const org = await ctx.db.get(invite.organizationId);
+                    results.push(org?.name || "Unknown Organization");
+                }
 
-                const org = await ctx.db.get(invite.organizationId);
-                results.push(org?.name || "Unknown Organization");
+                // Clean up invite
+                await ctx.db.delete(invite._id);
             }
-
-            // Clean up invite
-            await ctx.db.delete(invite._id);
         }
 
-        return results;
+        // 2. Check specific inviteId link (if user clicked /?inviteId=<id>)
+        if (args.inviteId && args.inviteId !== "generic") {
+            const normalizedInviteId = ctx.db.normalizeId("invites", args.inviteId);
+            if (normalizedInviteId) {
+                const directInvite = await ctx.db.get(normalizedInviteId);
+                if (directInvite) {
+                    const existing = await ctx.db
+                        .query("members")
+                        .withIndex("by_org", (q) => q.eq("organizationId", directInvite.organizationId))
+                        .filter((q) => q.eq(q.field("userId"), userId))
+                        .first();
+
+                    if (!existing) {
+                        await ctx.db.insert("members", {
+                            organizationId: directInvite.organizationId,
+                            userId,
+                            role: directInvite.role,
+                        });
+                        const org = await ctx.db.get(directInvite.organizationId);
+                        results.push(org?.name || "Unknown Organization");
+                    }
+                    await ctx.db.delete(directInvite._id);
+                }
+            }
+        }
+
+        // 3. Check generic workspace invite link (/?inviteId=generic&orgId=<orgId>)
+        if (args.orgId) {
+            const normalizedOrgId = ctx.db.normalizeId("organizations", args.orgId);
+            if (normalizedOrgId) {
+                const org = await ctx.db.get(normalizedOrgId);
+                if (org) {
+                    const existing = await ctx.db
+                        .query("members")
+                        .withIndex("by_org", (q) => q.eq("organizationId", normalizedOrgId))
+                        .filter((q) => q.eq(q.field("userId"), userId))
+                        .first();
+
+                    if (!existing) {
+                        await ctx.db.insert("members", {
+                            organizationId: normalizedOrgId,
+                            userId,
+                            role: "operator",
+                        });
+                        results.push(org.name || "Unknown Organization");
+                    }
+                }
+            }
+        }
+
+        return results.length > 0 ? results : null;
     },
 });
 
