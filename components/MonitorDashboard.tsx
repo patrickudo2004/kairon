@@ -236,6 +236,14 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
             path: getPublicPortalPath(program),
             badgeColor: 'text-[#64748B] bg-[#64748B]/10 border-[#64748B]/30',
             tabId: 'public'
+        },
+        {
+            title: 'OBS / vMix / ATEM Overlay',
+            icon: Sliders,
+            description: '1080p Lower-Third & Corner Timer with Alpha, Chroma Green & Luma Key.',
+            path: `/overlay?id=${program.id}&bg=black&layout=lower-third`,
+            badgeColor: 'text-[#0EA5E9] bg-[#0EA5E9]/10 border-[#0EA5E9]/30',
+            tabId: 'overlay'
         }
     ];
 

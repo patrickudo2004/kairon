@@ -1,7 +1,7 @@
 {
   "name": "kairon",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Broadcast Stage & Rundown Engine for Live Events and Ministry",
   "author": "Patrick Udo <patrickudo2004@users.noreply.github.com>",
   "repository": {
@@ -14,7 +14,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "electron:dev": "concurrently -k -s first \"npm run dev\" \"wait-on tcp:3000 && electron .\"",
+    "electron:dev": "concurrently -k -s first \"npm run dev\" \"wait-on tcp:3000 && node electron/dev-runner.cjs\"",
     "electron:build": "cross-env ELECTRON_BUILD=true npm run build && electron-builder",
     "electron:build:win": "cross-env ELECTRON_BUILD=true npm run build && electron-builder --win",
     "electron:build:mac": "cross-env ELECTRON_BUILD=true npm run build && electron-builder --mac",
@@ -56,6 +56,14 @@
   "build": {
     "appId": "app.kairon.desktop",
     "productName": "Kairon",
+    "fileAssociations": [
+      {
+        "ext": "kairon",
+        "name": "Kairon Production Rundown",
+        "description": "Kairon Portable Production Rundown Bundle",
+        "role": "Editor"
+      }
+    ],
     "directories": {
       "output": "release"
     },

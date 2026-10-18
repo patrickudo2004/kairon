@@ -37,6 +37,8 @@ export const UserGuide: React.FC = () => {
                     { title: 'Autopilot Mode', icon: Zap, target: '#autopilot' },
                     { title: 'Pulpit Contrast Themes', icon: Tv, target: '#pulpit-themes' },
                     { title: 'Desktop Application', icon: Laptop, target: '#desktop' },
+                    { title: 'Studio v2.0 & .kairon Files', icon: Receipt, target: '#studio-v2' },
+                    { title: 'Broadcast Integrations (OBS/PP7)', icon: Sparkles, target: '#broadcast-integrations' },
                 ].map((item, i) => (
                     <a
                         key={i}
@@ -485,6 +487,64 @@ export const UserGuide: React.FC = () => {
                     </div>
                 </section>
 
+                {/* 13. Studio v2.0 Shell & Portable .kairon Files */}
+                <section id="studio-v2" className="scroll-mt-24">
+                    <div className="flex items-center gap-4 mb-8">
+                        <div className="h-10 w-1 bg-sky-500 rounded-full"></div>
+                        <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+                            🎛️ 13. Studio v2.0 Shell &amp; Portable .kairon Files
+                        </h2>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-6">
+                        <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                            Kairon Studio v2.0 introduces the <strong>Obsidian Broadcast 4-Row / 3-Zone Desktop Architecture</strong> — modeled after industry-standard control surfaces so operators never have to hunt across tabs during a live show.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
+                                <h4 className="font-bold text-sm text-sky-600 dark:text-sky-400">Right Studio Dock &amp; Live 16:9 Preview</h4>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    Keep a real-time 16:9 confidence preview of your Stage, TV, Teleprompter, or Broadcast Key output open alongside your rundown, paired with the context-aware <strong>Slot Inspector</strong> and instant <strong>Stage Cue Dispatcher</strong>.
+                                </p>
+                            </div>
+                            <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
+                                <h4 className="font-bold text-sm text-emerald-600 dark:text-emerald-400">Portable .kairon Show Files</h4>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    Use <strong>File &rarr; Save As .kairon File (Ctrl+S)</strong> or <strong>Open .kairon File (Ctrl+O)</strong> to save and transfer complete production schedules (including speaker teleprompter scripts, technical booth cues, and branding) via USB drive or AirDrop — 100% offline.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* 14. Broadcast Ecosystem Integrations */}
+                <section id="broadcast-integrations" className="scroll-mt-24">
+                    <div className="flex items-center gap-4 mb-8">
+                        <div className="h-10 w-1 bg-purple-500 rounded-full"></div>
+                        <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+                            📡 14. Broadcast Ecosystem (OBS, vMix, ATEM &amp; ProPresenter 7)
+                        </h2>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-6">
+                        <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                            Kairon integrates natively with your existing broadcast video switcher and lyrics presentation rig:
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
+                                <h4 className="font-bold text-sm text-purple-600 dark:text-purple-400">/overlay Alpha &amp; Chroma Key Feed</h4>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    Add <code>/overlay?id=YOUR_ID&amp;bg=transparent&amp;layout=lower-third</code> as an <strong>OBS Browser Source</strong> or <strong>vMix Web Browser Input</strong> (1920&times;1080), or switch to <code>bg=green</code> / <code>bg=blue</code> for hardware Upstream Chroma Keying on a <strong>Blackmagic ATEM Mini Extreme</strong>.
+                                </p>
+                            </div>
+                            <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
+                                <h4 className="font-bold text-sm text-sky-600 dark:text-sky-400">ProPresenter 7 Network API Bridge</h4>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    Open <strong>Integrations &rarr; ProPresenter 7 Network Bridge</strong> to link Kairon directly to ProPresenter 7 over your booth LAN. Stage Cues and Emergency Strobe alerts fired in Kairon automatically mirror onto ProPresenter&apos;s stage display.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 {/* Scenarios Section */}
                 <section className="bg-slate-100 dark:bg-slate-800/30 rounded-[40px] p-8 md:p-12 border border-white dark:border-slate-800 shadow-inner">
                     <div className="text-center mb-12">
@@ -495,9 +555,9 @@ export const UserGuide: React.FC = () => {
                         {[
                             {
                                 title: 'The High-Stress Tech Conference',
-                                tag: 'AI Focus',
+                                tag: 'Autopilot Focus',
                                 color: 'indigo',
-                                desc: 'Speaker goes 5 minutes over. AV Manager clicks "Service Re-balancer". Gemini trims 1 minute from the next 5 transitions. Finish exactly on time.'
+                                desc: 'Speaker goes 5 minutes over. AV Manager enables Autopilot. Kairon deterministically trims 1 minute from the next 5 flexible segments. Finish exactly on time.'
                             },
                             {
                                 title: 'The Wedding Ceremony',
@@ -539,7 +599,7 @@ export const UserGuide: React.FC = () => {
                         For help or support, reach out to your church media team admin or visit the GitHub Releases page for the latest desktop update.
                     </p>
                 </div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 dark:text-slate-700">Kairon v1.0 &bull; Built for Church Media Teams &bull; 2026</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 dark:text-slate-700">Kairon Studio v2.0 &bull; Built for Live Event &amp; Church Broadcast Teams &bull; 2026</p>
             </div>
         </div>
     );

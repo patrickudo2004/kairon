@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from './useConvexMock';
 import { api } from '../convex/_generated/api';
-import { Id } from '../convex/_generated/dataModel';
+import { sendProPresenterStageMessage, clearProPresenterStageMessage } from '../services/proPresenterBridge';
 
 interface StageMessage {
     text: string;
@@ -20,7 +20,7 @@ const isTestBypass = () => {
 
 /**
  * useStageMessages Hook
- * Uses Convex for persistent, reactive stage cues.
+ * Uses Convex for persistent, reactive stage cues and optionally forwards to ProPresenter 7.
  */
 export const useStageMessages = (programId: string | undefined) => {
     const testMode = isTestBypass();
@@ -57,6 +57,9 @@ export const useStageMessages = (programId: string | undefined) => {
     const sendStageMessage = async (text: string, type: string = 'alert', isStrobe: boolean = false, durationMs?: number) => {
         if (!programId) return;
         const finalIsStrobe = Boolean(isStrobe || type === 'strobe');
+        // Forward to ProPresenter 7 Stage Display if enabled
+        void sendProPresenterStageMessage(text);
+
         if (testMode) {
             const msg: StageMessage = {
                 text,
@@ -83,6 +86,8 @@ export const useStageMessages = (programId: string | undefined) => {
 
     const clearStageMessage = async () => {
         if (!programId) return;
+        void clearProPresenterStageMessage();
+
         if (testMode) {
             localStorage.removeItem(`prompt_${programId}`);
             window.dispatchEvent(new Event('prompt_update'));

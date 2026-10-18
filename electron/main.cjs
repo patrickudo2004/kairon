@@ -1,19 +1,62 @@
-const { app, BrowserWindow, ipcMain, screen, powerSaveBlocker } = require('electron');
+const electron = require('electron');
+if (!electron || typeof electron !== 'object' || !electron.app) {
+  console.error('\n[Kairon Studio] ERROR: electron/main.cjs must be executed by the Electron runtime, not plain Node.js.');
+  console.error('Run: npm run electron:dev\n');
+  process.exit(1);
+}
+const { app, BrowserWindow, ipcMain, screen, powerSaveBlocker, dialog, shell } = electron;
 const path = require('path');
+const fs = require('fs');
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 let mainWindow = null;
 const secondaryWindows = {};
 let powerBlockerId = null;
 
+function getDeterministicWindowTitle(urlStr = '', winKey = '') {
+  const lower = `${urlStr} ${winKey}`.toLowerCase();
+  if (lower.includes('prompter')) return 'Kairon Output [PROMPTER]';
+  if (lower.includes('tv')) return 'Kairon Output [TV]';
+  if (lower.includes('overlay')) return 'Kairon Output [OVERLAY]';
+  if (lower.includes('crew')) return 'Kairon Output [CREW]';
+  return 'Kairon Output [STAGE]';
+}
+
+function loadRouteIntoWindow(win, url) {
+  if (isDev) {
+    const devBase = process.env.VITE_DEV_SERVER_URL || 'http://localhost:3000';
+    const targetUrl = url.startsWith('http') ? url : `${devBase}${url.startsWith('/') ? '' : '/'}${url}`;
+    return win.loadURL(targetUrl);
+  } else {
+    const cleanPath = url.split('?')[0].replace(/^\//, '');
+    const query = url.includes('?') ? url.substring(url.indexOf('?')) : '';
+    return win.loadFile(path.join(__dirname, '../dist/index.html'), {
+      hash: cleanPath,
+      search: query,
+    });
+  }
+}
+
+process.on('uncaughtException', (err) => {
+  console.error('[Kairon Main] Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[Kairon Main] Unhandled Rejection:', reason);
+});
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.kairon.studio');
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    width: 1366,
+    height: 840,
     minWidth: 1024,
     minHeight: 700,
-    title: 'Kairon - Broadcast Stage & Rundown Engine',
+    title: 'Kairon Studio — Broadcast Stage & Rundown Engine',
     show: false,
+    center: true,
     backgroundColor: '#090A0C',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -23,20 +66,75 @@ function createMainWindow() {
     },
   });
 
+  const showAndFocus = () => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show();
+      mainWindow.focus();
+      const bounds = mainWindow.getBounds();
+      console.log(`[Kairon Studio] Native desktop window visible: ${bounds.width}x${bounds.height} at (${bounds.x}, ${bounds.y})`);
+    }
+  };
+
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+    showAndFocus();
+  });
+
+  // Fallback to guarantee window visibility even if ready-to-show takes longer
+  setTimeout(showAndFocus, 1500);
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('[Kairon Studio] Frontend UI loaded successfully.');
+    showAndFocus();
+  });
+
+  mainWindow.webContents.on('render-process-gone', (evt, details) => {
+    console.error('[Kairon Studio] Renderer process gone:', details);
+  });
+
+  mainWindow.webContents.on('did-fail-load', (evt, errCode, errDesc, validatedUrl) => {
+    console.error(`[Kairon Studio] Failed to load ${validatedUrl}: ${errDesc} (${errCode})`);
   });
 
   if (isDev) {
     const devUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:3000';
+    console.log(`[Kairon Studio] Loading Vite dev server: ${devUrl}`);
     mainWindow.loadURL(devUrl);
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
+  // Safely route external OAuth / documentation URLs to system browser while allowing local output windows
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    const isLocalRoute =
+      url.startsWith('http://localhost') ||
+      url.startsWith('file://') ||
+      url.includes('/stage') ||
+      url.includes('/tv') ||
+      url.includes('/prompter') ||
+      url.includes('/crew') ||
+      url.includes('/overlay') ||
+      url.includes('/p/');
+
+    if (!isLocalRoute && (url.startsWith('https://') || url.startsWith('http://'))) {
+      shell.openExternal(url);
+      return { action: 'deny' };
+    }
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        backgroundColor: '#090A0C',
+        webPreferences: {
+          preload: path.join(__dirname, 'preload.cjs'),
+          contextIsolation: true,
+          nodeIntegration: false,
+          backgroundThrottling: false,
+        },
+      },
+    };
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
-    // Close secondary windows when main window closes
     Object.values(secondaryWindows).forEach((win) => {
       if (win && !win.isDestroyed()) win.close();
     });
@@ -74,14 +172,12 @@ function broadcastScreenUpdates() {
 }
 
 app.whenReady().then(() => {
-  // Prevent OS from sleeping during live church broadcasts
   try {
     powerBlockerId = powerSaveBlocker.start('prevent-display-sleep');
   } catch (err) {
     console.warn('Could not start powerSaveBlocker:', err);
   }
 
-  // Setup dynamic hardware display plug/unplug listeners
   screen.on('display-added', (event, newDisplay) => {
     console.log('Hardware display connected:', newDisplay.id);
     broadcastScreenUpdates();
@@ -91,8 +187,6 @@ app.whenReady().then(() => {
     console.log('Hardware display disconnected:', oldDisplay.id);
     broadcastScreenUpdates();
 
-    // Safety: If an external display was unplugged (e.g. HDMI pull),
-    // reposition any stranded secondary windows to the primary display to prevent orphans
     try {
       const remainingDisplays = screen.getAllDisplays();
       const primary = screen.getPrimaryDisplay();
@@ -151,7 +245,7 @@ ipcMain.handle('get-screens', () => {
   return getScreenList();
 });
 
-// IPC: Open targeted secondary display window at exact monitor bounds
+// IPC: Open or dynamically re-target secondary display window at exact monitor bounds
 ipcMain.handle('open-target-screen', async (event, { url, screenIndex, windowId }) => {
   try {
     const displays = screen.getAllDisplays();
@@ -165,9 +259,16 @@ ipcMain.handle('open-target-screen', async (event, { url, screenIndex, windowId 
     }
 
     const winKey = windowId || `display_${screenIndex || 2}`;
+    const deterministicTitle = getDeterministicWindowTitle(url, winKey);
+    const isTransparentOverlay = url && url.includes('bg=transparent');
+
+    // Dynamic Re-Targeting: If window is already open, update its route/bounds and focus
     if (secondaryWindows[winKey] && !secondaryWindows[winKey].isDestroyed()) {
-      secondaryWindows[winKey].focus();
-      return { success: true };
+      const existingWin = secondaryWindows[winKey];
+      existingWin.setTitle(deterministicTitle);
+      await loadRouteIntoWindow(existingWin, url);
+      existingWin.focus();
+      return { success: true, retargeted: true };
     }
 
     const win = new BrowserWindow({
@@ -177,8 +278,10 @@ ipcMain.handle('open-target-screen', async (event, { url, screenIndex, windowId 
       height: targetDisplay.bounds.height,
       fullscreen: true,
       frame: false,
+      transparent: Boolean(isTransparentOverlay),
       alwaysOnTop: false,
-      backgroundColor: '#090A0C',
+      title: deterministicTitle,
+      backgroundColor: isTransparentOverlay ? '#00000000' : '#090A0C',
       webPreferences: {
         preload: path.join(__dirname, 'preload.cjs'),
         contextIsolation: true,
@@ -187,23 +290,24 @@ ipcMain.handle('open-target-screen', async (event, { url, screenIndex, windowId 
       },
     });
 
+    // Escape key safety: Exit fullscreen or close secondary window cleanly
+    win.webContents.on('before-input-event', (evt, input) => {
+      if (input.type === 'keyDown' && input.key === 'Escape') {
+        if (win.isFullScreen()) {
+          win.setFullScreen(false);
+        } else {
+          win.close();
+        }
+      }
+    });
+
     secondaryWindows[winKey] = win;
     win.on('closed', () => {
       delete secondaryWindows[winKey];
     });
 
-    if (isDev) {
-      const devBase = process.env.VITE_DEV_SERVER_URL || 'http://localhost:3000';
-      const targetUrl = url.startsWith('http') ? url : `${devBase}${url.startsWith('/') ? '' : '/'}${url}`;
-      await win.loadURL(targetUrl);
-    } else {
-      const cleanPath = url.split('?')[0].replace(/^\//, '');
-      const query = url.includes('?') ? url.substring(url.indexOf('?')) : '';
-      await win.loadFile(path.join(__dirname, '../dist/index.html'), {
-        hash: cleanPath,
-        search: query,
-      });
-    }
+    await loadRouteIntoWindow(win, url);
+    win.setTitle(deterministicTitle);
 
     return { success: true };
   } catch (err) {
@@ -221,3 +325,103 @@ ipcMain.handle('close-target-screen', async (event, { windowId }) => {
   }
   return { success: false };
 });
+
+// Helper: Resolve Documents/Kairon/Workspaces/<OrgName>/<Year>/<Month>
+function getWorkspaceArchiveDir(organizationName = 'Winners Chapel Manchester', dateStr = '') {
+  const safeOrg = (organizationName || 'Kairon Workspace').replace(/[<>:"/\\|?*]+/g, '').trim() || 'Workspace';
+  const parsedDate = dateStr ? new Date(dateStr) : new Date();
+  const year = !isNaN(parsedDate.getTime()) ? String(parsedDate.getFullYear()) : String(new Date().getFullYear());
+  const month = !isNaN(parsedDate.getTime())
+    ? parsedDate.toLocaleString('en-GB', { month: '2-digit' }) + '-' + parsedDate.toLocaleString('en-GB', { month: 'short' })
+    : '01-Jan';
+
+  return path.join(app.getPath('documents'), 'Kairon', 'Workspaces', safeOrg, year, month);
+}
+
+// IPC: Save .kairon File via Native Save Dialog
+ipcMain.handle('save-kairon-file', async (event, { content, defaultFileName, organizationName, date }) => {
+  try {
+    const archiveDir = getWorkspaceArchiveDir(organizationName, date);
+    await fs.promises.mkdir(archiveDir, { recursive: true });
+
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save Kairon Broadcast Rundown (.kairon)',
+      defaultPath: path.join(archiveDir, defaultFileName || 'rundown.kairon'),
+      filters: [
+        { name: 'Kairon Broadcast Rundown', extensions: ['kairon'] },
+        { name: 'JSON File', extensions: ['json'] },
+      ],
+    });
+
+    if (canceled || !filePath) return { success: false, canceled: true };
+    await fs.promises.writeFile(filePath, content, 'utf-8');
+    return { success: true, filePath };
+  } catch (err) {
+    console.error('save-kairon-file failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// IPC: Open .kairon or .csv File via Native Open Dialog
+ipcMain.handle('open-kairon-file', async () => {
+  try {
+    const baseDir = path.join(app.getPath('documents'), 'Kairon', 'Workspaces');
+    await fs.promises.mkdir(baseDir, { recursive: true });
+
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: 'Open Kairon Rundown (.kairon or .csv)',
+      defaultPath: baseDir,
+      properties: ['openFile'],
+      filters: [
+        { name: 'Kairon & CSV Rundowns', extensions: ['kairon', 'csv', 'json'] },
+      ],
+    });
+
+    if (canceled || !filePaths || filePaths.length === 0) {
+      return { success: false, canceled: true };
+    }
+
+    const selectedPath = filePaths[0];
+    const content = await fs.promises.readFile(selectedPath, 'utf-8');
+    const ext = path.extname(selectedPath).toLowerCase().replace('.', '');
+    return { success: true, content, filePath: selectedPath, ext };
+  } catch (err) {
+    console.error('open-kairon-file failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// IPC: Silent Background Auto-Archive to Documents/Kairon/Workspaces/<Org>/<Year>/<Month>/
+ipcMain.handle('auto-archive-kairon-file', async (event, { content, fileName, organizationName, date }) => {
+  try {
+    const archiveDir = getWorkspaceArchiveDir(organizationName, date);
+    await fs.promises.mkdir(archiveDir, { recursive: true });
+    const targetPath = path.join(archiveDir, fileName || 'rundown.kairon');
+    await fs.promises.writeFile(targetPath, content, 'utf-8');
+    return { success: true, filePath: targetPath };
+  } catch (err) {
+    console.warn('auto-archive-kairon-file failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// IPC: Open external URL in user's default browser
+ipcMain.handle('open-external-url', async (event, url) => {
+  if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
+    shell.openExternal(url);
+    return { success: true };
+  }
+  return { success: false, error: 'Invalid URL' };
+});
+
+// IPC: Focus main desktop window
+ipcMain.handle('focus-main-window', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    return { success: true };
+  }
+  return { success: false };
+});
+
