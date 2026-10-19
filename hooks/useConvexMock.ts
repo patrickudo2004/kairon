@@ -13,6 +13,9 @@ const isTestBypass = () => {
             if (localStorage.getItem('kairon_booth_mode') === 'true') {
                 return true;
             }
+            if (Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron)) {
+                return true;
+            }
             return localStorage.getItem('testBypass') === 'true';
         }
         return false;
@@ -107,7 +110,7 @@ export const useQuery = (query: any, args: any) => {
         }
     }
     if (path.includes('getCurrentUser')) {
-        return { id: "test-user-id", email: "test@kairon.app", name: "Test User" };
+        return { id: "local-booth-operator", email: "booth@kairon.local", name: "Booth Operator (Offline)" };
     }
     if (path.includes('getMyMembershipInOrg')) {
         return { role: "admin" };
@@ -129,7 +132,7 @@ export const useQuery = (query: any, args: any) => {
         const list = getLocalPrograms();
         const idStr = args?.id || '';
         const cleanId = idStr.replace('local-', '');
-        const found = list.find((p: any) => p.id === idStr || p.id?.replace('local-', '') === cleanId || p._id === idStr);
+        const found = list.find((p: any) => p.id === idStr || p.id?.replace('local-', '') === cleanId || p._id === idStr || p.slug === idStr || p.slug === cleanId);
         return found || null;
     }
     if (path.includes('getProgramBySlug')) {
@@ -141,15 +144,15 @@ export const useQuery = (query: any, args: any) => {
     }
     if (path.includes('getOrganizationById') || path.includes('getMyOrganizations')) {
         const cachedBranding = localStorage.getItem('test_org_branding');
-        const branding = cachedBranding ? JSON.parse(cachedBranding) : { logoUrl: "", brandColor: "#4f46e5", name: "Test Organization" };
+        const branding = cachedBranding ? JSON.parse(cachedBranding) : { logoUrl: "", brandColor: "#0ea5e9", name: "Winners Chapel Manchester" };
         const org = {
-            id: "test-org-id",
-            name: branding.name || "Test Organization",
-            slug: "test-org",
+            id: "local-workspace",
+            name: branding.name || "Winners Chapel Manchester",
+            slug: "winners-chapel-manchester",
             logoUrl: branding.logoUrl,
             brandColor: branding.brandColor,
-            subscriptionStatus: "pro",
-            createdBy: "test-user-id",
+            subscriptionStatus: "enterprise",
+            createdBy: "local-booth-operator",
             createdAt: new Date().toISOString()
         };
         return path.includes('getMyOrganizations') ? [org] : org;
