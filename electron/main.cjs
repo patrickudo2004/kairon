@@ -444,3 +444,21 @@ ipcMain.handle('focus-main-window', () => {
   return { success: false };
 });
 
+// IPC: Cross-window timer state relay
+// BroadcastChannel does NOT work across separate Electron BrowserWindow processes.
+// When the controller window sends timer state, we fan it out to ALL open windows
+// so that Stage, TV, Prompter, Crew etc. receive live timer ticks in real-time.
+ipcMain.on('timer-state-relay', (event, payload) => {
+  const allWindows = BrowserWindow.getAllWindows();
+  allWindows.forEach((win) => {
+    if (!win.isDestroyed() && win.webContents) {
+      // Send to every window including the sender — renderer filters its own echo
+      try {
+        win.webContents.send('timer-state-push', payload);
+      } catch (e) {
+        // Window may be closing — ignore
+      }
+    }
+  });
+});
+
