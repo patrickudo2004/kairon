@@ -65,16 +65,38 @@ const TVWrapper: React.FC = () => {
 
     const mergeIncomingData = (data: any) => {
         const pid = programIdRef.current;
-        if (data.id === pid || (!pid && (data.program?.status === 'live' || data.status === 'live'))) {
+        if (data.id === pid || (!pid && (data.program?.status === 'live' || data.status === 'live' || data.isTimerActive))) {
             setLocalOfflineProgram(prev => {
                 const base = prev || programFromConvexRef.current;
-                const updated: Program | null = data.program
-                    ? { ...data.program, id: data.id }
-                    : base ? ({
+                let updated: Program | null = null;
+
+                if (data.program) {
+                    const inc = data.program;
+                    // Preserve active live timer telemetry if incoming object didn't explicitly declare them
+                    const isIncomingTimerSet = inc.isTimerActive !== undefined;
+                    const preservedIsActive = isIncomingTimerSet ? Boolean(inc.isTimerActive) : (base?.isTimerActive ?? false);
+                    const preservedTimestamp = inc.timerStartTimestamp !== undefined ? inc.timerStartTimestamp : (base?.timerStartTimestamp ?? null);
+                    const preservedSlotIdx = inc.currentSlotIndex !== undefined ? inc.currentSlotIndex : (base?.currentSlotIndex ?? 0);
+                    const preservedSeconds = inc.secondsElapsed !== undefined ? inc.secondsElapsed : (base?.secondsElapsed ?? 0);
+                    const isNowLive = preservedIsActive || inc.status === 'live' || (base?.status === 'live' && inc.status !== 'concluded');
+
+                    updated = {
+                        ...inc,
+                        id: data.id || inc.id,
+                        isTimerActive: preservedIsActive,
+                        timerStartTimestamp: preservedTimestamp,
+                        currentSlotIndex: preservedSlotIdx,
+                        secondsElapsed: preservedSeconds,
+                        status: isNowLive ? 'live' : (inc.status || base?.status || 'draft')
+                    };
+                } else if (base) {
+                    updated = {
                         ...base,
                         ...data,
                         status: data.status || (data.isTimerActive ? 'live' : base.status)
-                    } as Program) : null;
+                    } as Program;
+                }
+
                 if (updated) {
                     try { localStorage.setItem(`kairon_offline_cache_${pid || 'live'}`, JSON.stringify(updated)); } catch {}
                 }

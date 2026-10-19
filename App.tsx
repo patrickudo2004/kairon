@@ -364,7 +364,7 @@ const AppContent: React.FC = () => {
   // --- Auth & Org State ---
   // Use real Convex Auth hooks
   const { isAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
-  const { pipWindow, isSupported: isFlightBridgeSupported, openFlightBridge } = useFlightBridge();
+  const { pipWindow, isFloatingBridgeOpen, isSupported: isFlightBridgeSupported, openFlightBridge, closeFlightBridge } = useFlightBridge();
   const { signOut } = useAuthActions();
   const convexUser = useConvexQuery(
     api.authQueries.getCurrentUser,
@@ -1133,13 +1133,34 @@ const AppContent: React.FC = () => {
       // Broadcast local offline state sync across tabs immediately
       try {
         const channel = new BroadcastChannel('kairon_offline_sync');
+        const isLiveNow = (p.id === displayProgram.id && displayIsTimerActive) || (p.id === program.id && isTimerActive) || p.status === 'live';
+        const liveSnapshot: Program = {
+          ...p,
+          isTimerActive: isLiveNow ? (p.id === displayProgram.id ? displayIsTimerActive : isTimerActive) : p.isTimerActive,
+          timerStartTimestamp: isLiveNow ? (p.id === displayProgram.id ? displayTimerStartTimestamp : timerStartTimestamp) : p.timerStartTimestamp,
+          currentSlotIndex: p.id === displayProgram.id ? displayCurrentSlotIndex : (p.currentSlotIndex ?? currentSlotIndex),
+          status: isLiveNow ? 'live' : p.status,
+        };
         channel.postMessage({
           id: p.id,
-          program: p
+          program: liveSnapshot
         });
         channel.close();
+
+        // Also relay to Electron BrowserWindow instances across process boundaries
+        const electronApi = (window as any).electron || (window as any).electronAPI;
+        if (electronApi?.sendTimerState) {
+          electronApi.sendTimerState({
+            id: p.id,
+            program: liveSnapshot,
+            isTimerActive: liveSnapshot.isTimerActive,
+            timerStartTimestamp: liveSnapshot.timerStartTimestamp,
+            currentSlotIndex: liveSnapshot.currentSlotIndex,
+            status: liveSnapshot.status,
+          });
+        }
       } catch (err) {
-        console.error("Local BroadcastChannel sync failed:", err);
+        console.error("Local BroadcastChannel / IPC sync failed:", err);
       }
 
       // Silently auto-archive to local Electron disk workspace if available
@@ -1241,7 +1262,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleNudge = (minutes: number, targetProgramId?: string) => {
-    if (isReadOnly) return;
+    if (!canControlLive) return;
     
     const targetId = targetProgramId || displayProgram.id;
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
@@ -1252,7 +1273,7 @@ const AppContent: React.FC = () => {
     console.log('handleNudge called with:', minutes, 'currentSlot duration minutes before nudge:', currentSlot?.durationMinutes);
 
     if (currentSlot) {
-      currentSlot.durationMinutes = Math.max(0, currentSlot.durationMinutes + minutes);
+      currentSlot.durationMinutes = Math.max(1, currentSlot.durationMinutes + minutes);
       const updated = { ...targetProg, slots: newSlots };
       console.log('updated slot durationMinutes:', updated.slots[targetIdx].durationMinutes);
 
@@ -1285,7 +1306,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleEndEvent = (targetProgramId?: string) => {
-    if (isReadOnly) return;
+    if (!canControlLive) return;
     const targetId = targetProgramId || displayProgram.id;
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     const targetIdx = targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0);
@@ -1301,11 +1322,12 @@ const AppContent: React.FC = () => {
       );
     }
 
-    const updatedProgram = { 
+    const updatedProgram: Program = { 
       ...targetProg, 
       slots: slotsWithFinalDuration,
       status: 'concluded' as const, 
-      isTimerActive: false 
+      isTimerActive: false,
+      timerStartTimestamp: null
     };
 
     // PUSH TO CLOUD
@@ -1318,11 +1340,37 @@ const AppContent: React.FC = () => {
       status: 'concluded'
     });
 
-    if (targetId === program.id) {
+    if (targetId === program.id || targetId === displayProgram.id) {
       updateLocalProgram(updatedProgram);
       setIsTimerActive(false);
       setTimerStartTimestamp(null);
       setSecondsElapsed(0);
+    }
+
+    // Broadcast concluded state across all local tabs and Electron secondary windows
+    try {
+      const channel = new BroadcastChannel('kairon_offline_sync');
+      channel.postMessage({
+        id: targetId,
+        program: updatedProgram,
+        isTimerActive: false,
+        timerStartTimestamp: null,
+        status: 'concluded'
+      });
+      channel.close();
+
+      const electronApi = (window as any).electron || (window as any).electronAPI;
+      if (electronApi?.sendTimerState) {
+        electronApi.sendTimerState({
+          id: targetId,
+          program: updatedProgram,
+          isTimerActive: false,
+          timerStartTimestamp: null,
+          status: 'concluded'
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to broadcast end event:", e);
     }
     
     // Final save to DB - Explicitly clear timer state for this venue
@@ -1991,7 +2039,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleToggleManualMode = (targetProgramId?: string) => {
-    if (isReadOnly) return;
+    if (!canControlLive) return;
     const targetId = targetProgramId || displayProgram.id;
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     
@@ -2014,7 +2062,7 @@ const AppContent: React.FC = () => {
 
 
   const handleNext = (targetProgramId?: string) => {
-    if (isReadOnly) return;
+    if (!canControlLive) return;
     const targetId = targetProgramId || displayProgram.id;
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     const targetIdx = targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0);
@@ -2080,7 +2128,7 @@ const AppContent: React.FC = () => {
   };
 
   const handlePrev = (targetProgramId?: string) => {
-    if (isReadOnly) return;
+    if (!canControlLive) return;
     const targetId = targetProgramId || displayProgram.id;
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     const targetIdx = targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0);
@@ -2717,30 +2765,28 @@ const AppContent: React.FC = () => {
               </button>
             )}
 
-            {!isReadOnly && user && (
-              <>
-                {canControlLive && isFlightBridgeSupported && (
-                  <button
-                    onClick={() => openFlightBridge()}
-                    className={`hidden sm:inline-flex p-1.5 rounded border transition-colors ${
-                      pipWindow 
-                        ? 'bg-[#0EA5E9]/20 border-[#0EA5E9] text-[#0EA5E9]' 
-                        : 'bg-slate-50 dark:bg-[#121418] border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                    title="Open Floating PiP Window"
-                  >
-                    <AppWindow size={14} />
-                  </button>
-                )}
+            {canControlLive && (
+              <button
+                onClick={() => openFlightBridge()}
+                className={`hidden sm:inline-flex p-1.5 rounded border transition-colors ${
+                  (pipWindow || isFloatingBridgeOpen)
+                    ? 'bg-[#0EA5E9]/20 border-[#0EA5E9] text-[#0EA5E9]' 
+                    : 'bg-slate-50 dark:bg-[#121418] border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="Toggle Floating Flight Bridge (PiP / HUD)"
+              >
+                <AppWindow size={14} />
+              </button>
+            )}
 
-                <button
-                  onClick={() => setIsExportOpen(true)}
-                  className="inline-flex p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
-                  title="Export Schedule"
-                >
-                  <Download size={14} />
-                </button>
-              </>
+            {!isReadOnly && user && (
+              <button
+                onClick={() => setIsExportOpen(true)}
+                className="inline-flex p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
+                title="Export Schedule"
+              >
+                <Download size={14} />
+              </button>
             )}
 
             {user && (
@@ -2929,9 +2975,9 @@ const AppContent: React.FC = () => {
                     onToggleHold={handleToggleHold}
                     onNext={handleNext}
                     onPrev={handlePrev}
-                    onEndEvent={(id) => requestEndEventConfirmation(id || displayProgram.id)}
+                    onEndEvent={(id) => handleEndEvent(id || displayProgram.id)}
                     onNudge={handleNudge}
-                    readOnly={isReadOnly && userRole !== 'operator'}
+                    readOnly={!canControlLive}
                     isAutopilotEnabled={isAutopilotEnabled}
                     onToggleAutopilot={handleToggleAutopilot}
                   />
@@ -3177,14 +3223,50 @@ const AppContent: React.FC = () => {
           onNext={handleNext}
           onPrev={handlePrev}
           onNudge={handleNudge}
-          onEndEvent={requestEndEventConfirmation}
+          onEndEvent={handleEndEvent}
           isManualMode={displayProgram.isManualMode}
           onToggleManualMode={handleToggleManualMode}
         />,
         pipWindow.document.body
       )}
 
-      {user && canControlLive && (displayProgram && displayProgram.slots.length > 0) && !pipWindow && (
+      {/* In-App Floating Flight Bridge HUD for Desktop & Unsupported Browsers */}
+      {!pipWindow && isFloatingBridgeOpen && (displayProgram && displayProgram.slots.length > 0) && (
+        <div className="fixed bottom-6 right-6 z-[9999] shadow-2xl rounded-2xl overflow-hidden border border-slate-300 dark:border-[#22262E] w-[380px] max-w-[calc(100vw-32px)] transition-all animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-slate-400 text-xs font-mono select-none">
+            <span className="flex items-center gap-1.5 font-bold text-[10px] tracking-wider text-slate-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              FLIGHT BRIDGE HUD
+            </span>
+            <button
+              onClick={() => closeFlightBridge()}
+              className="p-1 hover:text-white transition-colors"
+              title="Close Flight Bridge"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <FlightBridge
+            program={displayProgram}
+            currentSlotIndex={displayCurrentSlotIndex}
+            isTimerActive={displayIsTimerActive}
+            timerStartTimestamp={displayTimerStartTimestamp}
+            secondsElapsed={headerElapsed}
+            isDarkMode={isDarkMode}
+            onToggleTheme={toggleTheme}
+            onToggleTimer={handleToggleTimer}
+            onToggleHold={handleToggleHold}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            onNudge={handleNudge}
+            onEndEvent={handleEndEvent}
+            isManualMode={displayProgram.isManualMode}
+            onToggleManualMode={handleToggleManualMode}
+          />
+        </div>
+      )}
+
+      {canControlLive && (displayProgram && displayProgram.slots.length > 0) && !pipWindow && !isFloatingBridgeOpen && (
         <MobileFlightBridge
           program={displayProgram}
           currentSlotIndex={displayCurrentSlotIndex}
@@ -3198,7 +3280,7 @@ const AppContent: React.FC = () => {
           onToggleManualMode={() => handleToggleManualMode(displayProgram.id)}
           onToggleHold={() => handleToggleHold(undefined, displayProgram.id)}
           onNudge={handleNudge}
-          onEndEvent={() => requestEndEventConfirmation(displayProgram.id)}
+          onEndEvent={() => handleEndEvent(displayProgram.id)}
           onViewAnalysis={(id) => navigate(`/analytics/${id}`)}
         />
       )}

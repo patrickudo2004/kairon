@@ -171,7 +171,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     }
 
     // Draft / Waiting State
-    if (program.status === 'draft' || !currentSlot) {
+    if ((program.status === 'draft' && !isTimerActive) || !currentSlot) {
         return (
             <div className="w-screen h-screen bg-[#000000] text-white flex flex-col items-center justify-center p-8 text-center font-sans select-none">
                 <div className="text-[8vw] font-mono font-bold tracking-tight text-white mb-4">STANDBY</div>
