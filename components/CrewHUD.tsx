@@ -438,8 +438,8 @@ export const CrewHUD: React.FC = () => {
             sound: 'Sound Crew',
             lighting: 'Lights Crew',
             video: 'Video Crew',
-            speaker: 'Pastor / Speaker',
-            operator: 'Booth Operator'
+            speaker: 'Speaker / Presenter',
+            operator: 'Production Operator'
         };
 
         const newMsg = {

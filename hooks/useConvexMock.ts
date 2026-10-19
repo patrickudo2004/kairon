@@ -31,20 +31,21 @@ export const getLocalPrograms = () => {
     } catch {
         // Fallback to seeding
     }
-    const seed = getDefaultSeedPrograms();
-    try {
-        localStorage.setItem('kairon_offline_programs', JSON.stringify(seed));
-        if (typeof window !== 'undefined' && (localStorage.getItem('testBypass') === 'true' || window.location.search.includes('testBypass=true'))) {
+    if (isTestBypass()) {
+        const seed = getDefaultSeedPrograms();
+        try {
+            localStorage.setItem('kairon_offline_programs', JSON.stringify(seed));
             localStorage.setItem('test_programs', JSON.stringify(seed));
-        }
-    } catch {}
-    return seed;
+        } catch {}
+        return seed;
+    }
+    return [];
 };
 
 export const useConvexAuth = () => {
     const isTestMode = isTestBypass();
     const realVal = useConvexAuthReal();
-    if (isTestMode) {
+    if (isTestBypass()) {
         return { isAuthenticated: true, isLoading: false };
     }
     return realVal;
@@ -53,7 +54,7 @@ export const useConvexAuth = () => {
 export const useConvex = () => {
     const isTestMode = isTestBypass();
     const realVal = useConvexReal();
-    if (isTestMode) {
+    if (isTestBypass()) {
         return {
             status: () => 'connected'
         };
@@ -107,7 +108,7 @@ export const useQuery = (query: any, args: any) => {
         }
     }
     if (path.includes('getCurrentUser')) {
-        return { id: "local-booth-operator", email: "booth@kairon.local", name: "Booth Operator (Offline)" };
+        return { id: "local-guest-user", email: "guest@kairon.app", name: "Guest" };
     }
     if (path.includes('getMyMembershipInOrg')) {
         return { role: "admin" };
@@ -149,7 +150,7 @@ export const useQuery = (query: any, args: any) => {
             logoUrl: branding.logoUrl,
             brandColor: branding.brandColor,
             subscriptionStatus: "enterprise",
-            createdBy: "local-booth-operator",
+            createdBy: "local-guest-user",
             createdAt: new Date().toISOString()
         };
         return path.includes('getMyOrganizations') ? [org] : org;

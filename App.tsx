@@ -242,10 +242,10 @@ const healScheduleOverruns = (program: Program, currentSlotIndex: number, overru
 
 export const DEFAULT_OFFLINE_ORG: Organization = {
   id: 'local-workspace',
-  name: 'Winners Chapel Manchester',
-  slug: 'winners-chapel-manchester',
+  name: 'Main Workspace',
+  slug: 'main-workspace',
   subscriptionStatus: 'enterprise',
-  createdBy: 'local-booth-operator',
+  createdBy: 'local-guest-user',
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
@@ -498,15 +498,15 @@ const AppContent: React.FC = () => {
   const user = (isAuthenticated && convexUser)
     ? { id: convexUser.id as string, email: convexUser.email as string | undefined }
     : isBoothMode
-    ? { id: 'local-booth-operator', email: 'booth@kairon.local' }
+    ? { id: 'local-guest-user', email: 'guest@kairon.app' }
     : null;
 
   const [profile, setProfile] = useState<Profile | null>(() => {
     if (typeof window !== 'undefined' && (localStorage.getItem('kairon_booth_mode') === 'true' || window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true')) {
       return {
         id: 'local-booth-profile',
-        userId: 'local-booth-operator',
-        fullName: 'Booth Operator (Offline)',
+        userId: 'local-guest-user',
+        fullName: 'Guest',
         subscriptionStatus: 'enterprise',
       };
     }
@@ -643,8 +643,8 @@ const AppContent: React.FC = () => {
       if (!profile) {
         setProfile({
           id: 'local-booth-profile',
-          userId: 'local-booth-operator',
-          fullName: 'Booth Operator (Offline)',
+          userId: 'local-guest-user',
+          fullName: 'Guest',
           subscriptionStatus: 'enterprise',
         });
       }
@@ -985,7 +985,7 @@ const AppContent: React.FC = () => {
     String(globalLiveProgram?.id).replace(/^local-/, '') === String(program.id).replace(/^local-/, '')
   );
   const isUntouchedPlaceholder = program.id?.startsWith('local-') && program.slots.length === 0 && program.title === 'New Event' && !program.subtitle;
-  const fallbackWorkspaceProgram = (!isLiveEventActive && isUntouchedPlaceholder && programs.length > 0) ? programs[0] : null;
+  const fallbackWorkspaceProgram = null;
 
   const displayIsManualMode = isLiveEventActive
     ? (isTargetSameAsLocal ? Boolean(program.isManualMode ?? globalLiveProgram?.isManualMode) : Boolean(globalLiveProgram?.isManualMode))
