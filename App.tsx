@@ -558,16 +558,16 @@ const AppContent: React.FC = () => {
   // Permissions Logic (Auto-grant admin to org creator/owner, local test bypass, booth mode, or electron desktop runtime)
   const isOwner = !!(user?.id && (activeOrg?.createdBy === user?.id || String(activeOrg?.createdBy) === String(user?.id)));
   const isTestBypassMode = typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
-  const isAdmin = userRole === 'admin' || isOwner || isTestBypassMode || isBoothMode || isElectronRuntime;
+  const isAdmin = userRole === 'admin' || isOwner || isTestBypassMode || isBoothMode;
   const isManager = userRole === 'manager';
   const isOperator = userRole === 'operator';
-  const canManagePrograms = isAdmin || isManager || isBoothMode || isElectronRuntime;
+  const canManagePrograms = isAdmin || isManager || isBoothMode;
 
   // 1. URL-based overrides (purely aesthetic for Admins/Managers)
   const isUrlReadOnly = mode === 'viewer' || mode === 'ReadOnly';
 
   // 2. Auth Resolution (Wait for Convex to settle)
-  const isAuthResolved = isBoothMode || isElectronRuntime || (!isConvexAuthLoading && (!isAuthenticated || (isAuthenticated && myMembership !== undefined)));
+  const isAuthResolved = isBoothMode || (!isConvexAuthLoading && (!isAuthenticated || (isAuthenticated && myMembership !== undefined)));
 
   // 3. Permission Evaluation (POWER-BASED)
   // Admins and Managers are NEVER restricted by mode, unless they choose to be viewers.
@@ -588,8 +588,8 @@ const AppContent: React.FC = () => {
     )
   );
 
-  const canControlLive = isAdmin || isManager || isOperator || isBoothMode || isElectronRuntime;
-  const isCoEditor = isAdmin || isManager || (mode === 'coeditor') || isBoothMode || isElectronRuntime;
+  const canControlLive = isAdmin || isManager || isOperator || isBoothMode;
+  const isCoEditor = isAdmin || isManager || (mode === 'coeditor') || isBoothMode;
 
   const isReadOnlyRef = React.useRef(isReadOnly);
   useEffect(() => {
@@ -628,17 +628,18 @@ const AppContent: React.FC = () => {
   const { data: rawUserOrganizations = [], isLoading: loadingOrgs } = useQuery<Organization[]>({
     queryKey: ['myOrganizations', user?.id],
     queryFn: () => getMyOrganizations(user?.id || ''),
-    enabled: !!user && !isBoothMode && !isElectronRuntime
+    enabled: !!user && !isBoothMode
   });
 
   const userOrganizations = useMemo(() => {
-    if (isBoothMode || isElectronRuntime) return [DEFAULT_OFFLINE_ORG];
-    return rawUserOrganizations;
-  }, [isBoothMode, isElectronRuntime, rawUserOrganizations]);
+    if (isBoothMode) return [DEFAULT_OFFLINE_ORG];
+    if (rawUserOrganizations.length > 0) return rawUserOrganizations;
+    return [DEFAULT_OFFLINE_ORG];
+  }, [isBoothMode, rawUserOrganizations]);
 
-  // Auto-initialize profile and active org for offline booth mode or electron desktop
+  // Auto-initialize profile and active org for offline booth mode
   useEffect(() => {
-    if (isBoothMode || isElectronRuntime) {
+    if (isBoothMode) {
       if (!profile) {
         setProfile({
           id: 'local-booth-profile',
@@ -652,7 +653,7 @@ const AppContent: React.FC = () => {
         setActiveOrgId(DEFAULT_OFFLINE_ORG.id);
       }
     }
-  }, [isBoothMode, isElectronRuntime, profile, activeOrg]);
+  }, [isBoothMode, profile, activeOrg]);
 
   // Invite ID handling for personalized banner
   const urlInviteId = searchParams.get('inviteId');
@@ -3128,6 +3129,16 @@ const AppContent: React.FC = () => {
               <span className="hidden md:inline">{isOnline ? 'ONLINE' : 'LOCAL RELAY'}</span>
             </div>
 
+            {isBoothMode && (
+              <button
+                onClick={handleSignOut}
+                className="hidden sm:flex items-center gap-1 px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded text-[10px] font-mono font-bold transition-colors cursor-pointer"
+                title="Currently in Offline Guest Booth Mode. Click to sign in to your church account for cloud sync."
+              >
+                <span>GUEST BOOTH</span>
+              </button>
+            )}
+
             {!isReadOnly && (
               <button
                 onClick={toggleTheme}
@@ -3225,7 +3236,7 @@ const AppContent: React.FC = () => {
           />
         )}
 
-        {user && !isBoothMode && !isElectronRuntime && (userOrganizations.length === 0 || isOnboardingManual) && !effectiveAuthLoading && !loadingOrgs && (
+        {user && !isBoothMode && (userOrganizations.length === 0 || isOnboardingManual) && !effectiveAuthLoading && !loadingOrgs && (
           <OnboardingOverlay
             userId={user.id}
             userEmail={user.email || ''}
