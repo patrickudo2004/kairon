@@ -1,24 +1,27 @@
 import { Program } from '../types';
 
-export const PRODUCTION_WEB_ORIGIN = 'https://kairon-murex.vercel.app';
-
 /**
  * Returns the canonical public web origin for shareable links, QR codes, embeds, and invites.
- * When running inside the Electron Desktop App (file://) or localhost dev server,
- * it automatically resolves to the live production web URL so phones/tablets scanning
- * QR codes or opening shared links can reach the cloud deployment.
+ * Prioritizes explicitly configured environment variables (VITE_SITE_URL / VITE_PUBLIC_URL),
+ * falls back to the current browser origin (including localhost and LAN IP addresses),
+ * and defaults to http://localhost:3000 in Electron desktop mode (file://).
  */
 export const getCanonicalWebOrigin = (): string => {
-  if (typeof window === 'undefined') return PRODUCTION_WEB_ORIGIN;
-  const origin = window.location.origin;
-  const isLocalOrFile =
-    !origin ||
-    origin === 'null' ||
-    origin.startsWith('file:') ||
-    origin.includes('localhost') ||
-    origin.includes('127.0.0.1');
+  if (typeof window === 'undefined') return '';
+  const configuredSiteUrl =
+    (import.meta as any).env?.VITE_SITE_URL ||
+    (import.meta as any).env?.VITE_PUBLIC_URL;
+  if (configuredSiteUrl) {
+    return String(configuredSiteUrl).replace(/\/+$/, '');
+  }
 
-  return isLocalOrFile ? PRODUCTION_WEB_ORIGIN : origin;
+  const origin = window.location.origin;
+  if (origin && origin !== 'null' && !origin.startsWith('file:')) {
+    return origin;
+  }
+
+  // Inside Electron Desktop App (file://) without VITE_SITE_URL, use localhost:3000 dev/server origin
+  return 'http://localhost:3000';
 };
 
 /**

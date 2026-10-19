@@ -31,10 +31,20 @@ const LiveThumbnail: React.FC<{
         return () => observer.disconnect();
     }, []);
 
+    const resolvedSrc = (() => {
+        const querySep = path.includes('?') ? '&' : '?';
+        const query = `${querySep}mode=thumbnail&theme=${theme}`;
+        if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+            const clean = path.startsWith('/') ? path.slice(1) : path;
+            return `${window.location.pathname}#/${clean}${query}`;
+        }
+        return `${path}${query}`;
+    })();
+
     return (
         <div ref={containerRef} className="w-full h-full relative overflow-hidden">
             <iframe
-                src={`${path}${path.includes('?') ? '&' : '?'}mode=thumbnail&theme=${theme}`}
+                src={resolvedSrc}
                 className="pointer-events-none opacity-85 absolute top-0 left-0"
                 title={title}
                 style={{
@@ -134,8 +144,11 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
         const left = (window.screen.width - width) / 2;
         const top = (window.screen.height - height) / 2;
         const targetName = `kairon_display_${tabId || 'window'}`;
+        const targetUrl = (typeof window !== 'undefined' && window.location.protocol === 'file:')
+            ? `${window.location.pathname}#/${path.startsWith('/') ? path.slice(1) : path}`
+            : path;
         window.open(
-            path,
+            targetUrl,
             targetName,
             `width=${width},height=${height},left=${left},top=${top},menubar=no,status=no,toolbar=no,location=no`
         );
@@ -147,10 +160,13 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
         if (hasSecondaryScreen) {
             await openOnSecondaryScreen(fullPath, targetName);
         } else {
+            const targetUrl = (typeof window !== 'undefined' && window.location.protocol === 'file:')
+                ? `${window.location.pathname}#/${fullPath.startsWith('/') ? fullPath.slice(1) : fullPath}`
+                : fullPath;
             const width = window.screen.availWidth || 1920;
             const height = window.screen.availHeight || 1080;
             window.open(
-                fullPath,
+                targetUrl,
                 targetName,
                 `width=${width},height=${height},left=0,top=0,menubar=no,status=no,toolbar=no,location=no`
             );

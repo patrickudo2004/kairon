@@ -371,10 +371,15 @@ const AppContent: React.FC = () => {
     isAuthenticated ? {} : "skip"
   );
 
-  // Check if running in offline Booth Mode
+  const isElectronRuntime = typeof window !== 'undefined' && Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron);
+
+  // Check if running in offline Booth Mode or Test Bypass
   const [isBoothMode, setIsBoothMode] = useState<boolean>(() => {
     try {
-      return typeof window !== 'undefined' && localStorage.getItem('kairon_booth_mode') === 'true';
+      if (typeof window === 'undefined') return false;
+      const isBooth = localStorage.getItem('kairon_booth_mode') === 'true';
+      const isTestBypass = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true';
+      return isBooth || isTestBypass;
     } catch {
       return false;
     }
@@ -383,7 +388,9 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const handleBoothModeSync = () => {
       try {
-        setIsBoothMode(localStorage.getItem('kairon_booth_mode') === 'true');
+        const isBooth = localStorage.getItem('kairon_booth_mode') === 'true';
+        const isTestBypass = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true';
+        setIsBoothMode(isBooth || isTestBypass);
       } catch {}
     };
     window.addEventListener('kairon_booth_mode_changed', handleBoothModeSync);
@@ -431,19 +438,19 @@ const AppContent: React.FC = () => {
 
   const userRole = myMembership?.role; // 'admin', 'manager', 'operator'
 
-  // Permissions Logic (Auto-grant admin to org creator/owner, local test bypass, or booth mode)
+  // Permissions Logic (Auto-grant admin to org creator/owner, local test bypass, booth mode, or electron desktop runtime)
   const isOwner = !!(user?.id && (activeOrg?.createdBy === user?.id || String(activeOrg?.createdBy) === String(user?.id)));
   const isTestBypassMode = typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
-  const isAdmin = userRole === 'admin' || isOwner || isTestBypassMode || isBoothMode;
+  const isAdmin = userRole === 'admin' || isOwner || isTestBypassMode || isBoothMode || isElectronRuntime;
   const isManager = userRole === 'manager';
   const isOperator = userRole === 'operator';
-  const canManagePrograms = isAdmin || isManager || isBoothMode;
+  const canManagePrograms = isAdmin || isManager || isBoothMode || isElectronRuntime;
 
   // 1. URL-based overrides (purely aesthetic for Admins/Managers)
   const isUrlReadOnly = mode === 'viewer' || mode === 'ReadOnly';
 
   // 2. Auth Resolution (Wait for Convex to settle)
-  const isAuthResolved = isBoothMode || (!isConvexAuthLoading && (!isAuthenticated || (isAuthenticated && myMembership !== undefined)));
+  const isAuthResolved = isBoothMode || isElectronRuntime || (!isConvexAuthLoading && (!isAuthenticated || (isAuthenticated && myMembership !== undefined)));
 
   // 3. Permission Evaluation (POWER-BASED)
   // Admins and Managers are NEVER restricted by mode, unless they choose to be viewers.
@@ -464,8 +471,8 @@ const AppContent: React.FC = () => {
     )
   );
 
-  const canControlLive = isAdmin || isManager || isOperator || isBoothMode;
-  const isCoEditor = isAdmin || isManager || (mode === 'coeditor') || isBoothMode;
+  const canControlLive = isAdmin || isManager || isOperator || isBoothMode || isElectronRuntime;
+  const isCoEditor = isAdmin || isManager || (mode === 'coeditor') || isBoothMode || isElectronRuntime;
 
   const isReadOnlyRef = React.useRef(isReadOnly);
   useEffect(() => {
@@ -1353,14 +1360,29 @@ const AppContent: React.FC = () => {
 
       // Keep offline cache synchronized with timer mutations
       try {
-        const cachedRaw = localStorage.getItem(`kairon_offline_cache_${id}`);
+        const cleanId = id.replace(/^local-/, '');
+        const cachedRaw = localStorage.getItem(`kairon_offline_cache_${id}`) ||
+                          localStorage.getItem(`kairon_offline_cache_${cleanId}`) ||
+                          localStorage.getItem('kairon_offline_cache_live') ||
+                          localStorage.getItem('kairon_program');
         if (cachedRaw) {
           const cached = JSON.parse(cachedRaw);
-          const updated = { ...cached, ...timerState };
-          localStorage.setItem(`kairon_offline_cache_${id}`, JSON.stringify(updated));
-          if (updated.status === 'live' || updated.isTimerActive) {
-            localStorage.setItem('kairon_offline_cache_live', JSON.stringify(updated));
-          }
+          const updated = { ...cached, ...timerState, id };
+          const serialized = JSON.stringify(updated);
+          localStorage.setItem(`kairon_offline_cache_${id}`, serialized);
+          localStorage.setItem(`kairon_offline_cache_${cleanId}`, serialized);
+          localStorage.setItem('kairon_offline_cache_live', serialized);
+
+          // Broadcast full updated program payload across renderer and Electron secondary displays
+          try {
+            const chan = new BroadcastChannel('kairon_offline_sync');
+            chan.postMessage({ id, program: updated, ...timerState });
+            chan.close();
+            const electronApi = (window as any).electron || (window as any).electronAPI;
+            if (electronApi?.sendTimerState) {
+              electronApi.sendTimerState({ id, program: updated, ...timerState });
+            }
+          } catch {}
         }
       } catch (err) {
         // silent
@@ -1460,6 +1482,18 @@ const AppContent: React.FC = () => {
       timerStartTimestamp: null
     };
 
+    // Update offline cache immediately so all display screens cleanly transition to concluded state
+    try {
+      const serialized = JSON.stringify(updatedProgram);
+      const cleanId = targetId.replace(/^local-/, '');
+      localStorage.setItem(`kairon_offline_cache_${targetId}`, serialized);
+      localStorage.setItem(`kairon_offline_cache_${cleanId}`, serialized);
+      localStorage.setItem('kairon_offline_cache_live', serialized);
+      localStorage.setItem('kairon_program', serialized);
+    } catch (e) {
+      console.warn("Failed to update offline cache on end event:", e);
+    }
+
     // PUSH TO CLOUD
     timerSaveMutation.mutate({
       id: targetId,
@@ -1476,6 +1510,9 @@ const AppContent: React.FC = () => {
       setTimerStartTimestamp(null);
       setSecondsElapsed(0);
     }
+
+    // Reset selected live session
+    setSelectedLiveId(null);
 
     // Broadcast concluded state across all local tabs and Electron secondary windows
     try {
@@ -2860,12 +2897,13 @@ const AppContent: React.FC = () => {
             {/* End Event / Stop Button (Protected Hold Confirmation) */}
             {displayIsTimerActive && (
               <HoldToConfirmButton
-                durationMs={2000}
-                onConfirm={() => requestEndEventConfirmation(displayProgram.id)}
+                durationMs={1200}
+                onConfirm={() => handleEndEvent(displayProgram.id)}
+                onQuickClick={() => requestEndEventConfirmation(displayProgram.id)}
                 label="End"
                 holdingLabel="Hold"
                 className="px-2 py-1 text-xs font-mono font-semibold"
-                title="Press and hold 2 seconds to end this live session"
+                title="Click to confirm or hold 1s to end this live session"
               />
             )}
 
@@ -3114,6 +3152,7 @@ const AppContent: React.FC = () => {
                     onNext={handleNext}
                     onPrev={handlePrev}
                     onEndEvent={(id) => handleEndEvent(id || displayProgram.id)}
+                    onRequestEndEvent={(id) => requestEndEventConfirmation(id || displayProgram.id)}
                     onNudge={handleNudge}
                     readOnly={!canControlLive}
                     isAutopilotEnabled={isAutopilotEnabled}

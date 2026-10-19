@@ -10,8 +10,11 @@ import StageDisplay from '../StageDisplay';
 const StageWrapper: React.FC = () => {
     const [searchParams] = useSearchParams();
     // Accept both ?id= (canonical) and ?programId= (legacy callers from MenuBar / RightDock)
-    const programId = searchParams.get('id') || searchParams.get('programId');
-    const themeParam = searchParams.get('theme');
+    const hashParams = typeof window !== 'undefined' && window.location.hash.includes('?')
+        ? new URLSearchParams(window.location.hash.substring(window.location.hash.indexOf('?')))
+        : null;
+    const programId = searchParams.get('id') || searchParams.get('programId') || hashParams?.get('id') || hashParams?.get('programId');
+    const themeParam = searchParams.get('theme') || hashParams?.get('theme');
 
     const globalDarkMode = useUIStore((state) => state.isDarkMode);
     const isDarkMode = themeParam ? (themeParam === 'dark') : globalDarkMode;
@@ -29,15 +32,34 @@ const StageWrapper: React.FC = () => {
 
     const [localOfflineProgram, setLocalOfflineProgram] = useState<Program | null>(() => {
         try {
-            const cached = localStorage.getItem(`kairon_offline_cache_${programId || 'live'}`);
-            if (cached) return JSON.parse(cached);
-            if (programId) {
-                const local = localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs');
-                if (local) {
-                    const list = JSON.parse(local);
-                    const cleanId = programId.replace('local-', '');
-                    const found = list.find((p: any) => p.id === programId || p.id?.replace('local-', '') === cleanId || p.slug === cleanId);
-                    if (found) return found;
+            const cleanId = programId ? programId.replace(/^local-/, '') : null;
+            const candidates = [
+                programId ? `kairon_offline_cache_${programId}` : null,
+                cleanId ? `kairon_offline_cache_${cleanId}` : null,
+                'kairon_offline_cache_live',
+                'kairon_program'
+            ].filter(Boolean) as string[];
+
+            for (const key of candidates) {
+                const cached = localStorage.getItem(key);
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    if (parsed && (parsed.id === programId || parsed.id?.replace(/^local-/, '') === cleanId || !programId || parsed.status === 'live')) {
+                        return parsed;
+                    }
+                }
+            }
+
+            // Check list stores
+            const local = localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs');
+            if (local) {
+                const list = JSON.parse(local);
+                if (Array.isArray(list) && list.length > 0) {
+                    if (programId) {
+                        const found = list.find((p: any) => p.id === programId || p.id?.replace('local-', '') === cleanId || p.slug === cleanId);
+                        if (found) return found;
+                    }
+                    return list[0];
                 }
             }
             return null;
@@ -68,10 +90,21 @@ const StageWrapper: React.FC = () => {
         if (isMatch || (!pid && (data.program?.status === 'live' || data.status === 'live' || data.isTimerActive))) {
             setLocalOfflineProgram(prev => {
                 let base = prev || programFromConvexRef.current;
-                if (!base && pid) {
+                if (!base) {
                     try {
-                        const cached = localStorage.getItem(`kairon_offline_cache_${pid}`);
-                        if (cached) base = JSON.parse(cached);
+                        const candidates = [
+                            pid ? `kairon_offline_cache_${pid}` : null,
+                            cleanPid ? `kairon_offline_cache_${cleanPid}` : null,
+                            'kairon_offline_cache_live',
+                            'kairon_program'
+                        ].filter(Boolean) as string[];
+                        for (const key of candidates) {
+                            const cached = localStorage.getItem(key);
+                            if (cached) {
+                                base = JSON.parse(cached);
+                                break;
+                            }
+                        }
                     } catch {}
                 }
                 let updated: Program | null = null;
@@ -181,7 +214,8 @@ const StageWrapper: React.FC = () => {
     const isBoothMode = typeof window !== 'undefined' && (
         localStorage.getItem('kairon_booth_mode') === 'true' ||
         window.location.search.includes('testBypass=true') ||
-        localStorage.getItem('testBypass') === 'true'
+        localStorage.getItem('testBypass') === 'true' ||
+        Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron)
     );
     const candidateProg = programFromConvex || localOfflineProgram;
     const program = (() => {

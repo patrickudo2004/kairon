@@ -11,7 +11,8 @@ export const useFlightBridge = () => {
     }, []);
 
     const openFlightBridge = useCallback(async (width = 380, height = 550) => {
-        const canUseNativePip = typeof window !== 'undefined' && 'documentPictureInPicture' in window;
+        const isElectron = typeof window !== 'undefined' && Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron);
+        const canUseNativePip = !isElectron && typeof window !== 'undefined' && 'documentPictureInPicture' in window;
         if (canUseNativePip) {
             try {
                 if (pipWindow) {
