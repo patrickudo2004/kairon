@@ -8,10 +8,34 @@ export const useFlightBridge = () => {
     useEffect(() => {
         const supported = typeof window !== 'undefined' && 'documentPictureInPicture' in window;
         setHasNativePip(supported);
+
+        // Listen for native Electron Flight Bridge window close
+        const electron = typeof window !== 'undefined' ? ((window as any).electron || (window as any).electronAPI) : null;
+        if (electron && typeof electron.onFlightBridgeClosed === 'function') {
+            const unsub = electron.onFlightBridgeClosed(() => {
+                setIsFloatingBridgeOpen(false);
+            });
+            return () => {
+                if (typeof unsub === 'function') unsub();
+            };
+        }
     }, []);
 
     const openFlightBridge = useCallback(async (width = 380, height = 550) => {
         const isElectron = typeof window !== 'undefined' && Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron);
+        const electron = typeof window !== 'undefined' ? ((window as any).electron || (window as any).electronAPI) : null;
+
+        // In Electron desktop runtime, launch true detached native OS BrowserWindow
+        if (isElectron && electron && typeof electron.toggleFlightBridge === 'function') {
+            try {
+                const res = await electron.toggleFlightBridge();
+                setIsFloatingBridgeOpen(Boolean(res?.open));
+                return null;
+            } catch (err) {
+                console.warn('Native Flight Bridge window toggle failed, falling back to in-app floating HUD:', err);
+            }
+        }
+
         const canUseNativePip = !isElectron && typeof window !== 'undefined' && 'documentPictureInPicture' in window;
         if (canUseNativePip) {
             try {
@@ -48,12 +72,16 @@ export const useFlightBridge = () => {
             }
         }
 
-        // Universal fallback for Electron & browsers without Document PiP: Toggle in-app floating HUD
+        // Universal fallback for web browsers without Document PiP: Toggle in-app floating HUD
         setIsFloatingBridgeOpen(prev => !prev);
         return null;
     }, [pipWindow]);
 
     const closeFlightBridge = useCallback(() => {
+        const electron = typeof window !== 'undefined' ? ((window as any).electron || (window as any).electronAPI) : null;
+        if (electron && typeof electron.closeFlightBridge === 'function') {
+            electron.closeFlightBridge();
+        }
         if (pipWindow) {
             pipWindow.close();
             setPipWindow(null);
@@ -64,7 +92,7 @@ export const useFlightBridge = () => {
     return {
         pipWindow,
         isFloatingBridgeOpen,
-        isSupported: true, // Always supported via PiP or Floating HUD
+        isSupported: true, // Always supported via Native Window, PiP, or Floating HUD
         hasNativePip,
         openFlightBridge,
         closeFlightBridge

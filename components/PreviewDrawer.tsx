@@ -81,7 +81,7 @@ export const PreviewDrawer: React.FC<PreviewDrawerProps> = ({ program, isOpen, o
                         <div className="pr-10">
                             <div className="flex items-center gap-2 mb-1">
                                 <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded tracking-widest uppercase">Preview</span>
-                                {program.status === 'active' && (
+                                {program.status === 'live' && (
                                     <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" title="Event is currently live" />
                                 )}
                             </div>

@@ -15,14 +15,20 @@ const isTestBypass = () => {
     }
 };
 
-const getLocalStoredPrograms = (): Program[] => {
+const safeParseList = (raw: string | null): Program[] => {
+    if (!raw) return [];
     try {
-        const local = localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs');
-        if (local) {
-            const parsed = JSON.parse(local);
-            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-    } catch {}
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
+
+const getLocalStoredPrograms = (): Program[] => {
+    const local = typeof window !== 'undefined' ? (localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs')) : null;
+    const list = safeParseList(local);
+    if (list.length > 0) return list;
     const seed = getDefaultSeedPrograms();
     try {
         localStorage.setItem('kairon_offline_programs', JSON.stringify(seed));
@@ -74,8 +80,7 @@ export const getProgramById = async (id: string): Promise<Program | null> => {
 export const createProgram = async (program: Program): Promise<Program> => {
     if (isTestBypass()) {
         const id = program.id?.startsWith('local-') ? program.id : `local-${crypto.randomUUID()}`;
-        const local = localStorage.getItem('test_programs');
-        const list: Program[] = local ? JSON.parse(local) : [];
+        const list: Program[] = safeParseList(localStorage.getItem('test_programs'));
         const cleanId = id.replace(/^local-/, '');
         const existing = list.find((p: any) => p.id === id || p.id?.replace(/^local-/, '') === cleanId || (p.slug && p.slug === cleanId));
         // CRITICAL: If an existing record is found, preserve timer-managed fields.
@@ -137,8 +142,7 @@ export const updateProgram = async (program: Program): Promise<void> => {
     const cleanSlug = (program.slug || program.id || '').replace(/^local-/, '');
     const cleanId = (program.id || '').replace(/^local-/, '');
     if (isTestBypass()) {
-        const local = localStorage.getItem('test_programs');
-        let list: Program[] = local ? JSON.parse(local) : [];
+        let list: Program[] = safeParseList(localStorage.getItem('test_programs'));
         list = list.map((p) => {
             const matches = p.id === program.id ||
                 p.id?.replace(/^local-/, '') === cleanId ||
@@ -187,8 +191,7 @@ export const updateProgram = async (program: Program): Promise<void> => {
 export const deleteProgram = async (id: string): Promise<void> => {
     const cleanId = id.replace('local-', '');
     if (isTestBypass()) {
-        const local = localStorage.getItem('test_programs');
-        let list: Program[] = local ? JSON.parse(local) : [];
+        let list: Program[] = safeParseList(localStorage.getItem('test_programs'));
         list = list.filter((p: any) => 
             p.id !== id && 
             p.id?.replace('local-', '') !== cleanId && 
@@ -239,11 +242,10 @@ export const updateTimerState = async (programId: string, state: {
 }): Promise<void> => {
     if (isTestBypass()) {
         console.log(`[TEST BYPASS] updateTimerState for programId=${programId}`, state);
-        const local = localStorage.getItem('test_programs');
-        let list: Program[] = local ? JSON.parse(local) : [];
+        let list: Program[] = safeParseList(localStorage.getItem('test_programs'));
         const cleanId = programId.replace(/^local-/, '');
         list = list.map((p) => {
-            if (p.id === programId || p.id?.replace(/^local-/, '') === cleanId || p._id === programId) {
+            if (p.id === programId || p.id?.replace(/^local-/, '') === cleanId || (p as any)._id === programId) {
                 return { ...p, ...state };
             }
             return p;

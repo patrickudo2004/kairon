@@ -38,6 +38,7 @@ interface FlightBridgeProps {
     program: Program;
     currentSlotIndex: number;
     isTimerActive: boolean;
+    timerStartTimestamp?: number | null;
     secondsElapsed: number;
     isDarkMode: boolean;
     onToggleTheme: () => void;
@@ -47,6 +48,7 @@ interface FlightBridgeProps {
     onPrev: (targetId?: string) => void;
     onNudge: (minutes: number) => void;
     onEndEvent: (targetId?: string) => void;
+    onRequestEndEvent?: (targetId?: string) => void;
     isManualMode: boolean;
     onToggleManualMode: () => void;
 }
@@ -55,6 +57,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
     program,
     currentSlotIndex,
     isTimerActive,
+    timerStartTimestamp,
     secondsElapsed,
     isDarkMode,
     onToggleTheme,
@@ -64,6 +67,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
     onPrev,
     onNudge,
     onEndEvent,
+    onRequestEndEvent,
     isManualMode,
     onToggleManualMode
 }) => {
@@ -375,10 +379,11 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                     <HoldToConfirmButton
                         durationMs={2000}
                         onConfirm={() => onEndEvent(program.id)}
+                        onQuickClick={() => onRequestEndEvent ? onRequestEndEvent(program.id) : onEndEvent(program.id)}
                         label="End"
                         holdingLabel="Hold"
                         className="py-1.5 text-[11px] font-bold font-mono"
-                        title="Press and hold 2 seconds to end event"
+                        title="Click to confirm or hold 2s to end event"
                     />
                 </div>
 

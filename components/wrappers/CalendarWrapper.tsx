@@ -13,7 +13,8 @@ interface CalendarWrapperProps {
     loadProgram: (p: Program) => void;
     createProgram: (date: string) => void;
     deleteProgram: (id: string) => void;
-    duplicateProgram: (p: Program) => void;
+    duplicateProgram: (id: string) => void;
+    onPlay?: (p: Program, seconds?: number) => void;
     mode: string;
 }
 

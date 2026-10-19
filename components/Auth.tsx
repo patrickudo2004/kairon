@@ -18,6 +18,8 @@ interface AuthProps {
 
 export const Auth: React.FC<AuthProps> = ({ inviteDetails }) => {
     const { signIn } = useAuthActions();
+    const isDarkMode = useUIStore((state) => state.isDarkMode);
+    const toggleTheme = useUIStore((state) => state.toggleTheme);
     const [searchParams] = useSearchParams();
     const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);

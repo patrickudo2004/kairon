@@ -10,6 +10,7 @@ interface ConfirmationModalProps {
     confirmText?: string;
     cancelText?: string;
     type?: 'danger' | 'warning' | 'info';
+    onAction?: () => void;
 }
 
 export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -20,7 +21,8 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     message,
     confirmText = 'Confirm',
     cancelText = 'Cancel',
-    type = 'warning'
+    type = 'warning',
+    onAction
 }) => {
     if (!isOpen) return null;
 
@@ -76,7 +78,12 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                             {confirmText}
                         </button>
                         <button
-                            onClick={onClose}
+                            onClick={() => {
+                                if (onAction) {
+                                    onAction();
+                                }
+                                onClose();
+                            }}
                             className="w-full py-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold transition-colors"
                         >
                             {cancelText}

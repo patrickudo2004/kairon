@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { Component, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams, Navigate, useParams } from 'react-router-dom';
 import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, User as UserIcon, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus, ExternalLink, Tv, AppWindow, SkipBack, SkipForward, Pause, Clock, Monitor, Building, MessageSquare, Bell, Crown, Volume2, Lightbulb, Video, Plus, Minus, BarChart3, Power, Keyboard, PanelRight, Layers, GripHorizontal } from 'lucide-react';
@@ -60,6 +60,7 @@ import { MonitorDashboard } from './components/MonitorDashboard';
 import { CommandCenter } from './components/CommandCenter';
 import { ConfirmationModal } from './components/ConfirmationModal';
 import { CrewHUD } from './components/CrewHUD';
+import FlightBridgeStandaloneView from './components/FlightBridgeStandaloneView';
 import { MobileFlightBridge } from './components/MobileFlightBridge';
 import { BroadcastHotkeysModal } from './components/BroadcastHotkeysModal';
 import { StudioMenuBar } from './components/StudioMenuBar';
@@ -245,6 +246,7 @@ export const DEFAULT_OFFLINE_ORG: Organization = {
   slug: 'winners-chapel-manchester',
   subscriptionStatus: 'enterprise',
   createdBy: 'local-booth-operator',
+  createdAt: '2026-01-01T00:00:00.000Z',
 };
 
 // --- App Content Component ---
@@ -468,15 +470,15 @@ const AppContent: React.FC = () => {
 
   const isElectronRuntime = typeof window !== 'undefined' && Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron);
 
-  // Check if running in offline Booth Mode, Test Bypass, or Electron Desktop
+  // Check if running in offline Booth Mode or Test Bypass
   const [isBoothMode, setIsBoothMode] = useState<boolean>(() => {
     try {
       if (typeof window === 'undefined') return false;
       const isBooth = localStorage.getItem('kairon_booth_mode') === 'true';
       const isTestBypass = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true';
-      return isBooth || isTestBypass || isElectronRuntime;
+      return isBooth || isTestBypass;
     } catch {
-      return isElectronRuntime;
+      return false;
     }
   });
 
@@ -485,22 +487,22 @@ const AppContent: React.FC = () => {
       try {
         const isBooth = localStorage.getItem('kairon_booth_mode') === 'true';
         const isTestBypass = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true';
-        setIsBoothMode(isBooth || isTestBypass || isElectronRuntime);
+        setIsBoothMode(isBooth || isTestBypass);
       } catch {}
     };
     window.addEventListener('kairon_booth_mode_changed', handleBoothModeSync);
     return () => window.removeEventListener('kairon_booth_mode_changed', handleBoothModeSync);
-  }, [isElectronRuntime]);
+  }, []);
 
   // Derive a simple user object compatible with existing code
   const user = (isAuthenticated && convexUser)
     ? { id: convexUser.id as string, email: convexUser.email as string | undefined }
-    : (isBoothMode || isElectronRuntime)
+    : isBoothMode
     ? { id: 'local-booth-operator', email: 'booth@kairon.local' }
     : null;
 
   const [profile, setProfile] = useState<Profile | null>(() => {
-    if (isElectronRuntime || (typeof window !== 'undefined' && (localStorage.getItem('kairon_booth_mode') === 'true' || window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true'))) {
+    if (typeof window !== 'undefined' && (localStorage.getItem('kairon_booth_mode') === 'true' || window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true')) {
       return {
         id: 'local-booth-profile',
         userId: 'local-booth-operator',
@@ -511,13 +513,13 @@ const AppContent: React.FC = () => {
     return null;
   });
   const [activeOrgId, setActiveOrgId] = useState<string | null>(() => {
-    if (isElectronRuntime || (typeof window !== 'undefined' && (localStorage.getItem('kairon_booth_mode') === 'true' || window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true'))) {
+    if (typeof window !== 'undefined' && (localStorage.getItem('kairon_booth_mode') === 'true' || window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true')) {
       return DEFAULT_OFFLINE_ORG.id;
     }
     return null;
   });
   const [activeOrg, setActiveOrg] = useState<Organization | null>(() => {
-    if (isElectronRuntime || (typeof window !== 'undefined' && (localStorage.getItem('kairon_booth_mode') === 'true' || window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true'))) {
+    if (typeof window !== 'undefined' && (localStorage.getItem('kairon_booth_mode') === 'true' || window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true')) {
       return DEFAULT_OFFLINE_ORG;
     }
     return null;
@@ -599,12 +601,17 @@ const AppContent: React.FC = () => {
   // Cache Pro Workspace Entitlement for 14-day silent offline grace period
   useEffect(() => {
     if (activeOrg?.id && activeOrg.subscriptionStatus) {
-      cacheWorkspaceEntitlement(activeOrg.id, activeOrg.subscriptionStatus === 'pro' ? 'pro' : 'free');
+      cacheWorkspaceEntitlement({
+        orgId: activeOrg.id,
+        orgName: activeOrg.name,
+        subscriptionStatus: (activeOrg.subscriptionStatus === 'pro' || activeOrg.subscriptionStatus === 'enterprise') ? activeOrg.subscriptionStatus : 'free',
+        role: userRole || 'admin',
+      });
     }
-  }, [activeOrg?.id, activeOrg?.subscriptionStatus]);
+  }, [activeOrg?.id, activeOrg?.name, activeOrg?.subscriptionStatus, userRole]);
 
-  const cachedTier = activeOrgId ? getCachedWorkspaceEntitlement(activeOrgId) : null;
-  const isPro = activeOrg?.subscriptionStatus === 'pro' || activeOrg?.subscriptionStatus === 'enterprise' || (!isOnline && cachedTier === 'pro') || isTestBypassMode || isBoothMode;
+  const cachedEntitlement = activeOrgId ? getCachedWorkspaceEntitlement(activeOrgId) : null;
+  const isPro = activeOrg?.subscriptionStatus === 'pro' || activeOrg?.subscriptionStatus === 'enterprise' || (!isOnline && cachedEntitlement?.subscriptionStatus === 'pro') || isTestBypassMode || isBoothMode;
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [isDataHydrated, setIsDataHydrated] = useState(false);
   const [authRetryCount, setAuthRetryCount] = useState(0);
@@ -1403,14 +1410,19 @@ const AppContent: React.FC = () => {
       }
 
       // Silently auto-archive to local Electron disk workspace if available
-      void autoArchiveToLocalWorkspace(p, activeOrg?.name).then((res) => {
-        if (res?.archived) {
+      void autoArchiveToLocalWorkspace(p, activeOrg?.name).then((savedPath) => {
+        if (savedPath) {
           setLastDiskArchiveAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         }
       });
 
       if (typeof window !== 'undefined' && !window.navigator.onLine) {
-        enqueueOfflineChange(p);
+        enqueueOfflineChange({
+          programId: p.id,
+          lastEdited: Date.now(),
+          action: 'save_program',
+          program: p,
+        });
         setPendingOfflineCount(getOfflineLedger().length);
         return p;
       }
@@ -1424,7 +1436,12 @@ const AppContent: React.FC = () => {
         // Otherwise, it's already a Convex program, just update it
         return await updateProgramService(p);
       } catch (err) {
-        enqueueOfflineChange(p);
+        enqueueOfflineChange({
+          programId: p.id,
+          lastEdited: Date.now(),
+          action: 'save_program',
+          program: p,
+        });
         setPendingOfflineCount(getOfflineLedger().length);
         throw err;
       }
@@ -2174,22 +2191,35 @@ const AppContent: React.FC = () => {
       ? displayCurrentSlotIndex 
       : (target.currentSlotIndex || 0);
 
+    const isConcluded = target.status === 'concluded' || displayProgram.status === 'concluded';
+    const totalSlots = target.slots?.length || displayProgram.slots?.length || 1;
+    const isPastEnd = indexToUse >= totalSlots - 1 && (displaySecondsElapsed >= (displayProgram.slots?.[indexToUse]?.durationMinutes || 0) * 60 || isConcluded);
+
+    let effectiveIndex = indexToUse;
+    let secondsToUse = localSecondsOverride !== undefined 
+      ? localSecondsOverride 
+      : (targetIdStr === String(displayProgram.id) ? displaySecondsElapsed : (target.secondsElapsed || 0));
+
+    // REPLAY / RESTART FIX:
+    // If starting a service that has already concluded, or restarting at the end of the rundown,
+    // cleanly rewind to Slot 0 and reset elapsed seconds to 0!
+    if (newState && (isConcluded || isPastEnd)) {
+      effectiveIndex = 0;
+      secondsToUse = 0;
+    }
+
     if (newState) {
       const now = Date.now();
       if (targetIdStr === String(displayProgram.id)) {
         lastAdvancedIndexRef.current = -1;
         lastProcessedIndexRef.current = -1;
       }
-      // For PLAY: Use localSecondsOverride (from manual start) or existing display/target elapsed
-      const secondsToUse = localSecondsOverride !== undefined 
-        ? localSecondsOverride 
-        : (targetIdStr === String(displayProgram.id) ? displaySecondsElapsed : (target.secondsElapsed || 0));
       
       const shiftedStart = now - (secondsToUse * 1000);
 
       timerSaveMutation.mutate({
         id: target.id,
-        currentSlotIndex: indexToUse,
+        currentSlotIndex: effectiveIndex,
         isTimerActive: true,
         secondsElapsed: secondsToUse, 
         timerStartTimestamp: shiftedStart,
@@ -2201,6 +2231,8 @@ const AppContent: React.FC = () => {
       });
 
       if (targetIdStr === String(program.id) || targetIdStr === String(displayProgram.id)) {
+        setCurrentSlotIndex(effectiveIndex);
+        setSecondsElapsed(secondsToUse);
         setIsTimerActive(true);
         setTimerStartTimestamp(shiftedStart);
         updateLocalProgram(prev => ({
@@ -2208,7 +2240,7 @@ const AppContent: React.FC = () => {
           status: 'live',
           isTimerActive: true,
           timerStartTimestamp: shiftedStart,
-          currentSlotIndex: indexToUse,
+          currentSlotIndex: effectiveIndex,
           secondsElapsed: secondsToUse
         }));
         
@@ -2480,8 +2512,9 @@ const AppContent: React.FC = () => {
       try {
         const res = await anyWin.electronAPI.openKaironFile();
         if (res?.opened && res?.content) {
-          const imported = parseKaironFile(res.content, activeOrgId || undefined);
-          if (imported) {
+          const parsed = parseKaironFile(res.content);
+          if (parsed?.program) {
+            const imported = parsed.program;
             updateLocalProgram(imported);
             if (imported.slots.length > 0) setSelectedSlotId(imported.slots[0].id);
             navigate('/editor');
@@ -2495,7 +2528,7 @@ const AppContent: React.FC = () => {
       }
     }
     fileInputRef.current?.click();
-  }, [activeOrgId, updateLocalProgram, navigate]);
+  }, [updateLocalProgram, navigate]);
 
   const handleBrowserFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2516,8 +2549,9 @@ const AppContent: React.FC = () => {
           alert('No valid schedule rows found in CSV file.');
         }
       } else {
-        const imported = parseKaironFile(content, activeOrgId || undefined);
-        if (imported) {
+        const parsed = parseKaironFile(content);
+        if (parsed?.program) {
+          const imported = parsed.program;
           updateLocalProgram(imported);
           if (imported.slots.length > 0) setSelectedSlotId(imported.slots[0].id);
           navigate('/editor');
@@ -2720,6 +2754,62 @@ const AppContent: React.FC = () => {
   const isLightsAcked = !!(currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-lighting`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'lighting');
   const isVideoAcked = !!(currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-video`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'video');
 
+  // Listen for timer control actions sent from detached secondary windows (e.g. Flight Bridge)
+  useEffect(() => {
+    const handleControlAction = (msg: any) => {
+      if (!msg || !msg.action) return;
+      const targetProg = displayProgram;
+      switch (msg.action) {
+        case 'TOGGLE_TIMER':
+          handleToggleTimer(targetProg, msg.force, msg.seconds);
+          break;
+        case 'NEXT':
+          handleNext(msg.targetId);
+          break;
+        case 'PREV':
+          handlePrev(msg.targetId);
+          break;
+        case 'NUDGE':
+          handleNudge(msg.minutes || (msg.seconds ? msg.seconds / 60 : 1), msg.targetId);
+          break;
+        case 'HOLD':
+          handleToggleHold(msg.nextState, msg.targetId);
+          break;
+        case 'END_EVENT':
+          handleEndEvent(msg.targetId);
+          break;
+        case 'REQUEST_END_EVENT':
+          requestEndEventConfirmation(msg.targetId || targetProg.id);
+          break;
+        case 'TOGGLE_MANUAL':
+          handleToggleManualMode(msg.targetId);
+          break;
+      }
+    };
+
+    // 1. Electron IPC control listener
+    const electron = typeof window !== 'undefined' ? ((window as any).electron || (window as any).electronAPI) : null;
+    let unsubIpc: (() => void) | undefined;
+    if (electron && typeof electron.onTimerControl === 'function') {
+      unsubIpc = electron.onTimerControl(handleControlAction);
+    }
+
+    // 2. BroadcastChannel control listener (for multi-window / backup)
+    const controlChannel = new BroadcastChannel('kairon_control_sync');
+    const handleChannelMsg = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'TIMER_CONTROL') {
+        handleControlAction(e.data);
+      }
+    };
+    controlChannel.addEventListener('message', handleChannelMsg);
+
+    return () => {
+      if (unsubIpc) unsubIpc();
+      controlChannel.removeEventListener('message', handleChannelMsg);
+      controlChannel.close();
+    };
+  }, [displayProgram, handleToggleTimer, handleNext, handlePrev, handleNudge, handleToggleHold, handleEndEvent, requestEndEventConfirmation, handleToggleManualMode]);
+
   // --- Public View Bypass (TOP LEVEL) ---
   // We check this before ANY auth or shell rendering to ensure zero-friction guest access and no flicker.
   if (isPublicPath) {
@@ -2778,6 +2868,10 @@ const AppContent: React.FC = () => {
     return <PublicPortal />;
   }
 
+  if (currentRouteToken === 'bridge' || location.pathname === '/bridge') {
+    return <FlightBridgeStandaloneView />;
+  }
+
   // Desktop app browser-auth approval page
   // This must be accessible without authentication — the user authorises the desktop session here.
   if (location.pathname === '/desktop-auth' || currentRouteToken === 'desktop-auth' || searchParams.has('desktopCode')) {
@@ -2819,8 +2913,8 @@ const AppContent: React.FC = () => {
             }));
             updateLocalProgram(prev => ({
               ...prev,
-              title: prev.title === 'New Event' ? tmpl.defaultTitle : prev.title,
-              startTime: tmpl.defaultStartTime,
+              title: prev.title === 'New Event' ? tmpl.name : prev.title,
+              startTime: tmpl.startTime,
               slots: newSlots,
             }));
             if (newSlots.length > 0) setSelectedSlotId(newSlots[0].id);
@@ -3020,10 +3114,11 @@ const AppContent: React.FC = () => {
               <HoldToConfirmButton
                 durationMs={2000}
                 onConfirm={() => handleEndEvent(displayProgram.id)}
+                onQuickClick={() => requestEndEventConfirmation(displayProgram.id)}
                 label="End"
                 holdingLabel="Hold"
                 className="px-2 py-1 text-xs font-mono font-semibold"
-                title="Press and hold 2 seconds to end this live session"
+                title="Click to confirm or hold 2s to end live session"
               />
             )}
 
@@ -3180,7 +3275,7 @@ const AppContent: React.FC = () => {
               type="warning"
             />
 
-            {!user && !isBoothMode && !isElectronRuntime ? (
+            {!user && !isBoothMode ? (
               <Auth inviteDetails={effectiveInviteDetails} />
             ) : (
               <Routes>
@@ -3490,8 +3585,8 @@ const AppContent: React.FC = () => {
           }));
           updateLocalProgram(prev => ({
             ...prev,
-            title: prev.title === 'New Event' ? tmpl.defaultTitle : prev.title,
-            startTime: tmpl.defaultStartTime,
+            title: prev.title === 'New Event' ? tmpl.name : prev.title,
+            startTime: tmpl.startTime,
             slots: newSlots,
           }));
           if (newSlots.length > 0) setSelectedSlotId(newSlots[0].id);
@@ -3521,14 +3616,15 @@ const AppContent: React.FC = () => {
           onPrev={handlePrev}
           onNudge={handleNudge}
           onEndEvent={handleEndEvent}
+          onRequestEndEvent={requestEndEventConfirmation}
           isManualMode={displayProgram.isManualMode}
           onToggleManualMode={handleToggleManualMode}
         />,
         pipWindow.document.body
       )}
 
-      {/* In-App Floating Flight Bridge HUD for Desktop & Unsupported Browsers */}
-      {!pipWindow && isFloatingBridgeOpen && (displayProgram && displayProgram.slots.length > 0) && (
+      {/* In-App Floating Flight Bridge HUD for Web Browsers without Document PiP */}
+      {!isElectronRuntime && !pipWindow && isFloatingBridgeOpen && (displayProgram && displayProgram.slots.length > 0) && (
         <div 
           style={hudPos ? { left: `${hudPos.x}px`, top: `${hudPos.y}px`, right: 'auto', bottom: 'auto' } : undefined}
           className={`fixed ${!hudPos ? 'bottom-6 right-6' : ''} z-[9999] shadow-2xl rounded-2xl overflow-hidden border border-slate-300 dark:border-[#22262E] w-[380px] max-w-[calc(100vw-32px)] ${isDraggingHud ? 'select-none pointer-events-auto shadow-emerald-500/10' : 'transition-all animate-in fade-in duration-150'}`}
@@ -3588,6 +3684,7 @@ const AppContent: React.FC = () => {
             onPrev={handlePrev}
             onNudge={handleNudge}
             onEndEvent={handleEndEvent}
+            onRequestEndEvent={requestEndEventConfirmation}
             isManualMode={displayProgram.isManualMode}
             onToggleManualMode={handleToggleManualMode}
           />
@@ -3645,10 +3742,11 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+class AppErrorBoundary extends Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+  override state: ErrorBoundaryState = { hasError: false, error: null };
+
   constructor(props: { children: React.ReactNode }) {
     super(props);
-    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {

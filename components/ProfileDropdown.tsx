@@ -9,12 +9,23 @@ import { Link } from 'react-router-dom';
 interface ProfileDropdownProps {
     user: { id: string; email?: string };
     profile: Profile | null;
-    onProfileUpdate: (newProfile: Profile) => void;
+    onProfileUpdate?: (newProfile: Profile) => void;
+    onUpdate?: (newProfile: Profile) => void;
     handleSignOut?: () => void;
+    onSignOut?: () => void;
     isCollapsed?: boolean;
 }
 
-export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile, onProfileUpdate, handleSignOut: onSignOutProp, isCollapsed = false }) => {
+export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ 
+    user, 
+    profile, 
+    onProfileUpdate: onProfileUpdateProp, 
+    onUpdate, 
+    handleSignOut: onSignOutProp, 
+    onSignOut,
+    isCollapsed = false 
+}) => {
+    const onProfileUpdate = onProfileUpdateProp || onUpdate || (() => {});
     const { signOut } = useAuthActions();
     const [isOpen, setIsOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
