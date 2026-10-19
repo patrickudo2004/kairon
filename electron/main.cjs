@@ -553,4 +553,46 @@ ipcMain.on('timer-control-relay', (event, payload) => {
   }
 });
 
+// IPC: Direct vector PDF generation and disk export via webContents.printToPDF
+ipcMain.handle('save-pdf', async (event, { title } = {}) => {
+  try {
+    const targetWin = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    if (!targetWin || targetWin.isDestroyed()) {
+      return { success: false, error: 'No active window available' };
+    }
+
+    const cleanTitle = (title || 'Kairon_Schedule')
+      .replace(/[^a-zA-Z0-9_\-\s]/g, '')
+      .trim()
+      .replace(/\s+/g, '_');
+    const defaultPath = path.join(app.getPath('documents'), `${cleanTitle}_Rundown.pdf`);
+
+    const { canceled, filePath } = await dialog.showSaveDialog(targetWin, {
+      title: 'Save Schedule PDF',
+      defaultPath,
+      filters: [{ name: 'PDF Documents (*.pdf)', extensions: ['pdf'] }]
+    });
+
+    if (canceled || !filePath) {
+      return { success: false, canceled: true };
+    }
+
+    const pdfBuffer = await targetWin.webContents.printToPDF({
+      printBackground: true,
+      pageSize: 'A4',
+      landscape: false,
+      margins: {
+        marginType: 'printableArea'
+      }
+    });
+
+    fs.writeFileSync(filePath, pdfBuffer);
+    return { success: true, filePath };
+  } catch (err) {
+    console.error('[Kairon Main] save-pdf failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+
 

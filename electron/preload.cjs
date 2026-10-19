@@ -41,6 +41,8 @@ const api = {
     ipcRenderer.on('timer-control-action', subscription);
     return () => ipcRenderer.removeListener('timer-control-action', subscription);
   },
+  // Direct vector PDF export
+  savePdf: (options) => ipcRenderer.invoke('save-pdf', options),
 };
 
 contextBridge.exposeInMainWorld('electron', api);

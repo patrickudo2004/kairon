@@ -384,7 +384,7 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
                     required
                     value={directEmail}
                     onChange={(e) => setDirectEmail(e.target.value)}
-                    placeholder="pastor@church.org"
+                    placeholder="name@organization.com"
                     className="w-full bg-[#181B22] border border-[#22262E] focus:border-[#0EA5E9] text-white rounded-xl pl-10 pr-4 py-3 text-sm font-mono placeholder:text-slate-600 focus:outline-none transition-colors"
                   />
                 </div>

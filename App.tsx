@@ -3133,7 +3133,7 @@ const AppContent: React.FC = () => {
               <button
                 onClick={handleSignOut}
                 className="hidden sm:flex items-center gap-1 px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded text-[10px] font-mono font-bold transition-colors cursor-pointer"
-                title="Currently in Offline Guest Booth Mode. Click to sign in to your church account for cloud sync."
+                title="Currently in Offline Guest Booth Mode. Click to sign in to your account for cloud sync."
               >
                 <span>GUEST BOOTH</span>
               </button>
@@ -3543,6 +3543,7 @@ const AppContent: React.FC = () => {
         program={exportTargetProgram}
         options={exportOptions}
         setOptions={setExportOptions}
+        activeOrg={activeOrg}
       />
 
       {!location.pathname.startsWith('/analytics') && (

@@ -6,7 +6,7 @@ import { PRODUCTION_TEMPLATES } from './rundownParser';
  * Mirrors Winners Chapel Manchester operational service structure.
  */
 export const getDefaultSeedPrograms = (organizationId: string = 'local-workspace'): Program[] => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
 
   const sundayTemplate = PRODUCTION_TEMPLATES.find(t => t.id === 'church-sunday') || PRODUCTION_TEMPLATES[0];
   const midweekTemplate = PRODUCTION_TEMPLATES.find(t => t.id === 'church-midweek') || PRODUCTION_TEMPLATES[1];

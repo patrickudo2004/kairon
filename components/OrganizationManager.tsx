@@ -199,7 +199,7 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
                                     type="text"
                                     value={newOrgName}
                                     onChange={(e) => setNewOrgName(e.target.value)}
-                                    placeholder="e.g. Grace Church Main"
+                                    placeholder="e.g. Production Studio / Main Stage"
                                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
                                     autoFocus
                                 />

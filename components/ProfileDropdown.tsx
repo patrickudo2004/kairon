@@ -47,10 +47,24 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
 
     const handleSignOut = async () => {
         try {
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem('kairon_booth_mode');
+                localStorage.removeItem('testBypass');
+                window.dispatchEvent(new Event('kairon_booth_mode_changed'));
+            }
+        } catch {}
+
+        try {
             await signOut();
-            if (onSignOutProp) onSignOutProp();
         } catch (err) {
-            console.error("Failed to sign out:", err);
+            console.warn("Convex sign out notice:", err);
+        }
+
+        if (onSignOutProp) onSignOutProp();
+        if (onSignOut) onSignOut();
+
+        if (typeof window !== 'undefined') {
+            window.location.href = '/';
         }
     };
 
@@ -187,7 +201,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#0EA5E9] hover:bg-[#0EA5E9]/10 rounded-xl transition-colors group font-semibold"
                             >
                                 <UserCircle size={18} />
-                                <span>Sign In to Church Account</span>
+                                <span>Sign In to Account</span>
                             </button>
                         ) : (
                             <button
