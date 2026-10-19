@@ -15,8 +15,7 @@ const isTestBypass = () => {
         return typeof window !== 'undefined' && (
             window.location.search.includes('testBypass=true') || 
             localStorage.getItem('testBypass') === 'true' ||
-            localStorage.getItem('kairon_booth_mode') === 'true' ||
-            Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron)
+            localStorage.getItem('kairon_booth_mode') === 'true'
         );
     } catch {
         return false;
