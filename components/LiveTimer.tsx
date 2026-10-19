@@ -16,6 +16,7 @@ interface LiveTimerProps {
   onNext: (targetId?: string) => void;
   onPrev: (targetId?: string) => void;
   onEndEvent?: (targetId?: string) => void;
+  onRequestEndEvent?: (targetId?: string) => void;
   onNudge?: (minutes: number) => void;
   readOnly?: boolean;
   isAutopilotEnabled?: boolean;
@@ -33,6 +34,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
   onNext,
   onPrev,
   onEndEvent,
+  onRequestEndEvent,
   onNudge,
   readOnly = false,
   isAutopilotEnabled = false,
@@ -379,13 +381,15 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
               <span>AUTOPILOT</span>
             </button>
 
-            {/* End Event Hold-to-Confirm */}
+            {/* End Event Hold-to-Confirm with Click Confirmation fallback */}
             {onEndEvent && (
               <HoldToConfirmButton
                 onConfirm={() => onEndEvent(program.id)}
-                durationMs={2000}
+                onQuickClick={() => (onRequestEndEvent ? onRequestEndEvent(program.id) : onEndEvent(program.id))}
+                durationMs={1200}
                 label="END EVENT"
                 holdingLabel="HOLD TO END"
+                title="Click to confirm or hold 1s to conclude live event"
               />
             )}
 

@@ -3,7 +3,8 @@ import { Power } from 'lucide-react';
 
 export interface HoldToConfirmButtonProps {
   onConfirm: () => void;
-  durationMs?: number; // Default: 2000ms
+  onQuickClick?: () => void;
+  durationMs?: number; // Default: 1200ms
   label?: string;
   holdingLabel?: string;
   icon?: React.ReactNode;
@@ -15,14 +16,15 @@ export interface HoldToConfirmButtonProps {
 
 export const HoldToConfirmButton: React.FC<HoldToConfirmButtonProps> = ({
   onConfirm,
-  durationMs = 2000,
+  onQuickClick,
+  durationMs = 1200,
   label = 'END EVENT',
   holdingLabel = 'HOLD TO END',
   icon = <Power size={14} className="relative z-10 flex-shrink-0" />,
   className = '',
   variant = 'danger',
   disabled = false,
-  title = 'Hold to end this live session'
+  title = 'Click to confirm or hold to end this live session'
 }) => {
   const [progress, setProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
@@ -41,6 +43,8 @@ export const HoldToConfirmButton: React.FC<HoldToConfirmButtonProps> = ({
   }, []);
 
   const stopHolding = useCallback(() => {
+    const elapsed = startTimeRef.current !== null ? (performance.now() - startTimeRef.current) : 0;
+    const wasHolding = isHoldingRef.current;
     isHoldingRef.current = false;
     setIsHolding(false);
     if (animFrameRef.current !== null) {
@@ -49,13 +53,25 @@ export const HoldToConfirmButton: React.FC<HoldToConfirmButtonProps> = ({
     }
     startTimeRef.current = null;
     setProgress(0);
-  }, []);
+
+    // If quick-tapped (< 400ms) without completing hold, trigger onQuickClick if available
+    if (wasHolding && elapsed > 0 && elapsed < 400 && onQuickClick) {
+      onQuickClick();
+    }
+  }, [onQuickClick]);
 
   const handleHoldSuccess = useCallback(() => {
-    stopHolding();
+    isHoldingRef.current = false;
+    setIsHolding(false);
+    if (animFrameRef.current !== null) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    startTimeRef.current = null;
+    setProgress(0);
     triggerHaptic([80, 40, 80]);
     onConfirm();
-  }, [stopHolding, triggerHaptic, onConfirm]);
+  }, [triggerHaptic, onConfirm]);
 
   const startHolding = useCallback(() => {
     if (disabled) return;
