@@ -128,16 +128,18 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
     const cutoffSeconds = cutoffMinutes * 60;
     const mcrSecondsRemaining = cutoffSeconds - wallClockSeconds;
 
-    // Sync theme to PiP window body
+    // Sync theme to PiP window body (only when running in an external Document PiP window)
     useEffect(() => {
         if (!containerRef.current) return;
         const localDoc = containerRef.current.ownerDocument;
-        localDoc.body.classList.toggle('dark', isDarkMode);
-        localDoc.body.style.backgroundColor = isDarkMode ? '#090A0C' : '#F1F5F9';
-        localDoc.body.style.color = isDarkMode ? '#FFFFFF' : '#0F172A';
-        localDoc.body.style.margin = '0';
-        localDoc.body.style.height = '100%';
-        localDoc.body.style.overflow = 'hidden';
+        if (localDoc !== document) {
+            localDoc.body.classList.toggle('dark', isDarkMode);
+            localDoc.body.style.backgroundColor = isDarkMode ? '#090A0C' : '#F1F5F9';
+            localDoc.body.style.color = isDarkMode ? '#FFFFFF' : '#0F172A';
+            localDoc.body.style.margin = '0';
+            localDoc.body.style.height = '100%';
+            localDoc.body.style.overflow = 'hidden';
+        }
     }, [isDarkMode]);
 
     // Click outside listener for the Rundown Drawer in the PiP window

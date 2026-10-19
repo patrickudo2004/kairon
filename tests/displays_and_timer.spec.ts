@@ -141,9 +141,122 @@ test.describe('Displays & Live Timer Verification', () => {
 
     // Should render prompter display
     await expect(page.locator('text=Sunday Celebration Service').or(page.locator('text=Opening Prayer')).first()).toBeVisible({ timeout: 10000 });
-
     const hookErrors = errorLogs.filter(log => log.includes('hooks') || log.includes('Rendered more') || log.includes('Rendered fewer'));
     expect(hookErrors).toHaveLength(0);
   });
 
+  test('StageDisplay should preserve active countdown even when background rundown auto-save arrives', async ({ page }) => {
+    const errorLogs: string[] = [];
+    page.on('pageerror', err => errorLogs.push(err.message));
+
+    await page.addInitScript(() => {
+      localStorage.setItem('kairon_booth_mode', 'true');
+      localStorage.setItem('testBypass', 'true');
+    });
+
+    await page.goto('/stage?id=local-sunday-service&testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+
+    // 1. Start live timer
+    await page.evaluate(() => {
+      const channel = new BroadcastChannel('kairon_offline_sync');
+      channel.postMessage({
+        id: 'local-sunday-service',
+        currentSlotIndex: 0,
+        isTimerActive: true,
+        secondsElapsed: 2,
+        timerStartTimestamp: Date.now() - 2000,
+        status: 'live'
+      });
+      channel.close();
+    });
+
+    await expect(page.locator('text=ON AIR')).toBeVisible({ timeout: 5000 });
+
+    // 2. Simulate 2-second debounced auto-save from App.tsx (sending structural program without timer fields)
+    await page.evaluate(() => {
+      const channel = new BroadcastChannel('kairon_offline_sync');
+      channel.postMessage({
+        id: 'local-sunday-service',
+        program: {
+          id: 'local-sunday-service',
+          title: 'Sunday Celebration Service',
+          slots: [
+            { id: 'slot-1', title: 'Opening Prayer', durationMinutes: 5, type: 'Talk' },
+            { id: 'slot-2', title: 'Praise & Worship', durationMinutes: 20, type: 'Worship' }
+          ]
+        }
+      });
+      channel.close();
+    });
+
+    // Wait 3 seconds to ensure timer continues ticking without being overwritten to STANDBY
+    await page.waitForTimeout(3000);
+
+    // 3. Verify ON AIR and slot are STILL displayed (NOT reverted to STANDBY)
+    await expect(page.locator('text=ON AIR')).toBeVisible();
+    await expect(page.locator('text=Opening Prayer')).toBeVisible();
+    await expect(page.locator('text=STANDBY')).not.toBeVisible();
+
+    expect(errorLogs).toHaveLength(0);
+  });
+
+  test('End Event should conclude session and transition displays to SESSION CONCLUDED', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('kairon_booth_mode', 'true');
+      localStorage.setItem('testBypass', 'true');
+    });
+
+    await page.goto('/stage?id=local-sunday-service&testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Conclude event
+    await page.evaluate(() => {
+      const channel = new BroadcastChannel('kairon_offline_sync');
+      channel.postMessage({
+        id: 'local-sunday-service',
+        isTimerActive: false,
+        timerStartTimestamp: null,
+        status: 'concluded',
+        program: {
+          id: 'local-sunday-service',
+          title: 'Sunday Celebration Service',
+          status: 'concluded',
+          slots: []
+        }
+      });
+      channel.close();
+    });
+
+    await expect(page.locator('text=SESSION CONCLUDED')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('Main app should toggle Flight Bridge HUD on button click', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('kairon_booth_mode', 'true');
+      localStorage.setItem('testBypass', 'true');
+      // Delete documentPictureInPicture to test in-app HUD mode (as in Electron and standard desktop browsers)
+      try {
+        delete (window as any).documentPictureInPicture;
+        Object.defineProperty(window, 'documentPictureInPicture', {
+          value: undefined,
+          configurable: true,
+          writable: true
+        });
+      } catch {}
+    });
+
+    await page.goto('/editor?id=local-sunday-service&testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Click Flight Bridge button in header
+    const flightBridgeBtn = page.locator('button[title*="Flight Bridge"]').first();
+    await expect(flightBridgeBtn).toBeVisible({ timeout: 10000 });
+    await flightBridgeBtn.click();
+
+    // Verify in-app HUD is visible
+    await expect(page.locator('text=FLIGHT BRIDGE HUD')).toBeVisible({ timeout: 5000 });
+  });
+
 });
+
