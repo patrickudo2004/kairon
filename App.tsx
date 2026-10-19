@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider
 
 // Services
 import { ConvexAuthProvider, useAuthActions } from "@convex-dev/auth/react";
-import { useConvexAuth, useQuery as useConvexQuery, useMutation as useConvexMutation } from "./hooks/useConvexMock";
+import { useConvexAuth, useQuery as useConvexQuery, useMutation as useConvexMutation, getLocalPrograms } from "./hooks/useConvexMock";
 import { api } from "./convex/_generated/api";
 import { convex } from "./services/convexClient";
 import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService, transformProgram } from './services/programService';
@@ -314,7 +314,16 @@ const AppContent: React.FC = () => {
 
 
   // Main State
-  const [program, setProgram] = useState<Program>(() => getInitialProgram());
+  const [program, setProgram] = useState<Program>(() => {
+    try {
+      const isBooth = typeof window !== 'undefined' && localStorage.getItem('kairon_booth_mode') === 'true';
+      if (isBooth) {
+        const localList = getLocalPrograms();
+        if (localList.length > 0) return localList[0];
+      }
+    } catch {}
+    return getInitialProgram();
+  });
   const [currentSlotIndex, setCurrentSlotIndex] = useState<number>(0);
   const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
   const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
@@ -731,7 +740,10 @@ const AppContent: React.FC = () => {
 
   const activeSessions = useMemo(() => {
     if (isBoothMode) {
-      return program.status === 'live' ? [program] : [];
+      const localList = getLocalPrograms();
+      const currentLive = program.status === 'live' ? [program] : [];
+      const otherLive = localList.filter((p: any) => p.status === 'live' && p.id !== program.id);
+      return [...currentLive, ...otherLive];
     }
     if (!activeSessionsRaw) return [];
     return activeSessionsRaw.map(s => ({
@@ -750,7 +762,13 @@ const AppContent: React.FC = () => {
 
   const programs = useMemo(() => {
     if (isBoothMode) {
-      return [program];
+      const localList = getLocalPrograms();
+      const existingIdx = localList.findIndex((p: any) => p.id === program.id);
+      if (existingIdx >= 0) {
+        localList[existingIdx] = program;
+        return localList;
+      }
+      return [program, ...localList.filter((p: any) => p.id !== program.id)];
     }
     if (!allProgramsRaw) return [];
     return allProgramsRaw.map(s => ({

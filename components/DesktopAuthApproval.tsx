@@ -107,13 +107,16 @@ export const DesktopAuthApproval: React.FC = () => {
     setErrorMsg('');
 
     try {
-      // Find the refresh token from localStorage if present
+      // Find the JWT and refresh token from localStorage if present
+      let jwtToken = token || undefined;
       let refreshToken: string | undefined;
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i) || '';
-        if (key.includes('__convexAuthRefreshToken')) {
+        if (key.includes('__convexAuthJWT') && !jwtToken) {
+          jwtToken = localStorage.getItem(key) || undefined;
+        }
+        if (key.includes('__convexAuthRefreshToken') && !refreshToken) {
           refreshToken = localStorage.getItem(key) || undefined;
-          break;
         }
       }
 
@@ -122,7 +125,7 @@ export const DesktopAuthApproval: React.FC = () => {
 
       await approveSession({
         code,
-        jwtToken: token || 'browser-approved-session',
+        jwtToken: jwtToken || 'browser-approved-session',
         refreshToken,
         userEmail,
         userName,
