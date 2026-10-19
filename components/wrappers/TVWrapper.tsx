@@ -65,42 +65,96 @@ const TVWrapper: React.FC = () => {
 
     const mergeIncomingData = (data: any) => {
         const pid = programIdRef.current;
-        if (data.id === pid || (!pid && (data.program?.status === 'live' || data.status === 'live' || data.isTimerActive))) {
+        const cleanPid = pid?.replace(/^local-/, '');
+        const cleanDataId = data.id?.replace(/^local-/, '');
+        const isMatch = (cleanPid && cleanDataId === cleanPid) || data.id === pid;
+
+        if (isMatch || (!pid && (data.program?.status === 'live' || data.status === 'live' || data.isTimerActive))) {
             setLocalOfflineProgram(prev => {
-                const base = prev || programFromConvexRef.current;
+                let base = prev || programFromConvexRef.current;
+                if (!base && pid) {
+                    try {
+                        const cached = localStorage.getItem(`kairon_offline_cache_${pid}`);
+                        if (cached) base = JSON.parse(cached);
+                    } catch {}
+                }
                 let updated: Program | null = null;
 
                 if (data.program) {
                     const inc = data.program;
-                    // Preserve active live timer telemetry if incoming object didn't explicitly declare them
-                    const isIncomingTimerSet = inc.isTimerActive !== undefined;
-                    const preservedIsActive = isIncomingTimerSet ? Boolean(inc.isTimerActive) : (base?.isTimerActive ?? false);
-                    const preservedTimestamp = inc.timerStartTimestamp !== undefined ? inc.timerStartTimestamp : (base?.timerStartTimestamp ?? null);
-                    const preservedSlotIdx = inc.currentSlotIndex !== undefined ? inc.currentSlotIndex : (base?.currentSlotIndex ?? 0);
-                    const preservedSeconds = inc.secondsElapsed !== undefined ? inc.secondsElapsed : (base?.secondsElapsed ?? 0);
-                    const isNowLive = preservedIsActive || inc.status === 'live' || (base?.status === 'live' && inc.status !== 'concluded');
+                    const incomingTimerActive = inc.isTimerActive !== undefined ? inc.isTimerActive : data.isTimerActive;
+                    const isIncomingTimerSet = incomingTimerActive !== undefined;
+                    const incomingStatus = data.status || inc.status;
+                    const isConcluded = incomingStatus === 'concluded' || inc.status === 'concluded';
+
+                    const preservedIsActive = isConcluded
+                        ? false
+                        : (isIncomingTimerSet ? Boolean(incomingTimerActive) : (base?.isTimerActive ?? false));
+                    const preservedTimestamp = isConcluded
+                        ? null
+                        : ((data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : inc.timerStartTimestamp) !== undefined
+                            ? (data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : inc.timerStartTimestamp)
+                            : (base?.timerStartTimestamp ?? null));
+                    const preservedSlotIdx = (data.currentSlotIndex !== undefined ? data.currentSlotIndex : inc.currentSlotIndex) !== undefined
+                        ? (data.currentSlotIndex !== undefined ? data.currentSlotIndex : inc.currentSlotIndex)
+                        : (base?.currentSlotIndex ?? 0);
+                    const preservedSeconds = (data.secondsElapsed !== undefined ? data.secondsElapsed : inc.secondsElapsed) !== undefined
+                        ? (data.secondsElapsed !== undefined ? data.secondsElapsed : inc.secondsElapsed)
+                        : (base?.secondsElapsed ?? 0);
+                    const isNowLive = !isConcluded && (preservedIsActive || incomingStatus === 'live' || (base?.status === 'live' && incomingStatus !== 'draft'));
+
+                    const effectiveStatus = isConcluded ? 'concluded' : (isNowLive ? 'live' : (incomingStatus || base?.status || 'draft'));
+
+                    if (base &&
+                        base.isTimerActive === preservedIsActive &&
+                        base.timerStartTimestamp === preservedTimestamp &&
+                        base.currentSlotIndex === preservedSlotIdx &&
+                        base.secondsElapsed === preservedSeconds &&
+                        base.status === effectiveStatus &&
+                        base.isOnHold === (inc.isOnHold ?? data.isOnHold ?? base.isOnHold)
+                    ) {
+                        return base;
+                    }
 
                     updated = {
+                        ...(base || {}),
                         ...inc,
-                        id: data.id || inc.id,
+                        id: data.id || inc.id || base?.id,
                         isTimerActive: preservedIsActive,
                         timerStartTimestamp: preservedTimestamp,
                         currentSlotIndex: preservedSlotIdx,
                         secondsElapsed: preservedSeconds,
-                        status: isNowLive ? 'live' : (inc.status || base?.status || 'draft')
+                        status: effectiveStatus,
+                        isOnHold: inc.isOnHold ?? data.isOnHold ?? false
                     };
                 } else if (base) {
+                    const incomingStatus = data.status;
+                    const isConcluded = incomingStatus === 'concluded';
+                    const isIncomingTimerSet = data.isTimerActive !== undefined;
+                    const effectiveIsActive = isConcluded ? false : (isIncomingTimerSet ? Boolean(data.isTimerActive) : (base.isTimerActive ?? false));
+                    const effectiveStatus = isConcluded ? 'concluded' : (data.status || (effectiveIsActive ? 'live' : base.status));
+
+                    if (
+                        (incomingStatus === undefined || incomingStatus === base.status) &&
+                        (data.isTimerActive === undefined || data.isTimerActive === base.isTimerActive) &&
+                        (data.currentSlotIndex === undefined || data.currentSlotIndex === base.currentSlotIndex) &&
+                        (data.isOnHold === undefined || data.isOnHold === base.isOnHold) &&
+                        (data.secondsElapsed === undefined || data.secondsElapsed === base.secondsElapsed)
+                    ) {
+                        return base;
+                    }
                     updated = {
                         ...base,
                         ...data,
-                        status: data.status || (data.isTimerActive ? 'live' : base.status)
+                        isTimerActive: effectiveIsActive,
+                        status: effectiveStatus
                     } as Program;
                 }
 
                 if (updated) {
                     try { localStorage.setItem(`kairon_offline_cache_${pid || 'live'}`, JSON.stringify(updated)); } catch {}
                 }
-                return updated;
+                return updated || prev;
             });
         }
     };
@@ -134,10 +188,88 @@ const TVWrapper: React.FC = () => {
         window.location.search.includes('testBypass=true') ||
         localStorage.getItem('testBypass') === 'true'
     );
-    const isOfflineMode = typeof window !== 'undefined' && (!window.navigator.onLine || isBoothMode);
-    const program = (isOfflineMode && localOfflineProgram)
-        ? localOfflineProgram
-        : (programFromConvex || localOfflineProgram);
+    const candidateProg = programFromConvex || localOfflineProgram;
+    const program = (() => {
+        if (!candidateProg) return null;
+        if (!localOfflineProgram) return candidateProg;
+        if (!programFromConvex) return localOfflineProgram;
+
+        // If in booth / offline / test bypass mode, local offline program takes precedence for runtime state
+        if (isBoothMode) {
+            const effectiveStatus = (localOfflineProgram.status === 'concluded' || programFromConvex.status === 'concluded')
+                ? 'concluded'
+                : ((localOfflineProgram.status === 'live' || localOfflineProgram.isTimerActive)
+                    ? 'live'
+                    : (programFromConvex.status || localOfflineProgram.status || 'draft'));
+
+            const effectiveIsTimerActive = effectiveStatus === 'concluded'
+                ? false
+                : Boolean(localOfflineProgram.isTimerActive ?? programFromConvex.isTimerActive ?? false);
+
+            return {
+                ...programFromConvex,
+                ...localOfflineProgram,
+                slots: (localOfflineProgram.slots && localOfflineProgram.slots.length > 0)
+                    ? localOfflineProgram.slots
+                    : (programFromConvex.slots || []),
+                isTimerActive: effectiveIsTimerActive,
+                status: effectiveStatus,
+            };
+        }
+
+        const isLocalLiveOrConcluded = localOfflineProgram.status === 'live' || localOfflineProgram.status === 'concluded' || Boolean(localOfflineProgram.isTimerActive);
+        const isConvexLiveOrConcluded = programFromConvex.status === 'live' || programFromConvex.status === 'concluded' || Boolean(programFromConvex.isTimerActive);
+
+        if (isLocalLiveOrConcluded && !isConvexLiveOrConcluded) {
+            const effectiveStatus = localOfflineProgram.status || (localOfflineProgram.isTimerActive ? 'live' : 'draft');
+            return {
+                ...programFromConvex,
+                ...localOfflineProgram,
+                slots: (localOfflineProgram.slots && localOfflineProgram.slots.length > 0)
+                    ? localOfflineProgram.slots
+                    : (programFromConvex.slots || []),
+                isTimerActive: effectiveStatus === 'concluded' ? false : Boolean(localOfflineProgram.isTimerActive),
+                status: effectiveStatus,
+            };
+        }
+
+        if (isConvexLiveOrConcluded && !isLocalLiveOrConcluded) {
+            return {
+                ...localOfflineProgram,
+                ...programFromConvex,
+                slots: (programFromConvex.slots && programFromConvex.slots.length > 0)
+                    ? programFromConvex.slots
+                    : (localOfflineProgram.slots || []),
+                isTimerActive: programFromConvex.status === 'concluded' ? false : Boolean(programFromConvex.isTimerActive),
+                status: programFromConvex.status || 'live',
+            };
+        }
+
+        const convexSlot = programFromConvex.currentSlotIndex ?? 0;
+        const localSlot = localOfflineProgram.currentSlotIndex ?? 0;
+        const higherSlot = Math.max(convexSlot, localSlot);
+        const preferred = convexSlot >= localSlot ? programFromConvex : localOfflineProgram;
+        const fallback = convexSlot >= localSlot ? localOfflineProgram : programFromConvex;
+
+        const effectiveStatus = (programFromConvex.status === 'concluded' || localOfflineProgram.status === 'concluded')
+            ? 'concluded'
+            : ((programFromConvex.status === 'live' || localOfflineProgram.status === 'live' || programFromConvex.isTimerActive || localOfflineProgram.isTimerActive) ? 'live' : preferred.status);
+
+        const effectiveIsTimerActive = effectiveStatus === 'concluded'
+            ? false
+            : Boolean(programFromConvex.isTimerActive || localOfflineProgram.isTimerActive);
+
+        return {
+            ...fallback,
+            ...preferred,
+            slots: (preferred.slots && preferred.slots.length > 0)
+                ? preferred.slots
+                : (fallback.slots || []),
+            isTimerActive: effectiveIsTimerActive,
+            currentSlotIndex: higherSlot,
+            status: effectiveStatus,
+        };
+    })();
 
 
     // Organization Branding Query
@@ -149,7 +281,10 @@ const TVWrapper: React.FC = () => {
     // Use a simple ticker to force re-render every second for the countdown
     const [, setTick] = useState(0);
 
-    // BroadcastChannel Display Telemetry & Remote Actions
+    const isDarkModeRef = useRef(isDarkMode);
+    isDarkModeRef.current = isDarkMode;
+
+    // BroadcastChannel Display Telemetry
     useEffect(() => {
         // Detect if inside an iframe or in thumbnail mode
         const isThumbnail = new URLSearchParams(window.location.search).get('mode') === 'thumbnail';
@@ -157,14 +292,6 @@ const TVWrapper: React.FC = () => {
         if (isThumbnail || isIframe) return;
 
         const channel = new BroadcastChannel('kairon_displays');
-        
-        const handleMessage = (event: MessageEvent) => {
-            const { type, tabId: targetTabId } = event.data;
-            if (type === 'toggle_theme' && targetTabId === 'tv') {
-                toggleTheme();
-            }
-        };
-        channel.addEventListener('message', handleMessage);
         
         const sendHeartbeat = () => {
             const isBrowserFullscreen = Math.abs(window.screen.width - window.innerWidth) <= 1 && 
@@ -183,7 +310,7 @@ const TVWrapper: React.FC = () => {
                 tabId: 'tv',
                 isFullscreen,
                 isOnSecondary,
-                isDarkMode
+                isDarkMode: isDarkModeRef.current
             });
         };
         
@@ -192,10 +319,9 @@ const TVWrapper: React.FC = () => {
         
         return () => {
             clearInterval(interval);
-            channel.removeEventListener('message', handleMessage);
             channel.close();
         };
-    }, [toggleTheme, isDarkMode]);
+    }, []);
     useEffect(() => {
         const interval = window.setInterval(() => setTick(t => t + 1), 1000);
         return () => clearInterval(interval);

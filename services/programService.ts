@@ -77,7 +77,8 @@ export const createProgram = async (program: Program): Promise<Program> => {
         const id = program.id?.startsWith('local-') ? program.id : `local-${crypto.randomUUID()}`;
         const local = localStorage.getItem('test_programs');
         const list: Program[] = local ? JSON.parse(local) : [];
-        const existing = list.find((p: any) => p.id === id);
+        const cleanId = id.replace(/^local-/, '');
+        const existing = list.find((p: any) => p.id === id || p.id?.replace(/^local-/, '') === cleanId || (p.slug && p.slug === cleanId));
         // CRITICAL: If an existing record is found, preserve timer-managed fields.
         // The React 'program' state does NOT contain currentSlotIndex/isTimerActive etc.
         // (those are separate React states), so a naive overwrite would clobber timer
@@ -103,7 +104,7 @@ export const createProgram = async (program: Program): Promise<Program> => {
                 uuid: id.replace('local-', ''),
                 slug: id.replace('local-', ''),
               };
-        const filtered = list.filter((p: any) => p.id !== id);
+        const filtered = list.filter((p: any) => p.id !== id && p.id?.replace(/^local-/, '') !== cleanId && (!p.slug || p.slug !== cleanId));
         filtered.push(newProg);
         updateTestPrograms(filtered);
         return newProg;
@@ -135,15 +136,20 @@ export const createProgram = async (program: Program): Promise<Program> => {
 
 export const updateProgram = async (program: Program): Promise<void> => {
     const cleanSlug = (program.slug || program.id || '').replace(/^local-/, '');
+    const cleanId = (program.id || '').replace(/^local-/, '');
     if (isTestBypass()) {
         const local = localStorage.getItem('test_programs');
         let list: Program[] = local ? JSON.parse(local) : [];
         list = list.map((p) => {
-            if (p.id === program.id) {
+            const matches = p.id === program.id ||
+                p.id?.replace(/^local-/, '') === cleanId ||
+                (cleanSlug && (p.slug === cleanSlug || p.slug === cleanId));
+            if (matches) {
                 // Preserve timer-managed fields from localStorage (same reason as createProgram above)
                 return {
                     ...p,
                     ...program,
+                    id: p.id,
                     slug: cleanSlug || p.slug,
                     isPublic: program.isPublic ?? p.isPublic ?? true,
                     currentSlotIndex: p.currentSlotIndex,
@@ -236,8 +242,9 @@ export const updateTimerState = async (programId: string, state: {
         console.log(`[TEST BYPASS] updateTimerState for programId=${programId}`, state);
         const local = localStorage.getItem('test_programs');
         let list: Program[] = local ? JSON.parse(local) : [];
+        const cleanId = programId.replace(/^local-/, '');
         list = list.map((p) => {
-            if (p.id === programId) {
+            if (p.id === programId || p.id?.replace(/^local-/, '') === cleanId || p._id === programId) {
                 return { ...p, ...state };
             }
             return p;

@@ -372,14 +372,32 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                                     {/* Individual Display Theme Toggle */}
                                                     <button
                                                         onClick={() => handleRemoteToggleTheme(opt.tabId || 'stage')}
-                                                        className={`p-1.5 rounded border transition-all ${
-                                                            currentTheme === 'light'
+                                                        className={`h-7 px-1.5 rounded border transition-all flex items-center justify-center gap-1 ${
+                                                            currentTheme === 'ambient-yellow'
+                                                                ? 'bg-amber-400/20 text-amber-500 dark:text-amber-300 border-amber-400/50 font-mono font-bold text-[10px]'
+                                                                : currentTheme === 'ambient-white'
+                                                                ? 'bg-slate-100 text-slate-900 dark:bg-white/20 dark:text-white border-slate-300 dark:border-white/40 font-mono font-bold text-[10px]'
+                                                                : currentTheme === 'light'
                                                                 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
                                                                 : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white border-slate-200 dark:border-[#22262E]'
                                                         }`}
                                                         title={`Display Theme: ${currentTheme.toUpperCase()} (Click to toggle)`}
                                                     >
-                                                        {currentTheme === 'light' ? <Sun size={13} /> : <Moon size={13} />}
+                                                        {currentTheme === 'ambient-yellow' ? (
+                                                            <>
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block animate-pulse"></span>
+                                                                <span>YEL</span>
+                                                            </>
+                                                        ) : currentTheme === 'ambient-white' ? (
+                                                            <>
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-white inline-block"></span>
+                                                                <span>WHT</span>
+                                                            </>
+                                                        ) : currentTheme === 'light' ? (
+                                                            <Sun size={13} />
+                                                        ) : (
+                                                            <Moon size={13} />
+                                                        )}
                                                     </button>
 
                                                     <button
