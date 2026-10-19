@@ -3,12 +3,13 @@ import { useQuery as useConvexQueryReal, useMutation } from 'convex/react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '../convex/_generated/api';
 import { Mic, Monitor, QrCode, Wifi, RefreshCw, CheckCircle2, Loader, WifiOff, Zap, ArrowRight, Globe, Mail, KeyRound } from 'lucide-react';
+import { getCanonicalWebOrigin } from '../utils/url';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Utility: Generate a random short code on the client side (mirrors server fn)
 // ──────────────────────────────────────────────────────────────────────────────
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || 'https://majestic-gecko-369.convex.cloud';
-const SITE_URL = import.meta.env.VITE_SITE_URL || window.location.origin;
+const SITE_URL = getCanonicalWebOrigin();
 
 interface DesktopAuthWaitingProps {
   onOfflineMode: () => void;
