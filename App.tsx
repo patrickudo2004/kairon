@@ -1197,6 +1197,18 @@ const AppContent: React.FC = () => {
         console.error("Local BroadcastChannel sync failed:", err);
       }
 
+      // Electron IPC relay: fan out to ALL open BrowserWindows (Stage, TV, Prompter etc.)
+      // BroadcastChannel does NOT cross Electron process boundaries — this IPC call does.
+      try {
+        const electronApi = (window as any).electron || (window as any).electronAPI;
+        if (electronApi?.sendTimerState) {
+          electronApi.sendTimerState({ id, ...timerState });
+        }
+      } catch (err) {
+        console.error("Electron timer-state relay failed:", err);
+      }
+
+
       const isTestBypass = typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
       // CRITICAL GUARD
       if (id?.startsWith('local-') && !isTestBypass) {

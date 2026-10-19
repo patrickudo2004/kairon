@@ -16,8 +16,18 @@ const api = {
     ipcRenderer.on('screens-updated', subscription);
     return () => ipcRenderer.removeListener('screens-updated', subscription);
   },
+  // Cross-window timer relay: controller → main process → all display windows
+  // BroadcastChannel does NOT work across separate Electron BrowserWindow processes.
+  // This IPC bridge is the fix that makes real-time timer state reach Stage/TV/Prompter windows.
+  sendTimerState: (payload) => ipcRenderer.send('timer-state-relay', payload),
+  onTimerState: (callback) => {
+    const subscription = (event, payload) => callback(payload);
+    ipcRenderer.on('timer-state-push', subscription);
+    return () => ipcRenderer.removeListener('timer-state-push', subscription);
+  },
 };
 
 contextBridge.exposeInMainWorld('electron', api);
 contextBridge.exposeInMainWorld('electronAPI', api);
+
 

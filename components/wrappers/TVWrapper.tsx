@@ -10,7 +10,8 @@ import TVView from '../TVView';
 
 const TVWrapper: React.FC = () => {
     const [searchParams] = useSearchParams();
-    const programId = searchParams.get('id');
+    // Accept both ?id= (canonical) and ?programId= (legacy callers from MenuBar / RightDock)
+    const programId = searchParams.get('id') || searchParams.get('programId');
     const themeParam = searchParams.get('theme');
 
     const globalDarkMode = useUIStore((state) => state.isDarkMode);
@@ -36,38 +37,47 @@ const TVWrapper: React.FC = () => {
         }
     });
 
+    // Merge incoming timer state (from BroadcastChannel or Electron IPC) into local program
+    const mergeTimerState = (data: any) => {
+        if (data.id === programId || (!programId && (data.status === 'live' || data.program?.status === 'live'))) {
+            setLocalOfflineProgram(prev => {
+                let updated: Program | null = null;
+                if (data.program) {
+                    updated = { ...data.program, id: data.id };
+                } else if (prev) {
+                    updated = { ...prev, ...data } as Program;
+                } else {
+                    updated = { ...data } as Program;
+                }
+                if (updated) {
+                    try {
+                        localStorage.setItem(`kairon_offline_cache_${programId || 'live'}`, JSON.stringify(updated));
+                    } catch (err) {
+                        console.error("Failed to cache program locally:", err);
+                    }
+                }
+                return updated;
+            });
+        }
+    };
+
     useEffect(() => {
+        // BroadcastChannel: works in browser / same-process tabs
         const offlineChannel = new BroadcastChannel('kairon_offline_sync');
-        const handleOfflineMsg = (event: MessageEvent) => {
-            const data = event.data;
-            if (data.id === programId || (!programId && (data.program?.status === 'live' || localOfflineProgram?.status === 'live'))) {
-                setLocalOfflineProgram(prev => {
-                    let updated: Program | null = null;
-                    if (data.program) {
-                        updated = { ...data.program, id: data.id };
-                    } else if (prev) {
-                        updated = {
-                            ...prev,
-                            ...data
-                        } as Program;
-                    }
-                    if (updated) {
-                        try {
-                            localStorage.setItem(`kairon_offline_cache_${programId || 'live'}`, JSON.stringify(updated));
-                        } catch (err) {
-                            console.error("Failed to cache program locally:", err);
-                        }
-                    }
-                    return updated;
-                });
-            }
-        };
-        offlineChannel.addEventListener('message', handleOfflineMsg);
+        offlineChannel.addEventListener('message', (event: MessageEvent) => mergeTimerState(event.data));
+
+        // Electron IPC: works across separate BrowserWindow processes (Stage, TV etc.)
+        let removeElectronListener: (() => void) | null = null;
+        const electronApi = (window as any).electron || (window as any).electronAPI;
+        if (electronApi?.onTimerState) {
+            removeElectronListener = electronApi.onTimerState((payload: any) => mergeTimerState(payload));
+        }
+
         return () => {
-            offlineChannel.removeEventListener('message', handleOfflineMsg);
             offlineChannel.close();
+            if (removeElectronListener) removeElectronListener();
         };
-    }, [programId, localOfflineProgram]);
+    }, [programId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Multi-level fallback: Specific ID -> Global Live -> Standby
     const activeData = (programId && specificProgram) ? specificProgram : liveProgram;
@@ -78,10 +88,15 @@ const TVWrapper: React.FC = () => {
         id: (activeData as any)._id || (activeData as any).id
     } as Program : null;
 
-    // Fallback logic: use Convex if online and loaded, otherwise use offline broadcast cache
-    const isOfflineMode = typeof window !== 'undefined' && !window.navigator.onLine;
-    const program = (isOfflineMode && localOfflineProgram) 
-        ? localOfflineProgram 
+    // Booth mode / test bypass always uses local BroadcastChannel/IPC data — never stale Convex queries
+    const isBoothMode = typeof window !== 'undefined' && (
+        localStorage.getItem('kairon_booth_mode') === 'true' ||
+        window.location.search.includes('testBypass=true') ||
+        localStorage.getItem('testBypass') === 'true'
+    );
+    const isOfflineMode = typeof window !== 'undefined' && (!window.navigator.onLine || isBoothMode);
+    const program = (isOfflineMode && localOfflineProgram)
+        ? localOfflineProgram
         : (programFromConvex || localOfflineProgram);
 
     // Organization Branding Query
