@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery as useConvexQueryReal, useMutation } from 'convex/react';
+import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '../convex/_generated/api';
-import { Mic, Monitor, QrCode, Wifi, RefreshCw, CheckCircle2, Loader, WifiOff, Zap, ArrowRight, Globe } from 'lucide-react';
+import { Mic, Monitor, QrCode, Wifi, RefreshCw, CheckCircle2, Loader, WifiOff, Zap, ArrowRight, Globe, Mail, KeyRound } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Utility: Generate a random short code on the client side (mirrors server fn)
@@ -67,6 +68,35 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
     sessionCode ? { code: sessionCode } : 'skip'
   ) as SessionData | null | undefined;
 
+  const { signIn } = useAuthActions();
+  const [showEmailSignIn, setShowEmailSignIn] = useState(false);
+  const [directEmail, setDirectEmail] = useState('');
+  const [directOtp, setDirectOtp] = useState('');
+  const [directStep, setDirectStep] = useState<'email' | 'otp'>('email');
+  const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
+  const [emailFeedback, setEmailFeedback] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+
+  const handleDirectEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!directEmail.trim()) return;
+    try {
+      setIsSubmittingEmail(true);
+      setEmailFeedback(null);
+      if (directStep === 'email') {
+        await signIn("password", { email: directEmail.trim(), flow: "email" });
+        setEmailFeedback({ type: 'success', text: 'Verification code sent to your email.' });
+        setDirectStep('otp');
+      } else {
+        await signIn("password", { email: directEmail.trim(), code: directOtp.trim() });
+      }
+    } catch (err: any) {
+      console.error('[DesktopAuth] Direct sign-in failed:', err);
+      setEmailFeedback({ type: 'error', text: err.message || 'Authentication failed. Please check the code and try again.' });
+    } finally {
+      setIsSubmittingEmail(false);
+    }
+  };
+
   // ── Step 1: Create session on mount ──
   useEffect(() => {
     let cancelled = false;
@@ -116,15 +146,20 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
       setIsApprovedAnimating(true);
       setPhase('approved');
 
-      // Write the tokens into localStorage — same keys @convex-dev/auth/react uses
+      // Write the tokens into localStorage using the exact namespaced format @convex-dev/auth/react requires
       const namespace = CONVEX_URL;
-      const jwtKey = `${namespace}__convexAuthJWT`;
-      const refreshKey = `${namespace}__convexAuthRefreshToken`;
+      const escapedNamespace = namespace.replace(/[^a-zA-Z0-9]/g, '');
 
       try {
-        localStorage.setItem(jwtKey, sessionData.jwtToken);
+        if (sessionData.jwtToken) {
+          localStorage.setItem(`__convexAuthJWT_${escapedNamespace}`, sessionData.jwtToken);
+          localStorage.setItem('__convexAuthJWT', sessionData.jwtToken);
+          localStorage.setItem(`${namespace}__convexAuthJWT`, sessionData.jwtToken);
+        }
         if (sessionData.refreshToken) {
-          localStorage.setItem(refreshKey, sessionData.refreshToken);
+          localStorage.setItem(`__convexAuthRefreshToken_${escapedNamespace}`, sessionData.refreshToken);
+          localStorage.setItem('__convexAuthRefreshToken', sessionData.refreshToken);
+          localStorage.setItem(`${namespace}__convexAuthRefreshToken`, sessionData.refreshToken);
         }
       } catch (e) {
         console.error('[DesktopAuth] Failed to store tokens:', e);
@@ -287,75 +322,176 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
         </div>
       </div>
 
-      <div className="w-full max-w-md bg-[#121418] border border-[#22262E] rounded-3xl p-8 flex flex-col items-center gap-7">
+      <div className="w-full max-w-md bg-[#121418] border border-[#22262E] rounded-3xl p-8 flex flex-col items-center gap-6 shadow-2xl">
 
-        {/* Header */}
-        <div className="text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#0EA5E9]/10 text-[#0EA5E9] rounded-full text-[10px] font-mono font-bold uppercase tracking-widest border border-[#0EA5E9]/20 mb-4">
-            <Globe size={12} />
-            Browser Sign-In
-          </div>
-          <h2 className="text-xl font-bold text-white mb-2">Sign in with your browser</h2>
-          <p className="text-[#8A93A4] text-sm leading-relaxed">
-            Open the link below in Chrome or Edge, sign in with Google or your email, then this window activates automatically.
-          </p>
-        </div>
-
-        {/* Code Display */}
-        {phase === 'generating' ? (
-          <div className="w-32 h-16 flex items-center justify-center">
-            <Loader size={28} className="animate-spin text-[#0EA5E9]" />
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-3 w-full">
-            {/* Big code pill */}
-            <button
-              onClick={handleCopyCode}
-              title="Click to copy"
-              className="group flex items-center gap-3 px-6 py-4 bg-[#181B22] border border-[#0EA5E9]/30 hover:border-[#0EA5E9] rounded-2xl transition-all cursor-pointer"
-            >
-              <span className="text-3xl font-mono font-black text-[#0EA5E9] tracking-[0.25em]">
-                {sessionCode}
-              </span>
-              <div className={`text-[10px] font-mono uppercase tracking-widest transition-colors ${isCopied ? 'text-[#10B981]' : 'text-[#8A93A4] group-hover:text-white'}`}>
-                {isCopied ? '✓ Copied' : 'Copy'}
-              </div>
-            </button>
-
-            {/* Countdown */}
-            <div className="flex items-center gap-1.5 text-[#8A93A4] text-xs font-mono">
-              <div className={`w-2 h-2 rounded-full animate-pulse ${timeLeft > 120 ? 'bg-[#10B981]' : timeLeft > 30 ? 'bg-[#F59E0B]' : 'bg-[#EF4444]'}`} />
-              Expires in {formatTime(timeLeft)}
-            </div>
-          </div>
-        )}
-
-        {/* Open in browser button */}
-        {approvalUrl && (
+        {/* Auth Method Switcher Tabs */}
+        <div className="flex items-center gap-1.5 p-1 bg-[#181B22] border border-[#22262E] rounded-2xl w-full">
           <button
-            onClick={handleOpenBrowser}
-            className="w-full flex items-center justify-center gap-2.5 py-3.5 px-6 rounded-xl bg-[#0EA5E9] hover:bg-[#0284C7] text-white font-mono text-sm font-bold transition-all shadow-lg shadow-[#0EA5E9]/20"
+            type="button"
+            onClick={() => setShowEmailSignIn(false)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl font-mono text-xs font-bold transition-all ${
+              !showEmailSignIn
+                ? 'bg-[#0EA5E9] text-white shadow-md'
+                : 'text-[#8A93A4] hover:text-white'
+            }`}
           >
-            <Globe size={18} />
-            Open Sign-In in Browser
-            <ArrowRight size={16} className="ml-auto" />
+            <Globe size={14} />
+            Browser Sign-In
           </button>
-        )}
-
-        {/* Status line */}
-        <div className="flex items-center gap-2 text-[#8A93A4] text-xs font-mono">
-          {phase === 'waiting' ? (
-            <>
-              <Wifi size={12} className="text-[#10B981]" />
-              Waiting for browser approval…
-            </>
-          ) : (
-            <>
-              <Loader size={12} className="animate-spin" />
-              Generating code…
-            </>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowEmailSignIn(true)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl font-mono text-xs font-bold transition-all ${
+              showEmailSignIn
+                ? 'bg-[#0EA5E9] text-white shadow-md'
+                : 'text-[#8A93A4] hover:text-white'
+            }`}
+          >
+            <Mail size={14} />
+            Direct Email OTP
+          </button>
         </div>
+
+        {showEmailSignIn ? (
+          /* Direct Email OTP Sign-in Form */
+          <form onSubmit={handleDirectEmailSubmit} className="w-full flex flex-col gap-4">
+            <div className="text-center">
+              <h2 className="text-xl font-bold text-white mb-1">Direct Desktop Sign-In</h2>
+              <p className="text-[#8A93A4] text-xs leading-relaxed">
+                {directStep === 'email' 
+                  ? 'Enter your work email to receive a one-time verification code.' 
+                  : `Enter the 6-digit code sent to ${directEmail}.`}
+              </p>
+            </div>
+
+            {emailFeedback && (
+              <div className={`p-3 rounded-xl text-xs font-mono flex items-center gap-2 border ${
+                emailFeedback.type === 'success' 
+                  ? 'bg-[#10B981]/10 border-[#10B981]/30 text-[#10B981]' 
+                  : 'bg-[#EF4444]/10 border-[#EF4444]/30 text-[#EF4444]'
+              }`}>
+                {emailFeedback.text}
+              </div>
+            )}
+
+            {directStep === 'email' ? (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-[#8A93A4] font-bold">Email Address</label>
+                <div className="relative">
+                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A93A4]" />
+                  <input
+                    type="email"
+                    required
+                    value={directEmail}
+                    onChange={(e) => setDirectEmail(e.target.value)}
+                    placeholder="pastor@church.org"
+                    className="w-full bg-[#181B22] border border-[#22262E] focus:border-[#0EA5E9] text-white rounded-xl pl-10 pr-4 py-3 text-sm font-mono placeholder:text-slate-600 focus:outline-none transition-colors"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-[#8A93A4] font-bold">Verification Code</label>
+                <div className="relative">
+                  <KeyRound size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A93A4]" />
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={directOtp}
+                    onChange={(e) => setDirectOtp(e.target.value)}
+                    placeholder="123456"
+                    className="w-full bg-[#181B22] border border-[#22262E] focus:border-[#0EA5E9] text-white rounded-xl pl-10 pr-4 py-3 text-sm font-mono tracking-widest placeholder:text-slate-600 focus:outline-none transition-colors"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setDirectStep('email'); setDirectOtp(''); }}
+                  className="text-left text-[11px] font-mono text-[#0EA5E9] hover:underline mt-1"
+                >
+                  ← Change email address
+                </button>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSubmittingEmail}
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-50 text-white font-mono text-sm font-bold transition-all shadow-lg shadow-[#0EA5E9]/20"
+            >
+              {isSubmittingEmail ? (
+                <Loader size={18} className="animate-spin" />
+              ) : directStep === 'email' ? (
+                <>Send Verification Code <ArrowRight size={16} /></>
+              ) : (
+                <>Sign In <ArrowRight size={16} /></>
+              )}
+            </button>
+          </form>
+        ) : (
+          /* Browser Handshake Mode */
+          <>
+            <div className="text-center">
+              <h2 className="text-xl font-bold text-white mb-2">Sign in with your browser</h2>
+              <p className="text-[#8A93A4] text-sm leading-relaxed">
+                Open the link below in Chrome or Edge, sign in with Google or your email, then this window activates automatically.
+              </p>
+            </div>
+
+            {/* Code Display */}
+            {phase === 'generating' ? (
+              <div className="w-32 h-16 flex items-center justify-center">
+                <Loader size={28} className="animate-spin text-[#0EA5E9]" />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3 w-full">
+                <button
+                  onClick={handleCopyCode}
+                  title="Click to copy"
+                  className="group flex items-center gap-3 px-6 py-4 bg-[#181B22] border border-[#0EA5E9]/30 hover:border-[#0EA5E9] rounded-2xl transition-all cursor-pointer"
+                >
+                  <span className="text-3xl font-mono font-black text-[#0EA5E9] tracking-[0.25em]">
+                    {sessionCode}
+                  </span>
+                  <div className={`text-[10px] font-mono uppercase tracking-widest transition-colors ${isCopied ? 'text-[#10B981]' : 'text-[#8A93A4] group-hover:text-white'}`}>
+                    {isCopied ? '✓ Copied' : 'Copy'}
+                  </div>
+                </button>
+
+                <div className="flex items-center gap-1.5 text-[#8A93A4] text-xs font-mono">
+                  <div className={`w-2 h-2 rounded-full animate-pulse ${timeLeft > 120 ? 'bg-[#10B981]' : timeLeft > 30 ? 'bg-[#F59E0B]' : 'bg-[#EF4444]'}`} />
+                  Expires in {formatTime(timeLeft)}
+                </div>
+              </div>
+            )}
+
+            {/* Open in browser button */}
+            {approvalUrl && (
+              <button
+                onClick={handleOpenBrowser}
+                className="w-full flex items-center justify-center gap-2.5 py-3.5 px-6 rounded-xl bg-[#0EA5E9] hover:bg-[#0284C7] text-white font-mono text-sm font-bold transition-all shadow-lg shadow-[#0EA5E9]/20"
+              >
+                <Globe size={18} />
+                Open Sign-In in Browser
+                <ArrowRight size={16} className="ml-auto" />
+              </button>
+            )}
+
+            <div className="flex items-center gap-2 text-[#8A93A4] text-xs font-mono">
+              {phase === 'waiting' ? (
+                <>
+                  <Wifi size={12} className="text-[#10B981]" />
+                  Waiting for browser approval…
+                </>
+              ) : (
+                <>
+                  <Loader size={12} className="animate-spin" />
+                  Generating code…
+                </>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Divider */}
         <div className="w-full h-px bg-[#22262E]" />

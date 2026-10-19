@@ -38,4 +38,5 @@ playwright/.cache/
 
 # Electron build outputs
 release/
+Workspaces/
 

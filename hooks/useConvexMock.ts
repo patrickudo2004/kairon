@@ -1,6 +1,8 @@
 import { useQuery as useQueryReal, useMutation as useMutationReal, useConvexAuth as useConvexAuthReal, useConvex as useConvexReal } from 'convex/react';
 import { useState, useEffect } from 'react';
 
+import { getDefaultSeedPrograms } from '../utils/seedData';
+
 const isTestBypass = () => {
     try {
         if (typeof window !== 'undefined') {
@@ -17,6 +19,26 @@ const isTestBypass = () => {
     } catch {
         return false;
     }
+};
+
+export const getLocalPrograms = () => {
+    try {
+        const local = localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs');
+        if (local) {
+            const parsed = JSON.parse(local);
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+    } catch {
+        // Fallback to seeding
+    }
+    const seed = getDefaultSeedPrograms();
+    try {
+        localStorage.setItem('kairon_offline_programs', JSON.stringify(seed));
+        if (typeof window !== 'undefined' && (localStorage.getItem('testBypass') === 'true' || window.location.search.includes('testBypass=true'))) {
+            localStorage.setItem('test_programs', JSON.stringify(seed));
+        }
+    } catch {}
+    return seed;
 };
 
 export const useConvexAuth = () => {
@@ -90,15 +112,6 @@ export const useQuery = (query: any, args: any) => {
     if (path.includes('getMyMembershipInOrg')) {
         return { role: "admin" };
     }
-
-    const getLocalPrograms = () => {
-        try {
-            const local = localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs');
-            return local ? JSON.parse(local) : [];
-        } catch {
-            return [];
-        }
-    };
 
     if (path.includes('getPrograms')) {
         return getLocalPrograms();

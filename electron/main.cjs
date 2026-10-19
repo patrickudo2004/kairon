@@ -4,7 +4,7 @@ if (!electron || typeof electron !== 'object' || !electron.app) {
   console.error('Run: npm run electron:dev\n');
   process.exit(1);
 }
-const { app, BrowserWindow, ipcMain, screen, powerSaveBlocker, dialog, shell } = electron;
+const { app, BrowserWindow, ipcMain, screen, powerSaveBlocker, dialog, shell, nativeImage } = electron;
 const path = require('path');
 const fs = require('fs');
 
@@ -51,6 +51,7 @@ if (process.platform === 'win32') {
 const appIconIco = path.join(__dirname, '../public/icon.ico');
 const appIconPng = path.join(__dirname, '../public/kairon-logo.png');
 const appIconPath = (process.platform === 'win32' && fs.existsSync(appIconIco)) ? appIconIco : appIconPng;
+const nativeAppIcon = nativeImage.createFromPath(appIconPath);
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -59,7 +60,7 @@ function createMainWindow() {
     minWidth: 1024,
     minHeight: 700,
     title: 'Kairon Studio — Broadcast Stage & Rundown Engine',
-    icon: appIconPath,
+    icon: !nativeAppIcon.isEmpty() ? nativeAppIcon : appIconPath,
     show: false,
     center: true,
     backgroundColor: '#090A0C',
@@ -73,7 +74,11 @@ function createMainWindow() {
 
   if (process.platform === 'win32') {
     try {
-      mainWindow.setIcon(appIconPath);
+      if (!nativeAppIcon.isEmpty()) {
+        mainWindow.setIcon(nativeAppIcon);
+      } else {
+        mainWindow.setIcon(appIconPath);
+      }
     } catch (e) {
       console.warn('[Kairon Main] Could not set window icon:', e);
     }
@@ -294,7 +299,7 @@ ipcMain.handle('open-target-screen', async (event, { url, screenIndex, windowId 
       transparent: Boolean(isTransparentOverlay),
       alwaysOnTop: false,
       title: deterministicTitle,
-      icon: appIconPath,
+      icon: !nativeAppIcon.isEmpty() ? nativeAppIcon : appIconPath,
       backgroundColor: isTransparentOverlay ? '#00000000' : '#090A0C',
       webPreferences: {
         preload: path.join(__dirname, 'preload.cjs'),

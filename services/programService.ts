@@ -2,6 +2,7 @@
 import { convex } from './convexClient';
 import { api } from '../convex/_generated/api';
 import { Program, Slot } from '../types';
+import { getDefaultSeedPrograms } from '../utils/seedData';
 
 const isTestBypass = () => {
     try {
@@ -15,11 +16,31 @@ const isTestBypass = () => {
     }
 };
 
+const getLocalStoredPrograms = (): Program[] => {
+    try {
+        const local = localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs');
+        if (local) {
+            const parsed = JSON.parse(local);
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+    } catch {}
+    const seed = getDefaultSeedPrograms();
+    try {
+        localStorage.setItem('kairon_offline_programs', JSON.stringify(seed));
+        if (typeof window !== 'undefined' && (localStorage.getItem('testBypass') === 'true' || window.location.search.includes('testBypass=true'))) {
+            localStorage.setItem('test_programs', JSON.stringify(seed));
+        }
+    } catch {}
+    return seed;
+};
+
 const updateTestPrograms = (programs: Program[] | null) => {
     if (programs === null) {
         localStorage.removeItem('test_programs');
+        localStorage.removeItem('kairon_offline_programs');
     } else {
         localStorage.setItem('test_programs', JSON.stringify(programs));
+        localStorage.setItem('kairon_offline_programs', JSON.stringify(programs));
     }
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('program_update'));
@@ -28,8 +49,7 @@ const updateTestPrograms = (programs: Program[] | null) => {
 
 export const getPrograms = async (organizationId?: string): Promise<Program[]> => {
     if (isTestBypass()) {
-        const local = localStorage.getItem('test_programs');
-        return local ? JSON.parse(local) : [];
+        return getLocalStoredPrograms();
     }
     if (!organizationId) return [];
 
@@ -42,10 +62,9 @@ export const getPrograms = async (organizationId?: string): Promise<Program[]> =
 
 export const getProgramById = async (id: string): Promise<Program | null> => {
     if (isTestBypass()) {
-        const local = localStorage.getItem('test_programs');
-        const list: Program[] = local ? JSON.parse(local) : [];
+        const list = getLocalStoredPrograms();
         const cleanId = id.replace('local-', '');
-        const found = list.find((p) => p.id === id || p.id?.replace('local-', '') === cleanId);
+        const found = list.find((p) => p.id === id || p.id?.replace('local-', '') === cleanId || p.slug === cleanId);
         return found || null;
     }
     const data = await convex.query(api.programs.getProgramById, { id: id as any });
