@@ -18,8 +18,15 @@ export const PublicPortal: React.FC = () => {
     // Monitor Convex connection status
     const [connStatus, setConnStatus] = useState<string>('connecting');
 
-    // Global Theme Sync + URL Theme Override (for MonitorDashboard thumbnails)
-    const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    // Global Theme Sync + URL Theme Override (for MonitorDashboard thumbnails & hash routing)
+    const hashQuery = typeof window !== 'undefined' && window.location.hash.includes('?')
+        ? window.location.hash.slice(window.location.hash.indexOf('?'))
+        : '';
+    const searchParams = new URLSearchParams(
+        typeof window !== 'undefined' 
+            ? (window.location.search || hashQuery || '') 
+            : ''
+    );
     const searchId = searchParams.get('id');
     const themeParam = searchParams.get('theme');
     const isThumbnail = searchParams.get('mode') === 'thumbnail';
@@ -135,7 +142,7 @@ export const PublicPortal: React.FC = () => {
             }
 
             // Check list stores
-            const listKeys = ['programs', 'test_programs'];
+            const listKeys = ['programs', 'test_programs', 'kairon_offline_programs'];
             for (const key of listKeys) {
                 const allRaw = localStorage.getItem(key);
                 if (allRaw) {
@@ -192,9 +199,10 @@ export const PublicPortal: React.FC = () => {
                         id: data.id || data.program.id
                     } as Program;
                 }
-                const base = prev || readLocalFallback() || {
+                const base: Program = prev || readLocalFallback() || {
                     id: data.id || 'live',
                     title: 'Live Service',
+                    subtitle: '',
                     date: new Date().toISOString().split('T')[0],
                     startTime: '09:00',
                     slots: [],
@@ -241,7 +249,9 @@ export const PublicPortal: React.FC = () => {
         return () => clearInterval(interval);
     }, [convex]);
 
-    const effectiveProgramRaw = programRaw || localProgram;
+    const effectiveProgramRaw = (localProgram && (localProgram.isTimerActive || localProgram.status === 'live'))
+        ? { ...(programRaw || {}), ...localProgram }
+        : (programRaw || localProgram);
     const program = effectiveProgramRaw ? {
         ...(effectiveProgramRaw as any),
         id: (effectiveProgramRaw as any)._id || (effectiveProgramRaw as any).id

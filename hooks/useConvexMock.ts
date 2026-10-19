@@ -13,9 +13,6 @@ const isTestBypass = () => {
             if (localStorage.getItem('kairon_booth_mode') === 'true') {
                 return true;
             }
-            if (Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron)) {
-                return true;
-            }
             return localStorage.getItem('testBypass') === 'true';
         }
         return false;

@@ -43,6 +43,9 @@ export const HoldToConfirmButton: React.FC<HoldToConfirmButtonProps> = ({
   }, []);
 
   const stopHolding = useCallback(() => {
+    const elapsed = startTimeRef.current !== null ? (performance.now() - startTimeRef.current) : 0;
+    const wasHolding = isHoldingRef.current;
+
     isHoldingRef.current = false;
     setIsHolding(false);
     if (animFrameRef.current !== null) {
@@ -51,7 +54,12 @@ export const HoldToConfirmButton: React.FC<HoldToConfirmButtonProps> = ({
     }
     startTimeRef.current = null;
     setProgress(0);
-  }, []);
+
+    // If released quickly (< 450ms), invoke onQuickClick so the standard confirmation modal opens
+    if (wasHolding && elapsed > 0 && elapsed < 450 && onQuickClick) {
+      onQuickClick();
+    }
+  }, [onQuickClick]);
 
   const handleHoldSuccess = useCallback(() => {
     isHoldingRef.current = false;
@@ -118,6 +126,10 @@ export const HoldToConfirmButton: React.FC<HoldToConfirmButtonProps> = ({
   return (
     <button
       type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
       title={title}
       disabled={disabled}
       onMouseDown={startHolding}

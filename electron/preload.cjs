@@ -25,6 +25,22 @@ const api = {
     ipcRenderer.on('timer-state-push', subscription);
     return () => ipcRenderer.removeListener('timer-state-push', subscription);
   },
+  // Native detached Flight Bridge window management
+  openFlightBridge: () => ipcRenderer.invoke('open-flight-bridge'),
+  closeFlightBridge: () => ipcRenderer.invoke('close-flight-bridge'),
+  toggleFlightBridge: () => ipcRenderer.invoke('toggle-flight-bridge'),
+  onFlightBridgeClosed: (callback) => {
+    const subscription = () => callback();
+    ipcRenderer.on('flight-bridge-closed', subscription);
+    return () => ipcRenderer.removeListener('flight-bridge-closed', subscription);
+  },
+  // Bidirectional timer controls: Flight Bridge → main controller window
+  sendTimerControl: (payload) => ipcRenderer.send('timer-control-relay', payload),
+  onTimerControl: (callback) => {
+    const subscription = (event, payload) => callback(payload);
+    ipcRenderer.on('timer-control-action', subscription);
+    return () => ipcRenderer.removeListener('timer-control-action', subscription);
+  },
 };
 
 contextBridge.exposeInMainWorld('electron', api);

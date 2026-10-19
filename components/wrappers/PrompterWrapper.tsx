@@ -231,12 +231,20 @@ const PrompterWrapper: React.FC = () => {
         if (!localOfflineProgram) return candidateProg;
         if (!programFromConvex) return localOfflineProgram;
 
+        // Determine if there is an active live timer anywhere
+        const isActivelyLive = Boolean(
+            localOfflineProgram.isTimerActive ||
+            programFromConvex.isTimerActive ||
+            localOfflineProgram.status === 'live' ||
+            programFromConvex.status === 'live'
+        );
+
         // If in booth / offline / test bypass mode, local offline program takes precedence for runtime state
         if (isBoothMode) {
-            const effectiveStatus = (localOfflineProgram.status === 'concluded' || programFromConvex.status === 'concluded')
-                ? 'concluded'
-                : ((localOfflineProgram.status === 'live' || localOfflineProgram.isTimerActive)
-                    ? 'live'
+            const effectiveStatus = isActivelyLive
+                ? 'live'
+                : ((localOfflineProgram.status === 'concluded' || programFromConvex.status === 'concluded')
+                    ? 'concluded'
                     : (programFromConvex.status || localOfflineProgram.status || 'draft'));
 
             const effectiveIsTimerActive = effectiveStatus === 'concluded'
@@ -251,6 +259,7 @@ const PrompterWrapper: React.FC = () => {
                     : (programFromConvex.slots || []),
                 isTimerActive: effectiveIsTimerActive,
                 status: effectiveStatus,
+                currentSlotIndex: localOfflineProgram.currentSlotIndex ?? 0,
             };
         }
 
@@ -258,7 +267,7 @@ const PrompterWrapper: React.FC = () => {
         const isConvexLiveOrConcluded = programFromConvex.status === 'live' || programFromConvex.status === 'concluded' || Boolean(programFromConvex.isTimerActive);
 
         if (isLocalLiveOrConcluded && !isConvexLiveOrConcluded) {
-            const effectiveStatus = localOfflineProgram.status || (localOfflineProgram.isTimerActive ? 'live' : 'draft');
+            const effectiveStatus = isActivelyLive ? 'live' : (localOfflineProgram.status || (localOfflineProgram.isTimerActive ? 'live' : 'draft'));
             return {
                 ...programFromConvex,
                 ...localOfflineProgram,
@@ -267,30 +276,42 @@ const PrompterWrapper: React.FC = () => {
                     : (programFromConvex.slots || []),
                 isTimerActive: effectiveStatus === 'concluded' ? false : Boolean(localOfflineProgram.isTimerActive),
                 status: effectiveStatus,
+                currentSlotIndex: localOfflineProgram.currentSlotIndex ?? 0,
             };
         }
 
         if (isConvexLiveOrConcluded && !isLocalLiveOrConcluded) {
+            const effectiveStatus = isActivelyLive ? 'live' : (programFromConvex.status || 'live');
             return {
                 ...localOfflineProgram,
                 ...programFromConvex,
                 slots: (programFromConvex.slots && programFromConvex.slots.length > 0)
                     ? programFromConvex.slots
                     : (localOfflineProgram.slots || []),
-                isTimerActive: programFromConvex.status === 'concluded' ? false : Boolean(programFromConvex.isTimerActive),
-                status: programFromConvex.status || 'live',
+                isTimerActive: effectiveStatus === 'concluded' ? false : Boolean(programFromConvex.isTimerActive),
+                status: effectiveStatus,
+                currentSlotIndex: programFromConvex.currentSlotIndex ?? 0,
             };
         }
 
         const convexSlot = programFromConvex.currentSlotIndex ?? 0;
         const localSlot = localOfflineProgram.currentSlotIndex ?? 0;
-        const higherSlot = Math.max(convexSlot, localSlot);
+
+        // Slot Resolution:
+        // If an active session has restarted at Slot 0, honor the live restarted slot rather than forcing Math.max
+        const isRewound = isActivelyLive && (convexSlot === 0 || localSlot === 0) && Math.max(convexSlot, localSlot) > 0;
+        const effectiveSlot = isRewound
+            ? (localOfflineProgram.isTimerActive ? localSlot : (programFromConvex.isTimerActive ? convexSlot : 0))
+            : (convexSlot >= localSlot ? convexSlot : localSlot);
+
         const preferred = convexSlot >= localSlot ? programFromConvex : localOfflineProgram;
         const fallback = convexSlot >= localSlot ? localOfflineProgram : programFromConvex;
 
-        const effectiveStatus = (programFromConvex.status === 'concluded' || localOfflineProgram.status === 'concluded')
-            ? 'concluded'
-            : ((programFromConvex.status === 'live' || localOfflineProgram.status === 'live' || programFromConvex.isTimerActive || localOfflineProgram.isTimerActive) ? 'live' : preferred.status);
+        const effectiveStatus = isActivelyLive
+            ? 'live'
+            : ((programFromConvex.status === 'concluded' || localOfflineProgram.status === 'concluded')
+                ? 'concluded'
+                : preferred.status);
 
         const effectiveIsTimerActive = effectiveStatus === 'concluded'
             ? false
@@ -303,10 +324,10 @@ const PrompterWrapper: React.FC = () => {
                 ? preferred.slots
                 : (fallback.slots || []),
             isTimerActive: effectiveIsTimerActive,
-            currentSlotIndex: higherSlot,
-            status: effectiveStatus,
+            currentSlotIndex: effectiveSlot,
+            status: effectiveStatus as any,
         };
-    })();
+    })() as Program | null;
 
 
     // Organization Branding Query

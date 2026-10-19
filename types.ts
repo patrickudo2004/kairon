@@ -65,6 +65,8 @@ export interface Profile {
   id: string;
   fullName: string;
   avatarUrl?: string;
+  userId?: string;
+  subscriptionStatus?: 'free' | 'pro' | 'enterprise';
 }
 export interface TimerState {
   programId: string;

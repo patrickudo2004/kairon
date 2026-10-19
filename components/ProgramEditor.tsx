@@ -390,7 +390,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
         </div>
 
         {/* Timing Controls & Telemetry Readout */}
-        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50/50 dark:bg-[#0E1013]">
+        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4 bg-slate-50/50 dark:bg-[#0E1013]">
           <div>
             <label className="block text-[10px] font-mono font-bold text-slate-500 dark:text-[#8A93A4] uppercase mb-1 flex items-center gap-1.5">
               <Calendar size={11} className="text-[#0EA5E9]" /> Date
@@ -449,69 +449,104 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
 
       </div>
 
-      {/* Public Access Link Bar */}
-      <div className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md p-3.5 mb-6 flex flex-col gap-3 shadow-sm">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
-          <div className="flex items-start sm:items-center gap-2.5 min-w-0 w-full lg:w-auto">
-            <div className="p-2 bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-[#0EA5E9] rounded shrink-0">
-              <Globe size={15} />
+      {/* =========================================================
+          PUBLIC ATTENDEE ACCESS PORTAL BAR (RESPONSIVE & TOUCH-SAFE)
+         ========================================================= */}
+      <div className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-xl p-4 sm:p-5 mb-6 shadow-xs transition-all font-sans">
+        
+        {/* TIER 1: Header Identity & Master Privacy Toggle */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#1E222A]">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`p-2.5 rounded-lg border shrink-0 transition-colors ${
+              program.isPublic
+                ? 'bg-[#0EA5E9]/10 border-[#0EA5E9]/30 text-[#0EA5E9]'
+                : 'bg-slate-100 dark:bg-[#181B22] border-slate-200 dark:border-[#22262E] text-slate-400 dark:text-[#6A7382]'
+            }`}>
+              <Globe size={18} />
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="text-xs font-bold text-slate-900 dark:text-white font-mono uppercase">Public Attendee Link</h4>
-                {program.isPublic && publicPortalUrl && (
-                  <span
-                    onClick={handleCopyLink}
-                    title={publicPortalUrl}
-                    className="cursor-pointer max-w-full sm:max-w-[280px] md:max-w-[340px] truncate px-2 py-0.5 rounded bg-slate-100 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] text-[10px] font-mono text-[#0EA5E9] hover:border-[#0EA5E9]/50 transition-colors"
-                  >
-                    {publicPortalUrl}
-                  </span>
-                )}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white font-mono uppercase tracking-wide">
+                  Public Attendee Portal
+                </h4>
+                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
+                  program.isPublic
+                    ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30'
+                    : 'bg-slate-100 dark:bg-[#1C2028] text-slate-500 border-slate-200 dark:border-[#2D333F]'
+                }`}>
+                  {program.isPublic ? 'Live Online' : 'Private'}
+                </span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-[#8A93A4] mt-0.5">
-                Same live attendee URL & QR code across Editor, PDF Printouts, and Display Hub.
+              <p className="text-[11px] text-slate-500 dark:text-[#8A93A4] mt-0.5 truncate">
+                Universal mobile attendee URL & QR code for congregation devices and printed schedules.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap sm:flex-nowrap justify-start sm:justify-end">
-            <button
-              type="button"
-              onClick={() => onUpdate({ ...program, isPublic: !program.isPublic })}
-              disabled={isReadOnly}
-              className={`px-3 py-1.5 rounded text-xs font-mono font-bold transition-all border shrink-0 ${
-                program.isPublic
-                  ? 'bg-[#10B981]/10 border-[#10B981]/30 text-[#10B981]'
-                  : 'bg-slate-100 dark:bg-[#181B22] border-slate-200 dark:border-[#22262E] text-slate-500 dark:text-[#6A7382]'
-              }`}
-            >
-              {program.isPublic ? 'PUBLIC ENABLED' : 'PRIVATE'}
-            </button>
-            
-            {program.isPublic && (
-              <>
+          {/* Master Privacy Toggle (Isolated from actions, 38px touch target) */}
+          <button
+            type="button"
+            onClick={() => onUpdate({ ...program, isPublic: !program.isPublic })}
+            disabled={isReadOnly}
+            className={`min-h-[38px] px-4 py-2 rounded-lg text-xs font-mono font-bold transition-all border flex items-center justify-center gap-2 shrink-0 active:scale-95 touch-manipulation ${
+              program.isPublic
+                ? 'bg-[#10B981]/15 hover:bg-[#10B981]/25 border-[#10B981]/40 text-[#10B981] shadow-xs'
+                : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border-slate-300 dark:border-[#2D333F] text-slate-600 dark:text-[#8A93A4]'
+            }`}
+            title={program.isPublic ? "Click to disable public portal access" : "Click to enable live public portal"}
+          >
+            <div className={`w-2 h-2 rounded-full ${program.isPublic ? 'bg-[#10B981] animate-tally' : 'bg-slate-400'}`} />
+            <span>{program.isPublic ? 'PUBLIC ENABLED' : 'ENABLE PUBLIC ACCESS'}</span>
+          </button>
+        </div>
+
+        {/* TIER 2: Active URL Group & Action Toolbar */}
+        {program.isPublic && publicPortalUrl && (
+          <div className="pt-3.5 space-y-3 animate-in fade-in duration-200">
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2.5">
+              
+              {/* Full-width Sleek Monospace Link Display Box */}
+              <div 
+                onClick={handleCopyLink}
+                className="flex-1 min-w-0 bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] hover:border-[#0EA5E9]/50 rounded-lg px-3 py-2 flex items-center gap-2.5 cursor-pointer transition-colors group shadow-inner"
+                title="Click to copy full public URL to clipboard"
+              >
+                <Share2 size={13} className="text-[#0EA5E9] shrink-0" />
+                <span className="text-xs font-mono text-slate-700 dark:text-[#E1E4EA] group-hover:text-[#0EA5E9] truncate select-all">
+                  {publicPortalUrl}
+                </span>
+                <span className="ml-auto text-[10px] font-mono text-slate-400 dark:text-[#6A7382] group-hover:text-[#0EA5E9] uppercase shrink-0 hidden sm:inline">
+                  {isCopied ? 'Copied!' : 'Click to copy'}
+                </span>
+              </div>
+
+              {/* Action Buttons Toolbar (Min 38px height, 10px gap, clear touch targets) */}
+              <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="px-3 py-1.5 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-white rounded text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors shrink-0 active:scale-95"
+                  className={`min-h-[38px] px-3.5 py-2 rounded-lg text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-all border shrink-0 active:scale-95 touch-manipulation shadow-xs ${
+                    isCopied
+                      ? 'bg-[#10B981]/15 border-[#10B981]/40 text-[#10B981]'
+                      : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border-slate-300 dark:border-[#2D333F] text-slate-800 dark:text-white'
+                  }`}
                   title="Copy attendee web link to clipboard"
                 >
-                  {isCopied ? <Check size={12} className="text-[#10B981]" /> : <Copy size={12} />}
+                  {isCopied ? <Check size={13} className="text-[#10B981]" /> : <Copy size={13} />}
                   <span>{isCopied ? 'COPIED!' : 'COPY LINK'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setShowPublicQr((prev) => !prev)}
-                  className={`px-3 py-1.5 border rounded text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors shrink-0 active:scale-95 ${
+                  className={`min-h-[38px] px-3.5 py-2 rounded-lg text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-all border shrink-0 active:scale-95 touch-manipulation shadow-xs ${
                     showPublicQr
-                      ? 'bg-[#0EA5E9]/10 border-[#0EA5E9]/40 text-[#0EA5E9]'
-                      : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-white'
+                      ? 'bg-[#0EA5E9]/15 border-[#0EA5E9]/50 text-[#0EA5E9]'
+                      : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border-slate-300 dark:border-[#2D333F] text-slate-800 dark:text-white'
                   }`}
-                  title="Show Attendee QR Code"
+                  title="Show or hide QR Code drawer"
                 >
-                  <QrCode size={12} />
+                  <QrCode size={13} />
                   <span>QR CODE</span>
                 </button>
 
@@ -519,32 +554,35 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
                   href={publicPortalPath}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3 py-1.5 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-white rounded text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors shrink-0 active:scale-95"
+                  className="min-h-[38px] px-3.5 py-2 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-300 dark:border-[#2D333F] text-slate-800 dark:text-white rounded-lg text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-all shrink-0 active:scale-95 touch-manipulation shadow-xs"
+                  title="Open live attendee view in new browser tab"
                 >
-                  <Share2 size={12} />
+                  <Globe size={13} className="text-[#0EA5E9]" />
                   <span>PREVIEW</span>
                 </a>
-              </>
-            )}
-          </div>
-        </div>
+              </div>
+            </div>
 
-        {program.isPublic && showPublicQr && publicPortalUrl && (
-          <div className="pt-3 border-t border-slate-200 dark:border-[#22262E] flex flex-col sm:flex-row items-center gap-4 bg-slate-50/70 dark:bg-[#090A0C]/60 p-3 rounded animate-in fade-in duration-200">
-            <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs shrink-0">
-              <QRCode value={publicPortalUrl} size={96} />
-            </div>
-            <div className="text-center sm:text-left min-w-0 flex-1 space-y-1">
-              <div className="text-xs font-mono font-bold text-slate-900 dark:text-white uppercase">
-                Live Attendee Portal QR Code
+            {/* Expandable High-Contrast QR Code Drawer */}
+            {showPublicQr && (
+              <div className="pt-3 border-t border-slate-200/80 dark:border-[#1E222A] flex flex-col sm:flex-row items-center gap-4 bg-slate-50/80 dark:bg-[#090A0C]/80 p-3.5 rounded-lg animate-in fade-in duration-200">
+                <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs shrink-0">
+                  <QRCode value={publicPortalUrl} size={104} />
+                </div>
+                <div className="text-center sm:text-left min-w-0 flex-1 space-y-1">
+                  <div className="text-xs font-mono font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center justify-center sm:justify-start gap-1.5">
+                    <QrCode size={13} className="text-[#0EA5E9]" />
+                    <span>Live Attendee Portal QR Code</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-[#8A93A4] leading-relaxed">
+                    Scan from any phone or tablet to view real-time countdown, scripture notes, and running order. This identical QR code is embedded in PDF printouts and the Monitors hub.
+                  </p>
+                  <div className="text-[11px] font-mono text-[#0EA5E9] break-all pt-0.5">
+                    {publicPortalUrl}
+                  </div>
+                </div>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-[#8A93A4]">
-                Matches the QR code printed on exported PDF schedules and the Public Portal card in Monitors & Displays.
-              </p>
-              <div className="text-[11px] font-mono text-[#0EA5E9] break-all">
-                {publicPortalUrl}
-              </div>
-            </div>
+            )}
           </div>
         )}
       </div>

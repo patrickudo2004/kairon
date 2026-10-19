@@ -10,6 +10,7 @@ const fs = require('fs');
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 let mainWindow = null;
+let flightBridgeWindow = null;
 const secondaryWindows = {};
 let powerBlockerId = null;
 
@@ -19,6 +20,7 @@ function getDeterministicWindowTitle(urlStr = '', winKey = '') {
   if (lower.includes('tv')) return 'Kairon Output [TV]';
   if (lower.includes('overlay')) return 'Kairon Output [OVERLAY]';
   if (lower.includes('crew')) return 'Kairon Output [CREW]';
+  if (lower.includes('bridge')) return 'Kairon Flight Bridge';
   return 'Kairon Output [STAGE]';
 }
 
@@ -154,6 +156,10 @@ function createMainWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    if (flightBridgeWindow && !flightBridgeWindow.isDestroyed()) {
+      flightBridgeWindow.close();
+      flightBridgeWindow = null;
+    }
     Object.values(secondaryWindows).forEach((win) => {
       if (win && !win.isDestroyed()) win.close();
     });
@@ -462,4 +468,89 @@ ipcMain.on('timer-state-relay', (event, payload) => {
     }
   });
 });
+
+// Helper: Create detached native Flight Bridge window
+function createFlightBridgeWindow() {
+  if (flightBridgeWindow && !flightBridgeWindow.isDestroyed()) {
+    if (flightBridgeWindow.isMinimized()) flightBridgeWindow.restore();
+    flightBridgeWindow.show();
+    flightBridgeWindow.focus();
+    return { success: true, open: true };
+  }
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const width = 380;
+  const height = 580;
+  // Position bottom-right of primary screen with offset
+  const x = primaryDisplay.bounds.x + primaryDisplay.bounds.width - width - 30;
+  const y = primaryDisplay.bounds.y + primaryDisplay.bounds.height - height - 60;
+
+  flightBridgeWindow = new BrowserWindow({
+    x,
+    y,
+    width,
+    height,
+    minWidth: 320,
+    minHeight: 460,
+    alwaysOnTop: true,
+    frame: false,
+    resizable: true,
+    skipTaskbar: false,
+    title: 'Kairon Flight Bridge',
+    icon: !nativeAppIcon.isEmpty() ? nativeAppIcon : appIconPath,
+    backgroundColor: '#090A0C',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+    },
+  });
+
+  flightBridgeWindow.on('closed', () => {
+    flightBridgeWindow = null;
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+      mainWindow.webContents.send('flight-bridge-closed');
+    }
+  });
+
+  loadRouteIntoWindow(flightBridgeWindow, '/bridge');
+  return { success: true, open: true };
+}
+
+// IPC: Native Detached Flight Bridge management
+ipcMain.handle('open-flight-bridge', () => {
+  return createFlightBridgeWindow();
+});
+
+ipcMain.handle('close-flight-bridge', () => {
+  if (flightBridgeWindow && !flightBridgeWindow.isDestroyed()) {
+    flightBridgeWindow.close();
+    flightBridgeWindow = null;
+    return { success: true, open: false };
+  }
+  return { success: false, open: false };
+});
+
+ipcMain.handle('toggle-flight-bridge', () => {
+  if (flightBridgeWindow && !flightBridgeWindow.isDestroyed()) {
+    flightBridgeWindow.close();
+    flightBridgeWindow = null;
+    return { success: true, open: false };
+  } else {
+    return createFlightBridgeWindow();
+  }
+});
+
+// IPC: Bidirectional timer control relay from secondary windows (e.g. Flight Bridge) to main window
+ipcMain.on('timer-control-relay', (event, payload) => {
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+    try {
+      mainWindow.webContents.send('timer-control-action', payload);
+    } catch (e) {
+      console.warn('[Kairon Main] Failed to relay timer control to mainWindow:', e);
+    }
+  }
+});
+
 
