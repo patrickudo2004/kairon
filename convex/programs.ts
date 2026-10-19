@@ -393,6 +393,10 @@ export const deleteProgram = mutation({
         // Verify permissions - Only managers/admins can delete
         await checkPermissions(ctx, program.organizationId, "manager");
 
+        if (program.status === "archived") {
+            throw new Error("Cannot delete a finalized, archived Service Report.");
+        }
+
         await ctx.db.delete(program._id);
     },
 });

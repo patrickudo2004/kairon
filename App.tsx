@@ -725,6 +725,11 @@ const AppContent: React.FC = () => {
   // --- Reactive Global Live Channels (Multi-Track) ---
   const [selectedLiveId, setSelectedLiveId] = useState<string | null>(null);
   
+  const isTestMode = typeof window !== 'undefined' && (
+    window.location.search.includes('testBypass=true') ||
+    localStorage.getItem('testBypass') === 'true'
+  );
+
   const isConvexOrgId = Boolean(
     activeOrgId &&
     !isBoothMode &&
@@ -735,14 +740,19 @@ const AppContent: React.FC = () => {
 
   const activeSessionsRaw = useConvexQuery(
     api.programs.getActiveSessions, 
-    isConvexOrgId ? { organizationId: activeOrgId as any } : "skip"
+    (isConvexOrgId || isTestMode) ? { organizationId: (activeOrgId || 'test-org-id') as any } : "skip"
   );
 
   const activeSessions = useMemo(() => {
     if (isBoothMode) {
       const localList = getLocalPrograms();
       const currentLive = program.status === 'live' ? [program] : [];
-      const otherLive = localList.filter((p: any) => p.status === 'live' && p.id !== program.id);
+      const cleanProgramId = (program.id || '').replace(/^local-/, '');
+      const otherLive = localList.filter((p: any) => 
+        p.status === 'live' && 
+        p.id !== program.id && 
+        p.id?.replace(/^local-/, '') !== cleanProgramId
+      );
       return [...currentLive, ...otherLive];
     }
     if (!activeSessionsRaw) return [];
@@ -757,18 +767,25 @@ const AppContent: React.FC = () => {
 
   const allProgramsRaw = useConvexQuery(
     api.programs.getPrograms,
-    isConvexOrgId ? { organizationId: activeOrgId as any } : "skip"
+    (isConvexOrgId || isTestMode) ? { organizationId: (activeOrgId || 'test-org-id') as any } : "skip"
   );
 
   const programs = useMemo(() => {
     if (isBoothMode) {
       const localList = getLocalPrograms();
-      const existingIdx = localList.findIndex((p: any) => p.id === program.id);
+      const cleanProgramId = (program.id || '').replace(/^local-/, '');
+      const existingIdx = localList.findIndex((p: any) => 
+        p.id === program.id || 
+        p.id?.replace(/^local-/, '') === cleanProgramId
+      );
       if (existingIdx >= 0) {
         localList[existingIdx] = program;
         return localList;
       }
-      return [program, ...localList.filter((p: any) => p.id !== program.id)];
+      return [program, ...localList.filter((p: any) => 
+        p.id !== program.id && 
+        p.id?.replace(/^local-/, '') !== cleanProgramId
+      )];
     }
     if (!allProgramsRaw) return [];
     return allProgramsRaw.map(s => ({
@@ -839,12 +856,29 @@ const AppContent: React.FC = () => {
   // Decides if we show the "Global Live" event or the "Local Draft" event.
   // ---------------------------------------------------------
   const isLiveEventActive = !!globalLiveProgram;
-  const isTargetSameAsLocal = isLiveEventActive && (String(globalLiveProgram?.id) === String(program.id));
+  const isTargetSameAsLocal = isLiveEventActive && (
+    String(globalLiveProgram?.id) === String(program.id) ||
+    String(globalLiveProgram?.id).replace(/^local-/, '') === String(program.id).replace(/^local-/, '')
+  );
   const isUntouchedPlaceholder = program.id?.startsWith('local-') && program.slots.length === 0 && program.title === 'New Event' && !program.subtitle;
   const fallbackWorkspaceProgram = (!isLiveEventActive && isUntouchedPlaceholder && programs.length > 0) ? programs[0] : null;
 
-  const displayProgram = isLiveEventActive ? globalLiveProgram! : (fallbackWorkspaceProgram || program);
-  const displayCurrentSlotIndex = isLiveEventActive ? (globalLiveProgram?.currentSlotIndex ?? 0) : currentSlotIndex;
+  const displayIsManualMode = isLiveEventActive
+    ? (isTargetSameAsLocal ? Boolean(program.isManualMode ?? globalLiveProgram?.isManualMode) : Boolean(globalLiveProgram?.isManualMode))
+    : Boolean(program.isManualMode);
+
+  const displayProgram = useMemo(() => {
+    const base = isLiveEventActive 
+      ? (isTargetSameAsLocal ? { ...globalLiveProgram!, ...program, slots: program.slots } : globalLiveProgram!) 
+      : (fallbackWorkspaceProgram || program);
+    return {
+      ...base,
+      isManualMode: isTargetSameAsLocal ? (program.isManualMode ?? base.isManualMode ?? false) : (base.isManualMode ?? false),
+    };
+  }, [isLiveEventActive, isTargetSameAsLocal, globalLiveProgram, program, fallbackWorkspaceProgram]);
+  const displayCurrentSlotIndex = isLiveEventActive 
+    ? (isTargetSameAsLocal ? currentSlotIndex : (globalLiveProgram?.currentSlotIndex ?? 0)) 
+    : currentSlotIndex;
   
   const displayIsTimerActive = isLiveEventActive 
     ? (isTargetSameAsLocal ? isTimerActive : (globalLiveProgram?.isTimerActive ?? false)) 
@@ -878,7 +912,15 @@ const AppContent: React.FC = () => {
         }
       }
       if (displayProgram) {
-        const serializedDisplay = JSON.stringify(displayProgram);
+        const liveDisplay = {
+          ...displayProgram,
+          currentSlotIndex: displayCurrentSlotIndex,
+          isTimerActive: displayIsTimerActive,
+          timerStartTimestamp: displayTimerStartTimestamp,
+          secondsElapsed: displaySecondsElapsed,
+          status: (displayIsTimerActive || displayProgram.status === 'live') ? 'live' : displayProgram.status,
+        };
+        const serializedDisplay = JSON.stringify(liveDisplay);
         localStorage.setItem('kairon_offline_cache_live', serializedDisplay);
         if (displayProgram.id) {
           localStorage.setItem(`kairon_offline_cache_${displayProgram.id}`, serializedDisplay);
@@ -892,7 +934,7 @@ const AppContent: React.FC = () => {
     } catch (err) {
       console.warn('Could not sync offline cache in localStorage:', err);
     }
-  }, [program, displayProgram]);
+  }, [program, displayProgram, displayCurrentSlotIndex, displayIsTimerActive, displayTimerStartTimestamp, displaySecondsElapsed]);
 
 
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
@@ -1056,8 +1098,8 @@ const AppContent: React.FC = () => {
         if (fetchedProgram.isTimerActive !== undefined && !isTransitioning) {
           const isLive = fetchedProgram.status === 'live';
 
-          // SANITY CHECK: If not live OR the start timestamp is "stale" (e.g., from more than 4 hours ago), timer MUST be inactive
-          const isStale = isLive && fetchedProgram.timerStartTimestamp && (Date.now() - fetchedProgram.timerStartTimestamp > 4 * 60 * 60 * 1000);
+          const isTestBypassMode = typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
+          const isStale = !isTestBypassMode && isLive && fetchedProgram.timerStartTimestamp && (Date.now() - fetchedProgram.timerStartTimestamp > 4 * 60 * 60 * 1000);
 
           const targetIsActive = (isLive && !isStale) ? (fetchedProgram.isTimerActive ?? false) : false;
           const targetStartTs = (isLive && !isStale) ? (fetchedProgram.timerStartTimestamp ?? null) : null;
@@ -1120,8 +1162,75 @@ const AppContent: React.FC = () => {
         return;
       }
 
-      // 3. Offline Deep Recovery Fallback (Deprecated)
-      // Convex is now the single source of truth.
+      // 3. Offline Deep Recovery Fallback
+      if (!fetchedProgram && !importData) {
+        try {
+          const currentUrlId = searchParams.get('id');
+          let offlineProgram: Program | null = null;
+
+          if (currentUrlId) {
+            const cleanUrlId = currentUrlId.replace('local-', '');
+            const candidateKeys = [
+              `kairon_offline_cache_${currentUrlId}`,
+              `kairon_offline_cache_${cleanUrlId}`,
+              `kairon_offline_cache_local-${cleanUrlId}`,
+            ];
+            for (const key of candidateKeys) {
+              const raw = localStorage.getItem(key);
+              if (raw) {
+                try {
+                  const parsed = JSON.parse(raw);
+                  if (parsed && (parsed.id === currentUrlId || parsed.id === cleanUrlId || parsed.id === `local-${cleanUrlId}`)) {
+                    offlineProgram = parsed;
+                    break;
+                  }
+                } catch {}
+              }
+            }
+
+            if (!offlineProgram) {
+              const rawPrograms = localStorage.getItem('kairon_offline_programs') || localStorage.getItem('test_programs');
+              if (rawPrograms) {
+                try {
+                  const list = JSON.parse(rawPrograms);
+                  if (Array.isArray(list)) {
+                    offlineProgram = list.find((p: any) => p.id === currentUrlId || p.id === cleanUrlId || p.id === `local-${cleanUrlId}`) || null;
+                  }
+                } catch {}
+              }
+            }
+          } else if (typeof window !== 'undefined' && !window.navigator.onLine) {
+            // Only fall back to generic live cache when WAN is genuinely offline and no specific ID was requested
+            const rawLive = localStorage.getItem('kairon_offline_cache_live');
+            if (rawLive) {
+              try { offlineProgram = JSON.parse(rawLive); } catch {}
+            }
+          }
+
+          if (offlineProgram && offlineProgram.id && offlineProgram.id !== programRef.current.id) {
+            console.log("Restoring program from Offline Deep Recovery:", offlineProgram.title);
+            lastSavedProgramRef.current = offlineProgram;
+            setProgram(offlineProgram);
+
+            const isLive = offlineProgram.status === 'live';
+            if (isLive) {
+              if (offlineProgram.currentSlotIndex !== undefined) {
+                setCurrentSlotIndex(offlineProgram.currentSlotIndex);
+              }
+              if (offlineProgram.isTimerActive !== undefined) {
+                setIsTimerActive(Boolean(offlineProgram.isTimerActive));
+              }
+              if (offlineProgram.timerStartTimestamp) {
+                setTimerStartTimestamp(offlineProgram.timerStartTimestamp);
+                const elapsed = Math.floor((Date.now() - offlineProgram.timerStartTimestamp) / 1000);
+                if (elapsed >= 0) setSecondsElapsed(elapsed);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Offline deep recovery fallback error:", err);
+        }
+      }
     };
 
     hydrate();
@@ -1158,6 +1267,19 @@ const AppContent: React.FC = () => {
             currentSlotIndex: liveSnapshot.currentSlotIndex,
             status: liveSnapshot.status,
           });
+        }
+
+        // Persist local offline recovery snapshot
+        try {
+          localStorage.setItem(`kairon_offline_cache_${p.id}`, JSON.stringify(liveSnapshot));
+          if (p.id?.startsWith('local-')) {
+            localStorage.setItem(`kairon_offline_cache_${p.id.replace('local-', '')}`, JSON.stringify(liveSnapshot));
+          }
+          if (isLiveNow) {
+            localStorage.setItem('kairon_offline_cache_live', JSON.stringify(liveSnapshot));
+          }
+        } catch (storageErr) {
+          console.warn("Failed to update local offline cache snapshot:", storageErr);
         }
       } catch (err) {
         console.error("Local BroadcastChannel / IPC sync failed:", err);
@@ -1229,6 +1351,21 @@ const AppContent: React.FC = () => {
         console.error("Electron timer-state relay failed:", err);
       }
 
+      // Keep offline cache synchronized with timer mutations
+      try {
+        const cachedRaw = localStorage.getItem(`kairon_offline_cache_${id}`);
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw);
+          const updated = { ...cached, ...timerState };
+          localStorage.setItem(`kairon_offline_cache_${id}`, JSON.stringify(updated));
+          if (updated.status === 'live' || updated.isTimerActive) {
+            localStorage.setItem('kairon_offline_cache_live', JSON.stringify(updated));
+          }
+        }
+      } catch (err) {
+        // silent
+      }
+
 
       const isTestBypass = typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
       // CRITICAL GUARD
@@ -1268,33 +1405,26 @@ const AppContent: React.FC = () => {
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     const targetIdx = targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0);
 
-    const newSlots = [...targetProg.slots];
-    const currentSlot = newSlots[targetIdx];
+    const currentSlot = targetProg.slots[targetIdx];
     console.log('handleNudge called with:', minutes, 'currentSlot duration minutes before nudge:', currentSlot?.durationMinutes);
 
     if (currentSlot) {
-      currentSlot.durationMinutes = Math.max(1, currentSlot.durationMinutes + minutes);
-      const updated = { ...targetProg, slots: newSlots };
-      console.log('updated slot durationMinutes:', updated.slots[targetIdx].durationMinutes);
+      const nextDuration = Math.max(0, currentSlot.durationMinutes + minutes);
+      const newSlots = targetProg.slots.map((s, idx) => 
+        idx === targetIdx ? { ...s, durationMinutes: nextDuration } : s
+      );
+      const activeManualMode = targetProg.isManualMode ?? displayIsManualMode ?? programRef.current?.isManualMode ?? false;
+      const updated = { 
+        ...targetProg, 
+        ...programRef.current, 
+        slots: newSlots,
+        isManualMode: activeManualMode
+      };
+      console.log('updated slot durationMinutes:', nextDuration, 'isManualMode:', activeManualMode);
 
-      const targetIsLive = targetProg.status === 'live';
-      const targetIsActive = (targetProg.isTimerActive !== undefined ? targetProg.isTimerActive : false) ||
-                            activeSessions.some(as => String(as.id) === String(targetId) && as.isTimerActive) || 
-                            (String(targetId) === String(displayProgram.id) ? displayIsTimerActive : false) ||
-                            (String(targetId) === String(program.id) ? isTimerActive : false);
-      const targetStartTs = targetId === displayProgram.id ? displayTimerStartTimestamp : targetProg.timerStartTimestamp;
-      const targetElapsed = targetId === displayProgram.id ? displaySecondsElapsed : (targetProg.secondsElapsed || 0);
-
-      if (targetIsLive) {
-        timerSaveMutation.mutate({
-          id: targetId,
-          currentSlotIndex: targetIdx,
-          isTimerActive: targetIsActive,
-          secondsElapsed: targetElapsed,
-          timerStartTimestamp: targetStartTs,
-          isManualMode: targetProg.isManualMode
-        });
-      }
+      // Immediately synchronize refs so debounces and background listeners never revert to stale slot durations
+      programRef.current = updated;
+      lastSavedProgramRef.current = updated;
 
       if (targetId === program.id || targetId === displayProgram.id) {
         updateLocalProgram(updated);
@@ -1410,10 +1540,11 @@ const AppContent: React.FC = () => {
     setSaveStatus('unsaved');
 
     const timer = setTimeout(() => {
-      console.log(`Auto-saving program "${program.title}" to Convex...`);
+      const latestProgram = programRef.current;
+      console.log(`Auto-saving program "${latestProgram.title}" to Convex...`);
       setSaveStatus('saving');
-      lastSavedProgramRef.current = program;
-      mutation.mutate(program);
+      lastSavedProgramRef.current = latestProgram;
+      mutation.mutate(latestProgram);
     }, 2000); // 2s debounce
 
     return () => clearTimeout(timer);
@@ -1761,7 +1892,7 @@ const AppContent: React.FC = () => {
   // Universal Auto-Advance Watcher (Corrected)
   useEffect(() => {
     if (!displayProgram || !displayProgram.id) return;
-    if (displayProgram.isManualMode) return;
+    if (displayIsManualMode || displayProgram.isManualMode) return;
     if (!displayIsTimerActive) return; // FIX: Never auto-advance or unpause if timer is paused!
 
     const currentIdx = displayCurrentSlotIndex;
@@ -1812,7 +1943,7 @@ const AppContent: React.FC = () => {
         handleEndEvent();
       }
     }
-  }, [displaySecondsElapsed, displayIsTimerActive, displayProgram.id, displayCurrentSlotIndex, displayProgram.slots, displayProgram.isManualMode]);
+  }, [displaySecondsElapsed, displayIsTimerActive, displayProgram.id, displayCurrentSlotIndex, displayProgram.slots, displayIsManualMode, displayProgram.isManualMode]);
 
   // Auto-Start Watcher (New Feature)
   useEffect(() => {
@@ -2043,7 +2174,14 @@ const AppContent: React.FC = () => {
     const targetId = targetProgramId || displayProgram.id;
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     
-    const nextManualState = !targetProg.isManualMode;
+    const nextManualState = !(targetProg.isManualMode ?? displayIsManualMode);
+
+    if (programRef.current) {
+      programRef.current = { ...programRef.current, isManualMode: nextManualState };
+    }
+    if (lastSavedProgramRef.current) {
+      lastSavedProgramRef.current = { ...lastSavedProgramRef.current, isManualMode: nextManualState };
+    }
 
     // PUSH TO CLOUD - Ensure HUDs update instantly
     timerSaveMutation.mutate({
