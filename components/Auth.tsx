@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Mic, Mail, ArrowRight, Loader, Sun, Moon, Sparkles, UserPlus, Building, ShieldCheck, Zap } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { DesktopAuthWaiting } from './DesktopAuthWaiting';
+import { getCanonicalWebOrigin } from '../utils/url';
 
 const isElectronRuntime = typeof window !== 'undefined' && Boolean((window as any).electron?.isElectron);
 
@@ -49,7 +50,10 @@ export const Auth: React.FC<AuthProps> = ({ inviteDetails }) => {
     const handleGoogleSignIn = async () => {
         try {
             setIsLoading(true);
-            await signIn("google", { redirectTo: window.location.href });
+            const canonicalOrigin = getCanonicalWebOrigin();
+            const isLocal = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1');
+            const targetRedirect = isLocal ? `${canonicalOrigin}/` : window.location.href;
+            await signIn("google", { redirectTo: targetRedirect });
         } catch (error: any) {
             setMessage({ type: 'error', text: error.message || 'Google sign-in failed.' });
             setIsLoading(false);

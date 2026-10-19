@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuthActions, useAuthToken } from '@convex-dev/auth/react';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { api } from '../convex/_generated/api';
+import { getCanonicalWebOrigin } from '../utils/url';
 import { 
   CheckCircle2, 
   AlertTriangle, 
@@ -65,7 +66,12 @@ export const DesktopAuthApproval: React.FC = () => {
     try {
       setIsSubmittingAuth(true);
       setAuthFeedback(null);
-      await signIn("google", { redirectTo: window.location.href });
+      const canonicalOrigin = getCanonicalWebOrigin();
+      const isLocal = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1');
+      const targetRedirect = isLocal
+        ? `${canonicalOrigin}/desktop-auth?code=${encodeURIComponent(code)}`
+        : window.location.href;
+      await signIn("google", { redirectTo: targetRedirect });
     } catch (err: any) {
       console.error("[DesktopAuthApproval] Google sign-in failed:", err);
       setAuthFeedback({ type: 'error', text: err.message || 'Google sign-in failed. Please try again.' });
