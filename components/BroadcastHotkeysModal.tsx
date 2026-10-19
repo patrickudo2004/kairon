@@ -67,7 +67,7 @@ export const BroadcastHotkeysModal: React.FC<BroadcastHotkeysModalProps> = ({ is
                 </span>
               </h2>
               <p className="text-xs text-slate-500 dark:text-[#8A93A4]">
-                Instant tactile controls for live church broadcast and FOH operators.
+                Instant tactile controls for live broadcast and FOH operators.
               </p>
             </div>
           </div>

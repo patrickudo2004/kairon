@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Organization, OrganizationMember } from '../types';
+import { useAuthActions } from '@convex-dev/auth/react';
 import { getOrgMembers, updateOrganizationBranding, generateUploadUrl } from '../services/orgService';
 import {
     Settings,
@@ -43,6 +44,7 @@ interface AdminPanelProps {
 export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUserRole, currentUser }) => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const { signOut: convexSignOut } = useAuthActions();
     const [activeTab, setActiveTab] = useState<'account' | 'branding' | 'members' | 'danger'>('branding');
     const [userName, setUserName] = useState('');
     const [isSavingUser, setIsSavingUser] = useState(false);
@@ -384,11 +386,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                             type="button"
                                             onClick={async () => {
                                                 try {
-                                                    await signOut();
-                                                    window.location.href = '/';
+                                                    if (typeof window !== 'undefined') {
+                                                        localStorage.removeItem('kairon_booth_mode');
+                                                        localStorage.removeItem('testBypass');
+                                                        localStorage.removeItem('__convexAuthJWT');
+                                                        localStorage.removeItem('__convexAuthRefreshToken');
+                                                        window.dispatchEvent(new Event('kairon_booth_mode_changed'));
+                                                    }
+                                                    await convexSignOut();
                                                 } catch (e) {
-                                                    window.location.reload();
+                                                    console.warn("Sign out notice:", e);
                                                 }
+                                                window.location.href = '/';
                                             }}
                                             className="px-5 py-2.5 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2"
                                         >

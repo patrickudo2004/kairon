@@ -582,7 +582,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
                   </div>
                   {program.id.startsWith('local-') && (
                     <div className="mt-2 text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded flex items-center gap-1.5">
-                      <span>⚠️ Local Offline Mode: This event is stored locally. Sign in to your church account to enable live cloud sync for congregation mobile QR codes.</span>
+                      <span>⚠️ Local Offline Mode: This event is stored locally. Sign in to your account to enable live cloud sync for mobile attendee QR codes.</span>
                     </div>
                   )}
                 </div>

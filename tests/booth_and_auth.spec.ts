@@ -52,7 +52,7 @@ test.describe('Booth Mode & Desktop Auth Integration Tests', () => {
 
     // Click direct email tab and check that email input appears
     await emailTab.click();
-    await expect(page.getByPlaceholder('pastor@church.org')).toBeVisible();
+    await expect(page.getByPlaceholder(/name@organization\.com|pastor@church\.org/i)).toBeVisible();
     await expect(page.getByRole('button', { name: /Send Verification Code/i })).toBeVisible();
 
     // Switch back to browser tab and check that browser code appears

@@ -335,6 +335,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     user={user}
                     onUpdate={onProfileUpdate}
                     onSignOut={handleSignOut}
+                    handleSignOut={handleSignOut}
                     isCollapsed={isCollapsed}
                 />
             </div>
