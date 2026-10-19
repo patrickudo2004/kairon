@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams, Navigate, useParams } from 'react-router-dom';
-import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, User as UserIcon, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus, ExternalLink, Tv, AppWindow, SkipBack, SkipForward, Pause, Clock, Monitor, Building, MessageSquare, Bell, Crown, Volume2, Lightbulb, Video, Plus, Minus, BarChart3, Power, Keyboard, PanelRight, Layers } from 'lucide-react';
+import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, User as UserIcon, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus, ExternalLink, Tv, AppWindow, SkipBack, SkipForward, Pause, Clock, Monitor, Building, MessageSquare, Bell, Crown, Volume2, Lightbulb, Video, Plus, Minus, BarChart3, Power, Keyboard, PanelRight, Layers, GripHorizontal } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Services
@@ -365,6 +365,88 @@ const AppContent: React.FC = () => {
   // Use real Convex Auth hooks
   const { isAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
   const { pipWindow, isFloatingBridgeOpen, isSupported: isFlightBridgeSupported, openFlightBridge, closeFlightBridge } = useFlightBridge();
+
+  // --- Draggable In-App Flight Bridge HUD Position ---
+  const [hudPos, setHudPos] = useState<{ x: number; y: number } | null>(() => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const saved = localStorage.getItem('kairon_flight_bridge_pos');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          const clampedX = Math.max(8, Math.min(window.innerWidth - 390, parsed.x));
+          const clampedY = Math.max(8, Math.min(window.innerHeight - 80, parsed.y));
+          return { x: clampedX, y: clampedY };
+        }
+      }
+    } catch {}
+    return null;
+  });
+
+  const [isDraggingHud, setIsDraggingHud] = useState(false);
+  const hudDragRef = useRef<{ mouseX: number; mouseY: number; startX: number; startY: number } | null>(null);
+
+  // Resize listener to prevent HUD getting lost off-screen on window shrink
+  useEffect(() => {
+    const handleResize = () => {
+      setHudPos(prev => {
+        if (!prev) return null;
+        const clampedX = Math.max(8, Math.min(window.innerWidth - 390, prev.x));
+        const clampedY = Math.max(8, Math.min(window.innerHeight - 80, prev.y));
+        if (clampedX === prev.x && clampedY === prev.y) return prev;
+        return { x: clampedX, y: clampedY };
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleHudPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) return;
+
+    const currentX = hudPos?.x ?? Math.max(8, window.innerWidth - 410);
+    const currentY = hudPos?.y ?? Math.max(8, window.innerHeight - 340);
+
+    hudDragRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      startX: currentX,
+      startY: currentY,
+    };
+    setIsDraggingHud(true);
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {}
+  }, [hudPos]);
+
+  const handleHudPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDraggingHud || !hudDragRef.current) return;
+    const dx = e.clientX - hudDragRef.current.mouseX;
+    const dy = e.clientY - hudDragRef.current.mouseY;
+    const newX = Math.max(8, Math.min(window.innerWidth - 390, hudDragRef.current.startX + dx));
+    const newY = Math.max(8, Math.min(window.innerHeight - 80, hudDragRef.current.startY + dy));
+    setHudPos({ x: newX, y: newY });
+  }, [isDraggingHud]);
+
+  const handleHudPointerUp = useCallback((e: React.PointerEvent) => {
+    if (!isDraggingHud) return;
+    setIsDraggingHud(false);
+    hudDragRef.current = null;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+    setHudPos(latest => {
+      if (latest) {
+        try {
+          localStorage.setItem('kairon_flight_bridge_pos', JSON.stringify(latest));
+        } catch {}
+      }
+      return latest;
+    });
+  }, [isDraggingHud]);
+
   const { signOut } = useAuthActions();
   const convexUser = useConvexQuery(
     api.authQueries.getCurrentUser,
@@ -1389,12 +1471,6 @@ const AppContent: React.FC = () => {
       }
 
 
-      const isTestBypass = typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
-      // CRITICAL GUARD
-      if (id?.startsWith('local-') && !isTestBypass) {
-        console.warn("Timer save blocked: Program ID is local.");
-        return;
-      }
       return updateTimerStateService(id, timerState);
     }
   });
@@ -2099,7 +2175,14 @@ const AppContent: React.FC = () => {
       if (targetIdStr === String(program.id) || targetIdStr === String(displayProgram.id)) {
         setIsTimerActive(true);
         setTimerStartTimestamp(shiftedStart);
-        updateLocalProgram(prev => ({ ...prev, status: 'live' }));
+        updateLocalProgram(prev => ({
+          ...prev,
+          status: 'live',
+          isTimerActive: true,
+          timerStartTimestamp: shiftedStart,
+          currentSlotIndex: indexToUse,
+          secondsElapsed: secondsToUse
+        }));
         
         // REDIRECT FIX: Only navigate to Editor if starting from a non-production view
         const currentPath = window.location.pathname;
@@ -2111,11 +2194,14 @@ const AppContent: React.FC = () => {
     } else {
       // Pause - ABSOLUTE WALL-CLOCK AUTHORITY
       const now = Date.now();
-      const wallDelta = target.timerStartTimestamp ? Math.floor((now - target.timerStartTimestamp) / 1000) : (target.secondsElapsed || 0);
+      const effectiveStartTs = target.timerStartTimestamp ?? (targetIdStr === String(displayProgram.id) ? displayTimerStartTimestamp : null);
+      const wallDelta = effectiveStartTs ? Math.floor((now - effectiveStartTs) / 1000) : (target.secondsElapsed || 0);
       
-      const secondsToSave = (target.status === 'live' && target.timerStartTimestamp)
-        ? Math.max(wallDelta, currentTickingSecondsRef.current)
-        : (localSecondsOverride !== undefined ? localSecondsOverride : wallDelta);
+      const secondsToSave = (localSecondsOverride !== undefined)
+        ? localSecondsOverride
+        : ((target.status === 'live' || targetIdStr === String(displayProgram.id))
+            ? Math.max(wallDelta, currentTickingSecondsRef.current || 0)
+            : wallDelta);
 
       timerSaveMutation.mutate({
         id: target.id,
@@ -2130,6 +2216,13 @@ const AppContent: React.FC = () => {
         setIsTimerActive(false);
         setTimerStartTimestamp(null);
         setSecondsElapsed(secondsToSave); 
+        updateLocalProgram(prev => ({
+          ...prev,
+          isTimerActive: false,
+          timerStartTimestamp: null,
+          secondsElapsed: secondsToSave,
+          currentSlotIndex: indexToUse
+        }));
       }
     }
   };
@@ -2485,7 +2578,7 @@ const AppContent: React.FC = () => {
       // Broadcast hotkeys
       if (e.code === 'Space') {
         e.preventDefault();
-        handleToggleTimer();
+        handleToggleTimer(displayProgram, false, headerElapsed);
       } else if (e.key === 'n' || e.key === 'N') {
         e.preventDefault();
         handleNext();
@@ -2707,7 +2800,7 @@ const AppContent: React.FC = () => {
           }}
           onToggleAutopilot={() => handleToggleAutopilot()}
           onToggleManualMode={() => handleToggleManualMode()}
-          onToggleTimer={() => handleToggleTimer()}
+          onToggleTimer={() => handleToggleTimer(displayProgram, false, headerElapsed)}
           onNextSlot={() => handleNext()}
           onPrevSlot={() => handlePrev()}
           onNudge={(mins) => handleNudge(mins)}
@@ -2772,7 +2865,7 @@ const AppContent: React.FC = () => {
 
               <div className="flex items-center gap-0.5 sm:gap-1">
                 <button
-                  onClick={() => handleToggleTimer()}
+                  onClick={() => handleToggleTimer(displayProgram, false, headerElapsed)}
                   className={`p-1 sm:p-1.5 rounded transition-all ${
                     displayIsTimerActive 
                       ? 'bg-slate-200 dark:bg-[#1C2028] text-slate-900 dark:text-white border border-slate-300 dark:border-[#2D333F]' 
@@ -2897,13 +2990,12 @@ const AppContent: React.FC = () => {
             {/* End Event / Stop Button (Protected Hold Confirmation) */}
             {displayIsTimerActive && (
               <HoldToConfirmButton
-                durationMs={1200}
+                durationMs={2000}
                 onConfirm={() => handleEndEvent(displayProgram.id)}
-                onQuickClick={() => requestEndEventConfirmation(displayProgram.id)}
                 label="End"
                 holdingLabel="Hold"
                 className="px-2 py-1 text-xs font-mono font-semibold"
-                title="Click to confirm or hold 1s to end this live session"
+                title="Press and hold 2 seconds to end this live session"
               />
             )}
 
@@ -3409,19 +3501,50 @@ const AppContent: React.FC = () => {
 
       {/* In-App Floating Flight Bridge HUD for Desktop & Unsupported Browsers */}
       {!pipWindow && isFloatingBridgeOpen && (displayProgram && displayProgram.slots.length > 0) && (
-        <div className="fixed bottom-6 right-6 z-[9999] shadow-2xl rounded-2xl overflow-hidden border border-slate-300 dark:border-[#22262E] w-[380px] max-w-[calc(100vw-32px)] transition-all animate-in fade-in slide-in-from-bottom-5 duration-200">
-          <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-slate-400 text-xs font-mono select-none">
-            <span className="flex items-center gap-1.5 font-bold text-[10px] tracking-wider text-slate-300">
+        <div 
+          style={hudPos ? { left: `${hudPos.x}px`, top: `${hudPos.y}px`, right: 'auto', bottom: 'auto' } : undefined}
+          className={`fixed ${!hudPos ? 'bottom-6 right-6' : ''} z-[9999] shadow-2xl rounded-2xl overflow-hidden border border-slate-300 dark:border-[#22262E] w-[380px] max-w-[calc(100vw-32px)] ${isDraggingHud ? 'select-none pointer-events-auto shadow-emerald-500/10' : 'transition-all animate-in fade-in duration-150'}`}
+        >
+          <div 
+            onPointerDown={handleHudPointerDown}
+            onPointerMove={handleHudPointerMove}
+            onPointerUp={handleHudPointerUp}
+            onPointerCancel={handleHudPointerUp}
+            className={`flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-slate-400 text-xs font-mono select-none ${isDraggingHud ? 'cursor-grabbing bg-slate-950' : 'cursor-grab hover:bg-slate-800/80'}`}
+            title="Drag to reposition HUD anywhere on screen"
+          >
+            <span className="flex items-center gap-1.5 font-bold text-[10px] tracking-wider text-slate-300 pointer-events-none">
+              <GripHorizontal size={14} className="text-slate-500" />
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               FLIGHT BRIDGE HUD
             </span>
-            <button
-              onClick={() => closeFlightBridge()}
-              className="p-1 hover:text-white transition-colors"
-              title="Close Flight Bridge"
-            >
-              <X size={14} />
-            </button>
+            <div className="flex items-center gap-1">
+              {hudPos && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setHudPos(null);
+                    localStorage.removeItem('kairon_flight_bridge_pos');
+                  }}
+                  className="px-1.5 py-0.5 text-[9px] text-slate-500 hover:text-slate-300 transition-colors rounded"
+                  title="Reset to default bottom-right position"
+                >
+                  Snap
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeFlightBridge();
+                }}
+                className="p-1 hover:text-white transition-colors"
+                title="Close Flight Bridge"
+              >
+                <X size={14} />
+              </button>
+            </div>
           </div>
           <FlightBridge
             program={displayProgram}

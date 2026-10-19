@@ -8,9 +8,7 @@ const isTestBypass = () => {
     try {
         return typeof window !== 'undefined' && (
             window.location.search.includes('testBypass=true') || 
-            localStorage.getItem('testBypass') === 'true' ||
-            localStorage.getItem('kairon_booth_mode') === 'true' ||
-            Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron)
+            localStorage.getItem('testBypass') === 'true'
         );
     } catch {
         return false;
@@ -266,10 +264,14 @@ export const updateTimerState = async (programId: string, state: {
     if (state.holdMessage !== undefined) stateToSave.holdMessage = state.holdMessage;
     if (state.status !== undefined) stateToSave.status = state.status;
 
-    await convex.mutation(api.programs.updateTimerState, {
-        id: programId as any,
-        timerState: stateToSave
-    });
+    try {
+        await convex.mutation(api.programs.updateTimerState, {
+            id: programId as any,
+            timerState: stateToSave
+        });
+    } catch (err) {
+        console.warn("Could not sync timer state to Convex cloud (offline or local session):", err);
+    }
 };
 
 export const getPublicProgram = async (slugOrId: string): Promise<Program | null> => {

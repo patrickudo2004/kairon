@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation } from '../hooks/useConvexMock';
 import { api } from '../convex/_generated/api';
@@ -6,14 +6,19 @@ import { Program } from '../types';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
 import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon, RefreshCw, Volume2, Lightbulb, Video, CheckCircle2, Activity, Maximize, Minimize, MessageSquare, Send, Radio, Sparkles } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
+import { useTimerSync } from '../hooks/useTimerSync';
 
 export const CrewHUD: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
     const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-    const searchId = searchParams.get('id');
+    const hashParams = typeof window !== 'undefined' && window.location.hash.includes('?')
+        ? new URLSearchParams(window.location.hash.substring(window.location.hash.indexOf('?')))
+        : null;
+    const searchId = searchParams.get('id') || searchParams.get('programId') || hashParams?.get('id') || hashParams?.get('programId');
     const targetId = slug || searchId || '';
-    const isAutoFs = searchParams.get('autofs') === '1';
-    const urlTheme = searchParams.get('theme') as 'dark' | 'light' | null;
+    const cleanTargetId = targetId ? targetId.replace(/^local-/, '') : '';
+    const isAutoFs = searchParams.get('autofs') === '1' || hashParams?.get('autofs') === '1';
+    const urlTheme = (searchParams.get('theme') || hashParams?.get('theme')) as 'dark' | 'light' | null;
 
     const [currentTheme, setCurrentTheme] = useState<'dark' | 'light'>(() => {
         if (urlTheme) return urlTheme;
@@ -22,7 +27,6 @@ export const CrewHUD: React.FC = () => {
         return 'dark';
     });
 
-    const [tick, setTick] = useState(0);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showFsPrompt, setShowFsPrompt] = useState(isAutoFs);
 
@@ -149,35 +153,49 @@ export const CrewHUD: React.FC = () => {
     );
 
     const programRaw = programData || programByIdData || liveProgramData;
+    const programFromConvex = programRaw ? {
+        ...(programRaw as any),
+        id: (programRaw as any)._id || (programRaw as any).id
+    } as Program : null;
 
-    // Local Program Fallback for offline or draft IDs
+    const programFromConvexRef = useRef(programFromConvex);
+    programFromConvexRef.current = programFromConvex;
+
+    const targetIdRef = useRef(targetId);
+    targetIdRef.current = targetId;
+
+    // Local Program Fallback for offline, electron, or draft IDs
     const [localProgram, setLocalProgram] = useState<Program | null>(() => {
         try {
-            // Check offline cache keys
-            const cacheKeys = [
-                `kairon_offline_cache_${targetId}`,
-                `kairon_offline_cache_live`,
+            const cleanId = targetId ? targetId.replace(/^local-/, '') : null;
+            const candidates = [
+                targetId ? `kairon_offline_cache_${targetId}` : null,
+                cleanId ? `kairon_offline_cache_${cleanId}` : null,
+                'kairon_offline_cache_live',
                 'kairon_program'
-            ];
-            for (const key of cacheKeys) {
+            ].filter(Boolean) as string[];
+
+            for (const key of candidates) {
                 const raw = localStorage.getItem(key);
                 if (raw) {
                     const parsed = JSON.parse(raw);
-                    if (parsed && (parsed.id === targetId || parsed.slug === targetId || !targetId || parsed.status === 'live')) {
+                    if (parsed && (parsed.id === targetId || parsed.id?.replace(/^local-/, '') === cleanId || parsed.slug === cleanId || !targetId || parsed.status === 'live')) {
                         return parsed;
                     }
                 }
             }
 
             // Check list stores
-            const listKeys = ['programs', 'test_programs'];
+            const listKeys = ['test_programs', 'kairon_offline_programs', 'programs'];
             for (const key of listKeys) {
                 const allRaw = localStorage.getItem(key);
                 if (allRaw) {
                     const all = JSON.parse(allRaw);
                     if (Array.isArray(all) && all.length > 0) {
-                        const match = all.find((p: Program) => p.id === targetId || p.slug === targetId);
-                        if (match) return match;
+                        if (targetId) {
+                            const match = all.find((p: any) => p.id === targetId || p.id?.replace(/^local-/, '') === cleanId || p.slug === cleanId);
+                            if (match) return match;
+                        }
                         return all[0];
                     }
                 }
@@ -188,71 +206,150 @@ export const CrewHUD: React.FC = () => {
         return null;
     });
 
-    // Offline BroadcastChannel Sync
-    useEffect(() => {
-        const channel = new BroadcastChannel('kairon_offline_sync');
-        const handleSync = (event: MessageEvent) => {
-            if (!event.data) return;
-            const data = event.data;
+    const mergeIncomingData = useCallback((data: any) => {
+        if (!data) return;
+        const currentTarget = targetIdRef.current;
+        const cleanCurrentTarget = currentTarget ? currentTarget.replace(/^local-/, '') : '';
+        const cleanDataId = data.id ? data.id.replace(/^local-/, '') : '';
+        const isMatch = (cleanCurrentTarget && cleanDataId === cleanCurrentTarget) || data.id === currentTarget;
+
+        if (isMatch || (!currentTarget && (data.program?.status === 'live' || data.status === 'live' || data.isTimerActive))) {
             setLocalProgram(prev => {
-                if (prev && data.id && prev.id !== data.id && prev.slug !== data.id) {
-                    return prev;
+                let base = prev || programFromConvexRef.current;
+                if (!base) {
+                    try {
+                        const candidates = [
+                            currentTarget ? `kairon_offline_cache_${currentTarget}` : null,
+                            cleanCurrentTarget ? `kairon_offline_cache_${cleanCurrentTarget}` : null,
+                            'kairon_offline_cache_live',
+                            'kairon_program'
+                        ].filter(Boolean) as string[];
+                        for (const key of candidates) {
+                            const cached = localStorage.getItem(key);
+                            if (cached) {
+                                base = JSON.parse(cached);
+                                break;
+                            }
+                        }
+                    } catch {}
                 }
-                const base = prev || {
-                    id: data.id || 'live',
-                    title: 'Live Service',
-                    date: new Date().toISOString().split('T')[0],
-                    startTime: '09:00',
-                    slots: [],
-                    status: 'live',
-                    isTimerActive: false,
-                    secondsElapsed: 0,
-                    currentSlotIndex: 0,
-                    isManualMode: false
-                };
-                return {
-                    ...base,
-                    currentSlotIndex: data.currentSlotIndex ?? base.currentSlotIndex,
-                    isTimerActive: data.isTimerActive !== undefined ? data.isTimerActive : base.isTimerActive,
-                    secondsElapsed: data.secondsElapsed ?? base.secondsElapsed,
-                    timerStartTimestamp: data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : base.timerStartTimestamp,
-                    isOnHold: data.isOnHold !== undefined ? data.isOnHold : base.isOnHold,
-                    holdMessage: data.holdMessage !== undefined ? data.holdMessage : base.holdMessage,
-                    isManualMode: data.isManualMode !== undefined ? data.isManualMode : base.isManualMode,
-                    status: data.status ?? base.status
-                } as Program;
+
+                let updated: Program | null = null;
+                if (data.program) {
+                    const inc = data.program;
+                    const incomingTimerActive = inc.isTimerActive !== undefined ? inc.isTimerActive : data.isTimerActive;
+                    const incomingStatus = data.status || inc.status;
+                    const isConcluded = incomingStatus === 'concluded' || inc.status === 'concluded';
+                    const preservedIsActive = isConcluded ? false : (incomingTimerActive !== undefined ? Boolean(incomingTimerActive) : (base?.isTimerActive ?? false));
+                    const preservedTimestamp = isConcluded ? null : ((data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : inc.timerStartTimestamp) !== undefined
+                        ? (data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : inc.timerStartTimestamp)
+                        : (base?.timerStartTimestamp ?? null));
+                    const preservedSlotIdx = (data.currentSlotIndex !== undefined ? data.currentSlotIndex : inc.currentSlotIndex) !== undefined
+                        ? (data.currentSlotIndex !== undefined ? data.currentSlotIndex : inc.currentSlotIndex)
+                        : (base?.currentSlotIndex ?? 0);
+                    const preservedSeconds = (data.secondsElapsed !== undefined ? data.secondsElapsed : inc.secondsElapsed) !== undefined
+                        ? (data.secondsElapsed !== undefined ? data.secondsElapsed : inc.secondsElapsed)
+                        : (base?.secondsElapsed ?? 0);
+                    const isNowLive = !isConcluded && (preservedIsActive || incomingStatus === 'live' || (base?.status === 'live' && incomingStatus !== 'draft'));
+                    const effectiveStatus = isConcluded ? 'concluded' : (isNowLive ? 'live' : (incomingStatus || base?.status || 'draft'));
+
+                    updated = {
+                        ...(base || {}),
+                        ...inc,
+                        id: data.id || inc.id || base?.id,
+                        slots: (inc.slots && inc.slots.length > 0) ? inc.slots : (base?.slots || []),
+                        isTimerActive: preservedIsActive,
+                        timerStartTimestamp: preservedTimestamp,
+                        currentSlotIndex: preservedSlotIdx,
+                        secondsElapsed: preservedSeconds,
+                        status: effectiveStatus,
+                        isOnHold: inc.isOnHold ?? data.isOnHold ?? false,
+                        holdMessage: inc.holdMessage ?? data.holdMessage ?? base?.holdMessage ?? ''
+                    } as Program;
+                } else if (base) {
+                    const incomingStatus = data.status;
+                    const isConcluded = incomingStatus === 'concluded';
+                    const effectiveIsActive = isConcluded ? false : (data.isTimerActive !== undefined ? Boolean(data.isTimerActive) : (base.isTimerActive ?? false));
+                    const effectiveStatus = isConcluded ? 'concluded' : (data.status || (effectiveIsActive ? 'live' : base.status));
+
+                    updated = {
+                        ...base,
+                        ...data,
+                        slots: (data.slots && data.slots.length > 0) ? data.slots : (base.slots || []),
+                        isTimerActive: effectiveIsActive,
+                        status: effectiveStatus,
+                        isOnHold: data.isOnHold !== undefined ? data.isOnHold : base.isOnHold,
+                        holdMessage: data.holdMessage !== undefined ? data.holdMessage : base.holdMessage
+                    } as Program;
+                } else {
+                    updated = {
+                        id: data.id || 'live',
+                        title: 'Live Service',
+                        date: new Date().toISOString().split('T')[0],
+                        startTime: '09:00',
+                        slots: data.slots || [],
+                        status: data.status || 'live',
+                        isTimerActive: Boolean(data.isTimerActive),
+                        secondsElapsed: data.secondsElapsed || 0,
+                        timerStartTimestamp: data.timerStartTimestamp ?? null,
+                        currentSlotIndex: data.currentSlotIndex || 0,
+                        isManualMode: Boolean(data.isManualMode),
+                        isOnHold: Boolean(data.isOnHold),
+                        holdMessage: data.holdMessage || ''
+                    } as Program;
+                }
+
+                if (updated) {
+                    try { localStorage.setItem(`kairon_offline_cache_${currentTarget || 'live'}`, JSON.stringify(updated)); } catch {}
+                }
+                return updated || prev;
             });
-        };
-        channel.addEventListener('message', handleSync);
-        return () => {
-            channel.removeEventListener('message', handleSync);
-            channel.close();
-        };
+        }
     }, []);
 
-    const effectiveProgramRaw = programRaw || localProgram;
-    const program = effectiveProgramRaw ? {
-        ...(effectiveProgramRaw as any),
-        id: (effectiveProgramRaw as any)._id || (effectiveProgramRaw as any).id
+    // BroadcastChannel sync effect (same-origin tabs / controller)
+    useEffect(() => {
+        const offlineChannel = new BroadcastChannel('kairon_offline_sync');
+        const handleOfflineMsg = (event: MessageEvent) => {
+            if (event.data) mergeIncomingData(event.data);
+        };
+        offlineChannel.addEventListener('message', handleOfflineMsg);
+        return () => {
+            offlineChannel.removeEventListener('message', handleOfflineMsg);
+            offlineChannel.close();
+        };
+    }, [mergeIncomingData]);
+
+    // Electron IPC timer relay effect (cross-BrowserWindow secondary projection / HUD)
+    useEffect(() => {
+        const electronApi = (window as any).electron || (window as any).electronAPI;
+        if (!electronApi?.onTimerState) return;
+        const remove = electronApi.onTimerState((payload: any) => {
+            if (payload) mergeIncomingData(payload);
+        });
+        return () => { if (remove) remove(); };
+    }, [mergeIncomingData]);
+
+    // In Booth Mode / Electron Desktop, prioritize local IPC state over empty or stale cloud queries
+    const isBoothMode = typeof window !== 'undefined' && (
+        localStorage.getItem('kairon_booth_mode') === 'true' ||
+        window.location.search.includes('testBypass=true') ||
+        localStorage.getItem('testBypass') === 'true' ||
+        Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron)
+    );
+
+    const candidateProg = isBoothMode ? (localProgram || programFromConvex) : (programFromConvex || localProgram);
+    const program = candidateProg ? {
+        ...(candidateProg as any),
+        id: (candidateProg as any)._id || (candidateProg as any).id
     } as Program : null;
 
-    // Live Ticker
-    useEffect(() => {
-        let interval: NodeJS.Timeout | null = null;
-        if (program?.isTimerActive) {
-            interval = setInterval(() => {
-                setTick(t => t + 1);
-            }, 200);
-        }
-        return () => {
-            if (interval) clearInterval(interval);
-        };
-    }, [program?.isTimerActive, program?.id]);
-
-    const nowTime = Date.now();
-    const derivedSecondsElapsed = (program?.isTimerActive && program?.timerStartTimestamp)
-        ? Math.max(0, Math.floor((nowTime - program.timerStartTimestamp) / 1000))
-        : (program?.secondsElapsed || 0);
+    // Drift-proof timer sync driven by true system wall-clock
+    const derivedSecondsElapsed = useTimerSync(
+        program?.timerStartTimestamp ?? null,
+        program?.isTimerActive ?? false,
+        program?.secondsElapsed ?? 0
+    );
 
     const currentSlotIndex = program?.currentSlotIndex ?? 0;
     const currentSlot = program?.slots?.[currentSlotIndex];
