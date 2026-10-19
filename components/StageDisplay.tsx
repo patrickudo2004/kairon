@@ -128,6 +128,35 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     const elapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
     const timeLeft = (currentSlot ? currentSlot.durationMinutes * 60 : 0) - elapsed;
 
+    const isOvertime = timeLeft < 0;
+    const isWarning = timeLeft >= 0 && timeLeft <= 60;
+    const isThemeLight = currentTheme === 'light';
+    const isThemeAmbientYellow = currentTheme === 'ambient-yellow';
+    const isThemeAmbientWhite = currentTheme === 'ambient-white';
+
+    // Milestone Flash state (discreet stage confidence border pulse at T-5m, T-2m, T-0m)
+    // CRITICAL: Must be declared before any conditional early returns to obey React Rules of Hooks!
+    const [milestoneFlash, setMilestoneFlash] = useState<'green' | 'amber' | 'red' | null>(null);
+    useEffect(() => {
+        if (!isTimerActive || isOvertime || program.isOnHold) {
+            setMilestoneFlash(null);
+            return;
+        }
+        if (timeLeft === 300) {
+            setMilestoneFlash('green');
+            const timer = setTimeout(() => setMilestoneFlash(null), 3000);
+            return () => clearTimeout(timer);
+        } else if (timeLeft === 120) {
+            setMilestoneFlash('amber');
+            const timer = setTimeout(() => setMilestoneFlash(null), 3000);
+            return () => clearTimeout(timer);
+        } else if (timeLeft === 0) {
+            setMilestoneFlash('red');
+            const timer = setTimeout(() => setMilestoneFlash(null), 3500);
+            return () => clearTimeout(timer);
+        }
+    }, [timeLeft, isTimerActive, isOvertime, program.isOnHold]);
+
     // Concluded State
     if (program.status === 'concluded') {
         return (
@@ -152,33 +181,6 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
         );
     }
 
-    const isOvertime = timeLeft < 0;
-    const isWarning = timeLeft >= 0 && timeLeft <= 60;
-    const isThemeLight = currentTheme === 'light';
-    const isThemeAmbientYellow = currentTheme === 'ambient-yellow';
-    const isThemeAmbientWhite = currentTheme === 'ambient-white';
-
-    // Milestone Flash state (discreet stage confidence border pulse at T-5m, T-2m, T-0m)
-    const [milestoneFlash, setMilestoneFlash] = useState<'green' | 'amber' | 'red' | null>(null);
-    useEffect(() => {
-        if (!isTimerActive || isOvertime || program.isOnHold) {
-            setMilestoneFlash(null);
-            return;
-        }
-        if (timeLeft === 300) {
-            setMilestoneFlash('green');
-            const timer = setTimeout(() => setMilestoneFlash(null), 3000);
-            return () => clearTimeout(timer);
-        } else if (timeLeft === 120) {
-            setMilestoneFlash('amber');
-            const timer = setTimeout(() => setMilestoneFlash(null), 3000);
-            return () => clearTimeout(timer);
-        } else if (timeLeft === 0) {
-            setMilestoneFlash('red');
-            const timer = setTimeout(() => setMilestoneFlash(null), 3500);
-            return () => clearTimeout(timer);
-        }
-    }, [timeLeft, isTimerActive, isOvertime, program.isOnHold]);
 
     // Theme Class Mappings
     const rootThemeClass = isThemeLight

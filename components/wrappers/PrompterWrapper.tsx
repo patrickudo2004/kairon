@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '../../hooks/useConvexMock';
 import { api } from '../../convex/_generated/api';
@@ -30,53 +30,25 @@ const PrompterWrapper: React.FC = () => {
     const [localOfflineProgram, setLocalOfflineProgram] = useState<Program | null>(() => {
         try {
             const cached = localStorage.getItem(`kairon_offline_cache_${programId || 'live'}_prompter`);
-            return cached ? JSON.parse(cached) : null;
+            if (cached) return JSON.parse(cached);
+            if (programId) {
+                const local = localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs');
+                if (local) {
+                    const list = JSON.parse(local);
+                    const cleanId = programId.replace('local-', '');
+                    const found = list.find((p: any) => p.id === programId || p.id?.replace('local-', '') === cleanId || p.slug === cleanId);
+                    if (found) return found;
+                }
+            }
+            return null;
         } catch {
             return null;
         }
     });
 
-    // Merge incoming timer state (from BroadcastChannel or Electron IPC) into local program
-    const mergeTimerState = (data: any) => {
-        if (data.id === programId || (!programId && (data.status === 'live' || data.program?.status === 'live'))) {
-            setLocalOfflineProgram(prev => {
-                let updated: Program | null = null;
-                if (data.program) {
-                    updated = { ...data.program, id: data.id };
-                } else if (prev) {
-                    updated = { ...prev, ...data } as Program;
-                } else {
-                    updated = { ...data } as Program;
-                }
-                if (updated) {
-                    try {
-                        localStorage.setItem(`kairon_offline_cache_${programId || 'live'}_prompter`, JSON.stringify(updated));
-                    } catch (err) {
-                        console.error("Failed to cache program locally:", err);
-                    }
-                }
-                return updated;
-            });
-        }
-    };
-
-    useEffect(() => {
-        // BroadcastChannel: works in browser / same-process tabs
-        const offlineChannel = new BroadcastChannel('kairon_offline_sync');
-        offlineChannel.addEventListener('message', (event: MessageEvent) => mergeTimerState(event.data));
-
-        // Electron IPC: works across separate BrowserWindow processes (Stage, TV etc.)
-        let removeElectronListener: (() => void) | null = null;
-        const electronApi = (window as any).electron || (window as any).electronAPI;
-        if (electronApi?.onTimerState) {
-            removeElectronListener = electronApi.onTimerState((payload: any) => mergeTimerState(payload));
-        }
-
-        return () => {
-            offlineChannel.close();
-            if (removeElectronListener) removeElectronListener();
-        };
-    }, [programId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // References so IPC & BroadcastChannel callbacks always see latest values without re-subscribing
+    const programIdRef = useRef(programId);
+    programIdRef.current = programId;
 
     // Prioritize specific ID, but fallback to live session if ID not found
     const activeData = (programId && specificProgram) ? specificProgram : liveProgram;
@@ -86,6 +58,52 @@ const PrompterWrapper: React.FC = () => {
         ...(activeData as any),
         id: (activeData as any)._id || (activeData as any).id
     } as Program : null;
+
+    const programFromConvexRef = useRef(programFromConvex);
+    programFromConvexRef.current = programFromConvex;
+
+    const mergeIncomingData = (data: any) => {
+        const pid = programIdRef.current;
+        if (data.id === pid || (!pid && (data.program?.status === 'live' || data.status === 'live'))) {
+            setLocalOfflineProgram(prev => {
+                const base = prev || programFromConvexRef.current;
+                const updated: Program | null = data.program
+                    ? { ...data.program, id: data.id }
+                    : base ? ({
+                        ...base,
+                        ...data,
+                        status: data.status || (data.isTimerActive ? 'live' : base.status)
+                    } as Program) : null;
+                if (updated) {
+                    try { localStorage.setItem(`kairon_offline_cache_${pid || 'live'}_prompter`, JSON.stringify(updated)); } catch {}
+                }
+                return updated;
+            });
+        }
+    };
+
+    // BroadcastChannel sync effect (same-origin tabs / same renderer process)
+    useEffect(() => {
+        const offlineChannel = new BroadcastChannel('kairon_offline_sync');
+        const handleOfflineMsg = (event: MessageEvent) => {
+            if (event.data) mergeIncomingData(event.data);
+        };
+        offlineChannel.addEventListener('message', handleOfflineMsg);
+        return () => {
+            offlineChannel.removeEventListener('message', handleOfflineMsg);
+            offlineChannel.close();
+        };
+    }, [programId]);
+
+    // Electron IPC relay effect (cross-BrowserWindow — separate process timer sync)
+    useEffect(() => {
+        const electronApi = (window as any).electron || (window as any).electronAPI;
+        if (!electronApi?.onTimerState) return;
+        const remove = electronApi.onTimerState((data: any) => {
+            if (data) mergeIncomingData(data);
+        });
+        return () => { if (remove) remove(); };
+    }, []);
 
     // Booth mode / test bypass always uses local BroadcastChannel/IPC data — never stale Convex queries
     const isBoothMode = typeof window !== 'undefined' && (
@@ -97,6 +115,7 @@ const PrompterWrapper: React.FC = () => {
     const program = (isOfflineMode && localOfflineProgram)
         ? localOfflineProgram
         : (programFromConvex || localOfflineProgram);
+
 
     // Organization Branding Query
     const activeOrg = useQuery(
