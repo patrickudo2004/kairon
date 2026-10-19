@@ -27,7 +27,7 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
   return (
     <div id="printable-area" className="only-print bg-white text-black p-6 font-sans">
       {/* Split Header */}
-      <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-4 gap-6">
+      <div className="flex justify-between items-start border-b border-slate-200 pb-4 mb-4 gap-6">
         {/* Left Column: Logo + Org Name + Event Title + Subtitle */}
         <div className="flex gap-4 items-start flex-1 min-w-0">
           {activeOrg?.logoUrl ? (
@@ -84,7 +84,7 @@ const PrintableSchedule: React.FC<PrintableScheduleProps> = ({
       {/* Schedule Table */}
       <table className="w-full text-left border-collapse">
         <thead>
-          <tr className="border-b-2 border-black">
+          <tr className="border-b border-slate-200">
             <th className="py-1 w-20 font-bold text-xs">Time</th>
             <th className="py-1 font-bold text-xs">Session / Activity</th>
             <th className="py-1 w-24 font-bold text-xs">Duration</th>

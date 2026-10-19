@@ -4,7 +4,7 @@ import { Power } from 'lucide-react';
 export interface HoldToConfirmButtonProps {
   onConfirm: () => void;
   onQuickClick?: () => void;
-  durationMs?: number; // Default: 1200ms
+  durationMs?: number; // Default: 2000ms
   label?: string;
   holdingLabel?: string;
   icon?: React.ReactNode;
@@ -17,14 +17,14 @@ export interface HoldToConfirmButtonProps {
 export const HoldToConfirmButton: React.FC<HoldToConfirmButtonProps> = ({
   onConfirm,
   onQuickClick,
-  durationMs = 1200,
+  durationMs = 2000,
   label = 'END EVENT',
   holdingLabel = 'HOLD TO END',
   icon = <Power size={14} className="relative z-10 flex-shrink-0" />,
   className = '',
   variant = 'danger',
   disabled = false,
-  title = 'Click to confirm or hold to end this live session'
+  title = 'Press and hold 2 seconds to end this live session'
 }) => {
   const [progress, setProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
@@ -43,8 +43,6 @@ export const HoldToConfirmButton: React.FC<HoldToConfirmButtonProps> = ({
   }, []);
 
   const stopHolding = useCallback(() => {
-    const elapsed = startTimeRef.current !== null ? (performance.now() - startTimeRef.current) : 0;
-    const wasHolding = isHoldingRef.current;
     isHoldingRef.current = false;
     setIsHolding(false);
     if (animFrameRef.current !== null) {
@@ -53,12 +51,7 @@ export const HoldToConfirmButton: React.FC<HoldToConfirmButtonProps> = ({
     }
     startTimeRef.current = null;
     setProgress(0);
-
-    // If quick-tapped (< 400ms) without completing hold, trigger onQuickClick if available
-    if (wasHolding && elapsed > 0 && elapsed < 400 && onQuickClick) {
-      onQuickClick();
-    }
-  }, [onQuickClick]);
+  }, []);
 
   const handleHoldSuccess = useCallback(() => {
     isHoldingRef.current = false;

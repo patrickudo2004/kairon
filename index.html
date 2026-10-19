@@ -91,6 +91,12 @@
 
       /* Print Styles - Robust Overrides */
       @media print {
+        @page {
+          size: auto;
+          margin: 12mm 15mm;
+          background-color: #ffffff !important;
+        }
+
         /* Hide everything by default */
         body * {
           visibility: hidden;
@@ -115,16 +121,25 @@
           top: 0;
           width: 100%;
           margin: 0;
-          padding: 20px; /* Add some padding for paper */
-          background-color: white !important;
-          color: black !important;
+          padding: 0;
+          background-color: #ffffff !important;
+          color: #0f172a !important;
+          border: none !important;
+          box-shadow: none !important;
+          outline: none !important;
         }
 
-        /* Ensure body allows full height printing */
-        body, html {
+        /* Ensure body and root allow full height printing with pure white canvas */
+        body, html, #root {
           height: auto !important;
           overflow: visible !important;
-          background-color: white !important;
+          background: #ffffff !important;
+          background-color: #ffffff !important;
+          border: none !important;
+          box-shadow: none !important;
+          outline: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
         }
 
         /* Override dark mode text and backgrounds for print */

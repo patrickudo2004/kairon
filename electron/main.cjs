@@ -131,6 +131,7 @@ function createMainWindow() {
       url.includes('/prompter') ||
       url.includes('/crew') ||
       url.includes('/overlay') ||
+      url.includes('/bridge') ||
       url.includes('/p/');
 
     if (!isLocalRoute && (url.startsWith('https://') || url.startsWith('http://'))) {
