@@ -29,14 +29,15 @@ const getLocalStoredPrograms = (): Program[] => {
     const local = typeof window !== 'undefined' ? (localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs')) : null;
     const list = safeParseList(local);
     if (list.length > 0) return list;
-    const seed = getDefaultSeedPrograms();
-    try {
-        localStorage.setItem('kairon_offline_programs', JSON.stringify(seed));
-        if (typeof window !== 'undefined' && (localStorage.getItem('testBypass') === 'true' || window.location.search.includes('testBypass=true'))) {
+    if (isTestBypass()) {
+        const seed = getDefaultSeedPrograms();
+        try {
+            localStorage.setItem('kairon_offline_programs', JSON.stringify(seed));
             localStorage.setItem('test_programs', JSON.stringify(seed));
-        }
-    } catch {}
-    return seed;
+        } catch {}
+        return seed;
+    }
+    return [];
 };
 
 const updateTestPrograms = (programs: Program[] | null) => {
