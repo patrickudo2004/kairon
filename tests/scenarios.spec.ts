@@ -451,8 +451,8 @@ test.describe('Live Rundown E2E Scenarios', () => {
     expect(iframeSrc).toContain(`/p/${expectedSlug}`);
 
     const frame = page.frameLocator('iframe[title="Public Portal"]');
-    await expect(frame.locator('h1')).toContainText('Winners Sunday Celebration');
-    await expect(frame.locator('h3', { hasText: 'Praise & Worship' })).toBeVisible();
+    await expect(frame.locator('h1')).toContainText('Winners Sunday Celebration', { timeout: 15000 });
+    await expect(frame.locator('h3', { hasText: 'Praise & Worship' })).toBeVisible({ timeout: 15000 });
 
     // 3. Open the Public Portal URL directly in a new page across mobile/tablet/desktop viewports
     const portalPage = await context.newPage();

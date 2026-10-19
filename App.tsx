@@ -239,6 +239,14 @@ const healScheduleOverruns = (program: Program, currentSlotIndex: number, overru
 };
 
 
+export const DEFAULT_OFFLINE_ORG: Organization = {
+  id: 'local-workspace',
+  name: 'Winners Chapel Manchester',
+  slug: 'winners-chapel-manchester',
+  subscriptionStatus: 'enterprise',
+  createdBy: 'local-booth-operator',
+};
+
 // --- App Content Component ---
 const AppContent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -316,7 +324,12 @@ const AppContent: React.FC = () => {
   // Main State
   const [program, setProgram] = useState<Program>(() => {
     try {
-      const isBooth = typeof window !== 'undefined' && localStorage.getItem('kairon_booth_mode') === 'true';
+      const isBooth = typeof window !== 'undefined' && (
+        localStorage.getItem('kairon_booth_mode') === 'true' ||
+        window.location.search.includes('testBypass=true') ||
+        localStorage.getItem('testBypass') === 'true' ||
+        Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron)
+      );
       if (isBooth) {
         const localList = getLocalPrograms();
         if (localList.length > 0) return localList[0];
@@ -455,15 +468,15 @@ const AppContent: React.FC = () => {
 
   const isElectronRuntime = typeof window !== 'undefined' && Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron);
 
-  // Check if running in offline Booth Mode or Test Bypass
+  // Check if running in offline Booth Mode, Test Bypass, or Electron Desktop
   const [isBoothMode, setIsBoothMode] = useState<boolean>(() => {
     try {
       if (typeof window === 'undefined') return false;
       const isBooth = localStorage.getItem('kairon_booth_mode') === 'true';
       const isTestBypass = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true';
-      return isBooth || isTestBypass;
+      return isBooth || isTestBypass || isElectronRuntime;
     } catch {
-      return false;
+      return isElectronRuntime;
     }
   });
 
@@ -472,23 +485,43 @@ const AppContent: React.FC = () => {
       try {
         const isBooth = localStorage.getItem('kairon_booth_mode') === 'true';
         const isTestBypass = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true';
-        setIsBoothMode(isBooth || isTestBypass);
+        setIsBoothMode(isBooth || isTestBypass || isElectronRuntime);
       } catch {}
     };
     window.addEventListener('kairon_booth_mode_changed', handleBoothModeSync);
     return () => window.removeEventListener('kairon_booth_mode_changed', handleBoothModeSync);
-  }, []);
+  }, [isElectronRuntime]);
 
   // Derive a simple user object compatible with existing code
   const user = (isAuthenticated && convexUser)
     ? { id: convexUser.id as string, email: convexUser.email as string | undefined }
-    : isBoothMode
+    : (isBoothMode || isElectronRuntime)
     ? { id: 'local-booth-operator', email: 'booth@kairon.local' }
     : null;
 
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
-  const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    if (isElectronRuntime || (typeof window !== 'undefined' && (localStorage.getItem('kairon_booth_mode') === 'true' || window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true'))) {
+      return {
+        id: 'local-booth-profile',
+        userId: 'local-booth-operator',
+        fullName: 'Booth Operator (Offline)',
+        subscriptionStatus: 'enterprise',
+      };
+    }
+    return null;
+  });
+  const [activeOrgId, setActiveOrgId] = useState<string | null>(() => {
+    if (isElectronRuntime || (typeof window !== 'undefined' && (localStorage.getItem('kairon_booth_mode') === 'true' || window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true'))) {
+      return DEFAULT_OFFLINE_ORG.id;
+    }
+    return null;
+  });
+  const [activeOrg, setActiveOrg] = useState<Organization | null>(() => {
+    if (isElectronRuntime || (typeof window !== 'undefined' && (localStorage.getItem('kairon_booth_mode') === 'true' || window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true'))) {
+      return DEFAULT_OFFLINE_ORG;
+    }
+    return null;
+  });
 
   // Workspace Switch Isolation: Reset active program and timer state when switching workspaces
   const prevOrgIdRef = React.useRef<string | null>(activeOrgId);
@@ -582,29 +615,23 @@ const AppContent: React.FC = () => {
     setAuthRetryCount(prev => prev + 1);
   };
 
-  const defaultOfflineOrg: Organization = useMemo(() => ({
-    id: 'local-workspace',
-    name: 'Winners Chapel Manchester',
-    slug: 'winners-chapel-manchester',
-    subscriptionStatus: 'enterprise',
-    createdBy: 'local-booth-operator',
-  }), []);
+  const defaultOfflineOrg: Organization = DEFAULT_OFFLINE_ORG;
 
   // Fetch all organizations for the user
   const { data: rawUserOrganizations = [], isLoading: loadingOrgs } = useQuery<Organization[]>({
     queryKey: ['myOrganizations', user?.id],
     queryFn: () => getMyOrganizations(user?.id || ''),
-    enabled: !!user && !isBoothMode
+    enabled: !!user && !isBoothMode && !isElectronRuntime
   });
 
   const userOrganizations = useMemo(() => {
-    if (isBoothMode) return [defaultOfflineOrg];
+    if (isBoothMode || isElectronRuntime) return [DEFAULT_OFFLINE_ORG];
     return rawUserOrganizations;
-  }, [isBoothMode, defaultOfflineOrg, rawUserOrganizations]);
+  }, [isBoothMode, isElectronRuntime, rawUserOrganizations]);
 
-  // Auto-initialize profile and active org for offline booth mode
+  // Auto-initialize profile and active org for offline booth mode or electron desktop
   useEffect(() => {
-    if (isBoothMode) {
+    if (isBoothMode || isElectronRuntime) {
       if (!profile) {
         setProfile({
           id: 'local-booth-profile',
@@ -614,11 +641,11 @@ const AppContent: React.FC = () => {
         });
       }
       if (!activeOrg) {
-        setActiveOrg(defaultOfflineOrg);
-        setActiveOrgId(defaultOfflineOrg.id);
+        setActiveOrg(DEFAULT_OFFLINE_ORG);
+        setActiveOrgId(DEFAULT_OFFLINE_ORG.id);
       }
     }
-  }, [isBoothMode, profile, activeOrg, defaultOfflineOrg]);
+  }, [isBoothMode, isElectronRuntime, profile, activeOrg]);
 
   // Invite ID handling for personalized banner
   const urlInviteId = searchParams.get('inviteId');
@@ -1138,7 +1165,8 @@ const AppContent: React.FC = () => {
         
         if (urlId) {
           const matchesUrl = fetchedProgram.id === urlId || 
-            (urlIdClean && (fetchedUuidClean === urlIdClean || fetchedSlugClean === urlIdClean));
+            fetchedProgram.slug === urlId ||
+            (urlIdClean && (fetchedUuidClean === urlIdClean || fetchedSlugClean === urlIdClean || fetchedProgram.slug === urlIdClean));
           if (!matchesUrl) {
             return;
           }
@@ -1269,7 +1297,7 @@ const AppContent: React.FC = () => {
               if (raw) {
                 try {
                   const parsed = JSON.parse(raw);
-                  if (parsed && (parsed.id === currentUrlId || parsed.id === cleanUrlId || parsed.id === `local-${cleanUrlId}`)) {
+                  if (parsed && (parsed.id === currentUrlId || parsed.id === cleanUrlId || parsed.id === `local-${cleanUrlId}` || parsed.slug === currentUrlId || parsed.slug === cleanUrlId)) {
                     offlineProgram = parsed;
                     break;
                   }
@@ -1283,7 +1311,7 @@ const AppContent: React.FC = () => {
                 try {
                   const list = JSON.parse(rawPrograms);
                   if (Array.isArray(list)) {
-                    offlineProgram = list.find((p: any) => p.id === currentUrlId || p.id === cleanUrlId || p.id === `local-${cleanUrlId}`) || null;
+                    offlineProgram = list.find((p: any) => p.id === currentUrlId || p.id === cleanUrlId || p.id === `local-${cleanUrlId}` || p.slug === currentUrlId || p.slug === cleanUrlId) || null;
                   }
                 } catch {}
               }
@@ -3102,7 +3130,7 @@ const AppContent: React.FC = () => {
           />
         )}
 
-        {user && (userOrganizations.length === 0 || isOnboardingManual) && !effectiveAuthLoading && !loadingOrgs && (
+        {user && !isBoothMode && !isElectronRuntime && (userOrganizations.length === 0 || isOnboardingManual) && !effectiveAuthLoading && !loadingOrgs && (
           <OnboardingOverlay
             userId={user.id}
             userEmail={user.email || ''}
@@ -3152,7 +3180,7 @@ const AppContent: React.FC = () => {
               type="warning"
             />
 
-            {!user ? (
+            {!user && !isBoothMode && !isElectronRuntime ? (
               <Auth inviteDetails={effectiveInviteDetails} />
             ) : (
               <Routes>
