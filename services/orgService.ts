@@ -147,5 +147,6 @@ const transformOrg = (o: any): Organization => ({
     subscriptionStatus: o.subscriptionStatus,
     stripeCustomerId: o.stripeCustomerId,
     createdBy: o.createdBy,
+    role: o.role,
     createdAt: new Date(o._creationTime).toISOString()
 });

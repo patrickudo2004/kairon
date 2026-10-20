@@ -61,7 +61,7 @@ export interface AnalyticsData {
 }
 
 // Phase 1: Identity & Organizations
-export type UserRole = 'admin' | 'manager' | 'operator';
+export type UserRole = 'admin' | 'manager' | 'operator' | 'speaker';
 
 export interface Profile {
   id: string;
@@ -93,6 +93,7 @@ export interface Organization {
   createdAt: string;
   isLocalFolder?: boolean;
   folderPath?: string;
+  role?: UserRole;
 }
 
 export interface OrganizationMember {

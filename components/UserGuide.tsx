@@ -25,7 +25,7 @@ export const UserGuide: React.FC = () => {
             {/* Quick Links / Table of Contents */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
-                    { title: 'Identity & Workspaces', icon: Layout, target: '#getting-started' },
+                    { title: 'Identity, Workspaces & Roles', icon: Layout, target: '#getting-started' },
                     { title: 'Program Editor', icon: Sparkles, target: '#editor' },
                     { title: 'Displays & Multi-Screen', icon: MonitorPlay, target: '#displays' },
                     { title: 'Running the Show', icon: Play, target: '#running' },
@@ -61,36 +61,203 @@ export const UserGuide: React.FC = () => {
                     <div className="flex items-center gap-4 mb-8">
                         <div className="h-10 w-1 bg-indigo-500 rounded-full"></div>
                         <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                            🚀 1. Identity & Workspaces
+                            🚀 1. Identity, Workspaces & Roles
                         </h2>
                     </div>
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-6">
-                        <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                            Kairon is built around **Organizations**. This allows you to keep your personal schedules separate from your professional agency or church events.
-                        </p>
-                        <ul className="space-y-4">
-                            <li className="flex gap-4">
-                                <CheckCircle className="text-indigo-500 shrink-0" size={20} />
-                                <div>
-                                    <strong className="text-slate-800 dark:text-slate-100">Login:</strong>
-                                    <p className="text-sm text-slate-500">Use Google or a simple Magic Link to sign in. No passwords required.</p>
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-8">
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Dual-Engine Workspace Architecture</h3>
+                            <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm">
+                                Kairon supports two complementary workspace models so you can run live broadcasts without being tethered to the cloud:
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 space-y-2">
+                                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold font-mono text-xs uppercase">
+                                        <Laptop size={16} />
+                                        <span>Local Workspace (This PC)</span>
+                                    </div>
+                                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                                        Stores events directly in a folder on your computer as human-readable <code className="text-[#0EA5E9] font-bold">.kairon</code> files. 100% offline, zero cloud tokens, completely private. You are <strong>always an Administrator</strong> on your local PC.
+                                    </p>
                                 </div>
-                            </li>
-                            <li className="flex gap-4">
-                                <CheckCircle className="text-indigo-500 shrink-0" size={20} />
-                                <div>
-                                    <strong className="text-slate-800 dark:text-slate-100">Workspaces:</strong>
-                                    <p className="text-sm text-slate-500">Use the Workspace Switcher in the sidebar to jump between different organizations instantly.</p>
+                                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 space-y-2">
+                                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold font-mono text-xs uppercase">
+                                        <Globe size={16} />
+                                        <span>Cloud Workspaces (Convex)</span>
+                                    </div>
+                                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                                        Hosted on Convex for multi-user collaboration across devices, real-time stage sync, team member invites, and public attendee QR access for congregation phones.
+                                    </p>
                                 </div>
-                            </li>
-                            <li className="flex gap-4 opacity-75">
-                                <Sparkles className="text-amber-500 shrink-0" size={20} />
+                            </div>
+                        </div>
+
+                        {/* Role-Based Access Control */}
+                        <div>
+                            <div className="flex items-center justify-between mb-4 border-t border-slate-100 dark:border-slate-800 pt-6">
                                 <div>
-                                    <strong className="text-slate-800 dark:text-slate-100">Branding (Pro):</strong>
-                                    <p className="text-sm text-slate-500">Go to settings to upload your logo and set a custom accent color for all displays.</p>
+                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Role-Based Access Control (RBAC)</h3>
+                                    <p className="text-xs text-slate-500 font-mono mt-0.5">Industry-standard live broadcast permissions hierarchy</p>
                                 </div>
-                            </li>
-                        </ul>
+                            </div>
+
+                            <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm mb-6">
+                                In live church broadcasts and event production, roles prevent on-air disasters. A user’s identity is global, but their role is <strong>strictly workspace-scoped</strong>. You can be an Administrator at your home church, an Operator at a conference, or a Guest Speaker at a sister parish.
+                            </p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Admin */}
+                                <div className="p-5 rounded-2xl bg-rose-500/5 border border-rose-500/20 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                                            <h4 className="font-bold text-slate-900 dark:text-white text-sm">Administrator</h4>
+                                        </div>
+                                        <span className="text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20">Full Authority</span>
+                                    </div>
+                                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                                        Head of Media, Technical Directors, and Lead Pastors. Complete control over workspace branding, team member roles, billing, rundown creation, live timers, and hardware matrix outputs.
+                                    </p>
+                                    <div className="text-[11px] font-mono text-slate-500 space-y-1 pt-2 border-t border-rose-500/10">
+                                        <div>✅ Workspace & Team Management (Invites & Roles)</div>
+                                        <div>✅ Full Program Editing, Turnaround & Deletion</div>
+                                        <div>✅ Master Live Control & Autopilot Overrides</div>
+                                        <div>✅ Multi-Screen Hardware Routing (Screens 2 & 3)</div>
+                                    </div>
+                                </div>
+
+                                {/* Manager */}
+                                <div className="p-5 rounded-2xl bg-sky-500/5 border border-sky-500/20 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
+                                            <h4 className="font-bold text-slate-900 dark:text-white text-sm">Manager</h4>
+                                        </div>
+                                        <span className="text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-sky-500/10 text-sky-500 border border-sky-500/20">Show Caller</span>
+                                    </div>
+                                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                                        Service Coordinators, Stage Managers, and Associate Directors. Full authority to construct rundowns and run the live broadcast, without access to organization billing or danger zone.
+                                    </p>
+                                    <div className="text-[11px] font-mono text-slate-500 space-y-1 pt-2 border-t border-sky-500/10">
+                                        <div>✅ Create, Edit, Reorder & Duplicate Events</div>
+                                        <div>✅ Master Live Timer Controls & Cue Dispatcher</div>
+                                        <div>✅ Invite Operators & Speakers to Workspace</div>
+                                        <div>❌ Cannot alter Workspace Billing or Delete Org</div>
+                                    </div>
+                                </div>
+
+                                {/* Operator */}
+                                <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                            <h4 className="font-bold text-slate-900 dark:text-white text-sm">Operator</h4>
+                                        </div>
+                                        <span className="text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Technical Crew</span>
+                                    </div>
+                                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                                        Sound, Lighting, Video, Camera, and Prompter Crew. Operates live timing and acknowledges cues in the Tactical Crew HUD. Rundown structural editing is locked to prevent accidental mistakes.
+                                    </p>
+                                    <div className="text-[11px] font-mono text-slate-500 space-y-1 pt-2 border-t border-emerald-500/10">
+                                        <div>✅ Live Timer Start/Pause & Nudge Controls</div>
+                                        <div>✅ Crew HUD Cue Acknowledgements (Sound/Video/Lights)</div>
+                                        <div>✅ View TV, Prompter, and Monitor Displays</div>
+                                        <div>❌ Locked / Read-Only in Program Editor</div>
+                                    </div>
+                                </div>
+
+                                {/* Speaker */}
+                                <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                                            <h4 className="font-bold text-slate-900 dark:text-white text-sm">Speaker / Pastor</h4>
+                                        </div>
+                                        <span className="text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">Stage Talent</span>
+                                    </div>
+                                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                                        Resident Pastors, Preachers, Guest Ministers, and Keynote Speakers. Distraction-free stage and prompter views. All technical controls and crew communications are hidden.
+                                    </p>
+                                    <div className="text-[11px] font-mono text-slate-500 space-y-1 pt-2 border-t border-amber-500/10">
+                                        <div>✅ Full-screen Pulpit Display (Yellow/White/Dark)</div>
+                                        <div>✅ Auto-scrolling Teleprompter & Personal Notes</div>
+                                        <div>✅ Receive Silent Booth Prompt Cues</div>
+                                        <div>❌ Technical Controls & Master Timer Hidden</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Permissions Summary Table */}
+                        <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
+                            <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
+                                Permissions Summary Matrix
+                            </h4>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs font-mono border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                                    <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                        <tr>
+                                            <th className="p-3">Feature / Capability</th>
+                                            <th className="p-3 text-rose-500">Admin</th>
+                                            <th className="p-3 text-sky-500">Manager</th>
+                                            <th className="p-3 text-emerald-500">Operator</th>
+                                            <th className="p-3 text-amber-500">Speaker</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-600 dark:text-slate-400">
+                                        <tr>
+                                            <td className="p-3 font-sans font-medium text-slate-900 dark:text-white">Start, Pause & Nudge Live Timer</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-rose-500">❌ No</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="p-3 font-sans font-medium text-slate-900 dark:text-white">Create, Edit & Delete Rundowns</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-rose-500">❌ Read-Only</td>
+                                            <td className="p-3 text-rose-500">❌ Read-Only</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="p-3 font-sans font-medium text-slate-900 dark:text-white">Send Stage Cues & Emergency Strobe</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-rose-500">❌ No</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="p-3 font-sans font-medium text-slate-900 dark:text-white">Crew Tactical HUD & Acknowledgements</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-rose-500">❌ Hidden</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="p-3 font-sans font-medium text-slate-900 dark:text-white">Multi-Screen Matrix (Screens 2 & 3)</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-rose-500">❌ No</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="p-3 font-sans font-medium text-slate-900 dark:text-white">Invite & Manage Team Members</td>
+                                            <td className="p-3 text-emerald-500">✅ All Roles</td>
+                                            <td className="p-3 text-sky-500">✅ Operators/Speakers</td>
+                                            <td className="p-3 text-rose-500">❌ No</td>
+                                            <td className="p-3 text-rose-500">❌ No</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="p-3 font-sans font-medium text-slate-900 dark:text-white">Workspace Branding & Billing</td>
+                                            <td className="p-3 text-emerald-500">✅ Yes</td>
+                                            <td className="p-3 text-rose-500">❌ No</td>
+                                            <td className="p-3 text-rose-500">❌ No</td>
+                                            <td className="p-3 text-rose-500">❌ No</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </section>
 

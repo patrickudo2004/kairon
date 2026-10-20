@@ -9,6 +9,7 @@ export interface LocalFolderWorkspace {
   folderPath: string;
   isLocalFolder: true;
   subscriptionStatus: 'enterprise';
+  role: 'admin';
   createdAt: string;
   createdBy: string;
 }
@@ -67,6 +68,7 @@ export const toLocalFolderOrg = (folderPath: string, folderName: string): LocalF
     folderPath,
     isLocalFolder: true,
     subscriptionStatus: 'enterprise',
+    role: 'admin',
     createdAt: new Date().toISOString(),
     createdBy: 'local-folder',
   };
