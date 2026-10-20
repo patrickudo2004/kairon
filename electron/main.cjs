@@ -431,6 +431,112 @@ ipcMain.handle('auto-archive-kairon-file', async (event, { content, fileName, or
   }
 });
 
+// IPC: Choose Local Workspace Folder via Native Dialog
+ipcMain.handle('choose-workspace-folder', async () => {
+  try {
+    const defaultStart = path.join(app.getPath('documents'), 'Kairon');
+    await fs.promises.mkdir(defaultStart, { recursive: true });
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Choose Local Workspace Folder',
+      defaultPath: defaultStart,
+      properties: ['openDirectory', 'createDirectory'],
+    });
+
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+      return { success: false, canceled: true };
+    }
+
+    const folderPath = result.filePaths[0];
+    const folderName = path.basename(folderPath) || 'Local Workspace';
+    return { success: true, folderPath, folderName };
+  } catch (err) {
+    console.error('choose-workspace-folder failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// IPC: Read All .kairon Rundown Files in a Local Workspace Folder
+ipcMain.handle('read-workspace-folder', async (event, folderPath) => {
+  try {
+    if (!folderPath || !fs.existsSync(folderPath)) {
+      return { success: false, error: 'Folder does not exist', programs: [] };
+    }
+
+    const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
+    const programs = [];
+
+    for (const entry of entries) {
+      if (entry.isFile() && (entry.name.endsWith('.kairon') || entry.name.endsWith('.json'))) {
+        try {
+          const fullPath = path.join(folderPath, entry.name);
+          const raw = await fs.promises.readFile(fullPath, 'utf-8');
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            parsed._filePath = fullPath;
+            parsed._fileName = entry.name;
+            if (!parsed.id) {
+              parsed.id = 'local-file-' + entry.name.replace(/\.[^/.]+$/, '');
+            }
+            programs.push(parsed);
+          }
+        } catch (fileErr) {
+          console.warn('Could not parse rundown file:', entry.name, fileErr.message);
+        }
+      }
+    }
+
+    return { success: true, programs };
+  } catch (err) {
+    console.error('read-workspace-folder failed:', err);
+    return { success: false, error: err.message, programs: [] };
+  }
+});
+
+// IPC: Save Program into Local Workspace Folder (.kairon format)
+ipcMain.handle('save-workspace-program', async (event, { folderPath, program, fileName }) => {
+  try {
+    if (!folderPath) {
+      return { success: false, error: 'No folder path provided' };
+    }
+    await fs.promises.mkdir(folderPath, { recursive: true });
+
+    const safeTitle = (program.title || 'rundown').replace(/[<>:"/\\|?*]+/g, '-').trim() || 'rundown';
+    const actualName = fileName || (program.slug ? (program.slug + '.kairon') : (safeTitle + '.kairon'));
+    const finalName = actualName.endsWith('.kairon') ? actualName : (actualName + '.kairon');
+    const fullPath = path.join(folderPath, finalName);
+
+    const payload = {
+      ...program,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await fs.promises.writeFile(fullPath, JSON.stringify(payload, null, 2), 'utf-8');
+    return { success: true, filePath: fullPath, fileName: finalName };
+  } catch (err) {
+    console.error('save-workspace-program failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// IPC: Delete / Trash Program File from Local Workspace Folder
+ipcMain.handle('delete-workspace-program', async (event, { filePath }) => {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) {
+      return { success: true };
+    }
+    if (shell.trashItem) {
+      await shell.trashItem(filePath);
+    } else {
+      await fs.promises.unlink(filePath);
+    }
+    return { success: true };
+  } catch (err) {
+    console.error('delete-workspace-program failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
 // IPC: Open external URL in user's default browser
 ipcMain.handle('open-external-url', async (event, url) => {
   if (url && (url.startsWith('https://') || url.startsWith('http://'))) {

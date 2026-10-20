@@ -50,6 +50,8 @@ export interface Program {
   slug?: string;
   isPublic?: boolean;
   status?: 'draft' | 'live' | 'concluded' | 'archived';
+  _filePath?: string;
+  _fileName?: string;
 }
 
 export interface AnalyticsData {
@@ -89,6 +91,8 @@ export interface Organization {
   stripeCustomerId?: string;
   createdBy: string;
   createdAt: string;
+  isLocalFolder?: boolean;
+  folderPath?: string;
 }
 
 export interface OrganizationMember {
