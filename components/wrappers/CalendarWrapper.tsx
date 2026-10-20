@@ -10,6 +10,7 @@ interface CalendarWrapperProps {
     activeOrgId: string | undefined;
     activeProgramId: string;
     activeSessions: Program[];
+    programs?: Program[];
     loadProgram: (p: Program) => void;
     createProgram: (date: string) => void;
     deleteProgram: (id: string) => void;
@@ -22,6 +23,7 @@ const CalendarWrapper: React.FC<CalendarWrapperProps> = ({
     activeOrgId,
     activeProgramId,
     activeSessions,
+    programs: propPrograms,
     loadProgram,
     createProgram,
     deleteProgram,
@@ -30,12 +32,19 @@ const CalendarWrapper: React.FC<CalendarWrapperProps> = ({
 }) => {
     const navigate = useNavigate();
 
-    const convexPrograms = useConvexQuery(
-        api.programs.getPrograms,
-        activeOrgId ? { organizationId: activeOrgId as any } : "skip"
+    const isConvexOrg = Boolean(
+        activeOrgId &&
+        !activeOrgId.startsWith('local-') &&
+        !activeOrgId.startsWith('test-') &&
+        activeOrgId.length >= 19
     );
 
-    const isLoading = activeOrgId && convexPrograms === undefined;
+    const convexPrograms = useConvexQuery(
+        api.programs.getPrograms,
+        (isConvexOrg && !propPrograms) ? { organizationId: activeOrgId as any } : "skip"
+    );
+
+    const isLoading = !propPrograms && isConvexOrg && convexPrograms === undefined;
 
     if (isLoading) {
         return (
@@ -48,7 +57,8 @@ const CalendarWrapper: React.FC<CalendarWrapperProps> = ({
         );
     }
 
-    const allPrograms = (convexPrograms || []).map(transformProgram);
+    const rawList = propPrograms || convexPrograms || [];
+    const allPrograms = rawList.map(transformProgram);
 
     return (
         <CalendarView

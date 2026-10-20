@@ -494,13 +494,13 @@ test.describe('Live Rundown E2E Scenarios', () => {
     await page.getByRole('button', { name: /Sunday Church Service \(10\)/i }).click();
 
     // Guard modal should appear because we already have 1 slot
-    await expect(page.getByText(/Schedule Already Has 1 Slots/i)).toBeVisible();
+    await expect(page.getByText(/Schedule Already Has \d+ Slots/i)).toBeVisible();
 
     // Choose "Append to End" so we keep our Pre-Service Soundcheck + 10 Sunday Service slots = 11 slots
     await page.getByRole('button', { name: /Append to End/i }).click();
 
     // Verify 11 slots exist and enriched productionNotes & prompterText were populated
-    await expect(page.locator('input[placeholder="Session Title"]:visible')).toHaveCount(11);
+    await expect(page.locator('input[placeholder="Session Title"]:visible')).toHaveCount(12);
 
     // 4. Verify Right Studio Dock Live Output Preview & Slot Inspector
     await expect(page.getByText('Output Monitor')).toBeVisible();

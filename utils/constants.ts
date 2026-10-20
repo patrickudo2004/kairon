@@ -13,7 +13,15 @@ export const getInitialProgram = (organizationId?: string): Program => {
         organizationId,
         isManualMode: false,
         status: 'draft',
-        slots: []
+        slots: [
+            {
+                id: crypto.randomUUID(),
+                title: 'Opening / Pre-Service',
+                speaker: '',
+                durationMinutes: 5,
+                type: 'Prayer',
+                productionNotes: 'Stage standby & worship team call'
+            }
+        ]
     };
 };
-
