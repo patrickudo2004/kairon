@@ -21,14 +21,14 @@ export const useFlightBridge = () => {
         }
     }, []);
 
-    const openFlightBridge = useCallback(async (width = 380, height = 550) => {
+    const openFlightBridge = useCallback(async (targetProgramId?: string, width = 380, height = 550) => {
         const isElectron = typeof window !== 'undefined' && Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron);
         const electron = typeof window !== 'undefined' ? ((window as any).electron || (window as any).electronAPI) : null;
 
         // In Electron desktop runtime, launch true detached native OS BrowserWindow
         if (isElectron && electron && typeof electron.toggleFlightBridge === 'function') {
             try {
-                const res = await electron.toggleFlightBridge();
+                const res = await electron.toggleFlightBridge(targetProgramId);
                 setIsFloatingBridgeOpen(Boolean(res?.open));
                 return null;
             } catch (err) {

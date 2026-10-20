@@ -74,9 +74,27 @@ export const FlightBridgeStandaloneView: React.FC = () => {
                     }
                 }
             }
-            return null;
+            return {
+                id: programId || 'local-default',
+                title: 'Live Service Rundown',
+                subtitle: '',
+                date: new Date().toISOString().split('T')[0],
+                startTime: '09:00',
+                slots: [],
+                status: 'draft',
+                createdAt: new Date().toISOString()
+            } as Program;
         } catch {
-            return null;
+            return {
+                id: programId || 'local-default',
+                title: 'Live Service Rundown',
+                subtitle: '',
+                date: new Date().toISOString().split('T')[0],
+                startTime: '09:00',
+                slots: [],
+                status: 'draft',
+                createdAt: new Date().toISOString()
+            } as Program;
         }
     });
 
@@ -130,6 +148,19 @@ export const FlightBridgeStandaloneView: React.FC = () => {
                 status: data.status || inc.status || base.status,
             };
         });
+    }, []);
+
+    // Request initial state from controller on mount
+    useEffect(() => {
+        try {
+            const controlChan = new BroadcastChannel('kairon_control_sync');
+            controlChan.postMessage({ type: 'TIMER_CONTROL', action: 'REQUEST_SYNC' });
+            controlChan.close();
+        } catch {}
+        const electron = typeof window !== 'undefined' ? ((window as any).electron || (window as any).electronAPI) : null;
+        if (electron && typeof electron.sendTimerControl === 'function') {
+            electron.sendTimerControl({ action: 'REQUEST_SYNC' });
+        }
     }, []);
 
     // Subscribe to Electron IPC timer push

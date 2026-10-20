@@ -2186,7 +2186,7 @@ const AppContent: React.FC = () => {
     }
 
     return () => clearInterval(interval);
-  }, [isTimerActive, timerStartTimestamp]);
+  }, [isTimerActive, timerStartTimestamp, displayIsTimerActive, displayTimerStartTimestamp, displayProgram?.id]);
 
 
   const handleSlotComplete = (slotId: string, actualDuration: number) => {
@@ -2976,6 +2976,42 @@ const AppContent: React.FC = () => {
         case 'TOGGLE_MANUAL':
           handleToggleManualMode(msg.targetId);
           break;
+        case 'REQUEST_SYNC': {
+          const liveSnapshot = {
+            ...displayProgram,
+            isTimerActive: displayIsTimerActive,
+            timerStartTimestamp: displayTimerStartTimestamp,
+            currentSlotIndex: displayCurrentSlotIndex,
+            secondsElapsed: displaySecondsElapsed,
+            status: (displayIsTimerActive || displayProgram.status === 'live') ? 'live' : displayProgram.status,
+          };
+          try {
+            const chan = new BroadcastChannel('kairon_offline_sync');
+            chan.postMessage({
+              id: displayProgram.id,
+              program: liveSnapshot,
+              isTimerActive: displayIsTimerActive,
+              timerStartTimestamp: displayTimerStartTimestamp,
+              currentSlotIndex: displayCurrentSlotIndex,
+              secondsElapsed: displaySecondsElapsed,
+              status: liveSnapshot.status
+            });
+            chan.close();
+          } catch {}
+          const electronApi = (window as any).electron || (window as any).electronAPI;
+          if (electronApi?.sendTimerState) {
+            electronApi.sendTimerState({
+              id: displayProgram.id,
+              program: liveSnapshot,
+              isTimerActive: displayIsTimerActive,
+              timerStartTimestamp: displayTimerStartTimestamp,
+              currentSlotIndex: displayCurrentSlotIndex,
+              secondsElapsed: displaySecondsElapsed,
+              status: liveSnapshot.status
+            });
+          }
+          break;
+        }
       }
     };
 
@@ -3136,7 +3172,7 @@ const AppContent: React.FC = () => {
           onToggleRightDock={() => setIsRightDockCollapsed(prev => !prev)}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           onOpenHotkeys={() => setIsHotkeysOpen(true)}
-          onOpenPip={() => openFlightBridge()}
+          onOpenPip={() => openFlightBridge(displayProgram?.id)}
         />
       )}
 
@@ -3378,7 +3414,7 @@ const AppContent: React.FC = () => {
 
             {canControlLive && (
               <button
-                onClick={() => openFlightBridge()}
+                onClick={() => openFlightBridge(displayProgram?.id)}
                 className={`hidden sm:inline-flex p-1.5 rounded border transition-colors ${
                   (pipWindow || isFloatingBridgeOpen)
                     ? 'bg-[#0EA5E9]/20 border-[#0EA5E9] text-[#0EA5E9]' 
@@ -3556,7 +3592,7 @@ const AppContent: React.FC = () => {
                   <MonitorDashboard
                     program={displayProgram}
                     activeOrg={activeOrg}
-                    onLaunchFlightBridge={() => openFlightBridge()}
+                    onLaunchFlightBridge={() => openFlightBridge(displayProgram?.id)}
                     isFlightBridgeSupported={isFlightBridgeSupported}
                     isPro={isPro}
                     displayStatuses={displayStatuses}

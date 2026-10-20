@@ -117,14 +117,20 @@ export const StudioRightDock: React.FC<StudioRightDockProps> = ({
 
   if (!isOpen) return null;
 
+  const hasTestBypass = typeof window !== 'undefined' && (
+    window.location.search.includes('testBypass=true') ||
+    localStorage.getItem('kairon_booth_mode') === 'true'
+  );
+  const previewSuffix = hasTestBypass ? '&testBypass=true' : '';
+
   const activePreviewPath =
     previewTab === 'stage'
-      ? `/stage?programId=${program.id}&mode=thumbnail`
+      ? `/stage?programId=${program.id}&mode=thumbnail${previewSuffix}`
       : previewTab === 'tv'
-      ? `/tv?programId=${program.id}&mode=thumbnail`
+      ? `/tv?programId=${program.id}&mode=thumbnail${previewSuffix}`
       : previewTab === 'prompter'
-      ? `/prompter?programId=${program.id}&mode=thumbnail`
-      : `/overlay?programId=${program.id}&layout=lower-third&bg=black`;
+      ? `/prompter?programId=${program.id}&mode=thumbnail${previewSuffix}`
+      : `/overlay?programId=${program.id}&layout=lower-third&bg=black${previewSuffix}`;
 
   const publicPortalUrl = getPublicPortalUrl(targetProgram);
 
@@ -243,7 +249,7 @@ export const StudioRightDock: React.FC<StudioRightDockProps> = ({
         <div className="grid grid-cols-3 gap-1.5 mt-2">
           <button
             type="button"
-            onClick={() => openOnTargetScreen(`/stage?programId=${program.id}&autofs=1`, 2, 'kairon_display_stage')}
+            onClick={() => openOnTargetScreen(`/stage?programId=${program.id}&autofs=1${previewSuffix}`, 2, 'kairon_display_stage')}
             className="px-2 py-1.5 rounded bg-white dark:bg-[#121418] hover:bg-[#0EA5E9]/10 hover:border-[#0EA5E9] border border-slate-200 dark:border-[#22262E] text-[10px] font-mono font-bold text-slate-700 dark:text-[#E1E4EA] flex items-center justify-center gap-1 transition-all"
             title="Project Stage Timer to Screen 2 (Pulpit Confidence Monitor)"
           >
@@ -252,7 +258,7 @@ export const StudioRightDock: React.FC<StudioRightDockProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => openOnTargetScreen(`/tv?programId=${program.id}&autofs=1`, 3, 'kairon_display_tv')}
+            onClick={() => openOnTargetScreen(`/tv?programId=${program.id}&autofs=1${previewSuffix}`, 3, 'kairon_display_tv')}
             className="px-2 py-1.5 rounded bg-white dark:bg-[#121418] hover:bg-[#0EA5E9]/10 hover:border-[#0EA5E9] border border-slate-200 dark:border-[#22262E] text-[10px] font-mono font-bold text-slate-700 dark:text-[#E1E4EA] flex items-center justify-center gap-1 transition-all"
             title="Project TV Schedule to Screen 3 (Lobby / Overflow)"
           >
