@@ -23,8 +23,16 @@ export const BroadcastOverlayView: React.FC = () => {
     try {
       const cached =
         (programIdParam && localStorage.getItem(`kairon_offline_cache_${programIdParam}`)) ||
-        localStorage.getItem('kairon_offline_cache_live') ||
-        localStorage.getItem('kairon_program');
+        (() => {
+          const live = localStorage.getItem('kairon_offline_cache_live');
+          if (live) {
+            try {
+              const parsed = JSON.parse(live);
+              if (parsed && parsed.status === 'live' && parsed.slots && parsed.slots.length > 0) return live;
+            } catch {}
+          }
+          return null;
+        })();
       return cached ? JSON.parse(cached) : null;
     } catch {
       return null;

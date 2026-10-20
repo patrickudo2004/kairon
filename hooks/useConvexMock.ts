@@ -17,13 +17,19 @@ const isTestBypass = () => {
     try {
         if (typeof window !== 'undefined') {
             if (window.location.search.includes('testBypass=true')) {
-                localStorage.setItem('testBypass', 'true');
+                try { sessionStorage.setItem('testBypass', 'true'); } catch {}
                 return true;
+            }
+            if (sessionStorage.getItem('testBypass') === 'true') {
+                return true;
+            }
+            if (localStorage.getItem('testBypass') === 'true') {
+                localStorage.removeItem('testBypass');
             }
             if (localStorage.getItem('kairon_booth_mode') === 'true') {
                 return true;
             }
-            return localStorage.getItem('testBypass') === 'true';
+            return false;
         }
         return false;
     } catch {
@@ -33,7 +39,7 @@ const isTestBypass = () => {
 
 export const getLocalPrograms = () => {
     try {
-        const local = localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs');
+        const local = localStorage.getItem('kairon_offline_programs') || (isTestBypass() ? localStorage.getItem('test_programs') : null);
         if (local) {
             const parsed = JSON.parse(local);
             if (Array.isArray(parsed) && parsed.length > 0) return parsed;

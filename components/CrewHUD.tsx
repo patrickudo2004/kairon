@@ -168,42 +168,50 @@ export const CrewHUD: React.FC = () => {
     const [localProgram, setLocalProgram] = useState<Program | null>(() => {
         try {
             const cleanId = targetId ? targetId.replace(/^local-/, '') : null;
-            const candidates = [
-                targetId ? `kairon_offline_cache_${targetId}` : null,
-                cleanId ? `kairon_offline_cache_${cleanId}` : null,
-                'kairon_offline_cache_live',
-                'kairon_program'
-            ].filter(Boolean) as string[];
+            if (targetId) {
+                const candidates = [
+                    `kairon_offline_cache_${targetId}`,
+                    cleanId ? `kairon_offline_cache_${cleanId}` : null,
+                ].filter(Boolean) as string[];
 
-            for (const key of candidates) {
-                const raw = localStorage.getItem(key);
-                if (raw) {
-                    const parsed = JSON.parse(raw);
-                    if (parsed && (parsed.id === targetId || parsed.id?.replace(/^local-/, '') === cleanId || parsed.slug === cleanId || !targetId || parsed.status === 'live')) {
-                        return parsed;
+                for (const key of candidates) {
+                    const raw = localStorage.getItem(key);
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        if (parsed && (parsed.id === targetId || parsed.id?.replace(/^local-/, '') === cleanId || parsed.slug === cleanId)) {
+                            return parsed;
+                        }
                     }
                 }
-            }
 
-            // Check list stores
-            const listKeys = ['test_programs', 'kairon_offline_programs', 'programs'];
-            for (const key of listKeys) {
-                const allRaw = localStorage.getItem(key);
-                if (allRaw) {
-                    const all = JSON.parse(allRaw);
-                    if (Array.isArray(all) && all.length > 0) {
-                        if (targetId) {
+                const listKeys = ['kairon_offline_programs', 'test_programs', 'programs'];
+                for (const key of listKeys) {
+                    const allRaw = localStorage.getItem(key);
+                    if (allRaw) {
+                        const all = JSON.parse(allRaw);
+                        if (Array.isArray(all) && all.length > 0) {
                             const match = all.find((p: any) => p.id === targetId || p.id?.replace(/^local-/, '') === cleanId || p.slug === cleanId);
                             if (match) return match;
                         }
-                        return all[0];
                     }
                 }
+                return null;
             }
+
+            // If NO targetId specified, ONLY show if an event is actively broadcasting live
+            const liveCache = localStorage.getItem('kairon_offline_cache_live');
+            if (liveCache) {
+                const parsed = JSON.parse(liveCache);
+                const isStale = parsed?.timerStartTimestamp && (Date.now() - parsed.timerStartTimestamp > 2 * 60 * 60 * 1000);
+                if (parsed && parsed.status === 'live' && parsed.slots && parsed.slots.length > 0 && !isStale) {
+                    return parsed;
+                }
+            }
+            return null;
         } catch (e) {
             console.warn("Could not read local fallback program in CrewHUD:", e);
+            return null;
         }
-        return null;
     });
 
     const mergeIncomingData = useCallback((data: any) => {

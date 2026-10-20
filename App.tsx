@@ -242,8 +242,8 @@ const healScheduleOverruns = (program: Program, currentSlotIndex: number, overru
 
 export const DEFAULT_OFFLINE_ORG: Organization = {
   id: 'local-workspace',
-  name: 'Main Workspace',
-  slug: 'main-workspace',
+  name: 'Local Workspace',
+  slug: 'local-workspace',
   subscriptionStatus: 'enterprise',
   createdBy: 'local-guest-user',
   createdAt: '2026-01-01T00:00:00.000Z',
@@ -329,12 +329,22 @@ const AppContent: React.FC = () => {
       const isBooth = typeof window !== 'undefined' && (
         localStorage.getItem('kairon_booth_mode') === 'true' ||
         window.location.search.includes('testBypass=true') ||
-        localStorage.getItem('testBypass') === 'true' ||
-        Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron)
+        sessionStorage.getItem('testBypass') === 'true'
       );
-      if (isBooth) {
-        const localList = getLocalPrograms();
-        if (localList.length > 0) return localList[0];
+      if (typeof window !== 'undefined') {
+        const urlId = new URLSearchParams(window.location.search).get('id');
+        if (urlId) {
+          if (isBooth) {
+            const localList = getLocalPrograms();
+            const cleanUrlId = urlId.replace(/^local-/, '');
+            const found = localList.find((p: any) => p.id === urlId || p.slug === urlId || p.id?.replace(/^local-/, '') === cleanUrlId);
+            if (found) return found;
+          }
+          const cached = localStorage.getItem(`kairon_offline_cache_${urlId}`);
+          if (cached) {
+            try { return JSON.parse(cached); } catch {}
+          }
+        }
       }
     } catch {}
     return getInitialProgram();
@@ -475,7 +485,7 @@ const AppContent: React.FC = () => {
     try {
       if (typeof window === 'undefined') return false;
       const isBooth = localStorage.getItem('kairon_booth_mode') === 'true';
-      const isTestBypass = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true';
+      const isTestBypass = window.location.search.includes('testBypass=true') || sessionStorage.getItem('testBypass') === 'true';
       return isBooth || isTestBypass;
     } catch {
       return false;
@@ -486,7 +496,7 @@ const AppContent: React.FC = () => {
     const handleBoothModeSync = () => {
       try {
         const isBooth = localStorage.getItem('kairon_booth_mode') === 'true';
-        const isTestBypass = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true';
+        const isTestBypass = window.location.search.includes('testBypass=true') || sessionStorage.getItem('testBypass') === 'true';
         setIsBoothMode(isBooth || isTestBypass);
       } catch {}
     };
@@ -524,6 +534,25 @@ const AppContent: React.FC = () => {
     }
     return null;
   });
+
+    // Startup storage hygiene: cleanse contaminated test flags and stale ghost timers
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        if (!window.location.search.includes('testBypass=true') && sessionStorage.getItem('testBypass') !== 'true') {
+          localStorage.removeItem('testBypass');
+        }
+        const rawLive = localStorage.getItem('kairon_offline_cache_live');
+        if (rawLive) {
+          const parsed = JSON.parse(rawLive);
+          const isStale = parsed?.timerStartTimestamp && (Date.now() - parsed.timerStartTimestamp > 2 * 60 * 60 * 1000);
+          if (isStale || parsed.status !== 'live' || !parsed.slots || parsed.slots.length === 0) {
+            localStorage.removeItem('kairon_offline_cache_live');
+          }
+        }
+      }
+    } catch {}
+  }, []);
 
   // Workspace Switch Isolation: Reset active program and timer state when switching workspaces
   const prevOrgIdRef = React.useRef<string | null>(activeOrgId);
@@ -634,8 +663,9 @@ const AppContent: React.FC = () => {
   const userOrganizations = useMemo(() => {
     if (isBoothMode) return [DEFAULT_OFFLINE_ORG];
     if (rawUserOrganizations.length > 0) return rawUserOrganizations;
+    if (user) return [];
     return [DEFAULT_OFFLINE_ORG];
-  }, [isBoothMode, rawUserOrganizations]);
+  }, [isBoothMode, rawUserOrganizations, user]);
 
   // Auto-initialize profile and active org for offline booth mode
   useEffect(() => {
@@ -1006,20 +1036,20 @@ const AppContent: React.FC = () => {
   
   const displayIsTimerActive = isLiveEventActive 
     ? (isTargetSameAsLocal ? isTimerActive : (globalLiveProgram?.isTimerActive ?? false)) 
-    : isTimerActive;
+    : (program.slots.length > 0 ? isTimerActive : false);
 
   const displayTimerStartTimestamp = isLiveEventActive 
     ? (isTargetSameAsLocal ? timerStartTimestamp : (globalLiveProgram?.timerStartTimestamp ?? null)) 
-    : timerStartTimestamp;
+    : (program.slots.length > 0 ? timerStartTimestamp : null);
 
   const displaySecondsElapsed = isLiveEventActive 
     ? (displayIsTimerActive 
         ? Math.floor((Date.now() - (displayTimerStartTimestamp ?? Date.now())) / 1000) 
         // OPTIMISTIC FIX: Prioritize local 'secondsElapsed' if it's the same program to avoid "Pause Resets"
         : (isTargetSameAsLocal ? secondsElapsed : (globalLiveProgram?.secondsElapsed ?? 0)))
-    : (isTimerActive && timerStartTimestamp 
+    : (program.slots.length > 0 && isTimerActive && timerStartTimestamp 
         ? Math.floor((Date.now() - timerStartTimestamp) / 1000) 
-        : secondsElapsed);
+        : (program.slots.length > 0 ? secondsElapsed : 0));
 
   // Keep localStorage caches synchronized for instant preview, iframe thumbnails, and offline fallback
   useEffect(() => {
