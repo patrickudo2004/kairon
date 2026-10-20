@@ -33,33 +33,40 @@ const StageWrapper: React.FC = () => {
     const [localOfflineProgram, setLocalOfflineProgram] = useState<Program | null>(() => {
         try {
             const cleanId = programId ? programId.replace(/^local-/, '') : null;
-            const candidates = [
-                programId ? `kairon_offline_cache_${programId}` : null,
-                cleanId ? `kairon_offline_cache_${cleanId}` : null,
-                'kairon_offline_cache_live',
-                'kairon_program'
-            ].filter(Boolean) as string[];
+            if (programId) {
+                const candidates = [
+                    `kairon_offline_cache_${programId}`,
+                    cleanId ? `kairon_offline_cache_${cleanId}` : null,
+                ].filter(Boolean) as string[];
 
-            for (const key of candidates) {
-                const cached = localStorage.getItem(key);
-                if (cached) {
-                    const parsed = JSON.parse(cached);
-                    if (parsed && (parsed.id === programId || parsed.id?.replace(/^local-/, '') === cleanId || !programId || parsed.status === 'live')) {
-                        return parsed;
+                for (const key of candidates) {
+                    const cached = localStorage.getItem(key);
+                    if (cached) {
+                        const parsed = JSON.parse(cached);
+                        if (parsed && (parsed.id === programId || parsed.id?.replace(/^local-/, '') === cleanId || parsed.slug === cleanId)) {
+                            return parsed;
+                        }
                     }
                 }
-            }
 
-            // Check list stores
-            const local = localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs');
-            if (local) {
-                const list = JSON.parse(local);
-                if (Array.isArray(list) && list.length > 0) {
-                    if (programId) {
+                const local = localStorage.getItem('kairon_offline_programs') || ((typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || sessionStorage.getItem('testBypass') === 'true')) ? localStorage.getItem('test_programs') : null);
+                if (local) {
+                    const list = JSON.parse(local);
+                    if (Array.isArray(list) && list.length > 0) {
                         const found = list.find((p: any) => p.id === programId || p.id?.replace('local-', '') === cleanId || p.slug === cleanId);
                         if (found) return found;
                     }
-                    return list[0];
+                }
+                return null;
+            }
+
+            // If NO programId specified, ONLY show if an event is actively broadcasting live and not stale
+            const liveCache = localStorage.getItem('kairon_offline_cache_live');
+            if (liveCache) {
+                const parsed = JSON.parse(liveCache);
+                const isStale = parsed?.timerStartTimestamp && (Date.now() - parsed.timerStartTimestamp > 2 * 60 * 60 * 1000);
+                if (parsed && parsed.status === 'live' && parsed.slots && parsed.slots.length > 0 && !isStale) {
+                    return parsed;
                 }
             }
             return null;
@@ -401,7 +408,7 @@ const StageWrapper: React.FC = () => {
         );
     }
 
-    if (networkError || !program) {
+    if (networkError || !program || !program.slots || program.slots.length === 0) {
         // If it's a network error, show the diagnostic screen
         if (networkError) {
             return (
