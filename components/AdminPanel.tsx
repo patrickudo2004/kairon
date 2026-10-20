@@ -221,7 +221,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
         }
     });
 
-    const isPro = organization.subscriptionStatus === 'pro';
+    const isPro = true; // All Pro features unlocked until monetization launch
 
     // Get candidate organizations for migration and deletion logic
     const { data: allOrgs = [] } = useQuery<Organization[]>({

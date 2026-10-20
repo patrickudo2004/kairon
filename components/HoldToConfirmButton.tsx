@@ -3,7 +3,6 @@ import { Power } from 'lucide-react';
 
 export interface HoldToConfirmButtonProps {
   onConfirm: () => void;
-  onQuickClick?: () => void;
   durationMs?: number; // Default: 2000ms
   label?: string;
   holdingLabel?: string;
@@ -16,7 +15,6 @@ export interface HoldToConfirmButtonProps {
 
 export const HoldToConfirmButton: React.FC<HoldToConfirmButtonProps> = ({
   onConfirm,
-  onQuickClick,
   durationMs = 2000,
   label = 'END EVENT',
   holdingLabel = 'HOLD TO END',
@@ -43,9 +41,6 @@ export const HoldToConfirmButton: React.FC<HoldToConfirmButtonProps> = ({
   }, []);
 
   const stopHolding = useCallback(() => {
-    const elapsed = startTimeRef.current !== null ? (performance.now() - startTimeRef.current) : 0;
-    const wasHolding = isHoldingRef.current;
-
     isHoldingRef.current = false;
     setIsHolding(false);
     if (animFrameRef.current !== null) {
@@ -54,25 +49,13 @@ export const HoldToConfirmButton: React.FC<HoldToConfirmButtonProps> = ({
     }
     startTimeRef.current = null;
     setProgress(0);
-
-    // If released quickly (< 450ms), invoke onQuickClick so the standard confirmation modal opens
-    if (wasHolding && elapsed > 0 && elapsed < 450 && onQuickClick) {
-      onQuickClick();
-    }
-  }, [onQuickClick]);
+  }, []);
 
   const handleHoldSuccess = useCallback(() => {
-    isHoldingRef.current = false;
-    setIsHolding(false);
-    if (animFrameRef.current !== null) {
-      cancelAnimationFrame(animFrameRef.current);
-      animFrameRef.current = null;
-    }
-    startTimeRef.current = null;
-    setProgress(0);
+    stopHolding();
     triggerHaptic([80, 40, 80]);
     onConfirm();
-  }, [triggerHaptic, onConfirm]);
+  }, [stopHolding, triggerHaptic, onConfirm]);
 
   const startHolding = useCallback(() => {
     if (disabled) return;

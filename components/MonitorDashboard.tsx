@@ -342,7 +342,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                 <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                     {displayOptions.map((opt) => {
                         const isCrewHUD = opt.title === 'Crew Tactical HUD';
-                        const isLocked = isCrewHUD && !isPro;
+                        const isLocked = false;
                         const status = opt.tabId ? displayStatuses?.[opt.tabId] : null;
                         const currentTheme = status?.isDarkMode !== undefined
                             ? (status.isDarkMode ? 'dark' : 'light')
