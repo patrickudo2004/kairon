@@ -157,15 +157,25 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
         }
     }, [timeLeft, isTimerActive, isOvertime, program.isOnHold]);
 
+    // Live wall clock for Standby & Concluded states
+    const [standbyClock, setStandbyClock] = useState(() => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setStandbyClock(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        }, 1000);
+        return () => clearInterval(interval);
+    }, []);
+
     // Concluded State
     if (program.status === 'concluded') {
         return (
             <div className="w-screen h-screen bg-[#000000] text-white flex flex-col items-center justify-center p-8 text-center font-sans select-none">
-                <div className="p-6 bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl mb-6 animate-pulse">
-                    <CheckCircle size={64} className="text-[#10B981]" />
+                <div className="text-4xl sm:text-6xl font-mono font-bold text-slate-400 mb-6 tracking-widest">{standbyClock}</div>
+                <div className="p-5 bg-[#10B981]/10 border border-[#10B981]/30 rounded-2xl mb-6">
+                    <CheckCircle size={56} className="text-[#10B981]" />
                 </div>
-                <h1 className="text-[8vw] font-mono font-bold uppercase tracking-tight text-white mb-2">STANDBY</h1>
-                <p className="text-[#8A93A4] font-mono text-xl uppercase tracking-widest">SESSION CONCLUDED</p>
+                <h1 className="text-[7vw] font-mono font-bold uppercase tracking-tight text-white mb-2">SESSION CONCLUDED</h1>
+                <p className="text-[#8A93A4] font-mono text-lg uppercase tracking-widest">{program.title}</p>
             </div>
         );
     }
@@ -174,9 +184,15 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
     if ((program.status === 'draft' && !isTimerActive) || !currentSlot) {
         return (
             <div className="w-screen h-screen bg-[#000000] text-white flex flex-col items-center justify-center p-8 text-center font-sans select-none">
-                <div className="text-[8vw] font-mono font-bold tracking-tight text-white mb-4">STANDBY</div>
-                <div className="w-20 h-1 bg-[#0EA5E9] rounded-full animate-pulse mb-6" />
-                <p className="text-[#8A93A4] font-mono text-xl uppercase tracking-widest">{program.title}</p>
+                <div className="text-4xl sm:text-6xl font-mono font-bold text-slate-400 mb-6 tracking-widest">{standbyClock}</div>
+                <div className="text-[8vw] font-mono font-bold tracking-tight text-white mb-3">STANDBY</div>
+                <div className="w-24 h-1 bg-[#0EA5E9] rounded-full animate-pulse mb-6" />
+                <p className="text-[#8A93A4] font-mono text-xl uppercase tracking-widest">{program.title || 'Kairon Live Stage'}</p>
+                {currentSlot && (
+                    <p className="text-slate-500 font-mono text-sm mt-3 uppercase tracking-wider">
+                        Next: {currentSlot.title} • {currentSlot.durationMinutes}m
+                    </p>
+                )}
             </div>
         );
     }

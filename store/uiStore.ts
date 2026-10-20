@@ -2,15 +2,19 @@ import { create } from 'zustand';
 
 interface UIState {
     isDarkMode: boolean;
-    isSidebarOpen: boolean; // Just in case we add one
+    isSidebarOpen: boolean;
+    isZenMode: boolean;
 
     toggleTheme: () => void;
     setTheme: (isDark: boolean) => void;
+    toggleZenMode: () => void;
+    setZenMode: (isZen: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
     isDarkMode: typeof window !== 'undefined' ? (localStorage.getItem('theme') === 'dark') : true,
     isSidebarOpen: false,
+    isZenMode: false,
 
     toggleTheme: () => set((state) => {
         const newMode = !state.isDarkMode;
@@ -31,5 +35,8 @@ export const useUIStore = create<UIState>((set) => ({
             else root.classList.remove('dark');
         }
         return { isDarkMode: isDark };
-    })
+    }),
+
+    toggleZenMode: () => set((state) => ({ isZenMode: !state.isZenMode })),
+    setZenMode: (isZen) => set(() => ({ isZenMode: isZen })),
 }));

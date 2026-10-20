@@ -25,17 +25,16 @@ function getDeterministicWindowTitle(urlStr = '', winKey = '') {
 }
 
 function loadRouteIntoWindow(win, url) {
+  const cleanPath = url.split('?')[0].replace(/^\//, '');
+  const query = url.includes('?') ? url.substring(url.indexOf('?')) : '';
   if (isDev) {
     const devBase = process.env.VITE_DEV_SERVER_URL || 'http://localhost:3000';
-    const targetUrl = url.startsWith('http') ? url : `${devBase}${url.startsWith('/') ? '' : '/'}${url}`;
+    const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+    const targetUrl = url.startsWith('http') ? url : `${devBase}${cleanUrl}`;
     return win.loadURL(targetUrl);
   } else {
-    const cleanPath = url.split('?')[0].replace(/^\//, '');
-    const query = url.includes('?') ? url.substring(url.indexOf('?')) : '';
-    return win.loadFile(path.join(__dirname, '../dist/index.html'), {
-      hash: cleanPath,
-      search: query,
-    });
+    const indexPath = path.join(__dirname, '../dist/index.html');
+    return win.loadURL(`file://${indexPath}#/${cleanPath}${query}`);
   }
 }
 
