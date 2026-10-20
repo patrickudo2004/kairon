@@ -46,10 +46,10 @@ export const DesktopAuthApproval: React.FC = () => {
   const [phase, setPhase] = useState<'loading' | 'ready' | 'approving' | 'success' | 'error' | 'invalid'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Email OTP state for in-place sign-in
+  // Email Password state for in-place sign-in
   const [email, setEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [step, setStep] = useState<'signIn' | 'verifyCode'>('signIn');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const [authFeedback, setAuthFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -69,7 +69,7 @@ export const DesktopAuthApproval: React.FC = () => {
       const canonicalOrigin = getCanonicalWebOrigin();
       const isLocal = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1');
       const targetRedirect = isLocal
-        ? `${canonicalOrigin}/desktop-auth?code=${encodeURIComponent(code)}`
+        ? `${window.location.origin}/desktop-auth?code=${encodeURIComponent(code)}`
         : window.location.href;
       await signIn("google", { redirectTo: targetRedirect });
     } catch (err: any) {
@@ -81,26 +81,21 @@ export const DesktopAuthApproval: React.FC = () => {
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    if (!email.trim() || !password) return;
 
     try {
       setIsSubmittingAuth(true);
       setAuthFeedback(null);
-      if (step === 'signIn') {
-        await signIn("password", { email, flow: "email" });
-        setAuthFeedback({
-          type: 'success',
-          text: 'Check your email for a one-time verification code.'
-        });
-        setStep('verifyCode');
-      } else {
-        await signIn("password", { email, code: otpCode.trim() });
-      }
+      await signIn("password", { 
+        email: email.trim(), 
+        password, 
+        flow: isSignUp ? "signUp" : "signIn" 
+      });
     } catch (err: any) {
       console.error("[DesktopAuthApproval] Email sign-in failed:", err);
       setAuthFeedback({
         type: 'error',
-        text: err.message || 'Sign-in failed. Please check the code and try again.'
+        text: err.message || (isSignUp ? 'Registration failed.' : 'Invalid email or password.')
       });
     } finally {
       setIsSubmittingAuth(false);
@@ -338,61 +333,55 @@ export const DesktopAuthApproval: React.FC = () => {
               <div className="flex-1 h-px bg-[#22262E]" />
             </div>
 
-            {/* Email OTP Sign-In */}
+            {/* Email & Password Sign-In */}
             <form onSubmit={handleEmailSignIn} className="flex flex-col gap-3">
-              {step === 'signIn' ? (
-                <div>
-                  <div className="relative">
-                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A93A4]" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email"
-                      required
-                      className="w-full bg-[#181B22] border border-[#22262E] focus:border-[#0EA5E9] text-white text-xs rounded-xl pl-10 pr-4 py-3 outline-none transition-colors"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isSubmittingAuth || !email}
-                    className="w-full mt-3 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-60 text-white font-mono text-xs font-bold transition-all shadow-md shadow-[#0EA5E9]/20"
-                  >
-                    {isSubmittingAuth ? <Loader size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                    <span>Send Login Code</span>
-                  </button>
-                </div>
-              ) : (
-                <div>
-                  <div className="relative">
-                    <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A93A4]" />
-                    <input
-                      type="text"
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
-                      placeholder="Enter 6-digit code"
-                      required
-                      autoFocus
-                      className="w-full bg-[#181B22] border border-[#22262E] focus:border-[#0EA5E9] text-white font-mono tracking-widest text-center text-sm rounded-xl py-3 outline-none transition-colors"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isSubmittingAuth || !otpCode}
-                    className="w-full mt-3 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#10B981] hover:bg-[#059669] disabled:opacity-60 text-white font-mono text-xs font-bold transition-all shadow-md shadow-[#10B981]/20"
-                  >
-                    {isSubmittingAuth ? <Loader size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                    <span>Verify & Authorize</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setStep('signIn'); setOtpCode(''); }}
-                    className="w-full mt-2 text-center text-[11px] text-[#8A93A4] hover:text-white transition-colors"
-                  >
-                    Use a different email
-                  </button>
-                </div>
-              )}
+              <div className="relative">
+                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A93A4]" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  required
+                  className="w-full bg-[#181B22] border border-[#22262E] focus:border-[#0EA5E9] text-white text-xs rounded-xl pl-10 pr-4 py-3 outline-none transition-colors"
+                />
+              </div>
+
+              <div className="relative">
+                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A93A4]" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  required
+                  className="w-full bg-[#181B22] border border-[#22262E] focus:border-[#0EA5E9] text-white text-xs rounded-xl pl-10 pr-4 py-3 outline-none transition-colors"
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-xs font-mono">
+                <button
+                  type="button"
+                  onClick={() => { setIsSignUp(!isSignUp); setAuthFeedback(null); }}
+                  className="text-[#0EA5E9] hover:underline"
+                >
+                  {isSignUp ? 'Have an account? Sign In' : 'Need an account? Sign Up'}
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmittingAuth || !email || !password}
+                className="w-full mt-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-60 text-white font-mono text-xs font-bold transition-all shadow-md shadow-[#0EA5E9]/20"
+              >
+                {isSubmittingAuth ? (
+                  <Loader size={16} className="animate-spin" />
+                ) : isSignUp ? (
+                  <>Create Account & Authorize <ArrowRight size={14} /></>
+                ) : (
+                  <>Sign In & Authorize <ArrowRight size={14} /></>
+                )}
+              </button>
             </form>
           </div>
         )}

@@ -43,7 +43,7 @@ test.describe('Booth Mode & Desktop Auth Integration Tests', () => {
 
     // Check that tabs exist
     const browserTab = page.getByRole('button', { name: /Browser Sign-In/i });
-    const emailTab = page.getByRole('button', { name: /Direct Email OTP/i });
+    const emailTab = page.getByRole('button', { name: /Direct Email OTP|Email & Password/i });
     const offlineGuestBtn = page.getByRole('button', { name: /Continue Offline as Guest/i });
 
     await expect(browserTab).toBeVisible();
@@ -53,7 +53,7 @@ test.describe('Booth Mode & Desktop Auth Integration Tests', () => {
     // Click direct email tab and check that email input appears
     await emailTab.click();
     await expect(page.getByPlaceholder(/name@organization\.com|pastor@church\.org/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /Send Verification Code/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Sign In|Create Account|Send Verification Code/i })).toBeVisible();
 
     // Switch back to browser tab and check that browser code appears
     await browserTab.click();

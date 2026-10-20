@@ -195,7 +195,7 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
 
                         <div className="my-2 border-t border-slate-100 dark:border-slate-800" />
 
-                        {user?.id === 'local-booth-operator' ? (
+                        {(user?.id?.startsWith('local-') || !user?.email) ? (
                             <button
                                 onClick={handleSignOut}
                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#0EA5E9] hover:bg-[#0EA5E9]/10 rounded-xl transition-colors group font-semibold"

@@ -1700,7 +1700,8 @@ const AppContent: React.FC = () => {
 
     const timer = setTimeout(() => {
       const latestProgram = programRef.current;
-      console.log(`Auto-saving program "${latestProgram.title}" to Convex...`);
+      const isLocalAutoSave = isBoothMode || latestProgram.id?.startsWith('local-') || latestProgram.organizationId?.startsWith('local-') || latestProgram.organizationId === 'local-workspace';
+      console.log(`Auto-saving program "${latestProgram.title}" ${isLocalAutoSave ? 'locally' : 'to Convex'}...`);
       setSaveStatus('saving');
       lastSavedProgramRef.current = latestProgram;
       mutation.mutate(latestProgram);
