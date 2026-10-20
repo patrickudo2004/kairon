@@ -20,6 +20,7 @@ const api = {
   // BroadcastChannel does NOT work across separate Electron BrowserWindow processes.
   // This IPC bridge is the fix that makes real-time timer state reach Stage/TV/Prompter windows.
   sendTimerState: (payload) => ipcRenderer.send('timer-state-relay', payload),
+  getLastTimerState: () => ipcRenderer.invoke('get-last-timer-state'),
   onTimerState: (callback) => {
     const subscription = (event, payload) => callback(payload);
     ipcRenderer.on('timer-state-push', subscription);

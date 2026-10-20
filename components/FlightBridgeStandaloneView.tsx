@@ -135,6 +135,11 @@ export const FlightBridgeStandaloneView: React.FC = () => {
     // Subscribe to Electron IPC timer push
     useEffect(() => {
         const electron = typeof window !== 'undefined' ? ((window as any).electron || (window as any).electronAPI) : null;
+        if (electron && typeof electron.getLastTimerState === 'function') {
+            electron.getLastTimerState().then((cached: any) => {
+                if (cached) mergeIncomingData(cached);
+            }).catch(() => {});
+        }
         if (electron && typeof electron.onTimerState === 'function') {
             const unsub = electron.onTimerState((payload: any) => {
                 mergeIncomingData(payload);

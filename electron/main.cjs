@@ -13,6 +13,7 @@ let mainWindow = null;
 let flightBridgeWindow = null;
 const secondaryWindows = {};
 let powerBlockerId = null;
+let lastTimerStatePayload = null;
 
 function getDeterministicWindowTitle(urlStr = '', winKey = '') {
   const lower = `${urlStr} ${winKey}`.toLowerCase();
@@ -336,6 +337,14 @@ ipcMain.handle('open-target-screen', async (event, { url, screenIndex, windowId 
       delete secondaryWindows[winKey];
     });
 
+    win.webContents.on('did-finish-load', () => {
+      if (lastTimerStatePayload && !win.isDestroyed()) {
+        try {
+          win.webContents.send('timer-state-push', lastTimerStatePayload);
+        } catch (e) {}
+      }
+    });
+
     await loadRouteIntoWindow(win, url);
     win.setTitle(deterministicTitle);
 
@@ -576,6 +585,7 @@ ipcMain.handle('focus-main-window', () => {
 // When the controller window sends timer state, we fan it out to ALL open windows
 // so that Stage, TV, Prompter, Crew etc. receive live timer ticks in real-time.
 ipcMain.on('timer-state-relay', (event, payload) => {
+  lastTimerStatePayload = payload;
   const allWindows = BrowserWindow.getAllWindows();
   allWindows.forEach((win) => {
     if (!win.isDestroyed() && win.webContents) {
@@ -587,6 +597,11 @@ ipcMain.on('timer-state-relay', (event, payload) => {
       }
     }
   });
+});
+
+// IPC: Return latest cached timer state on demand for newly mounted secondary windows
+ipcMain.handle('get-last-timer-state', () => {
+  return lastTimerStatePayload;
 });
 
 // Helper: Create detached native Flight Bridge window
@@ -631,6 +646,14 @@ function createFlightBridgeWindow() {
     flightBridgeWindow = null;
     if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
       mainWindow.webContents.send('flight-bridge-closed');
+    }
+  });
+
+  flightBridgeWindow.webContents.on('did-finish-load', () => {
+    if (lastTimerStatePayload && flightBridgeWindow && !flightBridgeWindow.isDestroyed()) {
+      try {
+        flightBridgeWindow.webContents.send('timer-state-push', lastTimerStatePayload);
+      } catch (e) {}
     }
   });
 
