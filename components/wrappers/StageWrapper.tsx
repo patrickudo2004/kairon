@@ -211,7 +211,13 @@ const StageWrapper: React.FC = () => {
     // Electron IPC relay effect (cross-BrowserWindow — separate process timer sync)
     useEffect(() => {
         const electronApi = (window as any).electron || (window as any).electronAPI;
-        if (!electronApi?.onTimerState) return;
+        if (!electronApi) return;
+        if (typeof electronApi.getLastTimerState === 'function') {
+            electronApi.getLastTimerState().then((cached: any) => {
+                if (cached) mergeIncomingData(cached);
+            }).catch(() => {});
+        }
+        if (!electronApi.onTimerState) return;
         const remove = electronApi.onTimerState((data: any) => {
             if (data) mergeIncomingData(data);
         });
