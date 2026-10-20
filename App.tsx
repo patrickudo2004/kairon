@@ -525,17 +525,39 @@ const AppContent: React.FC = () => {
     return null;
   });
   const [activeOrgId, setActiveOrgId] = useState<string | null>(() => {
-    if (typeof window !== 'undefined' && (localStorage.getItem('kairon_booth_mode') === 'true' || window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true')) {
-      return DEFAULT_OFFLINE_ORG.id;
+    if (typeof window !== 'undefined') {
+      const isTest = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true';
+      if (isTest || localStorage.getItem('kairon_booth_mode') === 'true') {
+        return DEFAULT_OFFLINE_ORG.id;
+      }
+      const savedActive = localStorage.getItem('kairon_active_org_id');
+      if (savedActive) return savedActive;
+      const savedLocal = getActiveLocalFolder();
+      if (savedLocal) {
+        return toLocalFolderOrg(savedLocal.folderPath, savedLocal.folderName).id;
+      }
     }
     return null;
   });
   const [activeOrg, setActiveOrg] = useState<Organization | null>(() => {
-    if (typeof window !== 'undefined' && (localStorage.getItem('kairon_booth_mode') === 'true' || window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true')) {
-      return DEFAULT_OFFLINE_ORG;
+    if (typeof window !== 'undefined') {
+      const isTest = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true';
+      if (isTest || localStorage.getItem('kairon_booth_mode') === 'true') {
+        return DEFAULT_OFFLINE_ORG;
+      }
+      const savedLocal = getActiveLocalFolder();
+      if (savedLocal) {
+        return toLocalFolderOrg(savedLocal.folderPath, savedLocal.folderName);
+      }
     }
     return null;
   });
+
+  useEffect(() => {
+    if (activeOrgId && typeof window !== 'undefined') {
+      localStorage.setItem('kairon_active_org_id', activeOrgId);
+    }
+  }, [activeOrgId]);
 
     // Startup storage hygiene: cleanse contaminated test flags and stale ghost timers
   useEffect(() => {
@@ -762,13 +784,19 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (activeOrgId) {
       const found = userOrganizations.find(o => o.id === activeOrgId);
-      if (found) setActiveOrg(found);
+      if (found) {
+        setActiveOrg(found);
+      } else if (localFolderOrg && localFolderOrg.id === activeOrgId) {
+        setActiveOrg(localFolderOrg);
+      }
     } else if (userOrganizations.length > 0) {
-      // Default to first org if none selected
-      setActiveOrgId(userOrganizations[0].id);
-      setActiveOrg(userOrganizations[0]);
+      const savedActive = typeof window !== 'undefined' ? localStorage.getItem('kairon_active_org_id') : null;
+      const match = savedActive ? userOrganizations.find(o => o.id === savedActive) : null;
+      const target = match || (localFolderOrg ? localFolderOrg : userOrganizations[0]);
+      setActiveOrgId(target.id);
+      setActiveOrg(target);
     }
-  }, [activeOrgId, userOrganizations]);
+  }, [activeOrgId, userOrganizations, localFolderOrg]);
 
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const authLoadingRef = React.useRef(true);
@@ -976,7 +1004,19 @@ const AppContent: React.FC = () => {
 
   const programs = useMemo(() => {
     if (isLocalFolderWorkspace) {
-      return localFolderPrograms;
+      if (!program || !program.id) return localFolderPrograms;
+      const cleanProgramId = (program.id || '').replace(/^local-/, '');
+      const existingIdx = localFolderPrograms.findIndex((p: any) => 
+        p.id === program.id || 
+        p.id?.replace(/^local-/, '') === cleanProgramId ||
+        (p.slug && p.slug === program.slug)
+      );
+      if (existingIdx >= 0) {
+        const copy = [...localFolderPrograms];
+        copy[existingIdx] = { ...copy[existingIdx], ...program };
+        return copy;
+      }
+      return [program, ...localFolderPrograms];
     }
     if (isBoothMode || isTestMode) {
       const localList = getLocalPrograms();
@@ -1178,6 +1218,9 @@ const AppContent: React.FC = () => {
   // Theme State (Zustand)
   const isDarkMode = useUIStore((state) => state.isDarkMode);
   const toggleTheme = useUIStore((state) => state.toggleTheme);
+  const isZenMode = useUIStore((state) => state.isZenMode);
+  const toggleZenMode = useUIStore((state) => state.toggleZenMode);
+  const setZenMode = useUIStore((state) => state.setZenMode);
   // We use the effect inside the store or just here just to apply classes if store doesn't handle side effects 
   // (Our store handles side effects, so we just read value)
 
@@ -1923,6 +1966,11 @@ const AppContent: React.FC = () => {
       ...baseProgram,
       date: date,
     };
+    if (isLocalFolderWorkspace) {
+      saveProgramToLocalFolder(newProgram, activeOrg?.folderPath).then(() => {
+        setLocalFolderTick(t => t + 1);
+      });
+    }
     loadProgram(newProgram);
   };
 
@@ -2594,11 +2642,19 @@ const AppContent: React.FC = () => {
 
   // --- Portable .kairon & .csv File I/O Handlers ---
   const handleSaveKaironFile = React.useCallback(async (targetProg: Program = exportTargetProgram) => {
+    if (isLocalFolderWorkspace) {
+      const res = await saveProgramToLocalFolder(targetProg, activeOrg?.folderPath);
+      if (res.success) {
+        setLocalFolderTick(t => t + 1);
+        setLastDiskArchiveAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        return;
+      }
+    }
     const res = await saveKaironFileToDisk(targetProg, activeOrg?.name);
     if (res.saved) {
       setLastDiskArchiveAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     }
-  }, [exportTargetProgram, activeOrg?.name]);
+  }, [exportTargetProgram, activeOrg?.name, isLocalFolderWorkspace, activeOrg?.folderPath]);
 
   const handleOpenKaironFile = React.useCallback(async () => {
     const anyWin = window as any;
@@ -2609,9 +2665,12 @@ const AppContent: React.FC = () => {
           const parsed = parseKaironFile(res.content);
           if (parsed?.program) {
             const imported = parsed.program;
-            updateLocalProgram(imported);
+            loadProgram(imported);
             if (imported.slots.length > 0) setSelectedSlotId(imported.slots[0].id);
-            navigate('/editor');
+            if (isLocalFolderWorkspace) {
+              await saveProgramToLocalFolder(imported, activeOrg?.folderPath);
+              setLocalFolderTick(t => t + 1);
+            }
           } else {
             alert('Invalid .kairon file format.');
           }
@@ -2622,7 +2681,7 @@ const AppContent: React.FC = () => {
       }
     }
     fileInputRef.current?.click();
-  }, [updateLocalProgram, navigate]);
+  }, [loadProgram, isLocalFolderWorkspace, activeOrg?.folderPath]);
 
   const handleBrowserFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -2646,9 +2705,13 @@ const AppContent: React.FC = () => {
         const parsed = parseKaironFile(content);
         if (parsed?.program) {
           const imported = parsed.program;
-          updateLocalProgram(imported);
+          loadProgram(imported);
           if (imported.slots.length > 0) setSelectedSlotId(imported.slots[0].id);
-          navigate('/editor');
+          if (isLocalFolderWorkspace) {
+            saveProgramToLocalFolder(imported, activeOrg?.folderPath).then(() => {
+              setLocalFolderTick(t => t + 1);
+            });
+          }
         } else {
           alert('Could not parse .kairon file.');
         }
@@ -2730,6 +2793,13 @@ const AppContent: React.FC = () => {
       }
 
       if (isHotkeysOpen || isCommandPaletteOpen || isIntegrationsOpen) return;
+
+      // 'Z' key toggles Zen Focus Mode
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault();
+        toggleZenMode();
+        return;
+      }
 
       // Broadcast hotkeys
       if (e.code === 'Space') {
@@ -2934,42 +3004,52 @@ const AppContent: React.FC = () => {
   // Special Route Handling: TV Mode, Stage, Prompter, Crew HUD, Broadcast Overlay, Public
   // We render this exclusively, bypassing the main application shell (header, footer, etc.)
   // Support both standard BrowserRouter paths (/stage) and compiled Electron hash paths (#stage, #/stage)
-  const rawHash = (location.hash || '').replace(/^#\/?/, '').split('?')[0].toLowerCase();
-  const rawPath = (location.pathname || '').replace(/^\//, '').split('?')[0].toLowerCase();
+  const hrefLower = (typeof window !== 'undefined' ? window.location.href : '').toLowerCase();
+  const pathLower = (location.pathname || '').toLowerCase();
+  const hashLower = (location.hash || '').toLowerCase();
+  const rawHash = hashLower.replace(/^#\/?/, '').split('?')[0];
+  const rawPath = pathLower.replace(/^\//, '').split('?')[0];
   const currentRouteToken = rawHash || rawPath;
 
-  if (currentRouteToken === 'tv' || location.pathname === '/tv') {
-    return <TVWrapper />;
-  }
+  const isTvRoute = currentRouteToken === 'tv' || pathLower === '/tv' || /[\/#]tv(\b|\?|\/)/i.test(hrefLower);
+  const isStageRoute = currentRouteToken === 'stage' || pathLower === '/stage' || /[\/#]stage(\b|\?|\/)/i.test(hrefLower);
+  const isPrompterRoute = currentRouteToken === 'prompter' || pathLower === '/prompter' || /[\/#]prompter(\b|\?|\/)/i.test(hrefLower);
+  const isOverlayRoute = currentRouteToken === 'overlay' || pathLower === '/overlay' || /[\/#]overlay(\b|\?|\/)/i.test(hrefLower);
+  const isCrewRoute = currentRouteToken === 'crew' || pathLower === '/crew' || /[\/#]crew(\b|\?|\/)/i.test(hrefLower);
+  const isBridgeRoute = currentRouteToken === 'bridge' || pathLower === '/bridge' || /[\/#]bridge(\b|\?|\/)/i.test(hrefLower);
+  const isPortalRoute = currentRouteToken === 'public' || currentRouteToken === 'portal' || pathLower === '/public' || pathLower === '/portal' || /[\/#](public|portal)(\b|\?|\/)/i.test(hrefLower);
 
-  if (currentRouteToken === 'stage' || location.pathname === '/stage') {
-    return <StageWrapper />;
-  }
-
-  if (currentRouteToken === 'prompter' || location.pathname === '/prompter') {
-    return <PrompterWrapper />;
-  }
-
-  if (currentRouteToken === 'overlay' || location.pathname === '/overlay') {
-    return <BroadcastOverlayView />;
-  }
-
-  if (currentRouteToken === 'crew' || location.pathname === '/crew') {
-    return <CrewHUD />;
-  }
-
-  if (currentRouteToken === 'public' || currentRouteToken === 'portal' || location.pathname === '/public' || location.pathname === '/portal') {
-    return <PublicPortal />;
-  }
-
-  if (currentRouteToken === 'bridge' || location.pathname === '/bridge') {
-    return <FlightBridgeStandaloneView />;
-  }
+  if (isTvRoute) return <TVWrapper />;
+  if (isStageRoute) return <StageWrapper />;
+  if (isPrompterRoute) return <PrompterWrapper />;
+  if (isOverlayRoute) return <BroadcastOverlayView />;
+  if (isCrewRoute) return <CrewHUD />;
+  if (isPortalRoute) return <PublicPortal />;
+  if (isBridgeRoute) return <FlightBridgeStandaloneView />;
 
   // Desktop app browser-auth approval page
   // This must be accessible without authentication — the user authorises the desktop session here.
   if (location.pathname === '/desktop-auth' || currentRouteToken === 'desktop-auth' || searchParams.has('desktopCode')) {
     return <DesktopAuthApproval />;
+  }
+
+  // Zen / Focus Mode: Fullscreen distraction-free operator console
+  if (isZenMode) {
+    return (
+      <ZenFocusConsole
+        program={displayProgram}
+        currentSlotIndex={displayCurrentSlotIndex}
+        isTimerActive={displayIsTimerActive}
+        timerStartTimestamp={displayTimerStartTimestamp}
+        secondsElapsed={displaySecondsElapsed}
+        onToggleTimer={() => handleToggleTimer(displayProgram, false, headerElapsed)}
+        onNext={() => handleNext(displayProgram.id)}
+        onPrev={() => handlePrev(displayProgram.id)}
+        onNudge={(mins) => handleNudge(mins, displayProgram.id)}
+        onToggleHold={() => handleToggleHold(undefined, displayProgram.id)}
+        onExitZen={() => setZenMode(false)}
+      />
+    );
   }
 
   return (
@@ -3231,6 +3311,15 @@ const AppContent: React.FC = () => {
               </button>
             )}
 
+            <button
+              onClick={() => toggleZenMode()}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#252B37] border border-slate-300 dark:border-[#2D333F] text-slate-700 dark:text-[#E1E4EA] rounded text-xs font-mono font-bold transition-all shadow-sm active:scale-95"
+              title="Toggle Zen / Focus Console (Z)"
+            >
+              <Maximize2 size={13} className="text-[#0EA5E9]" />
+              <span>Zen</span>
+            </button>
+
             {!isReadOnly && (
               <button
                 onClick={toggleTheme}
@@ -3395,6 +3484,7 @@ const AppContent: React.FC = () => {
                 {/* Main Views */}
                 <Route path="/" element={
                   <HomeWrapper
+                    programs={programs}
                     activeOrgId={activeOrgId ?? undefined}
                     activeProgramId={program.id}
                     activeSessions={activeSessions}
@@ -3410,6 +3500,7 @@ const AppContent: React.FC = () => {
 
                 <Route path="/calendar" element={
                   <CalendarWrapper
+                    programs={programs}
                     activeOrgId={activeOrgId ?? undefined}
                     activeProgramId={program.id}
                     activeSessions={activeSessions}
@@ -3795,7 +3886,7 @@ const AppContent: React.FC = () => {
         </div>
       )}
 
-      {canControlLive && (displayProgram && displayProgram.slots.length > 0) && !pipWindow && !isFloatingBridgeOpen && (
+      {!isElectronRuntime && (typeof window !== 'undefined' && window.innerWidth < 768) && canControlLive && (displayProgram && displayProgram.slots.length > 0) && !pipWindow && !isFloatingBridgeOpen && (
         <MobileFlightBridge
           program={displayProgram}
           currentSlotIndex={displayCurrentSlotIndex}

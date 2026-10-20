@@ -472,12 +472,22 @@ ipcMain.handle('read-workspace-folder', async (event, folderPath) => {
           const raw = await fs.promises.readFile(fullPath, 'utf-8');
           const parsed = JSON.parse(raw);
           if (parsed && typeof parsed === 'object') {
-            parsed._filePath = fullPath;
-            parsed._fileName = entry.name;
-            if (!parsed.id) {
-              parsed.id = 'local-file-' + entry.name.replace(/\.[^/.]+$/, '');
+            const actualProg = (parsed.schema === 'kairon.rundown.v1' && parsed.program) ? parsed.program : (parsed.program || parsed);
+            actualProg._filePath = fullPath;
+            actualProg._fileName = entry.name;
+            if (!actualProg.id) {
+              actualProg.id = 'local-file-' + entry.name.replace(/\.[^/.]+$/, '');
             }
-            programs.push(parsed);
+            if (!actualProg.title) {
+              actualProg.title = entry.name.replace(/\.[^/.]+$/, '');
+            }
+            if (!actualProg.date) {
+              actualProg.date = new Date().toLocaleDateString('en-CA');
+            }
+            if (!Array.isArray(actualProg.slots)) {
+              actualProg.slots = [];
+            }
+            programs.push(actualProg);
           }
         } catch (fileErr) {
           console.warn('Could not parse rundown file:', entry.name, fileErr.message);

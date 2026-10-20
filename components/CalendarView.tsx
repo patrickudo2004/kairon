@@ -41,7 +41,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
   // Data helpers
-  const getProgramsForDate = (dateStr: string) => programs.filter(p => p.date === dateStr);
+  const getProgramsForDate = (dateStr: string) => programs.filter(p => (p.date || todayStr) === dateStr);
   
   const monthNames = ["January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
@@ -124,7 +124,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
               const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const hasProgram = programs.some(p => p.date === dateStr);
+              const hasProgram = programs.some(p => (p.date || todayStr) === dateStr);
               const isSelected = selectedDate === dateStr;
               const isToday = dateStr === todayStr;
               const isDatePast = dateStr < todayStr;
