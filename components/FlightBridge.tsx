@@ -161,7 +161,75 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
         };
     }, [isExpanded]);
 
-    if (!currentSlot) return null;
+    if (!currentSlot) {
+        return (
+            <div 
+                ref={containerRef} 
+                className={`flex flex-col h-full ${
+                    isDarkMode ? 'bg-[#090A0C] text-white' : 'bg-slate-50 text-slate-900'
+                } font-sans overflow-hidden border-l-4 border-slate-700 shadow-2xl transition-colors duration-200 relative select-none`}
+            >
+                {/* Top Telemetry Header */}
+                <div className={`px-3 py-2 border-b ${
+                    isDarkMode ? 'border-[#22262E] bg-[#121418]' : 'border-slate-200 bg-white'
+                } flex justify-between items-center z-10 shrink-0`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-3.5 h-3.5 rounded bg-slate-200 dark:bg-[#181B22] border border-slate-300 dark:border-[#2D333F] flex items-center justify-center shrink-0">
+                            <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                        </div>
+                        <span className={`text-[10px] font-mono font-bold uppercase tracking-wider truncate ${
+                            isDarkMode ? 'text-[#8A93A4]' : 'text-slate-600'
+                        }`}>
+                            Flight Bridge
+                        </span>
+                    </div>
+
+                    {/* Theme & Status */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                            type="button"
+                            onClick={onToggleTheme}
+                            className={`p-1 rounded-md transition-colors ${
+                                isDarkMode ? 'hover:bg-[#181B22] text-[#8A93A4]' : 'hover:bg-slate-100 text-slate-700 bg-slate-100/60'
+                            }`}
+                            title="Toggle Light/Dark Theme"
+                        >
+                            {isDarkMode ? <Sun size={12} /> : <Moon size={12} />}
+                        </button>
+                        <div className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded uppercase border bg-slate-100 dark:bg-[#1C2028] text-slate-600 dark:text-[#8A93A4] border-slate-300 dark:border-[#2D333F]">
+                            STANDBY
+                        </div>
+                    </div>
+                </div>
+
+                {/* Standby / Cold State Body */}
+                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                    <Clock size={36} className="text-slate-500 mb-3 animate-pulse" />
+                    <div className="text-sm font-mono font-bold text-slate-300 uppercase tracking-wider mb-1">
+                        {program?.title || 'Standby • Ready'}
+                    </div>
+                    <p className="text-xs text-slate-500 font-mono mb-4">
+                        {program?.slots?.length === 0 
+                            ? 'No schedule items. Add slots in Program Editor.' 
+                            : 'Event loaded. Waiting for playback to begin.'}
+                    </p>
+                    <div className="text-2xl font-mono font-bold text-slate-400 mb-4 tabular-nums">
+                        {new Date(wallClockSeconds * 1000).toISOString().substring(11, 19)}
+                    </div>
+                    {program?.slots && program.slots.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => onToggleTimer(program, true, 0)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0EA5E9] hover:bg-[#0284C7] text-white rounded text-xs font-mono font-bold transition-all shadow"
+                        >
+                            <Play size={12} />
+                            <span>Start Event</span>
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div 

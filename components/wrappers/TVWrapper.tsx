@@ -179,7 +179,8 @@ const TVWrapper: React.FC = () => {
                         (data.isTimerActive === undefined || data.isTimerActive === base.isTimerActive) &&
                         (data.currentSlotIndex === undefined || data.currentSlotIndex === base.currentSlotIndex) &&
                         (data.isOnHold === undefined || data.isOnHold === base.isOnHold) &&
-                        (data.secondsElapsed === undefined || data.secondsElapsed === base.secondsElapsed)
+                        (data.secondsElapsed === undefined || data.secondsElapsed === base.secondsElapsed) &&
+                        (data.timerStartTimestamp === undefined || data.timerStartTimestamp === base.timerStartTimestamp)
                     ) {
                         return base;
                     }
@@ -249,6 +250,21 @@ const TVWrapper: React.FC = () => {
             programFromConvex.status === 'live'
         );
 
+        // High-precision live timer telemetry resolution:
+        // Always prioritize the active running timer timestamp from whichever source is actively ticking
+        const resolveLiveTiming = (isActive: boolean) => {
+            if (!isActive) return { timestamp: null, seconds: localOfflineProgram.secondsElapsed || programFromConvex.secondsElapsed || 0 };
+            const activeSource = (localOfflineProgram.isTimerActive && localOfflineProgram.timerStartTimestamp)
+                ? localOfflineProgram
+                : (programFromConvex.isTimerActive && programFromConvex.timerStartTimestamp
+                    ? programFromConvex
+                    : (localOfflineProgram.timerStartTimestamp ? localOfflineProgram : programFromConvex));
+            return {
+                timestamp: activeSource.timerStartTimestamp ?? null,
+                seconds: activeSource.secondsElapsed ?? 0
+            };
+        };
+
         // If in booth / offline / test bypass mode, local offline program takes precedence for runtime state
         if (isBoothMode) {
             const effectiveStatus = isActivelyLive
@@ -261,6 +277,8 @@ const TVWrapper: React.FC = () => {
                 ? false
                 : Boolean(localOfflineProgram.isTimerActive ?? programFromConvex.isTimerActive ?? false);
 
+            const timing = resolveLiveTiming(effectiveIsTimerActive);
+
             return {
                 ...programFromConvex,
                 ...localOfflineProgram,
@@ -270,6 +288,8 @@ const TVWrapper: React.FC = () => {
                 isTimerActive: effectiveIsTimerActive,
                 status: effectiveStatus,
                 currentSlotIndex: localOfflineProgram.currentSlotIndex ?? 0,
+                timerStartTimestamp: timing.timestamp,
+                secondsElapsed: timing.seconds,
             };
         }
 
@@ -278,29 +298,37 @@ const TVWrapper: React.FC = () => {
 
         if (isLocalLiveOrConcluded && !isConvexLiveOrConcluded) {
             const effectiveStatus = isActivelyLive ? 'live' : (localOfflineProgram.status || (localOfflineProgram.isTimerActive ? 'live' : 'draft'));
+            const effectiveIsTimerActive = effectiveStatus === 'concluded' ? false : Boolean(localOfflineProgram.isTimerActive);
+            const timing = resolveLiveTiming(effectiveIsTimerActive);
             return {
                 ...programFromConvex,
                 ...localOfflineProgram,
                 slots: (localOfflineProgram.slots && localOfflineProgram.slots.length > 0)
                     ? localOfflineProgram.slots
                     : (programFromConvex.slots || []),
-                isTimerActive: effectiveStatus === 'concluded' ? false : Boolean(localOfflineProgram.isTimerActive),
+                isTimerActive: effectiveIsTimerActive,
                 status: effectiveStatus,
                 currentSlotIndex: localOfflineProgram.currentSlotIndex ?? 0,
+                timerStartTimestamp: timing.timestamp,
+                secondsElapsed: timing.seconds,
             };
         }
 
         if (isConvexLiveOrConcluded && !isLocalLiveOrConcluded) {
             const effectiveStatus = isActivelyLive ? 'live' : (programFromConvex.status || 'live');
+            const effectiveIsTimerActive = effectiveStatus === 'concluded' ? false : Boolean(programFromConvex.isTimerActive);
+            const timing = resolveLiveTiming(effectiveIsTimerActive);
             return {
                 ...localOfflineProgram,
                 ...programFromConvex,
                 slots: (programFromConvex.slots && programFromConvex.slots.length > 0)
                     ? programFromConvex.slots
                     : (localOfflineProgram.slots || []),
-                isTimerActive: effectiveStatus === 'concluded' ? false : Boolean(programFromConvex.isTimerActive),
+                isTimerActive: effectiveIsTimerActive,
                 status: effectiveStatus,
                 currentSlotIndex: programFromConvex.currentSlotIndex ?? 0,
+                timerStartTimestamp: timing.timestamp,
+                secondsElapsed: timing.seconds,
             };
         }
 
@@ -327,6 +355,8 @@ const TVWrapper: React.FC = () => {
             ? false
             : Boolean(programFromConvex.isTimerActive || localOfflineProgram.isTimerActive);
 
+        const timing = resolveLiveTiming(effectiveIsTimerActive);
+
         return {
             ...fallback,
             ...preferred,
@@ -335,6 +365,8 @@ const TVWrapper: React.FC = () => {
                 : (fallback.slots || []),
             isTimerActive: effectiveIsTimerActive,
             currentSlotIndex: effectiveSlot,
+            timerStartTimestamp: timing.timestamp,
+            secondsElapsed: timing.seconds,
             status: effectiveStatus as any,
         };
     })() as Program | null;

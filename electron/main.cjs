@@ -605,11 +605,14 @@ ipcMain.handle('get-last-timer-state', () => {
 });
 
 // Helper: Create detached native Flight Bridge window
-function createFlightBridgeWindow() {
+function createFlightBridgeWindow(programId) {
   if (flightBridgeWindow && !flightBridgeWindow.isDestroyed()) {
     if (flightBridgeWindow.isMinimized()) flightBridgeWindow.restore();
     flightBridgeWindow.show();
     flightBridgeWindow.focus();
+    if (programId) {
+      loadRouteIntoWindow(flightBridgeWindow, `/bridge?id=${encodeURIComponent(programId)}`);
+    }
     return { success: true, open: true };
   }
 
@@ -657,13 +660,13 @@ function createFlightBridgeWindow() {
     }
   });
 
-  loadRouteIntoWindow(flightBridgeWindow, '/bridge');
+  loadRouteIntoWindow(flightBridgeWindow, programId ? `/bridge?id=${encodeURIComponent(programId)}` : '/bridge');
   return { success: true, open: true };
 }
 
 // IPC: Native Detached Flight Bridge management
-ipcMain.handle('open-flight-bridge', () => {
-  return createFlightBridgeWindow();
+ipcMain.handle('open-flight-bridge', (event, opts) => {
+  return createFlightBridgeWindow(typeof opts === 'string' ? opts : opts?.programId);
 });
 
 ipcMain.handle('close-flight-bridge', () => {
@@ -675,13 +678,13 @@ ipcMain.handle('close-flight-bridge', () => {
   return { success: false, open: false };
 });
 
-ipcMain.handle('toggle-flight-bridge', () => {
+ipcMain.handle('toggle-flight-bridge', (event, opts) => {
   if (flightBridgeWindow && !flightBridgeWindow.isDestroyed()) {
     flightBridgeWindow.close();
     flightBridgeWindow = null;
     return { success: true, open: false };
   } else {
-    return createFlightBridgeWindow();
+    return createFlightBridgeWindow(typeof opts === 'string' ? opts : opts?.programId);
   }
 });
 

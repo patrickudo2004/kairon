@@ -258,5 +258,123 @@ test.describe('Displays & Live Timer Verification', () => {
     await expect(page.locator('text=FLIGHT BRIDGE HUD')).toBeVisible({ timeout: 5000 });
   });
 
+  test('Bug A Verification: Flight Bridge Standalone route (/bridge) renders cleanly on cold start before playback', async ({ page }) => {
+    const errorLogs: string[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') errorLogs.push(msg.text());
+    });
+    page.on('pageerror', err => errorLogs.push(err.message));
+
+    await page.addInitScript(() => {
+      localStorage.setItem('kairon_booth_mode', 'true');
+      localStorage.setItem('testBypass', 'true');
+    });
+
+    // Open standalone Flight Bridge route directly with cold draft event
+    await page.goto('/bridge?id=local-sunday-service&testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Verify it renders immediately without being a blank window or hanging
+    await expect(page.locator('text=FLIGHT BRIDGE HUD')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=Flight Bridge').first()).toBeVisible();
+    await expect(page.locator('body')).not.toBeEmpty();
+
+    // Verify zero hook errors
+    const hookErrors = errorLogs.filter(log => log.includes('hooks') || log.includes('Rendered more') || log.includes('Rendered fewer'));
+    expect(hookErrors).toHaveLength(0);
+  });
+
+  test('Bug B Verification: Output Monitor & Stage Display actively count down and do NOT stick at total planned duration', async ({ page, context }) => {
+    test.setTimeout(45000);
+
+    const baseTime = new Date('2026-06-12T10:00:00Z');
+    await page.clock.install({ time: baseTime });
+
+    await page.addInitScript(() => {
+      localStorage.setItem('kairon_booth_mode', 'true');
+      localStorage.setItem('testBypass', 'true');
+    });
+
+    // 1. Navigate controller to Live view
+    await page.goto('/live?id=local-sunday-service&testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+
+    // 2. Open Stage Display on secondary page
+    const stagePage = await context.newPage();
+    await stagePage.clock.install({ time: baseTime });
+    await stagePage.goto('/stage?id=local-sunday-service&testBypass=true');
+    await stagePage.waitForLoadState('domcontentloaded');
+
+    // In draft state, Stage shows STANDBY with Next: Opening Prayer
+    await expect(stagePage.locator('text=STANDBY').first()).toBeVisible();
+    await expect(stagePage.locator('text=Opening Prayer').first()).toBeVisible();
+
+    // 3. Start live timer on controller
+    const playPauseBtn = page.locator('button.w-24.h-24').or(page.locator('button:has-text("Start")')).first();
+    await playPauseBtn.click();
+    await page.clock.fastForward(1000);
+
+    // Fast-forward 15 seconds
+    await page.clock.fastForward(15000);
+    await stagePage.clock.fastForward(15000);
+
+    // Verify stage display transitioned to live ON AIR with slot title
+    await expect(stagePage.locator('text=ON AIR')).toBeVisible({ timeout: 5000 });
+    await expect(stagePage.locator('h1').first()).toContainText('Opening Prayer');
+
+    // 4. Verify stage display is actively counting down (e.g. 04:27 / 04:45, NOT stuck at 05:00 total planned duration)
+    const stageTimer = stagePage.locator('div.tabular-nums').first();
+    const stageText = await stageTimer.textContent();
+    expect(stageText).not.toBe('05:00');
+    expect(stageText).toMatch(/^04:\d\d$/);
+  });
+
+  test('Stage Display Pulpit Themes: Light, Dark, Ambient Yellow, and Ambient White render properly', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('kairon_booth_mode', 'true');
+      localStorage.setItem('testBypass', 'true');
+    });
+
+    const setLive = async (p: any) => {
+      await p.evaluate(() => {
+        const channel = new BroadcastChannel('kairon_offline_sync');
+        channel.postMessage({
+          id: 'local-sunday-service',
+          currentSlotIndex: 0,
+          isTimerActive: true,
+          secondsElapsed: 5,
+          timerStartTimestamp: Date.now() - 5000,
+          status: 'live'
+        });
+        channel.close();
+      });
+    };
+
+    // Ambient Yellow
+    await page.goto('/stage?id=local-sunday-service&theme=ambient-yellow&testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+    await setLive(page);
+    await expect(page.locator('.text-\\[\\#FBBF24\\]').first()).toBeVisible({ timeout: 5000 });
+
+    // Ambient White
+    await page.goto('/stage?id=local-sunday-service&theme=ambient-white&testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+    await setLive(page);
+    await expect(page.locator('.text-\\[\\#F8FAFC\\]').first()).toBeVisible({ timeout: 5000 });
+
+    // Light Theme
+    await page.goto('/stage?id=local-sunday-service&theme=light&testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+    await setLive(page);
+    await expect(page.locator('.bg-white').first()).toBeVisible({ timeout: 5000 });
+
+    // Dark Theme
+    await page.goto('/stage?id=local-sunday-service&theme=dark&testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+    await setLive(page);
+    await expect(page.locator('.bg-\\[\\#000000\\]').or(page.locator('.bg-black')).first()).toBeVisible({ timeout: 5000 });
+  });
+
 });
+
 
