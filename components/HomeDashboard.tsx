@@ -325,15 +325,24 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const [groupBy, setGroupBy] = useState<'month' | 'series' | 'flat'>('month');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
-  // Sort programs: Newest date first
-  const sortedPrograms = React.useMemo(() => {
-    return [...programs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [programs]);
-
   // Use local-safe date calculation (YYYY-MM-DD)
   const today = new Date().toLocaleDateString('en-CA');
-  const upcoming = React.useMemo(() => sortedPrograms.filter(p => (p.date || '') >= today), [sortedPrograms, today]);
-  const pastAll = React.useMemo(() => sortedPrograms.filter(p => (p.date || '') < today), [sortedPrograms, today]);
+
+  // Normalize programs: Ensure missing date defaults to today so no event is lost
+  const normalizedPrograms = React.useMemo(() => {
+    return programs.map(p => ({
+      ...p,
+      date: p.date || today
+    }));
+  }, [programs, today]);
+
+  // Sort programs: Newest date first
+  const sortedPrograms = React.useMemo(() => {
+    return [...normalizedPrograms].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [normalizedPrograms]);
+
+  const upcoming = React.useMemo(() => sortedPrograms.filter(p => p.date >= today), [sortedPrograms, today]);
+  const pastAll = React.useMemo(() => sortedPrograms.filter(p => p.date < today), [sortedPrograms, today]);
 
   // 90-day cutoff date string
   const ninetyDaysAgo = React.useMemo(() => {

@@ -110,7 +110,16 @@ export const readLocalFolderPrograms = async (folderPath?: string): Promise<Prog
   if (isElectronAvailable()) {
     const res = await (window as any).electron.readWorkspaceFolder(targetPath);
     if (res && res.success && Array.isArray(res.programs)) {
-      return res.programs;
+      return res.programs.map((p: any) => {
+        const unwrapped = (p.schema === 'kairon.rundown.v1' && p.program) ? p.program : (p.program || p);
+        return {
+          ...unwrapped,
+          id: unwrapped.id || p.id || ('local-' + (p._fileName || Date.now())),
+          title: unwrapped.title || p.title || 'Untitled Event',
+          date: unwrapped.date || p.date || new Date().toLocaleDateString('en-CA'),
+          slots: Array.isArray(unwrapped.slots) ? unwrapped.slots : [],
+        };
+      });
     }
     return [];
   }
