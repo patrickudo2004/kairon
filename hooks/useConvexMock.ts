@@ -3,6 +3,16 @@ import { useState, useEffect } from 'react';
 
 import { getDefaultSeedPrograms } from '../utils/seedData';
 
+function safeJsonParse<T>(raw: string | null, fallback: T): T {
+    if (!raw) return fallback;
+    try {
+        const val = JSON.parse(raw);
+        return val !== null && val !== undefined ? val : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
 const isTestBypass = () => {
     try {
         if (typeof window !== 'undefined') {

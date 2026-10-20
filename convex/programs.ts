@@ -134,31 +134,15 @@ export const getLiveProgram = query({
                     .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
                     .filter((q) => q.eq(q.field("status"), "live"))
                     .first();
-                if (liveInOrg) return liveInOrg;
-
-                // Fallback within org: latest updated program in this organization
-                const latestInOrg = await ctx.db
-                    .query("programs")
-                    .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
-                    .order("desc")
-                    .first();
-                if (latestInOrg) return latestInOrg;
+                return liveInOrg || null;
             } else {
-                // Public/unauthenticated fallback: check if any public program is currently live
                 const anyLive = await ctx.db
                     .query("programs")
                     .withIndex("by_status", (q) => q.eq("status", "live"))
                     .order("desc")
                     .first();
                 if (anyLive && anyLive.isPublic !== false) return anyLive;
-
-                // Secondary fallback: most recent public program so displays/portals are never empty in standby
-                const latestPublic = await ctx.db
-                    .query("programs")
-                    .order("desc")
-                    .filter((q) => q.neq(q.field("isPublic"), false))
-                    .first();
-                if (latestPublic) return latestPublic;
+                return null;
             }
         } catch (e) {
             console.warn("getLiveProgram query fallback error:", e);

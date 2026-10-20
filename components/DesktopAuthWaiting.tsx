@@ -9,7 +9,9 @@ import { getCanonicalWebOrigin } from '../utils/url';
 // Utility: Generate a random short code on the client side (mirrors server fn)
 // ──────────────────────────────────────────────────────────────────────────────
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || 'https://majestic-gecko-369.convex.cloud';
-const SITE_URL = getCanonicalWebOrigin();
+const SITE_URL = typeof window !== 'undefined' && window.location.origin && !window.location.origin.startsWith('file:')
+  ? window.location.origin
+  : 'http://localhost:3000';
 
 interface DesktopAuthWaitingProps {
   onOfflineMode: () => void;
@@ -72,27 +74,37 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
   const { signIn } = useAuthActions();
   const [showEmailSignIn, setShowEmailSignIn] = useState(false);
   const [directEmail, setDirectEmail] = useState('');
-  const [directOtp, setDirectOtp] = useState('');
-  const [directStep, setDirectStep] = useState<'email' | 'otp'>('email');
+  const [directPassword, setDirectPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
   const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
   const [emailFeedback, setEmailFeedback] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   const handleDirectEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!directEmail.trim()) return;
+    if (!directEmail.trim() || !directPassword) return;
     try {
       setIsSubmittingEmail(true);
       setEmailFeedback(null);
-      if (directStep === 'email') {
-        await signIn("password", { email: directEmail.trim(), flow: "email" });
-        setEmailFeedback({ type: 'success', text: 'Verification code sent to your email.' });
-        setDirectStep('otp');
-      } else {
-        await signIn("password", { email: directEmail.trim(), code: directOtp.trim() });
-      }
+      await signIn("password", { 
+        email: directEmail.trim(), 
+        password: directPassword, 
+        flow: isSignUp ? "signUp" : "signIn" 
+      });
+      try {
+        localStorage.removeItem('kairon_booth_mode');
+        window.dispatchEvent(new Event('kairon_booth_mode_changed'));
+      } catch {}
+      setIsApprovedAnimating(true);
+      setPhase('approved');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     } catch (err: any) {
       console.error('[DesktopAuth] Direct sign-in failed:', err);
-      setEmailFeedback({ type: 'error', text: err.message || 'Authentication failed. Please check the code and try again.' });
+      setEmailFeedback({ 
+        type: 'error', 
+        text: err.message || (isSignUp ? 'Registration failed. Please check password criteria.' : 'Invalid email or password.') 
+      });
     } finally {
       setIsSubmittingEmail(false);
     }
@@ -349,19 +361,21 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
             }`}
           >
             <Mail size={14} />
-            Direct Email OTP
+            Email & Password
           </button>
         </div>
 
         {showEmailSignIn ? (
-          /* Direct Email OTP Sign-in Form */
+          /* Direct Credentials Sign-in Form */
           <form onSubmit={handleDirectEmailSubmit} className="w-full flex flex-col gap-4">
             <div className="text-center">
-              <h2 className="text-xl font-bold text-white mb-1">Direct Desktop Sign-In</h2>
+              <h2 className="text-xl font-bold text-white mb-1">
+                {isSignUp ? 'Create Kairon Account' : 'Direct Account Sign-In'}
+              </h2>
               <p className="text-[#8A93A4] text-xs leading-relaxed">
-                {directStep === 'email' 
-                  ? 'Enter your work email to receive a one-time verification code.' 
-                  : `Enter the 6-digit code sent to ${directEmail}.`}
+                {isSignUp 
+                  ? 'Enter your email and create a password for your account.' 
+                  : 'Enter your account credentials to sign in directly.'}
               </p>
             </div>
 
@@ -375,7 +389,7 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
               </div>
             )}
 
-            {directStep === 'email' ? (
+            <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-mono uppercase tracking-wider text-[#8A93A4] font-bold">Email Address</label>
                 <div className="relative">
@@ -390,30 +404,32 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
                   />
                 </div>
               </div>
-            ) : (
+
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-mono uppercase tracking-wider text-[#8A93A4] font-bold">Verification Code</label>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-[#8A93A4] font-bold">Password</label>
                 <div className="relative">
                   <KeyRound size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8A93A4]" />
                   <input
-                    type="text"
+                    type="password"
                     required
-                    autoFocus
-                    value={directOtp}
-                    onChange={(e) => setDirectOtp(e.target.value)}
-                    placeholder="123456"
-                    className="w-full bg-[#181B22] border border-[#22262E] focus:border-[#0EA5E9] text-white rounded-xl pl-10 pr-4 py-3 text-sm font-mono tracking-widest placeholder:text-slate-600 focus:outline-none transition-colors"
+                    value={directPassword}
+                    onChange={(e) => setDirectPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full bg-[#181B22] border border-[#22262E] focus:border-[#0EA5E9] text-white rounded-xl pl-10 pr-4 py-3 text-sm font-mono placeholder:text-slate-600 focus:outline-none transition-colors"
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => { setDirectStep('email'); setDirectOtp(''); }}
-                  className="text-left text-[11px] font-mono text-[#0EA5E9] hover:underline mt-1"
-                >
-                  ← Change email address
-                </button>
               </div>
-            )}
+            </div>
+
+            <div className="flex items-center justify-between text-xs font-mono">
+              <button
+                type="button"
+                onClick={() => { setIsSignUp(!isSignUp); setEmailFeedback(null); }}
+                className="text-[#0EA5E9] hover:underline"
+              >
+                {isSignUp ? 'Already have an account? Sign In' : 'Need an account? Sign Up'}
+              </button>
+            </div>
 
             <button
               type="submit"
@@ -422,8 +438,8 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
             >
               {isSubmittingEmail ? (
                 <Loader size={18} className="animate-spin" />
-              ) : directStep === 'email' ? (
-                <>Send Verification Code <ArrowRight size={16} /></>
+              ) : isSignUp ? (
+                <>Create Account <ArrowRight size={16} /></>
               ) : (
                 <>Sign In <ArrowRight size={16} /></>
               )}
