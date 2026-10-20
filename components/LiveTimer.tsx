@@ -391,15 +391,14 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
               <span>AUTOPILOT</span>
             </button>
 
-            {/* End Event Hold-to-Confirm with Web-App Parity Confirmation Modal */}
+            {/* End Event Hold-to-Confirm with Confirmation Modal */}
             {(onEndEvent || onRequestEndEvent) && (
               <HoldToConfirmButton
-                onConfirm={() => onEndEvent ? onEndEvent(program.id) : onRequestEndEvent?.(program.id)}
-                onQuickClick={() => onRequestEndEvent ? onRequestEndEvent(program.id) : onEndEvent?.(program.id)}
+                onConfirm={() => (onRequestEndEvent || onEndEvent)!(program.id)}
                 durationMs={2000}
                 label="END EVENT"
                 holdingLabel="HOLD TO END"
-                title="Click to confirm or hold 2s to end live event"
+                title="Press and hold 2 seconds to end this live session"
               />
             )}
 

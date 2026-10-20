@@ -97,7 +97,12 @@
           background-color: #ffffff !important;
         }
 
-        html, body, #root, #root > div, [class*="dark"] {
+        /* Remove #root completely from layout flow during print so it takes 0px */
+        #root {
+          display: none !important;
+        }
+
+        html, body {
           background: #ffffff !important;
           background-color: #ffffff !important;
           color: #0f172a !important;
@@ -123,20 +128,10 @@
           display: none !important;
         }
 
-        /* Hide everything by default */
-        body * {
-          visibility: hidden;
-        }
-
-        /* Re-enable visibility for printable area and its children */
-        #printable-area, #printable-area * {
-          visibility: visible !important;
-        }
-
-        /* Position printable area statically on clean white canvas */
+        /* Printable area portaled to document.body starts immediately on page 1 */
         #printable-area {
           display: block !important;
-          position: static !important;
+          position: relative !important;
           width: 100% !important;
           max-width: 100% !important;
           margin: 0 !important;
@@ -147,6 +142,11 @@
           border: none !important;
           box-shadow: none !important;
           outline: none !important;
+          visibility: visible !important;
+        }
+
+        #printable-area, #printable-area * {
+          visibility: visible !important;
         }
 
         * {

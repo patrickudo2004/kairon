@@ -611,7 +611,7 @@ const AppContent: React.FC = () => {
   }, [activeOrg?.id, activeOrg?.name, activeOrg?.subscriptionStatus, userRole]);
 
   const cachedEntitlement = activeOrgId ? getCachedWorkspaceEntitlement(activeOrgId) : null;
-  const isPro = activeOrg?.subscriptionStatus === 'pro' || activeOrg?.subscriptionStatus === 'enterprise' || (!isOnline && cachedEntitlement?.subscriptionStatus === 'pro') || isTestBypassMode || isBoothMode;
+  const isPro = true; // All Pro features unlocked across all accounts until monetization launch
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [isDataHydrated, setIsDataHydrated] = useState(false);
   const [authRetryCount, setAuthRetryCount] = useState(0);
@@ -3115,12 +3115,11 @@ const AppContent: React.FC = () => {
             {displayIsTimerActive && (
               <HoldToConfirmButton
                 durationMs={2000}
-                onConfirm={() => handleEndEvent(displayProgram.id)}
-                onQuickClick={() => requestEndEventConfirmation(displayProgram.id)}
+                onConfirm={() => requestEndEventConfirmation(displayProgram.id)}
                 label="End"
                 holdingLabel="Hold"
                 className="px-2 py-1 text-xs font-mono font-semibold"
-                title="Click to confirm or hold 2s to end live session"
+                title="Press and hold 2 seconds to end this live session"
               />
             )}
 
