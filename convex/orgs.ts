@@ -25,7 +25,7 @@ export const getMyOrganizations = query({
                         console.error("Failed to get storage URL for logo:", e);
                     }
                 }
-                return org;
+                return org ? { ...org, role: m.role } : null;
             })
         );
         return orgs.filter((o) => o !== null);

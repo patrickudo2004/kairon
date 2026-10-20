@@ -323,6 +323,19 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
         </div>
       </div>
 
+      {/* Read-Only Status Banner for Operators & Speakers */}
+      {isReadOnly && (
+        <div className="mb-4 p-3 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md flex items-center justify-between text-xs font-mono">
+          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            <span><strong>Read-Only Mode:</strong> Your role has view-only access to this rundown. Live timer and cue synchronization controls remain fully functional.</span>
+          </div>
+          <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+            Locked
+          </span>
+        </div>
+      )}
+
       {/* Quick Production Template Pills Strip - TOP LEVEL */}
       {!isReadOnly && (
         <div className="mb-6 p-3 bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md shadow-xs">

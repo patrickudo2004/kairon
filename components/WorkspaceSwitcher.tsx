@@ -75,12 +75,25 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
                 </div>
                 {!isCollapsed && (
                     <>
-                        <div className="truncate flex-1 text-left">
-                            <p className="truncate text-xs font-bold leading-tight text-slate-800 dark:text-white">
-                                {activeOrg?.name || 'Select Workspace'}
-                            </p>
-                            <p className="text-[9px] font-mono uppercase tracking-wider text-slate-400 dark:text-[#8A93A4]">
-                                {isCurrentLocal ? 'Local Folder' : 'Cloud Workspace'}
+                        <div className="truncate flex-1 text-left min-w-0">
+                            <div className="flex items-center gap-1.5 truncate">
+                                <p className="truncate text-xs font-bold leading-tight text-slate-800 dark:text-white">
+                                    {activeOrg?.name || 'Select Workspace'}
+                                </p>
+                                <span className={`text-[8px] font-mono font-bold px-1.5 py-0.2 rounded uppercase tracking-wider shrink-0 ${
+                                    isCurrentLocal || activeOrg?.role === 'admin'
+                                        ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
+                                        : activeOrg?.role === 'manager'
+                                            ? 'bg-sky-500/10 text-sky-500 border border-sky-500/20'
+                                            : activeOrg?.role === 'speaker'
+                                                ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                                : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                }`}>
+                                    {isCurrentLocal ? 'Admin' : (activeOrg?.role === 'speaker' ? 'Pastor' : activeOrg?.role || 'Admin')}
+                                </span>
+                            </div>
+                            <p className="text-[9px] font-mono uppercase tracking-wider text-slate-400 dark:text-[#8A93A4] truncate">
+                                {isCurrentLocal ? 'Local Folder (This PC)' : 'Cloud Workspace'}
                             </p>
                         </div>
                         <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
@@ -133,9 +146,22 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
                                                     {org.name.substring(0, 1).toUpperCase()}
                                                 </div>
                                                 <div className="text-left min-w-0 flex-1">
-                                                    <p className="text-xs font-bold text-slate-800 dark:text-white truncate">
-                                                        {org.name}
-                                                    </p>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <p className="text-xs font-bold text-slate-800 dark:text-white truncate">
+                                                            {org.name}
+                                                        </p>
+                                                        <span className={`text-[8px] font-mono font-bold px-1.5 py-0.2 rounded uppercase tracking-wider shrink-0 ${
+                                                            org.role === 'admin'
+                                                                ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
+                                                                : org.role === 'manager'
+                                                                    ? 'bg-sky-500/10 text-sky-500 border border-sky-500/20'
+                                                                    : org.role === 'speaker'
+                                                                        ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                                                        : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                                        }`}>
+                                                            {org.role === 'speaker' ? 'Pastor' : org.role || 'Admin'}
+                                                        </span>
+                                                    </div>
                                                     <p className="text-[9px] text-slate-400 font-mono uppercase tracking-wider truncate">
                                                         Online Sync • QR Live
                                                     </p>
@@ -186,9 +212,14 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
                                             <FolderOpen size={14} />
                                         </div>
                                         <div className="text-left min-w-0 flex-1">
-                                            <p className="text-xs font-bold text-slate-800 dark:text-white truncate">
-                                                {localFolderOrg.name}
-                                            </p>
+                                            <div className="flex items-center gap-1.5">
+                                                <p className="text-xs font-bold text-slate-800 dark:text-white truncate">
+                                                    {localFolderOrg.name}
+                                                </p>
+                                                <span className="text-[8px] font-mono font-bold px-1.5 py-0.2 rounded uppercase tracking-wider shrink-0 bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                                                    Admin
+                                                </span>
+                                            </div>
                                             <p className="text-[9px] text-slate-400 font-mono truncate" title={localFolderOrg.folderPath}>
                                                 {localFolderOrg.folderPath}
                                             </p>

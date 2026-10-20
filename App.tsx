@@ -540,11 +540,12 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
-        if (!window.location.search.includes('testBypass=true') && sessionStorage.getItem('testBypass') !== 'true') {
+        const isTest = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true' || sessionStorage.getItem('testBypass') === 'true';
+        if (!isTest) {
           localStorage.removeItem('testBypass');
         }
         const rawLive = localStorage.getItem('kairon_offline_cache_live');
-        if (rawLive) {
+        if (rawLive && !isTest) {
           const parsed = JSON.parse(rawLive);
           const isStale = parsed?.timerStartTimestamp && (Date.now() - parsed.timerStartTimestamp > 2 * 60 * 60 * 1000);
           if (isStale || parsed.status !== 'live' || !parsed.slots || parsed.slots.length === 0) {
@@ -575,23 +576,31 @@ const AppContent: React.FC = () => {
   }, [activeOrgId, searchParams, setSearchParams]);
 
   // --- Permissions & Membership ---
+  const isLocalFolderWorkspace = Boolean(activeOrg?.isLocalFolder || String(activeOrgId).startsWith('local-folder-'));
+
   // Fetch membership for current user in active org
   const myMembership = useConvexQuery(
     api.members.getMyMembershipInOrg,
-    activeOrgId && isAuthenticated && !isBoothMode && !String(activeOrgId).startsWith('local-')
+    activeOrgId && isAuthenticated && !isBoothMode && !isLocalFolderWorkspace && !String(activeOrgId).startsWith('local-')
       ? { organizationId: activeOrgId as any }
       : "skip"
   );
 
-  const userRole = myMembership?.role; // 'admin', 'manager', 'operator'
-
-  // Permissions Logic (Auto-grant admin to org creator/owner, local test bypass, booth mode, or electron desktop runtime)
   const isOwner = !!(user?.id && (activeOrg?.createdBy === user?.id || String(activeOrg?.createdBy) === String(user?.id)));
   const isTestBypassMode = typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
-  const isAdmin = userRole === 'admin' || isOwner || isTestBypassMode || isBoothMode;
+
+  // Permissions Logic:
+  // In Local Folder Workspaces (This PC), the local user is ALWAYS an Administrator (Local Owner)
+  // In Cloud Workspaces, role is fetched from Convex membership, falling back to org creator ('admin') or activeOrg.role
+  const userRole = (isLocalFolderWorkspace || isBoothMode || isTestBypassMode || String(activeOrgId).startsWith('local-'))
+    ? 'admin'
+    : (myMembership?.role || (isOwner ? 'admin' : (activeOrg?.role || 'admin')));
+
+  const isAdmin = userRole === 'admin' || isOwner || isTestBypassMode || isBoothMode || isLocalFolderWorkspace;
+  const isSpeaker = userRole === 'speaker';
   const isManager = userRole === 'manager';
   const isOperator = userRole === 'operator';
-  const canManagePrograms = isAdmin || isManager || isBoothMode;
+  const canManagePrograms = isAdmin || isManager || isBoothMode || isLocalFolderWorkspace;
 
   // 1. URL-based overrides (purely aesthetic for Admins/Managers)
   const isUrlReadOnly = mode === 'viewer' || mode === 'ReadOnly';
@@ -618,8 +627,8 @@ const AppContent: React.FC = () => {
     )
   );
 
-  const canControlLive = isAdmin || isManager || isOperator || isBoothMode;
-  const isCoEditor = isAdmin || isManager || (mode === 'coeditor') || isBoothMode;
+  const canControlLive = (isAdmin || isManager || isOperator || isBoothMode || isLocalFolderWorkspace) && !isSpeaker;
+  const isCoEditor = (isAdmin || isManager || (mode === 'coeditor') || isBoothMode || isLocalFolderWorkspace) && !isOperator && !isSpeaker;
 
   const isReadOnlyRef = React.useRef(isReadOnly);
   useEffect(() => {
@@ -694,7 +703,7 @@ const AppContent: React.FC = () => {
 
   // Auto-initialize profile and active org for offline booth mode
   useEffect(() => {
-    if (isBoothMode) {
+    if (isBoothMode || isTestMode) {
       if (!profile) {
         setProfile({
           id: 'local-booth-profile',
@@ -744,7 +753,7 @@ const AppContent: React.FC = () => {
 
   const effectiveInviteDetails = inviteId === 'generic' ? {
     organizationName: genericOrgDetails?.name || "Kairon Workspace",
-    role: 'member',
+    role: 'operator',
     isGeneric: true
   } : inviteDetails;
 
@@ -909,7 +918,7 @@ const AppContent: React.FC = () => {
     localStorage.getItem('testBypass') === 'true'
   );
 
-  const isLocalFolderWorkspace = Boolean(activeOrg?.isLocalFolder || String(activeOrgId).startsWith('local-folder-'));
+  // isLocalFolderWorkspace hoisted above
   const [localFolderPrograms, setLocalFolderPrograms] = useState<Program[]>([]);
   const [localFolderTick, setLocalFolderTick] = useState(0);
 
@@ -939,7 +948,7 @@ const AppContent: React.FC = () => {
     if (isLocalFolderWorkspace) {
       return program.status === 'live' ? [program] : [];
     }
-    if (isBoothMode) {
+    if (isBoothMode || isTestMode) {
       const localList = getLocalPrograms();
       const currentLive = program.status === 'live' ? [program] : [];
       const cleanProgramId = (program.id || '').replace(/^local-/, '');
@@ -968,7 +977,7 @@ const AppContent: React.FC = () => {
     if (isLocalFolderWorkspace) {
       return localFolderPrograms;
     }
-    if (isBoothMode) {
+    if (isBoothMode || isTestMode) {
       const localList = getLocalPrograms();
       const cleanProgramId = (program.id || '').replace(/^local-/, '');
       const existingIdx = localList.findIndex((p: any) => 
