@@ -79,7 +79,7 @@ import { Program, Slot, SlotType, Profile, Organization, TimerState } from './ty
 import { timeToMinutes, minutesToTime, formatDuration } from './utils/time';
 import { encodeProgramData, decodeProgramData } from './utils/encoding';
 import { getInitialProgram } from './utils/constants';
-import { getActiveLocalFolder, toLocalFolderOrg, readLocalFolderPrograms, saveProgramToLocalFolder } from './services/localFolderService';
+import { getActiveLocalFolder, toLocalFolderOrg, readLocalFolderPrograms, saveProgramToLocalFolder, deleteProgramFromLocalFolder } from './services/localFolderService';
 import { saveKaironFileToDisk, parseKaironFile, autoArchiveToLocalWorkspace, downloadProgramCsv, parseCsvToSlots } from './utils/kaironFileFormat';
 import { PRODUCTION_TEMPLATES } from './utils/rundownParser';
 
@@ -1016,7 +1016,7 @@ const AppContent: React.FC = () => {
         copy[existingIdx] = { ...copy[existingIdx], ...program };
         return copy;
       }
-      return [program, ...localFolderPrograms];
+      return localFolderPrograms;
     }
     if (isBoothMode || isTestMode) {
       const localList = getLocalPrograms();
@@ -1816,7 +1816,7 @@ const AppContent: React.FC = () => {
     if (isReadOnly) return;
 
     // Don't auto-save empty placeholder programs
-    if (program.slots.length === 0 && program.title === 'New Event' && program.subtitle === '') {
+    if (program.slots.length === 0 && program.title === 'New Event' && !program.subtitle) {
       return;
     }
 
@@ -1824,6 +1824,12 @@ const AppContent: React.FC = () => {
     if (fetchedProgram && isProgramContentEqual(program, fetchedProgram)) {
       setSaveStatus('saved');
       lastSavedProgramRef.current = fetchedProgram;
+      return;
+    }
+
+    // Skip saving if unchanged from last saved local state
+    if (lastSavedProgramRef.current && isProgramContentEqual(program, lastSavedProgramRef.current)) {
+      setSaveStatus('saved');
       return;
     }
 
@@ -1967,6 +1973,7 @@ const AppContent: React.FC = () => {
       date: date,
     };
     if (isLocalFolderWorkspace) {
+      setLocalFolderPrograms(prev => [newProgram, ...prev.filter(p => p.id !== newProgram.id)]);
       saveProgramToLocalFolder(newProgram, activeOrg?.folderPath).then(() => {
         setLocalFolderTick(t => t + 1);
       });
@@ -1982,6 +1989,24 @@ const AppContent: React.FC = () => {
     }
 
     try {
+      if (isLocalFolderWorkspace) {
+        const cleanId = id.replace(/^(local-file-|local-)/, '');
+        const found = localFolderPrograms.find(p => 
+          p.id === id || 
+          p.id?.replace(/^(local-file-|local-)/, '') === cleanId ||
+          (p.slug && p.slug.replace(/^local-/, '') === cleanId) ||
+          (p._fileName && p._fileName.replace(/\.[^/.]+$/, '') === cleanId)
+        );
+        if (found?._filePath) {
+          await deleteProgramFromLocalFolder(found._filePath);
+        }
+        setLocalFolderPrograms(prev => prev.filter(p => 
+          p.id !== id && 
+          p.id?.replace(/^(local-file-|local-)/, '') !== cleanId &&
+          (!p.slug || p.slug.replace(/^local-/, '') !== cleanId)
+        ));
+      }
+
       await deleteProgramService(id);
       if (isLocalFolderWorkspace) {
         setLocalFolderTick(t => t + 1);
@@ -2001,15 +2026,18 @@ const AppContent: React.FC = () => {
       const cleanDeletedId = id.replace('local-', '');
       const isCurrentDeleted = program.id === id || program.id.replace('local-', '') === cleanDeletedId;
       if (isCurrentDeleted) {
-        // Fetch programs with activeOrgId so we don't get an empty list
-        const allPrograms = await getPrograms(activeOrgId ?? undefined);
+        const allPrograms = isLocalFolderWorkspace 
+          ? await readLocalFolderPrograms(activeOrg?.folderPath)
+          : await getPrograms(activeOrgId ?? undefined);
         const remaining = allPrograms.filter(p => p.id !== id && p.id.replace('local-', '') !== cleanDeletedId);
         if (remaining.length > 0) {
           loadProgram(remaining[0]);
         } else {
-          // Reset to initial if all deleted
+          // Reset to clean initial state in memory without auto-saving to disk
           const reset = getInitialProgram(activeOrgId ?? undefined);
-          loadProgram(reset);
+          lastSavedProgramRef.current = reset;
+          setProgram(reset);
+          setSaveStatus('saved');
         }
       }
     } catch (error) {

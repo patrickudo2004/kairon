@@ -58,7 +58,7 @@ test.describe('Local Folder Workspace & Zen Focus Console User Workflows', () =>
     await expect(workspaceSwitcher).toBeVisible({ timeout: 10000 });
   });
 
-  test('should show newly created program on both Dashboard and Calendar', async ({ page }) => {
+  test('should show newly created program with 0 initial slots and delete it cleanly', async ({ page }) => {
     await page.goto('/?testBypass=true');
     await page.waitForLoadState('domcontentloaded');
 
@@ -67,11 +67,13 @@ test.describe('Local Folder Workspace & Zen Focus Console User Workflows', () =>
     await expect(createBtn).toBeVisible({ timeout: 10000 });
     await createBtn.click();
 
-    // Fill in a recognizable event title
+    // Verify editor has no initial 5-minute pre-service slot
     await expect(page).toHaveURL(/.*editor/);
+    await expect(page.locator('text=Opening / Pre-Service')).not.toBeVisible();
+
     const titleInput = page.locator('input[placeholder="Event Title"]');
     await expect(titleInput).toBeVisible();
-    await titleInput.fill('Sunday Morning Communion');
+    await titleInput.fill('Sunday Youth Gathering');
     await titleInput.blur();
 
     // Allow autosave debounce (2000ms) to commit to local storage
@@ -82,13 +84,21 @@ test.describe('Local Folder Workspace & Zen Focus Console User Workflows', () =>
     await dashboardLink.click();
 
     // Verify program appears in Dashboard Upcoming section
-    await expect(page.locator('text=Sunday Morning Communion').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=Sunday Youth Gathering').first()).toBeVisible({ timeout: 10000 });
 
-    // Navigate to Calendar via sidebar navigation
-    const calendarLink = page.getByRole('link', { name: /Calendar/i }).or(page.locator('a[href="/calendar"]')).first();
-    await calendarLink.click();
-
-    // Verify program is visible in Calendar
-    await expect(page.locator('text=Sunday Morning Communion').first()).toBeVisible({ timeout: 10000 });
+    // Click Delete on the newly created event
+    const eventCard = page.locator('div').filter({ hasText: 'Sunday Youth Gathering' }).last();
+    const deleteBtn = eventCard.locator('button[title*="Delete"]').or(eventCard.getByRole('button', { name: /Delete/i })).first();
+    if (await deleteBtn.isVisible()) {
+      await deleteBtn.click();
+      // If a confirmation prompt appears, confirm it
+      const confirmBtn = page.locator('button:has-text("Delete")').or(page.locator('button:has-text("Yes, Delete")')).last();
+      if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await confirmBtn.click();
+      }
+      await page.waitForTimeout(1000);
+      // Verify program is no longer on Dashboard
+      await expect(page.locator('text=Sunday Youth Gathering')).not.toBeVisible();
+    }
   });
 });

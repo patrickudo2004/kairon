@@ -500,7 +500,7 @@ test.describe('Live Rundown E2E Scenarios', () => {
     await page.getByRole('button', { name: /Append to End/i }).click();
 
     // Verify 11 slots exist and enriched productionNotes & prompterText were populated
-    await expect(page.locator('input[placeholder="Session Title"]:visible')).toHaveCount(12);
+    await expect(page.locator('input[placeholder="Session Title"]:visible')).toHaveCount(11);
 
     // 4. Verify Right Studio Dock Live Output Preview & Slot Inspector
     await expect(page.getByText('Output Monitor')).toBeVisible();

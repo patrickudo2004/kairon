@@ -3,7 +3,7 @@ import { convex } from './convexClient';
 import { api } from '../convex/_generated/api';
 import { Program, Slot } from '../types';
 import { getDefaultSeedPrograms } from '../utils/seedData';
-import { readLocalFolderPrograms, saveProgramToLocalFolder, deleteProgramFromLocalFolder, getActiveLocalFolder } from './localFolderService';
+import { readLocalFolderPrograms, saveProgramToLocalFolder, deleteProgramFromLocalFolder, getActiveLocalFolder, isElectronAvailable } from './localFolderService';
 
 const isTestBypass = () => {
     try {
@@ -215,14 +215,42 @@ export const updateProgram = async (program: Program): Promise<void> => {
 };
 
 export const deleteProgram = async (id: string): Promise<void> => {
-    if (id.startsWith('local-file-')) {
-        const localList = await readLocalFolderPrograms();
-        const found = localList.find(p => p.id === id || p.id?.replace(/^local-file-/, '') === id.replace(/^local-file-/, ''));
+    const isLocalId = id.startsWith('local-') || id.startsWith('local-file-');
+    const localFolder = getActiveLocalFolder();
+
+    if (isLocalId || localFolder) {
+        const localList = await readLocalFolderPrograms(localFolder?.folderPath);
+        const cleanId = id.replace(/^(local-file-|local-)/, '');
+        const found = localList.find(p => 
+            p.id === id || 
+            p.id?.replace(/^(local-file-|local-)/, '') === cleanId ||
+            (p.slug && p.slug.replace(/^local-/, '') === cleanId) ||
+            (p._fileName && p._fileName.replace(/\.[^/.]+$/, '') === cleanId)
+        );
         if (found?._filePath) {
             await deleteProgramFromLocalFolder(found._filePath);
+        } else if (localFolder && isElectronAvailable()) {
+            const candidateNames = [
+                `${id}.kairon`,
+                `${cleanId}.kairon`,
+            ];
+            for (const name of candidateNames) {
+                const candidatePath = `${localFolder.folderPath}/${name}`.replace(/\\/g, '/');
+                await deleteProgramFromLocalFolder(candidatePath);
+            }
         }
-        return;
+        try {
+            localStorage.removeItem(`kairon_offline_cache_${id}`);
+            localStorage.removeItem(`kairon_offline_cache_${cleanId}`);
+            localStorage.removeItem(`kairon_offline_cache_${id}_prompter`);
+            localStorage.removeItem(`kairon_offline_cache_${cleanId}_prompter`);
+        } catch {}
+
+        if (isLocalId) {
+            return;
+        }
     }
+
     const cleanId = id.replace('local-', '');
     if (isTestBypass()) {
         let list: Program[] = safeParseList(localStorage.getItem('test_programs'));
@@ -235,7 +263,10 @@ export const deleteProgram = async (id: string): Promise<void> => {
         updateTestPrograms(list);
         return;
     }
-    await convex.mutation(api.programs.deleteProgram, { id: id as any });
+
+    if (!id.startsWith('local-') && !id.startsWith('test-') && id.length >= 19) {
+        await convex.mutation(api.programs.deleteProgram, { id: id as any });
+    }
     try {
         localStorage.removeItem(`kairon_offline_cache_${id}`);
         localStorage.removeItem(`kairon_offline_cache_${cleanId}`);

@@ -34,7 +34,12 @@ function loadRouteIntoWindow(win, url) {
     return win.loadURL(targetUrl);
   } else {
     const indexPath = path.join(__dirname, '../dist/index.html');
-    return win.loadURL(`file://${indexPath}#/${cleanPath}${query}`);
+    try {
+      return win.loadFile(indexPath, { hash: `/${cleanPath}${query}` });
+    } catch {
+      const normalizedPath = indexPath.replace(/\\/g, '/');
+      return win.loadURL(`file:///${normalizedPath}#/${cleanPath}${query}`);
+    }
   }
 }
 
