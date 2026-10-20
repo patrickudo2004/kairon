@@ -3,6 +3,7 @@ import { convex } from './convexClient';
 import { api } from '../convex/_generated/api';
 import { Program, Slot } from '../types';
 import { getDefaultSeedPrograms } from '../utils/seedData';
+import { readLocalFolderPrograms, saveProgramToLocalFolder, deleteProgramFromLocalFolder, getActiveLocalFolder } from './localFolderService';
 
 const isTestBypass = () => {
     try {
@@ -54,10 +55,17 @@ const updateTestPrograms = (programs: Program[] | null) => {
 };
 
 export const getPrograms = async (organizationId?: string): Promise<Program[]> => {
+    if (organizationId?.startsWith('local-folder-')) {
+        return await readLocalFolderPrograms();
+    }
     if (isTestBypass()) {
         return getLocalStoredPrograms();
     }
-    if (!organizationId) return [];
+    if (!organizationId) {
+        const localFolder = getActiveLocalFolder();
+        if (localFolder) return await readLocalFolderPrograms(localFolder.folderPath);
+        return [];
+    }
 
     const data = await convex.query(api.programs.getPrograms, {
         organizationId: organizationId as any
@@ -67,6 +75,12 @@ export const getPrograms = async (organizationId?: string): Promise<Program[]> =
 };
 
 export const getProgramById = async (id: string): Promise<Program | null> => {
+    if (id.startsWith('local-file-') || id.startsWith('local-folder-')) {
+        const localList = await readLocalFolderPrograms();
+        const cleanId = id.replace('local-file-', '').replace('local-', '');
+        const found = localList.find((p) => p.id === id || p.id?.replace(/^local-file-/, '') === cleanId || p.slug === cleanId);
+        if (found) return found;
+    }
     if (isTestBypass()) {
         const list = getLocalStoredPrograms();
         const cleanId = id.replace('local-', '');
@@ -79,6 +93,13 @@ export const getProgramById = async (id: string): Promise<Program | null> => {
 };
 
 export const createProgram = async (program: Program): Promise<Program> => {
+    if (program.organizationId?.startsWith('local-folder-') || program.id?.startsWith('local-file-')) {
+        const saveRes = await saveProgramToLocalFolder(program);
+        if (saveRes.success && saveRes.filePath) {
+            program._filePath = saveRes.filePath;
+        }
+        return program;
+    }
     if (isTestBypass()) {
         const id = program.id?.startsWith('local-') ? program.id : `local-${crypto.randomUUID()}`;
         const list: Program[] = safeParseList(localStorage.getItem('test_programs'));
@@ -140,6 +161,10 @@ export const createProgram = async (program: Program): Promise<Program> => {
 };
 
 export const updateProgram = async (program: Program): Promise<void> => {
+    if (program.organizationId?.startsWith('local-folder-') || program.id?.startsWith('local-file-')) {
+        await saveProgramToLocalFolder(program);
+        return;
+    }
     const cleanSlug = (program.slug || program.id || '').replace(/^local-/, '');
     const cleanId = (program.id || '').replace(/^local-/, '');
     if (isTestBypass()) {
@@ -190,6 +215,14 @@ export const updateProgram = async (program: Program): Promise<void> => {
 };
 
 export const deleteProgram = async (id: string): Promise<void> => {
+    if (id.startsWith('local-file-')) {
+        const localList = await readLocalFolderPrograms();
+        const found = localList.find(p => p.id === id || p.id?.replace(/^local-file-/, '') === id.replace(/^local-file-/, ''));
+        if (found?._filePath) {
+            await deleteProgramFromLocalFolder(found._filePath);
+        }
+        return;
+    }
     const cleanId = id.replace('local-', '');
     if (isTestBypass()) {
         let list: Program[] = safeParseList(localStorage.getItem('test_programs'));

@@ -78,6 +78,7 @@ import { Program, Slot, SlotType, Profile, Organization, TimerState } from './ty
 import { timeToMinutes, minutesToTime, formatDuration } from './utils/time';
 import { encodeProgramData, decodeProgramData } from './utils/encoding';
 import { getInitialProgram } from './utils/constants';
+import { getActiveLocalFolder, toLocalFolderOrg, readLocalFolderPrograms, saveProgramToLocalFolder } from './services/localFolderService';
 import { saveKaironFileToDisk, parseKaironFile, autoArchiveToLocalWorkspace, downloadProgramCsv, parseCsvToSlots } from './utils/kaironFileFormat';
 import { PRODUCTION_TEMPLATES } from './utils/rundownParser';
 
@@ -641,6 +642,25 @@ const AppContent: React.FC = () => {
 
   const cachedEntitlement = activeOrgId ? getCachedWorkspaceEntitlement(activeOrgId) : null;
   const isPro = true; // All Pro features unlocked across all accounts until monetization launch
+
+  const [localFolderOrg, setLocalFolderOrg] = useState<Organization | null>(() => {
+    const saved = getActiveLocalFolder();
+    return saved ? toLocalFolderOrg(saved.folderPath, saved.folderName) : null;
+  });
+
+  useEffect(() => {
+    const handleWorkspaceChange = () => {
+      const saved = getActiveLocalFolder();
+      const org = saved ? toLocalFolderOrg(saved.folderPath, saved.folderName) : null;
+      setLocalFolderOrg(org);
+      if (org) {
+        setActiveOrgId(org.id);
+        setActiveOrg(org);
+      }
+    };
+    window.addEventListener('kairon_workspace_changed', handleWorkspaceChange);
+    return () => window.removeEventListener('kairon_workspace_changed', handleWorkspaceChange);
+  }, []);
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [isDataHydrated, setIsDataHydrated] = useState(false);
   const [authRetryCount, setAuthRetryCount] = useState(0);
@@ -661,11 +681,16 @@ const AppContent: React.FC = () => {
   });
 
   const userOrganizations = useMemo(() => {
-    if (isBoothMode) return [DEFAULT_OFFLINE_ORG];
-    if (rawUserOrganizations.length > 0) return rawUserOrganizations;
-    if (user) return [];
-    return [DEFAULT_OFFLINE_ORG];
-  }, [isBoothMode, rawUserOrganizations, user]);
+    const list: Organization[] = [...rawUserOrganizations];
+    if (localFolderOrg) {
+      list.push(localFolderOrg);
+    }
+    if (isBoothMode && list.length === 0) {
+      return [DEFAULT_OFFLINE_ORG];
+    }
+    if (user && list.length === 0) return [];
+    return list.length > 0 ? list : [DEFAULT_OFFLINE_ORG];
+  }, [rawUserOrganizations, localFolderOrg, isBoothMode, user]);
 
   // Auto-initialize profile and active org for offline booth mode
   useEffect(() => {
@@ -884,9 +909,22 @@ const AppContent: React.FC = () => {
     localStorage.getItem('testBypass') === 'true'
   );
 
+  const isLocalFolderWorkspace = Boolean(activeOrg?.isLocalFolder || String(activeOrgId).startsWith('local-folder-'));
+  const [localFolderPrograms, setLocalFolderPrograms] = useState<Program[]>([]);
+  const [localFolderTick, setLocalFolderTick] = useState(0);
+
+  useEffect(() => {
+    if (isLocalFolderWorkspace) {
+      readLocalFolderPrograms(activeOrg?.folderPath).then(progs => {
+        setLocalFolderPrograms(progs);
+      });
+    }
+  }, [isLocalFolderWorkspace, activeOrg?.folderPath, localFolderTick]);
+
   const isConvexOrgId = Boolean(
     activeOrgId &&
     !isBoothMode &&
+    !isLocalFolderWorkspace &&
     !String(activeOrgId).startsWith('local-') &&
     !String(activeOrgId).startsWith('test-') &&
     String(activeOrgId).length >= 19
@@ -898,6 +936,9 @@ const AppContent: React.FC = () => {
   );
 
   const activeSessions = useMemo(() => {
+    if (isLocalFolderWorkspace) {
+      return program.status === 'live' ? [program] : [];
+    }
     if (isBoothMode) {
       const localList = getLocalPrograms();
       const currentLive = program.status === 'live' ? [program] : [];
@@ -912,12 +953,11 @@ const AppContent: React.FC = () => {
     if (!activeSessionsRaw) return [];
     return activeSessionsRaw.map(s => ({
       ...s,
-      // CRITICAL: Force string normalization for ID comparisons (prevents object-vs-string mismatch)
       id: String(s._id || s.id),
       slug: String((s as any).slug || (s as any).uuid || s._id || s.id).replace(/^local-/, ''),
       isPublic: (s as any).isPublic ?? true,
     })) as Program[];
-  }, [activeSessionsRaw, isBoothMode, program]);
+  }, [activeSessionsRaw, isBoothMode, program, isLocalFolderWorkspace]);
 
   const allProgramsRaw = useConvexQuery(
     api.programs.getPrograms,
@@ -925,6 +965,9 @@ const AppContent: React.FC = () => {
   );
 
   const programs = useMemo(() => {
+    if (isLocalFolderWorkspace) {
+      return localFolderPrograms;
+    }
     if (isBoothMode) {
       const localList = getLocalPrograms();
       const cleanProgramId = (program.id || '').replace(/^local-/, '');
@@ -948,7 +991,7 @@ const AppContent: React.FC = () => {
       slug: String((s as any).slug || (s as any).uuid || s._id || s.id).replace(/^local-/, ''),
       isPublic: (s as any).isPublic ?? true,
     })) as Program[];
-  }, [allProgramsRaw, isBoothMode, program]);
+  }, [allProgramsRaw, isBoothMode, program, isLocalFolderWorkspace, localFolderPrograms]);
 
   // Auto-selection & Cleanup logic
   useEffect(() => {
@@ -1441,6 +1484,12 @@ const AppContent: React.FC = () => {
       }
 
       // Silently auto-archive to local Electron disk workspace if available
+      if (isLocalFolderWorkspace) {
+        await saveProgramToLocalFolder(p, activeOrg?.folderPath);
+        setLocalFolderTick(t => t + 1);
+        return p;
+      }
+
       void autoArchiveToLocalWorkspace(p, activeOrg?.name).then((savedPath) => {
         if (savedPath) {
           setLastDiskArchiveAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -1876,6 +1925,9 @@ const AppContent: React.FC = () => {
 
     try {
       await deleteProgramService(id);
+      if (isLocalFolderWorkspace) {
+        setLocalFolderTick(t => t + 1);
+      }
 
       // Invalidate cache to refresh home and calendar views
       queryClient.invalidateQueries({ queryKey: ['programs'] });

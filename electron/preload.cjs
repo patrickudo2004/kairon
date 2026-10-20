@@ -43,6 +43,11 @@ const api = {
   },
   // Direct vector PDF export
   savePdf: (options) => ipcRenderer.invoke('save-pdf', options),
+  // Local Workspace Folder APIs
+  chooseWorkspaceFolder: () => ipcRenderer.invoke('choose-workspace-folder'),
+  readWorkspaceFolder: (folderPath) => ipcRenderer.invoke('read-workspace-folder', folderPath),
+  saveWorkspaceProgram: (options) => ipcRenderer.invoke('save-workspace-program', options),
+  deleteWorkspaceProgram: (options) => ipcRenderer.invoke('delete-workspace-program', options),
 };
 
 contextBridge.exposeInMainWorld('electron', api);
