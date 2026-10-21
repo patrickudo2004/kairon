@@ -234,29 +234,32 @@ const StageWrapper: React.FC = () => {
     const candidateProg = programFromConvex || localOfflineProgram;
     const program = (() => {
         if (!candidateProg) return null;
-        if (!localOfflineProgram) return candidateProg;
-        if (!programFromConvex) return localOfflineProgram;
 
         // Determine if there is an active live timer anywhere
         const isActivelyLive = Boolean(
-            localOfflineProgram.isTimerActive ||
-            programFromConvex.isTimerActive ||
-            localOfflineProgram.status === 'live' ||
-            programFromConvex.status === 'live'
+            localOfflineProgram?.isTimerActive ||
+            programFromConvex?.isTimerActive ||
+            localOfflineProgram?.status === 'live' ||
+            programFromConvex?.status === 'live'
         );
 
         // High-precision live timer telemetry resolution:
         // Always prioritize the active running timer timestamp from whichever source is actively ticking
         const resolveLiveTiming = (isActive: boolean) => {
-            if (!isActive) return { timestamp: null, seconds: localOfflineProgram.secondsElapsed || programFromConvex.secondsElapsed || 0 };
-            const activeSource = (localOfflineProgram.isTimerActive && localOfflineProgram.timerStartTimestamp)
+            if (!isActive) {
+                return {
+                    timestamp: null,
+                    seconds: localOfflineProgram?.secondsElapsed ?? programFromConvex?.secondsElapsed ?? 0
+                };
+            }
+            const activeSource = (localOfflineProgram?.isTimerActive && localOfflineProgram?.timerStartTimestamp)
                 ? localOfflineProgram
-                : (programFromConvex.isTimerActive && programFromConvex.timerStartTimestamp
+                : (programFromConvex?.isTimerActive && programFromConvex?.timerStartTimestamp
                     ? programFromConvex
-                    : (localOfflineProgram.timerStartTimestamp ? localOfflineProgram : programFromConvex));
+                    : (localOfflineProgram?.timerStartTimestamp ? localOfflineProgram : (programFromConvex || localOfflineProgram)));
             return {
-                timestamp: activeSource.timerStartTimestamp ?? null,
-                seconds: activeSource.secondsElapsed ?? 0
+                timestamp: activeSource?.timerStartTimestamp ?? null,
+                seconds: activeSource?.secondsElapsed ?? 0
             };
         };
 
@@ -264,100 +267,100 @@ const StageWrapper: React.FC = () => {
         if (isBoothMode) {
             const effectiveStatus = isActivelyLive
                 ? 'live'
-                : ((localOfflineProgram.status === 'concluded' || programFromConvex.status === 'concluded')
+                : ((localOfflineProgram?.status === 'concluded' || programFromConvex?.status === 'concluded')
                     ? 'concluded'
-                    : (programFromConvex.status || localOfflineProgram.status || 'draft'));
+                    : (programFromConvex?.status || localOfflineProgram?.status || 'draft'));
 
             const effectiveIsTimerActive = effectiveStatus === 'concluded'
                 ? false
-                : Boolean(localOfflineProgram.isTimerActive ?? programFromConvex.isTimerActive ?? false);
+                : Boolean(localOfflineProgram?.isTimerActive ?? programFromConvex?.isTimerActive ?? false);
 
             const timing = resolveLiveTiming(effectiveIsTimerActive);
 
             return {
-                ...programFromConvex,
-                ...localOfflineProgram,
-                slots: (localOfflineProgram.slots && localOfflineProgram.slots.length > 0)
+                ...(programFromConvex || {}),
+                ...(localOfflineProgram || candidateProg),
+                slots: (localOfflineProgram?.slots && localOfflineProgram.slots.length > 0)
                     ? localOfflineProgram.slots
-                    : (programFromConvex.slots || []),
+                    : (programFromConvex?.slots || candidateProg?.slots || []),
                 isTimerActive: effectiveIsTimerActive,
                 status: effectiveStatus,
-                currentSlotIndex: localOfflineProgram.currentSlotIndex ?? 0,
+                currentSlotIndex: localOfflineProgram?.currentSlotIndex ?? candidateProg?.currentSlotIndex ?? 0,
                 timerStartTimestamp: timing.timestamp,
                 secondsElapsed: timing.seconds,
             };
         }
 
-        const isLocalLiveOrConcluded = localOfflineProgram.status === 'live' || localOfflineProgram.status === 'concluded' || Boolean(localOfflineProgram.isTimerActive);
-        const isConvexLiveOrConcluded = programFromConvex.status === 'live' || programFromConvex.status === 'concluded' || Boolean(programFromConvex.isTimerActive);
+        const isLocalLiveOrConcluded = localOfflineProgram?.status === 'live' || localOfflineProgram?.status === 'concluded' || Boolean(localOfflineProgram?.isTimerActive);
+        const isConvexLiveOrConcluded = programFromConvex?.status === 'live' || programFromConvex?.status === 'concluded' || Boolean(programFromConvex?.isTimerActive);
 
         if (isLocalLiveOrConcluded && !isConvexLiveOrConcluded) {
-            const effectiveStatus = isActivelyLive ? 'live' : (localOfflineProgram.status || (localOfflineProgram.isTimerActive ? 'live' : 'draft'));
-            const effectiveIsTimerActive = effectiveStatus === 'concluded' ? false : Boolean(localOfflineProgram.isTimerActive);
+            const effectiveStatus = isActivelyLive ? 'live' : (localOfflineProgram?.status || (localOfflineProgram?.isTimerActive ? 'live' : 'draft'));
+            const effectiveIsTimerActive = effectiveStatus === 'concluded' ? false : Boolean(localOfflineProgram?.isTimerActive);
             const timing = resolveLiveTiming(effectiveIsTimerActive);
             return {
-                ...programFromConvex,
-                ...localOfflineProgram,
-                slots: (localOfflineProgram.slots && localOfflineProgram.slots.length > 0)
+                ...(programFromConvex || {}),
+                ...(localOfflineProgram || candidateProg),
+                slots: (localOfflineProgram?.slots && localOfflineProgram.slots.length > 0)
                     ? localOfflineProgram.slots
-                    : (programFromConvex.slots || []),
+                    : (programFromConvex?.slots || candidateProg?.slots || []),
                 isTimerActive: effectiveIsTimerActive,
                 status: effectiveStatus,
-                currentSlotIndex: localOfflineProgram.currentSlotIndex ?? 0,
+                currentSlotIndex: localOfflineProgram?.currentSlotIndex ?? candidateProg?.currentSlotIndex ?? 0,
                 timerStartTimestamp: timing.timestamp,
                 secondsElapsed: timing.seconds,
             };
         }
 
         if (isConvexLiveOrConcluded && !isLocalLiveOrConcluded) {
-            const effectiveStatus = isActivelyLive ? 'live' : (programFromConvex.status || 'live');
-            const effectiveIsTimerActive = effectiveStatus === 'concluded' ? false : Boolean(programFromConvex.isTimerActive);
+            const effectiveStatus = isActivelyLive ? 'live' : (programFromConvex?.status || 'live');
+            const effectiveIsTimerActive = effectiveStatus === 'concluded' ? false : Boolean(programFromConvex?.isTimerActive);
             const timing = resolveLiveTiming(effectiveIsTimerActive);
             return {
-                ...localOfflineProgram,
-                ...programFromConvex,
-                slots: (programFromConvex.slots && programFromConvex.slots.length > 0)
+                ...(localOfflineProgram || {}),
+                ...(programFromConvex || candidateProg),
+                slots: (programFromConvex?.slots && programFromConvex.slots.length > 0)
                     ? programFromConvex.slots
-                    : (localOfflineProgram.slots || []),
+                    : (localOfflineProgram?.slots || candidateProg?.slots || []),
                 isTimerActive: effectiveIsTimerActive,
                 status: effectiveStatus,
-                currentSlotIndex: programFromConvex.currentSlotIndex ?? 0,
+                currentSlotIndex: programFromConvex?.currentSlotIndex ?? candidateProg?.currentSlotIndex ?? 0,
                 timerStartTimestamp: timing.timestamp,
                 secondsElapsed: timing.seconds,
             };
         }
 
-        const convexSlot = programFromConvex.currentSlotIndex ?? 0;
-        const localSlot = localOfflineProgram.currentSlotIndex ?? 0;
+        const convexSlot = programFromConvex?.currentSlotIndex ?? 0;
+        const localSlot = localOfflineProgram?.currentSlotIndex ?? 0;
 
         // Slot Resolution:
         // If an active session has restarted at Slot 0, honor the live restarted slot rather than forcing Math.max
         const isRewound = isActivelyLive && (convexSlot === 0 || localSlot === 0) && Math.max(convexSlot, localSlot) > 0;
         const effectiveSlot = isRewound
-            ? (localOfflineProgram.isTimerActive ? localSlot : (programFromConvex.isTimerActive ? convexSlot : 0))
+            ? (localOfflineProgram?.isTimerActive ? localSlot : (programFromConvex?.isTimerActive ? convexSlot : 0))
             : (convexSlot >= localSlot ? convexSlot : localSlot);
 
-        const preferred = convexSlot >= localSlot ? programFromConvex : localOfflineProgram;
-        const fallback = convexSlot >= localSlot ? localOfflineProgram : programFromConvex;
+        const preferred = convexSlot >= localSlot ? (programFromConvex || localOfflineProgram || candidateProg) : (localOfflineProgram || programFromConvex || candidateProg);
+        const fallback = convexSlot >= localSlot ? (localOfflineProgram || programFromConvex || candidateProg) : (programFromConvex || localOfflineProgram || candidateProg);
 
         const effectiveStatus = isActivelyLive
             ? 'live'
-            : ((programFromConvex.status === 'concluded' || localOfflineProgram.status === 'concluded')
+            : ((programFromConvex?.status === 'concluded' || localOfflineProgram?.status === 'concluded')
                 ? 'concluded'
-                : preferred.status);
+                : (preferred?.status || 'draft'));
 
         const effectiveIsTimerActive = effectiveStatus === 'concluded'
             ? false
-            : Boolean(programFromConvex.isTimerActive || localOfflineProgram.isTimerActive);
+            : Boolean(programFromConvex?.isTimerActive || localOfflineProgram?.isTimerActive);
 
         const timing = resolveLiveTiming(effectiveIsTimerActive);
 
         return {
-            ...fallback,
-            ...preferred,
-            slots: (preferred.slots && preferred.slots.length > 0)
+            ...(fallback || {}),
+            ...(preferred || {}),
+            slots: (preferred?.slots && preferred.slots.length > 0)
                 ? preferred.slots
-                : (fallback.slots || []),
+                : (fallback?.slots || []),
             isTimerActive: effectiveIsTimerActive,
             currentSlotIndex: effectiveSlot,
             timerStartTimestamp: timing.timestamp,

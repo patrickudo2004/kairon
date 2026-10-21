@@ -6,6 +6,10 @@ import { useStageMessages } from '../hooks/useStageMessages';
 import { useScreenManagement } from '../hooks/useScreenManagement';
 import { getPublicPortalUrl } from '../utils/url';
 import { timeToMinutes, minutesToTime } from '../utils/time';
+import StageDisplay from './StageDisplay';
+import TVView from './TVView';
+import { PrompterDisplay } from './PrompterDisplay';
+import { BroadcastOverlayView } from './BroadcastOverlayView';
 import {
   Monitor,
   Tv,
@@ -41,6 +45,8 @@ interface StudioRightDockProps {
   onUpdateEditorProgram: (p: Program) => void;
   currentSlotIndex: number;
   isTimerActive: boolean;
+  timerStartTimestamp?: number | null;
+  secondsElapsed?: number;
   onToggleHold: () => void;
   onPlayProgram: (p: Program) => void;
   onSaveKaironFile: (p: Program) => void;
@@ -60,6 +66,8 @@ export const StudioRightDock: React.FC<StudioRightDockProps> = ({
   onUpdateEditorProgram,
   currentSlotIndex,
   isTimerActive,
+  timerStartTimestamp,
+  secondsElapsed = 0,
   onToggleHold,
   onPlayProgram,
   onSaveKaironFile,

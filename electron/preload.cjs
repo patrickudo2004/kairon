@@ -27,9 +27,9 @@ const api = {
     return () => ipcRenderer.removeListener('timer-state-push', subscription);
   },
   // Native detached Flight Bridge window management
-  openFlightBridge: () => ipcRenderer.invoke('open-flight-bridge'),
+  openFlightBridge: (opts) => ipcRenderer.invoke('open-flight-bridge', opts),
   closeFlightBridge: () => ipcRenderer.invoke('close-flight-bridge'),
-  toggleFlightBridge: () => ipcRenderer.invoke('toggle-flight-bridge'),
+  toggleFlightBridge: (opts) => ipcRenderer.invoke('toggle-flight-bridge', opts),
   onFlightBridgeClosed: (callback) => {
     const subscription = () => callback();
     ipcRenderer.on('flight-bridge-closed', subscription);
