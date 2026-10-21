@@ -243,6 +243,29 @@ app.whenReady().then(() => {
           }
         }
       });
+
+      if (flightBridgeWindow && !flightBridgeWindow.isDestroyed()) {
+        const fbBounds = flightBridgeWindow.getBounds();
+        const fbOnValid = remainingDisplays.some((d) => {
+          return (
+            fbBounds.x >= d.bounds.x &&
+            fbBounds.x < d.bounds.x + d.bounds.width &&
+            fbBounds.y >= d.bounds.y &&
+            fbBounds.y < d.bounds.y + d.bounds.height
+          );
+        });
+        if (!fbOnValid) {
+          console.warn('Flight Bridge window lost display. Repositioning to primary screen.');
+          const width = 380;
+          const height = 580;
+          flightBridgeWindow.setBounds({
+            x: primary.bounds.x + primary.bounds.width - width - 30,
+            y: primary.bounds.y + primary.bounds.height - height - 60,
+            width,
+            height,
+          });
+        }
+      }
     } catch (repositionErr) {
       console.warn('Error repositioning disconnected windows:', repositionErr);
     }
@@ -653,6 +676,31 @@ function createFlightBridgeWindow(programId) {
     }
   });
 
+  // Stage Projection Shield: Prevent Flight Bridge from settling inside active secondary projection screens
+  flightBridgeWindow.on('moved', () => {
+    try {
+      const activeProjectionDisplays = Object.values(secondaryWindows).filter((win) => win && !win.isDestroyed());
+      if (activeProjectionDisplays.length > 0 && flightBridgeWindow && !flightBridgeWindow.isDestroyed()) {
+        const fbBounds = flightBridgeWindow.getBounds();
+        const overlapsProjection = activeProjectionDisplays.some((secWin) => {
+          const secBounds = secWin.getBounds();
+          return (
+            fbBounds.x < secBounds.x + secBounds.width &&
+            fbBounds.x + fbBounds.width > secBounds.x &&
+            fbBounds.y < secBounds.y + secBounds.height &&
+            fbBounds.y + fbBounds.height > secBounds.y
+          );
+        });
+        if (overlapsProjection) {
+          console.warn('[AV Shield] Flight Bridge moved onto active projection screen. Snapping back to operator screen.');
+          recallFlightBridgeToPrimary();
+        }
+      }
+    } catch (shieldErr) {
+      console.warn('[AV Shield] error checking bounds:', shieldErr);
+    }
+  });
+
   flightBridgeWindow.webContents.on('did-finish-load', () => {
     if (lastTimerStatePayload && flightBridgeWindow && !flightBridgeWindow.isDestroyed()) {
       try {
@@ -687,6 +735,27 @@ ipcMain.handle('toggle-flight-bridge', (event, opts) => {
   } else {
     return createFlightBridgeWindow(typeof opts === 'string' ? opts : opts?.programId);
   }
+});
+
+// Helper & IPC: Recall Flight Bridge to Primary Screen safe corner
+function recallFlightBridgeToPrimary() {
+  if (flightBridgeWindow && !flightBridgeWindow.isDestroyed()) {
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const width = 380;
+    const height = 580;
+    const x = primaryDisplay.bounds.x + primaryDisplay.bounds.width - width - 30;
+    const y = primaryDisplay.bounds.y + primaryDisplay.bounds.height - height - 60;
+    flightBridgeWindow.setBounds({ x, y, width, height });
+    if (flightBridgeWindow.isMinimized()) flightBridgeWindow.restore();
+    flightBridgeWindow.show();
+    flightBridgeWindow.focus();
+    return { success: true, recalled: true };
+  }
+  return { success: false, open: false };
+}
+
+ipcMain.handle('recall-flight-bridge', () => {
+  return recallFlightBridgeToPrimary();
 });
 
 // IPC: Bidirectional timer control relay from secondary windows (e.g. Flight Bridge) to main window

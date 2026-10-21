@@ -3,7 +3,7 @@ import {
     Play, Pause, SkipForward, SkipBack, Clock, ChevronDown, ChevronUp, 
     AlertCircle, Sun, Moon, X, List, FastForward, 
     Music, Mic, BookOpen, Flame, Coffee, Sparkles, Radio, ListMusic,
-    Volume2, Lightbulb, Video 
+    Volume2, Lightbulb, Video, AppWindow, LocateFixed 
 } from 'lucide-react';
 import { Program, Slot } from '../types';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
@@ -51,6 +51,8 @@ interface FlightBridgeProps {
     onRequestEndEvent?: (targetId?: string) => void;
     isManualMode: boolean;
     onToggleManualMode: () => void;
+    onReturnToApp?: () => void;
+    onRecall?: () => void;
 }
 
 export const FlightBridge: React.FC<FlightBridgeProps> = ({
@@ -69,7 +71,9 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
     onEndEvent,
     onRequestEndEvent,
     isManualMode,
-    onToggleManualMode
+    onToggleManualMode,
+    onReturnToApp,
+    onRecall
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -281,6 +285,30 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
 
                 {/* Theme & Status */}
                 <div className="flex items-center gap-1.5 shrink-0">
+                    {onReturnToApp && (
+                        <button
+                            type="button"
+                            onClick={onReturnToApp}
+                            className={`p-1 rounded-md transition-colors ${
+                                isDarkMode ? 'hover:bg-[#181B22] text-[#8A93A4] hover:text-[#38BDF8]' : 'hover:bg-slate-100 text-slate-700 hover:text-sky-600 bg-slate-100/60'
+                            }`}
+                            title="Return to Main App (Focus Kairon Studio)"
+                        >
+                            <AppWindow size={12} />
+                        </button>
+                    )}
+                    {onRecall && (
+                        <button
+                            type="button"
+                            onClick={onRecall}
+                            className={`p-1 rounded-md transition-colors ${
+                                isDarkMode ? 'hover:bg-[#181B22] text-[#8A93A4] hover:text-[#10B981]' : 'hover:bg-slate-100 text-slate-700 hover:text-emerald-600 bg-slate-100/60'
+                            }`}
+                            title="Snap to Primary Screen (Screen 1)"
+                        >
+                            <LocateFixed size={12} />
+                        </button>
+                    )}
                     <button
                         onClick={onToggleTheme}
                         className={`p-1 rounded-md transition-colors ${
