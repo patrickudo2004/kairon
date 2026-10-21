@@ -36,7 +36,8 @@ export const BroadcastIntegrationsModal: React.FC<BroadcastIntegrationsModalProp
 }) => {
   const [activeTab, setActiveTab] = useState<'obs-atem' | 'propresenter' | 'companion'>('obs-atem');
   const [overlayLayout, setOverlayLayout] = useState<'lower-third' | 'corner-timer' | 'full-bug'>('lower-third');
-  const [overlayBg, setOverlayBg] = useState<'transparent' | 'green' | 'black'>('transparent');
+  const [overlayBg, setOverlayBg] = useState<'transparent' | 'green' | 'magenta' | 'black'>('transparent');
+  const [showCues, setShowCues] = useState<boolean>(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const [ppConfig, setPpConfig] = useState<ProPresenterConfig>(() => getProPresenterConfig());
@@ -48,8 +49,12 @@ export const BroadcastIntegrationsModal: React.FC<BroadcastIntegrationsModalProp
 
   if (!isOpen) return null;
 
-  const overlayRelativePath = `/overlay?programId=${encodeURIComponent(program.id)}&layout=${overlayLayout}&bg=${overlayBg}`;
-  const overlayFullUrl = getShareableDisplayUrl(overlayRelativePath);
+  const overlayRelativePath = `/overlay?programId=${encodeURIComponent(program.id)}&layout=${overlayLayout}&bg=${overlayBg}${showCues ? '&showCues=true' : ''}`;
+  const isLocalOrigin = typeof window !== 'undefined' && window.location.origin && !window.location.origin.startsWith('file:') && !window.location.origin.includes('null');
+  const isLocalProgram = program.id.startsWith('local-');
+  const overlayFullUrl = (isLocalOrigin && isLocalProgram)
+    ? `${window.location.origin}${overlayRelativePath}`
+    : getShareableDisplayUrl(overlayRelativePath);
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -185,17 +190,18 @@ export const BroadcastIntegrationsModal: React.FC<BroadcastIntegrationsModalProp
                   <label className="block text-[10px] font-mono font-bold uppercase text-slate-500 dark:text-[#8A93A4] mb-1.5">
                     2. Keyer Background Mode
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
-                      { id: 'transparent', label: 'Alpha (OBS/vMix)' },
+                      { id: 'transparent', label: 'Alpha (OBS)' },
                       { id: 'green', label: 'Chroma (#00FF00)' },
+                      { id: 'magenta', label: 'Magenta (#FF00FF)' },
                       { id: 'black', label: 'Luma (ATEM)' },
                     ].map((opt) => (
                       <button
                         key={opt.id}
                         type="button"
                         onClick={() => setOverlayBg(opt.id as any)}
-                        className={`px-2.5 py-2 rounded border text-xs font-mono font-semibold transition-all ${
+                        className={`px-2 py-2 rounded border text-xs font-mono font-semibold transition-all ${
                           overlayBg === opt.id
                             ? 'bg-[#10B981]/15 border-[#10B981] text-[#10B981]'
                             : 'bg-slate-50 dark:bg-[#090A0C] border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-[#8A93A4]'
@@ -206,6 +212,29 @@ export const BroadcastIntegrationsModal: React.FC<BroadcastIntegrationsModalProp
                     ))}
                   </div>
                 </div>
+              </div>
+
+              {/* Safety Option: Broadcast Stage Cues */}
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-mono font-bold uppercase text-slate-900 dark:text-white">
+                    Overlay Stage Cues
+                  </span>
+                  <p className="text-[11px] text-slate-500 dark:text-[#8A93A4]">
+                    Display internal booth alerts to the stream. Recommended: Keep OFF so booth cues to the pulpit are hidden from stream viewers.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCues(!showCues)}
+                  className={`px-3 py-1.5 rounded text-xs font-mono font-bold transition-all ${
+                    showCues
+                      ? 'bg-[#EF4444]/20 border border-[#EF4444] text-[#EF4444]'
+                      : 'bg-slate-200 dark:bg-[#181B22] border border-transparent text-slate-600 dark:text-[#8A93A4]'
+                  }`}
+                >
+                  {showCues ? 'CUES ON' : 'CUES OFF (SAFE)'}
+                </button>
               </div>
 
               {/* Generated Browser Source URL */}
@@ -252,7 +281,7 @@ export const BroadcastIntegrationsModal: React.FC<BroadcastIntegrationsModalProp
                 <div className="p-3 rounded-lg border border-slate-200 dark:border-[#22262E] bg-slate-50/50 dark:bg-[#0D0E12]">
                   <div className="font-mono font-bold text-slate-900 dark:text-white mb-1">Blackmagic ATEM</div>
                   <p className="text-slate-500 dark:text-[#8A93A4] text-[11px] leading-relaxed">
-                    Select <strong>Luma (ATEM)</strong> or <strong>Chroma (#00FF00)</strong>, project to an HDMI out into your ATEM switcher, and enable Upstream Key 1.
+                    Select <strong>Luma (ATEM)</strong>, <strong>Chroma (#00FF00)</strong>, or <strong>Magenta (#FF00FF)</strong>. Project to an HDMI out into your ATEM switcher and enable Upstream Key 1.
                   </p>
                 </div>
                 <div className="p-3 rounded-lg border border-slate-200 dark:border-[#22262E] bg-slate-50/50 dark:bg-[#0D0E12]">

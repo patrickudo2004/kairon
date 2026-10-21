@@ -6,6 +6,7 @@ import {
 import { Program } from '../types';
 import { useTimerSync } from '../hooks/useTimerSync';
 import { formatDuration } from '../utils/time';
+import { HoldToConfirmButton } from './HoldToConfirmButton';
 
 interface ZenFocusConsoleProps {
   program: Program;
@@ -19,6 +20,8 @@ interface ZenFocusConsoleProps {
   onNudge: (minutes: number) => void;
   onToggleHold: () => void;
   onExitZen: () => void;
+  onEndEvent?: () => void;
+  onRequestEndEvent?: () => void;
 }
 
 export const ZenFocusConsole: React.FC<ZenFocusConsoleProps> = ({
@@ -33,15 +36,19 @@ export const ZenFocusConsole: React.FC<ZenFocusConsoleProps> = ({
   onNudge,
   onToggleHold,
   onExitZen,
+  onEndEvent,
+  onRequestEndEvent,
 }) => {
-  const currentSlot = program.slots[currentSlotIndex] || program.slots[0];
-  const nextSlot = program.slots[currentSlotIndex + 1];
+  const hasSlots = Array.isArray(program.slots) && program.slots.length > 0;
+  const isConcluded = program.status === 'concluded';
+  const currentSlot = hasSlots ? (program.slots[currentSlotIndex] || program.slots[0]) : null;
+  const nextSlot = hasSlots ? program.slots[currentSlotIndex + 1] : null;
 
   const elapsed = useTimerSync(timerStartTimestamp, isTimerActive, secondsElapsed);
   const durationSeconds = currentSlot ? currentSlot.durationMinutes * 60 : 0;
-  const remainingSeconds = durationSeconds - elapsed;
-  const isOvertime = remainingSeconds < 0;
-  const isUnderTwoMinutes = remainingSeconds > 0 && remainingSeconds <= 120;
+  const remainingSeconds = hasSlots ? (durationSeconds - elapsed) : 0;
+  const isOvertime = hasSlots && remainingSeconds < 0;
+  const isUnderTwoMinutes = hasSlots && remainingSeconds > 0 && remainingSeconds <= 120;
 
   // Live wall clock
   const [wallClock, setWallClock] = useState(() => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
@@ -59,26 +66,32 @@ export const ZenFocusConsole: React.FC<ZenFocusConsoleProps> = ({
       if (e.key === 'Escape' || e.key === 'z' || e.key === 'Z') {
         e.preventDefault();
         onExitZen();
-      } else if (e.code === 'Space') {
+      } else if (e.code === 'Space' && hasSlots && !isConcluded) {
         e.preventDefault();
         onToggleTimer();
-      } else if (e.key === 'ArrowRight') {
+      } else if (e.key === 'ArrowRight' && hasSlots && !isConcluded) {
         e.preventDefault();
         onNext();
-      } else if (e.key === 'ArrowLeft') {
+      } else if (e.key === 'ArrowLeft' && hasSlots && !isConcluded) {
         e.preventDefault();
         onPrev();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onExitZen, onToggleTimer, onNext, onPrev]);
+  }, [onExitZen, onToggleTimer, onNext, onPrev, hasSlots, isConcluded]);
 
   // Tally border color based on state
   let borderClass = 'border-slate-800';
   let timerColorClass = 'text-white';
 
-  if (program.isOnHold) {
+  if (!hasSlots) {
+    borderClass = 'border-slate-800/80';
+    timerColorClass = 'text-slate-400';
+  } else if (isConcluded) {
+    borderClass = 'border-emerald-600/80 shadow-[inset_0_0_50px_rgba(16,185,129,0.2)]';
+    timerColorClass = 'text-emerald-400';
+  } else if (program.isOnHold) {
     borderClass = 'border-amber-500 shadow-[inset_0_0_60px_rgba(245,158,11,0.25)]';
     timerColorClass = 'text-amber-400';
   } else if (isOvertime) {
@@ -98,13 +111,13 @@ export const ZenFocusConsole: React.FC<ZenFocusConsoleProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs font-mono">
-            <span className={`w-2.5 h-2.5 rounded-full ${isTimerActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
+            <span className={`w-2.5 h-2.5 rounded-full ${!hasSlots ? 'bg-slate-500' : isConcluded ? 'bg-emerald-400' : isTimerActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
             <span className="font-bold tracking-wider uppercase text-slate-300">
-              {isTimerActive ? 'LIVE ON AIR' : 'CONSOLE PAUSED'}
+              {!hasSlots ? 'CONSOLE STANDBY' : isConcluded ? 'SESSION CONCLUDED' : isTimerActive ? 'LIVE ON AIR' : 'CONSOLE PAUSED'}
             </span>
           </div>
           <span className="text-sm font-semibold text-slate-400 truncate max-w-[280px]">
-            {program.title}
+            {program.title || 'Untitled Rundown'}
           </span>
         </div>
 
@@ -126,9 +139,51 @@ export const ZenFocusConsole: React.FC<ZenFocusConsoleProps> = ({
         </div>
       </div>
 
-      {/* CENTER HERO TIMER */}
+      {/* CENTER HERO TIMER / STANDBY SLATE */}
       <div className="flex flex-col items-center justify-center my-auto text-center px-4">
-        {program.isOnHold ? (
+        {!hasSlots ? (
+          <div className="flex flex-col items-center max-w-2xl">
+            <div className="px-5 py-2 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 text-sm font-mono font-bold tracking-widest uppercase mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-slate-500" />
+              OFF-AIR • STANDBY
+            </div>
+            <div className="text-[12vw] sm:text-[13vw] font-mono font-black tabular-nums tracking-tighter leading-none my-2 text-slate-300">
+              {wallClock}
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-200 mt-2 mb-2">
+              No Rundown Items Loaded
+            </h2>
+            <p className="text-sm font-mono text-slate-500 max-w-md mb-6">
+              There are no schedule items in the active event. Exit Zen Mode to select a service or load a template in the Editor.
+            </p>
+            <button
+              onClick={onExitZen}
+              className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-mono text-xs font-bold transition-all border border-slate-700 active:scale-95 shadow-lg"
+            >
+              <Minimize2 size={16} />
+              <span>Exit Zen Mode (Esc)</span>
+            </button>
+          </div>
+        ) : isConcluded ? (
+          <div className="flex flex-col items-center max-w-2xl">
+            <div className="px-6 py-2 rounded-2xl bg-emerald-500/20 border border-emerald-500/50 text-emerald-400 text-base font-mono font-bold tracking-widest uppercase mb-4 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+              SESSION CONCLUDED
+            </div>
+            <h1 className="text-[10vw] sm:text-[11vw] font-mono font-black tracking-tight text-emerald-400 leading-none mb-3">
+              SERVICE COMPLETE
+            </h1>
+            <p className="text-sm font-mono text-slate-400 mb-6">
+              All scheduled items have completed. Displays have transitioned to conclusion state.
+            </p>
+            <button
+              onClick={onExitZen}
+              className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-mono text-xs font-bold transition-all shadow-lg active:scale-95"
+            >
+              Exit Zen Console
+            </button>
+          </div>
+        ) : program.isOnHold ? (
           <div className="flex flex-col items-center animate-pulse">
             <div className="px-6 py-2 rounded-2xl bg-amber-500/20 border border-amber-500/50 text-amber-400 text-lg font-mono font-bold tracking-widest uppercase mb-4">
               STANDBY FREEZE
@@ -144,7 +199,7 @@ export const ZenFocusConsole: React.FC<ZenFocusConsoleProps> = ({
                 SLOT {currentSlotIndex + 1} OF {program.slots.length}
               </span>
               <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-slate-100 truncate max-w-[80vw]">
-                {currentSlot?.title || 'Pre-Service Standby'}
+                {currentSlot?.title || 'Active Slot'}
               </h2>
             </div>
 
@@ -177,7 +232,8 @@ export const ZenFocusConsole: React.FC<ZenFocusConsoleProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => onNudge(-1)}
-            className="flex items-center gap-1.5 px-4 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-slate-300 font-mono text-xs font-bold transition-all active:scale-95"
+            disabled={!hasSlots || isConcluded}
+            className="flex items-center gap-1.5 px-4 py-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-800 rounded-xl text-slate-300 font-mono text-xs font-bold transition-all active:scale-95"
             title="Nudge -1 Minute"
           >
             <Minus size={16} />
@@ -185,7 +241,8 @@ export const ZenFocusConsole: React.FC<ZenFocusConsoleProps> = ({
           </button>
           <button
             onClick={() => onNudge(1)}
-            className="flex items-center gap-1.5 px-4 py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-slate-300 font-mono text-xs font-bold transition-all active:scale-95"
+            disabled={!hasSlots || isConcluded}
+            className="flex items-center gap-1.5 px-4 py-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-800 rounded-xl text-slate-300 font-mono text-xs font-bold transition-all active:scale-95"
             title="Nudge +1 Minute"
           >
             <Plus size={16} />
@@ -193,7 +250,8 @@ export const ZenFocusConsole: React.FC<ZenFocusConsoleProps> = ({
           </button>
           <button
             onClick={onToggleHold}
-            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-mono text-xs font-bold transition-all active:scale-95 border ${
+            disabled={!hasSlots || isConcluded}
+            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-mono text-xs font-bold transition-all active:scale-95 border disabled:opacity-30 disabled:cursor-not-allowed ${
               program.isOnHold 
                 ? 'bg-amber-500 hover:bg-amber-600 text-black border-amber-400 animate-pulse' 
                 : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800'
@@ -203,14 +261,35 @@ export const ZenFocusConsole: React.FC<ZenFocusConsoleProps> = ({
             <Zap size={16} />
             <span>{program.isOnHold ? 'RELEASE HOLD' : 'HOLD FOR CUE'}</span>
           </button>
+
+          {/* End Event Hold to Confirm Button */}
+          {(isTimerActive || program.status === 'live') && hasSlots && !isConcluded && (
+            <div className="ml-2">
+              <HoldToConfirmButton
+                durationMs={2000}
+                onConfirm={() => {
+                  if (onRequestEndEvent) {
+                    onRequestEndEvent();
+                  } else if (onEndEvent) {
+                    onEndEvent();
+                  }
+                }}
+                label="END EVENT"
+                holdingLabel="HOLD 2S"
+                className="px-4 py-3 rounded-xl font-mono text-xs font-bold"
+                variant="danger"
+                title="Press and hold 2 seconds to conclude live event"
+              />
+            </div>
+          )}
         </div>
 
         {/* Big Center Transport Controls */}
         <div className="flex items-center gap-3">
           <button
             onClick={onPrev}
-            disabled={currentSlotIndex <= 0}
-            className="p-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 border border-slate-800 text-slate-300 rounded-2xl transition-all active:scale-95"
+            disabled={!hasSlots || currentSlotIndex <= 0 || isConcluded}
+            className="p-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-800 text-slate-300 rounded-2xl transition-all active:scale-95"
             title="Previous Slot (Left Arrow)"
           >
             <SkipBack size={24} />
@@ -218,21 +297,22 @@ export const ZenFocusConsole: React.FC<ZenFocusConsoleProps> = ({
 
           <button
             onClick={onToggleTimer}
-            className={`flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-mono font-bold text-sm tracking-wider uppercase transition-all shadow-xl active:scale-95 ${
+            disabled={!hasSlots || isConcluded}
+            className={`flex items-center justify-center gap-3 px-8 py-4 rounded-2xl font-mono font-bold text-sm tracking-wider uppercase transition-all shadow-xl active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
               isTimerActive 
                 ? 'bg-amber-500 hover:bg-amber-400 text-black shadow-amber-500/20' 
                 : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20'
             }`}
-            title="Play / Pause Timer (Space)"
+            title={!hasSlots ? 'Add slots to event before starting' : 'Play / Pause Timer (Space)'}
           >
             {isTimerActive ? <Pause size={22} fill="currentColor" /> : <Play size={22} fill="currentColor" />}
-            <span>{isTimerActive ? 'PAUSE CLOCK' : 'START TIMER'}</span>
+            <span>{!hasSlots ? 'NO SLOTS' : isTimerActive ? 'PAUSE CLOCK' : 'START TIMER'}</span>
           </button>
 
           <button
             onClick={onNext}
-            disabled={currentSlotIndex >= program.slots.length - 1}
-            className="p-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 border border-slate-800 text-slate-300 rounded-2xl transition-all active:scale-95"
+            disabled={!hasSlots || currentSlotIndex >= program.slots.length - 1 || isConcluded}
+            className="p-4 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed border border-slate-800 text-slate-300 rounded-2xl transition-all active:scale-95"
             title="Next Slot (Right Arrow)"
           >
             <SkipForward size={24} />

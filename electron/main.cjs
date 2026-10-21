@@ -14,6 +14,7 @@ let flightBridgeWindow = null;
 const secondaryWindows = {};
 let powerBlockerId = null;
 let lastTimerStatePayload = null;
+let lastStageMessagePayload = null;
 
 function getDeterministicWindowTitle(urlStr = '', winKey = '') {
   const lower = `${urlStr} ${winKey}`.toLowerCase();
@@ -364,6 +365,13 @@ ipcMain.handle('open-target-screen', async (event, { url, screenIndex, windowId 
       if (lastTimerStatePayload && !win.isDestroyed()) {
         try {
           win.webContents.send('timer-state-push', lastTimerStatePayload);
+        } catch (e) {}
+      }
+      if (lastStageMessagePayload && !win.isDestroyed()) {
+        try {
+          if (!lastStageMessagePayload.expiresAt || lastStageMessagePayload.expiresAt > Date.now()) {
+            win.webContents.send('stage-message-push', lastStageMessagePayload);
+          }
         } catch (e) {}
       }
     });
@@ -767,6 +775,35 @@ ipcMain.on('timer-control-relay', (event, payload) => {
       console.warn('[Kairon Main] Failed to relay timer control to mainWindow:', e);
     }
   }
+});
+
+// IPC: Stage Cue Message relay across all Electron BrowserWindows
+ipcMain.on('stage-message-relay', (event, payload) => {
+  lastStageMessagePayload = payload;
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && event.sender !== mainWindow.webContents) {
+    try {
+      mainWindow.webContents.send('stage-message-push', payload);
+    } catch {}
+  }
+  Object.values(secondaryWindows).forEach((win) => {
+    if (win && !win.isDestroyed() && win.webContents && event.sender !== win.webContents) {
+      try {
+        win.webContents.send('stage-message-push', payload);
+      } catch {}
+    }
+  });
+  if (flightBridgeWindow && !flightBridgeWindow.isDestroyed() && flightBridgeWindow.webContents && event.sender !== flightBridgeWindow.webContents) {
+    try {
+      flightBridgeWindow.webContents.send('stage-message-push', payload);
+    } catch {}
+  }
+});
+
+ipcMain.handle('get-last-stage-message', () => {
+  if (lastStageMessagePayload && lastStageMessagePayload.expiresAt && lastStageMessagePayload.expiresAt <= Date.now()) {
+    lastStageMessagePayload = null;
+  }
+  return lastStageMessagePayload;
 });
 
 // IPC: Direct vector PDF generation and disk export via webContents.printToPDF

@@ -126,15 +126,15 @@ export const StudioMenuBar: React.FC<StudioMenuBarProps> = ({
     <button
       type="button"
       onClick={() => runAction(onClick)}
-      className="w-full px-3 py-1.5 text-left flex items-center justify-between gap-4 text-xs font-mono text-slate-700 dark:text-[#E1E4EA] hover:bg-[#0EA5E9]/15 hover:text-[#0EA5E9] rounded transition-colors"
+      className="w-full px-3 py-1.5 text-left flex items-center justify-between gap-6 text-xs font-mono text-slate-700 dark:text-[#E1E4EA] hover:bg-[#0EA5E9]/15 hover:text-[#0EA5E9] rounded transition-colors whitespace-nowrap"
     >
-      <span className="flex items-center gap-2 truncate">
-        {Icon ? <Icon size={13} className="text-slate-400 dark:text-[#8A93A4] shrink-0" /> : <span className="w-3.5" />}
-        <span className="truncate">{label}</span>
+      <span className="flex items-center gap-2.5 min-w-0">
+        {Icon ? <Icon size={13} className="text-slate-400 dark:text-[#8A93A4] shrink-0" /> : <span className="w-3.5 shrink-0" />}
+        <span className="whitespace-nowrap">{label}</span>
       </span>
-      <span className="flex items-center gap-1.5 shrink-0">
-        {active && <Check size={12} className="text-[#10B981]" />}
-        {shortcut && <span className="text-[10px] text-slate-400 dark:text-[#6A7382]">{shortcut}</span>}
+      <span className="flex items-center gap-1.5 shrink-0 ml-auto">
+        {active && <Check size={12} className="text-[#10B981] shrink-0" />}
+        {shortcut && <span className="text-[10px] text-slate-400 dark:text-[#6A7382] font-medium tracking-tight shrink-0">{shortcut}</span>}
       </span>
     </button>
   );
@@ -182,7 +182,7 @@ export const StudioMenuBar: React.FC<StudioMenuBarProps> = ({
             </button>
 
             {openMenu === m.key && (
-              <div className="absolute left-0 top-full mt-1 w-64 bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#2D333F] rounded-lg p-1.5 shadow-2xl z-[110] animate-in fade-in duration-100">
+              <div className="absolute left-0 top-full mt-1 min-w-[280px] w-max max-w-[420px] bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#2D333F] rounded-lg p-1.5 shadow-2xl z-[110] animate-in fade-in duration-100">
                 {m.key === 'file' && (
                   <>
                     <MenuItem icon={Plus} label="New Event Rundown" shortcut="Alt+N" onClick={onCreateNewEvent} />

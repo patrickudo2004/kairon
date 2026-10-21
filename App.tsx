@@ -567,7 +567,46 @@ const AppContent: React.FC = () => {
     }
   }, [activeOrgId]);
 
-    // Startup storage hygiene: cleanse contaminated test flags and stale ghost timers
+  // Master Live Session: Background persistence for on-air services across workspace transitions
+  const [masterLiveSession, setMasterLiveSession] = useState<{
+    programId: string;
+    orgId: string | null;
+    orgName?: string;
+    isLocalFolder: boolean;
+    timerStartTimestamp: number | null;
+    currentSlotIndex: number;
+    isTimerActive: boolean;
+    secondsElapsed: number;
+    lastUpdated: number;
+    program: Program;
+  } | null>(() => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const raw = localStorage.getItem('kairon_master_live_session');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const syncMasterSession = () => {
+      try {
+        const raw = localStorage.getItem('kairon_master_live_session');
+        setMasterLiveSession(raw ? JSON.parse(raw) : null);
+      } catch {
+        setMasterLiveSession(null);
+      }
+    };
+    window.addEventListener('storage', syncMasterSession);
+    window.addEventListener('kairon_master_session_changed', syncMasterSession);
+    return () => {
+      window.removeEventListener('storage', syncMasterSession);
+      window.removeEventListener('kairon_master_session_changed', syncMasterSession);
+    };
+  }, []);
+
+  // Startup storage hygiene: cleanse contaminated test flags and stale ghost timers
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
@@ -587,24 +626,82 @@ const AppContent: React.FC = () => {
     } catch {}
   }, []);
 
-  // Workspace Switch Isolation: Reset active program and timer state when switching workspaces
+  // Workspace Switch Isolation: Reset active program and timer state when switching workspaces,
+  // BUT PRESERVE live events (Master Live Session) so switching orgs/views never kills an ON-AIR service!
   const prevOrgIdRef = React.useRef<string | null>(activeOrgId);
   useEffect(() => {
     if (prevOrgIdRef.current !== null && prevOrgIdRef.current !== activeOrgId) {
-      setProgram(getInitialProgram());
-      setIsTimerActive(false);
-      setTimerStartTimestamp(null);
-      setSecondsElapsed(0);
-      setCurrentSlotIndex(0);
-      setSelectedLiveId(null);
-      if (searchParams.has('id')) {
-        const next = new URLSearchParams(searchParams);
-        next.delete('id');
-        setSearchParams(next, { replace: true });
+      // Check if the session we are leaving is running or live using stable refs
+      const currentProg = programRef.current;
+      const currentTimerState = timerStateRef.current;
+      const wasLive = currentTimerState.isTimerActive || currentProg.status === 'live';
+      const isLocal = Boolean(activeOrg?.isLocalFolder || String(prevOrgIdRef.current).startsWith('local-folder-'));
+
+      if (wasLive && currentProg.slots && currentProg.slots.length > 0) {
+        const liveSnapshot = {
+          programId: currentProg.id,
+          orgId: prevOrgIdRef.current,
+          orgName: activeOrg?.name || (isLocal ? 'Local Workspace' : 'Previous Workspace'),
+          isLocalFolder: isLocal,
+          timerStartTimestamp: currentTimerState.timerStartTimestamp,
+          currentSlotIndex: currentTimerState.currentSlotIndex,
+          isTimerActive: currentTimerState.isTimerActive,
+          secondsElapsed: currentTimerState.secondsElapsed,
+          lastUpdated: Date.now(),
+          program: currentProg,
+        };
+        try {
+          localStorage.setItem('kairon_master_live_session', JSON.stringify(liveSnapshot));
+          setMasterLiveSession(liveSnapshot);
+          window.dispatchEvent(new Event('kairon_master_session_changed'));
+        } catch {}
+      }
+
+      // Check if the NEW workspace we are entering is the one with the running master live session!
+      let restoredFromMaster = false;
+      try {
+        const rawMaster = localStorage.getItem('kairon_master_live_session');
+        if (rawMaster) {
+          const master = JSON.parse(rawMaster);
+          if (master && master.orgId === activeOrgId && master.program) {
+            const wallClockElapsed = (master.isTimerActive && master.timerStartTimestamp)
+              ? Math.floor((Date.now() - master.timerStartTimestamp) / 1000)
+              : master.secondsElapsed;
+            
+            setProgram({
+              ...master.program,
+              status: 'live',
+              currentSlotIndex: master.currentSlotIndex,
+              isTimerActive: master.isTimerActive,
+              timerStartTimestamp: master.timerStartTimestamp,
+              secondsElapsed: wallClockElapsed,
+            });
+            setCurrentSlotIndex(master.currentSlotIndex);
+            setSecondsElapsed(wallClockElapsed);
+            setIsTimerActive(master.isTimerActive);
+            setTimerStartTimestamp(master.timerStartTimestamp);
+            setSelectedLiveId(master.programId);
+            restoredFromMaster = true;
+          }
+        }
+      } catch {}
+
+      if (!restoredFromMaster) {
+        setProgram(getInitialProgram());
+        setIsTimerActive(false);
+        setTimerStartTimestamp(null);
+        setSecondsElapsed(0);
+        setCurrentSlotIndex(0);
+        setSelectedLiveId(null);
+        if (searchParams.has('id')) {
+          const next = new URLSearchParams(searchParams);
+          next.delete('id');
+          setSearchParams(next, { replace: true });
+        }
       }
     }
     prevOrgIdRef.current = activeOrgId;
-  }, [activeOrgId, searchParams, setSearchParams]);
+  }, [activeOrgId, searchParams, setSearchParams, activeOrg]);
 
   // --- Permissions & Membership ---
   const isLocalFolderWorkspace = Boolean(activeOrg?.isLocalFolder || String(activeOrgId).startsWith('local-folder-'));
@@ -1167,23 +1264,29 @@ const AppContent: React.FC = () => {
         }
       }
       if (displayProgram) {
-        const liveDisplay = {
-          ...displayProgram,
-          currentSlotIndex: displayCurrentSlotIndex,
-          isTimerActive: displayIsTimerActive,
-          timerStartTimestamp: displayTimerStartTimestamp,
-          secondsElapsed: displaySecondsElapsed,
-          status: (displayIsTimerActive || displayProgram.status === 'live') ? 'live' : displayProgram.status,
-        };
-        const serializedDisplay = JSON.stringify(liveDisplay);
-        localStorage.setItem('kairon_offline_cache_live', serializedDisplay);
-        if (displayProgram.id) {
-          localStorage.setItem(`kairon_offline_cache_${displayProgram.id}`, serializedDisplay);
-          localStorage.setItem(`kairon_offline_cache_${displayProgram.id.replace(/^local-/, '')}`, serializedDisplay);
-          localStorage.setItem(`kairon_offline_cache_${displayProgram.id}_prompter`, serializedDisplay);
-        }
-        if (displayProgram.slug) {
-          localStorage.setItem(`kairon_offline_cache_${displayProgram.slug.replace(/^local-/, '')}`, serializedDisplay);
+        const isLiveNow = (displayIsTimerActive || displayProgram.status === 'live');
+        // Safety: Do not overwrite kairon_offline_cache_live with an empty draft if there is a running master live session in another workspace!
+        const rawMaster = localStorage.getItem('kairon_master_live_session');
+        const hasExternalMasterLive = rawMaster && !isLiveNow;
+        if (!hasExternalMasterLive) {
+          const liveDisplay = {
+            ...displayProgram,
+            currentSlotIndex: displayCurrentSlotIndex,
+            isTimerActive: displayIsTimerActive,
+            timerStartTimestamp: displayTimerStartTimestamp,
+            secondsElapsed: displaySecondsElapsed,
+            status: isLiveNow ? 'live' : displayProgram.status,
+          };
+          const serializedDisplay = JSON.stringify(liveDisplay);
+          localStorage.setItem('kairon_offline_cache_live', serializedDisplay);
+          if (displayProgram.id) {
+            localStorage.setItem(`kairon_offline_cache_${displayProgram.id}`, serializedDisplay);
+            localStorage.setItem(`kairon_offline_cache_${displayProgram.id.replace(/^local-/, '')}`, serializedDisplay);
+            localStorage.setItem(`kairon_offline_cache_${displayProgram.id}_prompter`, serializedDisplay);
+          }
+          if (displayProgram.slug) {
+            localStorage.setItem(`kairon_offline_cache_${displayProgram.slug.replace(/^local-/, '')}`, serializedDisplay);
+          }
         }
       }
     } catch (err) {
@@ -1747,6 +1850,9 @@ const AppContent: React.FC = () => {
       localStorage.setItem(`kairon_offline_cache_${cleanId}`, serialized);
       localStorage.setItem('kairon_offline_cache_live', serialized);
       localStorage.setItem('kairon_program', serialized);
+      localStorage.removeItem('kairon_master_live_session');
+      setMasterLiveSession(null);
+      window.dispatchEvent(new Event('kairon_master_session_changed'));
     } catch (e) {
       console.warn("Failed to update offline cache on end event:", e);
     }
@@ -1918,19 +2024,44 @@ const AppContent: React.FC = () => {
     setProgram(normalizedProgram);
     setSaveStatus('saved');
 
+    // Safety: Check if this program matches the running master live session
+    let restoredFromMaster = false;
+    try {
+      const rawMaster = localStorage.getItem('kairon_master_live_session');
+      if (rawMaster) {
+        const master = JSON.parse(rawMaster);
+        const matchesId = master && (
+          master.programId === normalizedProgram.id ||
+          String(master.programId).replace(/^local-/, '') === String(normalizedProgram.id).replace(/^local-/, '')
+        );
+        if (matchesId && master.isTimerActive) {
+          const wallClockElapsed = master.timerStartTimestamp
+            ? Math.floor((Date.now() - master.timerStartTimestamp) / 1000)
+            : master.secondsElapsed;
+          setCurrentSlotIndex(master.currentSlotIndex || 0);
+          setSecondsElapsed(wallClockElapsed);
+          setIsTimerActive(master.isTimerActive);
+          setTimerStartTimestamp(master.timerStartTimestamp);
+          restoredFromMaster = true;
+        }
+      }
+    } catch {}
+
     // Safety: Only reset local viewer state if we are NOT loading the live program.
     // If loading the live program, we want to keep the current running pointers.
-    if (globalLiveProgram?.id !== normalizedProgram.id) {
-      setCurrentSlotIndex(0);
-      setSecondsElapsed(0);
-      setIsTimerActive(false);
-      setTimerStartTimestamp(null);
-    } else {
-      // Even if loading the same program, ensure it's synced to the global state
-      setCurrentSlotIndex(globalLiveProgram.currentSlotIndex || 0);
-      setSecondsElapsed(globalLiveProgram.secondsElapsed || 0);
-      setIsTimerActive(globalLiveProgram.isTimerActive || false);
-      setTimerStartTimestamp(globalLiveProgram.timerStartTimestamp || null);
+    if (!restoredFromMaster) {
+      if (globalLiveProgram?.id !== normalizedProgram.id) {
+        setCurrentSlotIndex(0);
+        setSecondsElapsed(0);
+        setIsTimerActive(false);
+        setTimerStartTimestamp(null);
+      } else {
+        // Even if loading the same program, ensure it's synced to the global state
+        setCurrentSlotIndex(globalLiveProgram.currentSlotIndex || 0);
+        setSecondsElapsed(globalLiveProgram.secondsElapsed || 0);
+        setIsTimerActive(globalLiveProgram.isTimerActive || false);
+        setTimerStartTimestamp(globalLiveProgram.timerStartTimestamp || null);
+      }
     }
 
     // Clear persisted state for safety when explicitly switching/loading
@@ -3095,6 +3226,8 @@ const AppContent: React.FC = () => {
         onNudge={(mins) => handleNudge(mins, displayProgram.id)}
         onToggleHold={() => handleToggleHold(undefined, displayProgram.id)}
         onExitZen={() => setZenMode(false)}
+        onEndEvent={() => handleEndEvent(displayProgram.id)}
+        onRequestEndEvent={() => requestEndEventConfirmation(displayProgram.id)}
       />
     );
   }
@@ -3187,6 +3320,25 @@ const AppContent: React.FC = () => {
                     <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[10px] font-mono font-bold text-[#F59E0B] shrink-0">
                       STANDBY
                     </span>
+                  )}
+                  {/* Master Live Session External Alert (Visible when navigating another workspace) */}
+                  {masterLiveSession && masterLiveSession.orgId !== activeOrgId && masterLiveSession.isTimerActive && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (masterLiveSession.orgId) {
+                          setActiveOrgId(masterLiveSession.orgId);
+                        }
+                        loadProgram(masterLiveSession.program);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#EF4444]/15 border border-[#EF4444]/40 hover:bg-[#EF4444]/25 text-[#EF4444] text-[11px] font-mono font-bold transition-all shadow-sm shrink-0"
+                      title="Click to jump back to the active live event"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-[#EF4444] animate-ping shrink-0" />
+                      <span className="hidden sm:inline font-black">🔴 ON AIR:</span>
+                      <span className="truncate max-w-[120px] sm:max-w-[160px]">{masterLiveSession.program.title}</span>
+                      <span className="underline ml-0.5">RETURN</span>
+                    </button>
                   )}
                 </div>
               </div>
