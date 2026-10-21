@@ -197,57 +197,49 @@ export const FlightBridgeStandaloneView: React.FC = () => {
     }, [mergeIncomingData]);
 
     // Dispatcher for timer controls back to the controller window
+    // In Electron, strictly use IPC; only fallback to BroadcastChannel in pure web browsers to prevent double-firing!
     const sendControl = useCallback((action: string, payload: Record<string, any> = {}) => {
         const msg = { action, ...payload };
         const electron = typeof window !== 'undefined' ? ((window as any).electron || (window as any).electronAPI) : null;
         if (electron && typeof electron.sendTimerControl === 'function') {
             electron.sendTimerControl(msg);
+        } else {
+            try {
+                const controlChan = new BroadcastChannel('kairon_control_sync');
+                controlChan.postMessage({ type: 'TIMER_CONTROL', ...msg });
+                controlChan.close();
+            } catch {}
         }
-        try {
-            const controlChan = new BroadcastChannel('kairon_control_sync');
-            controlChan.postMessage({ type: 'TIMER_CONTROL', ...msg });
-            controlChan.close();
-        } catch {}
     }, []);
 
-    // Control Handlers
+    const effectiveProgram = localProgram || programFromConvex;
+
+    // Control Handlers — MainWindow is the single authoritative source of truth.
+    // Flight Bridge dispatches actions cleanly to the controller without conflicting local state mutation.
     const handleToggleTimer = useCallback((target?: Program, force?: boolean, seconds?: number) => {
-        const nextState = force !== undefined ? force : !isTimerActive;
-        setIsTimerActive(nextState);
-        if (nextState) {
-            setTimerStartTimestamp(Date.now() - ((seconds ?? calculatedElapsed) * 1000));
-        } else {
-            setStoredSecondsElapsed(seconds ?? calculatedElapsed);
-            setTimerStartTimestamp(null);
-        }
-        sendControl('TOGGLE_TIMER', { force: nextState, seconds: seconds ?? calculatedElapsed });
-    }, [isTimerActive, calculatedElapsed, sendControl]);
+        sendControl('TOGGLE_TIMER', { force, seconds, targetId: effectiveProgram?.id });
+    }, [effectiveProgram?.id, sendControl]);
 
     const handleToggleHold = useCallback((nextState?: boolean, targetId?: string) => {
-        setLocalProgram(prev => prev ? { ...prev, isOnHold: nextState ?? !prev.isOnHold } : prev);
-        sendControl('HOLD', { nextState, targetId });
-    }, [sendControl]);
+        sendControl('HOLD', { nextState, targetId: targetId || effectiveProgram?.id });
+    }, [effectiveProgram?.id, sendControl]);
 
     const handleNext = useCallback((targetId?: string) => {
-        setCurrentSlotIndex(prev => prev + 1);
-        sendControl('NEXT', { targetId });
-    }, [sendControl]);
+        sendControl('NEXT', { targetId: targetId || effectiveProgram?.id });
+    }, [effectiveProgram?.id, sendControl]);
 
     const handlePrev = useCallback((targetId?: string) => {
-        setCurrentSlotIndex(prev => Math.max(0, prev - 1));
-        sendControl('PREV', { targetId });
-    }, [sendControl]);
+        sendControl('PREV', { targetId: targetId || effectiveProgram?.id });
+    }, [effectiveProgram?.id, sendControl]);
 
     const handleNudge = useCallback((minutes: number) => {
-        sendControl('NUDGE', { minutes });
-    }, [sendControl]);
+        sendControl('NUDGE', { minutes, targetId: effectiveProgram?.id });
+    }, [effectiveProgram?.id, sendControl]);
 
     const [isEndModalOpen, setIsEndModalOpen] = useState(false);
     const handleEndEvent = useCallback((targetId?: string) => {
-        setIsTimerActive(false);
-        setTimerStartTimestamp(null);
-        sendControl('END_EVENT', { targetId });
-    }, [sendControl]);
+        sendControl('END_EVENT', { targetId: targetId || effectiveProgram?.id });
+    }, [effectiveProgram?.id, sendControl]);
 
     const handleRequestEndEvent = useCallback(() => {
         setIsEndModalOpen(true);
@@ -255,8 +247,8 @@ export const FlightBridgeStandaloneView: React.FC = () => {
 
     const handleToggleManualMode = useCallback(() => {
         setLocalProgram(prev => prev ? { ...prev, isManualMode: !prev.isManualMode } : prev);
-        sendControl('TOGGLE_MANUAL', {});
-    }, [sendControl]);
+        sendControl('TOGGLE_MANUAL', { targetId: effectiveProgram?.id });
+    }, [effectiveProgram?.id, sendControl]);
 
     const handleCloseWindow = () => {
         const electron = typeof window !== 'undefined' ? ((window as any).electron || (window as any).electronAPI) : null;
@@ -266,8 +258,6 @@ export const FlightBridgeStandaloneView: React.FC = () => {
             window.close();
         }
     };
-
-    const effectiveProgram = localProgram || programFromConvex;
 
     if (!effectiveProgram) {
         return (

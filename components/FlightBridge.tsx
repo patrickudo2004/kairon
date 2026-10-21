@@ -383,7 +383,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
 
                     {/* Master Play / Pause Button with High Contrast in Both Modes */}
                     <button
-                        onClick={() => onToggleTimer(program, false, secondsElapsed)}
+                        onClick={() => onToggleTimer(program, undefined, secondsElapsed)}
                         className={`w-14 h-14 rounded-xl flex items-center justify-center transition-all shadow-md active:scale-95 ${
                             isTimerActive
                                 ? (isDarkMode 

@@ -606,12 +606,13 @@ ipcMain.handle('get-last-timer-state', () => {
 
 // Helper: Create detached native Flight Bridge window
 function createFlightBridgeWindow(programId) {
+  const effectiveId = programId || lastTimerStatePayload?.id || lastTimerStatePayload?.program?.id;
   if (flightBridgeWindow && !flightBridgeWindow.isDestroyed()) {
     if (flightBridgeWindow.isMinimized()) flightBridgeWindow.restore();
     flightBridgeWindow.show();
     flightBridgeWindow.focus();
-    if (programId) {
-      loadRouteIntoWindow(flightBridgeWindow, `/bridge?id=${encodeURIComponent(programId)}`);
+    if (effectiveId) {
+      loadRouteIntoWindow(flightBridgeWindow, `/bridge?id=${encodeURIComponent(effectiveId)}`);
     }
     return { success: true, open: true };
   }
@@ -660,7 +661,7 @@ function createFlightBridgeWindow(programId) {
     }
   });
 
-  loadRouteIntoWindow(flightBridgeWindow, programId ? `/bridge?id=${encodeURIComponent(programId)}` : '/bridge');
+  loadRouteIntoWindow(flightBridgeWindow, effectiveId ? `/bridge?id=${encodeURIComponent(effectiveId)}` : '/bridge');
   return { success: true, open: true };
 }
 

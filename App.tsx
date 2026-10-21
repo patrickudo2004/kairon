@@ -283,6 +283,8 @@ const AppContent: React.FC = () => {
   const { screens, openOnTargetScreen } = useScreenManagement();
   const queryClient = useQueryClient();
   const recentlyToggledRef = React.useRef<boolean>(false);
+  const lastControlActionTimestampRef = React.useRef<number>(0);
+  const lastControlActionKeyRef = React.useRef<string>('');
   const lastAdvancedIndexRef = React.useRef<number>(-1);
   const lastProcessedIndexRef = React.useRef<number>(-1);
   const [displayStatuses, setDisplayStatuses] = useState<Record<string, { isFullscreen: boolean; isOnSecondary: boolean; timestamp: number; isDarkMode?: boolean }>>({});
@@ -1595,13 +1597,38 @@ const AppContent: React.FC = () => {
     }) => {
       const { id, ...timerState } = state;
 
+      // Keep offline cache synchronized with timer mutations
+      let updatedProgram: any = null;
+      try {
+        const cleanId = id.replace(/^local-/, '');
+        const cachedRaw = localStorage.getItem(`kairon_offline_cache_${id}`) ||
+                          localStorage.getItem(`kairon_offline_cache_${cleanId}`) ||
+                          localStorage.getItem('kairon_offline_cache_live') ||
+                          localStorage.getItem('kairon_program');
+        if (cachedRaw) {
+          try {
+            const cached = JSON.parse(cachedRaw);
+            updatedProgram = { ...cached, ...timerState, id };
+            const serialized = JSON.stringify(updatedProgram);
+            localStorage.setItem(`kairon_offline_cache_${id}`, serialized);
+            localStorage.setItem(`kairon_offline_cache_${cleanId}`, serialized);
+            localStorage.setItem('kairon_offline_cache_live', serialized);
+          } catch (parseErr) {}
+        }
+      } catch (err) {
+        // silent
+      }
+
+      const fullPayload = {
+        id,
+        program: updatedProgram,
+        ...timerState
+      };
+
       // Broadcast local offline state sync across tabs immediately
       try {
         const channel = new BroadcastChannel('kairon_offline_sync');
-        channel.postMessage({
-          id,
-          ...timerState
-        });
+        channel.postMessage(fullPayload);
         channel.close();
       } catch (err) {
         console.error("Local BroadcastChannel sync failed:", err);
@@ -1612,40 +1639,10 @@ const AppContent: React.FC = () => {
       try {
         const electronApi = (window as any).electron || (window as any).electronAPI;
         if (electronApi?.sendTimerState) {
-          electronApi.sendTimerState({ id, ...timerState });
+          electronApi.sendTimerState(fullPayload);
         }
       } catch (err) {
         console.error("Electron timer-state relay failed:", err);
-      }
-
-      // Keep offline cache synchronized with timer mutations
-      try {
-        const cleanId = id.replace(/^local-/, '');
-        const cachedRaw = localStorage.getItem(`kairon_offline_cache_${id}`) ||
-                          localStorage.getItem(`kairon_offline_cache_${cleanId}`) ||
-                          localStorage.getItem('kairon_offline_cache_live') ||
-                          localStorage.getItem('kairon_program');
-        if (cachedRaw) {
-          const cached = JSON.parse(cachedRaw);
-          const updated = { ...cached, ...timerState, id };
-          const serialized = JSON.stringify(updated);
-          localStorage.setItem(`kairon_offline_cache_${id}`, serialized);
-          localStorage.setItem(`kairon_offline_cache_${cleanId}`, serialized);
-          localStorage.setItem('kairon_offline_cache_live', serialized);
-
-          // Broadcast full updated program payload across renderer and Electron secondary displays
-          try {
-            const chan = new BroadcastChannel('kairon_offline_sync');
-            chan.postMessage({ id, program: updated, ...timerState });
-            chan.close();
-            const electronApi = (window as any).electron || (window as any).electronAPI;
-            if (electronApi?.sendTimerState) {
-              electronApi.sendTimerState({ id, program: updated, ...timerState });
-            }
-          } catch {}
-        }
-      } catch (err) {
-        // silent
       }
 
 
@@ -2950,6 +2947,13 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const handleControlAction = (msg: any) => {
       if (!msg || !msg.action) return;
+      const now = Date.now();
+      const actionKey = `${msg.action}-${msg.targetId || ''}-${msg.minutes || ''}-${msg.seconds || ''}-${msg.nextState !== undefined ? msg.nextState : ''}`;
+      if (now - lastControlActionTimestampRef.current < 250 && lastControlActionKeyRef.current === actionKey) {
+        return; // Suppress duplicate execution across IPC and BroadcastChannel
+      }
+      lastControlActionTimestampRef.current = now;
+      lastControlActionKeyRef.current = actionKey;
       const targetProg = displayProgram;
       switch (msg.action) {
         case 'TOGGLE_TIMER':
@@ -3063,38 +3067,6 @@ const AppContent: React.FC = () => {
         </Routes>
       </div>
     );
-  }
-
-  // Special Route Handling: TV Mode, Stage, Prompter, Crew HUD, Broadcast Overlay, Public
-  // We render this exclusively, bypassing the main application shell (header, footer, etc.)
-  // Support both standard BrowserRouter paths (/stage) and compiled Electron hash paths (#stage, #/stage)
-  const hrefLower = (typeof window !== 'undefined' ? window.location.href : '').toLowerCase();
-  const pathLower = (location.pathname || '').toLowerCase();
-  const hashLower = (location.hash || '').toLowerCase();
-  const rawHash = hashLower.replace(/^#\/?/, '').split('?')[0];
-  const rawPath = pathLower.replace(/^\//, '').split('?')[0];
-  const currentRouteToken = rawHash || rawPath;
-
-  const isTvRoute = currentRouteToken === 'tv' || pathLower === '/tv' || /[\/#]tv(\b|\?|\/)/i.test(hrefLower);
-  const isStageRoute = currentRouteToken === 'stage' || pathLower === '/stage' || /[\/#]stage(\b|\?|\/)/i.test(hrefLower);
-  const isPrompterRoute = currentRouteToken === 'prompter' || pathLower === '/prompter' || /[\/#]prompter(\b|\?|\/)/i.test(hrefLower);
-  const isOverlayRoute = currentRouteToken === 'overlay' || pathLower === '/overlay' || /[\/#]overlay(\b|\?|\/)/i.test(hrefLower);
-  const isCrewRoute = currentRouteToken === 'crew' || pathLower === '/crew' || /[\/#]crew(\b|\?|\/)/i.test(hrefLower);
-  const isBridgeRoute = currentRouteToken === 'bridge' || pathLower === '/bridge' || /[\/#]bridge(\b|\?|\/)/i.test(hrefLower);
-  const isPortalRoute = currentRouteToken === 'public' || currentRouteToken === 'portal' || pathLower === '/public' || pathLower === '/portal' || /[\/#](public|portal)(\b|\?|\/)/i.test(hrefLower);
-
-  if (isTvRoute) return <TVWrapper />;
-  if (isStageRoute) return <StageWrapper />;
-  if (isPrompterRoute) return <PrompterWrapper />;
-  if (isOverlayRoute) return <BroadcastOverlayView />;
-  if (isCrewRoute) return <CrewHUD />;
-  if (isPortalRoute) return <PublicPortal />;
-  if (isBridgeRoute) return <FlightBridgeStandaloneView />;
-
-  // Desktop app browser-auth approval page
-  // This must be accessible without authentication — the user authorises the desktop session here.
-  if (location.pathname === '/desktop-auth' || currentRouteToken === 'desktop-auth' || searchParams.has('desktopCode')) {
-    return <DesktopAuthApproval />;
   }
 
   // Zen / Focus Mode: Fullscreen distraction-free operator console
@@ -3719,6 +3691,8 @@ const AppContent: React.FC = () => {
             editorProgram={program}
             currentSlotIndex={displayCurrentSlotIndex}
             isTimerActive={displayIsTimerActive}
+            timerStartTimestamp={displayTimerStartTimestamp}
+            secondsElapsed={headerElapsed}
             selectedSlotId={selectedSlotId}
             onSelectSlotId={setSelectedSlotId}
             isReadOnly={isReadOnly}
@@ -4067,13 +4041,45 @@ class AppErrorBoundary extends Component<{ children: React.ReactNode }, ErrorBou
 
 const queryClient = new QueryClient();
 
+const StandaloneDispatcher: React.FC = () => {
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const hrefLower = (typeof window !== 'undefined' ? window.location.href : '').toLowerCase();
+  const pathLower = (location.pathname || '').toLowerCase();
+  const hashLower = (location.hash || '').toLowerCase();
+  const rawHash = hashLower.replace(/^#\/?/, '').split('?')[0];
+  const rawPath = pathLower.replace(/^\//, '').split('?')[0];
+  const currentRouteToken = rawHash || rawPath;
+
+  const isTvRoute = currentRouteToken === 'tv' || pathLower === '/tv' || /[\/#]tv(\b|\?|\/)/i.test(hrefLower);
+  const isStageRoute = currentRouteToken === 'stage' || pathLower === '/stage' || /[\/#]stage(\b|\?|\/)/i.test(hrefLower);
+  const isPrompterRoute = currentRouteToken === 'prompter' || pathLower === '/prompter' || /[\/#]prompter(\b|\?|\/)/i.test(hrefLower);
+  const isOverlayRoute = currentRouteToken === 'overlay' || pathLower === '/overlay' || /[\/#]overlay(\b|\?|\/)/i.test(hrefLower);
+  const isCrewRoute = currentRouteToken === 'crew' || pathLower === '/crew' || /[\/#]crew(\b|\?|\/)/i.test(hrefLower);
+  const isBridgeRoute = currentRouteToken === 'bridge' || pathLower === '/bridge' || /[\/#]bridge(\b|\?|\/)/i.test(hrefLower);
+  const isPortalRoute = currentRouteToken === 'public' || currentRouteToken === 'portal' || pathLower === '/public' || pathLower === '/portal' || /[\/#](public|portal)(\b|\?|\/)/i.test(hrefLower);
+  const isDesktopAuthRoute = location.pathname === '/desktop-auth' || currentRouteToken === 'desktop-auth' || searchParams.has('desktopCode');
+
+  if (isTvRoute) return <TVWrapper />;
+  if (isStageRoute) return <StageWrapper />;
+  if (isPrompterRoute) return <PrompterWrapper />;
+  if (isOverlayRoute) return <BroadcastOverlayView />;
+  if (isCrewRoute) return <CrewHUD />;
+  if (isPortalRoute) return <PublicPortal />;
+  if (isBridgeRoute) return <FlightBridgeStandaloneView />;
+  if (isDesktopAuthRoute) return <DesktopAuthApproval />;
+
+  return <AppContent />;
+};
+
 const App: React.FC = () => {
   return (
     <ConvexAuthProvider client={convex}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AppErrorBoundary>
-            <AppContent />
+            <StandaloneDispatcher />
           </AppErrorBoundary>
         </BrowserRouter>
       </QueryClientProvider>
