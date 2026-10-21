@@ -43,6 +43,14 @@ const api = {
     ipcRenderer.on('timer-control-action', subscription);
     return () => ipcRenderer.removeListener('timer-control-action', subscription);
   },
+  // Stage cue message relay across native multi-screen displays
+  sendStageMessage: (payload) => ipcRenderer.send('stage-message-relay', payload),
+  getLastStageMessage: () => ipcRenderer.invoke('get-last-stage-message'),
+  onStageMessage: (callback) => {
+    const subscription = (event, payload) => callback(payload);
+    ipcRenderer.on('stage-message-push', subscription);
+    return () => ipcRenderer.removeListener('stage-message-push', subscription);
+  },
   // Direct vector PDF export
   savePdf: (options) => ipcRenderer.invoke('save-pdf', options),
   // Local Workspace Folder APIs

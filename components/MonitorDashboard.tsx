@@ -76,7 +76,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
     isPro = false,
     displayStatuses = {}
 }) => {
-    const { sendStageMessage, clearStageMessage } = useStageMessages(program.id);
+    const { sendStageMessage, clearStageMessage, promptMessage } = useStageMessages(program.id);
     const { isSupported: isScreenApiSupported, screens, externalScreens, hasSecondaryScreen, requestScreenAccess, openOnSecondaryScreen, openOnTargetScreen } = useScreenManagement();
 
     const [customMessage, setCustomMessage] = useState('');
@@ -257,7 +257,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
             title: 'OBS / vMix / ATEM Overlay',
             icon: Sliders,
             description: '1080p Lower-Third & Corner Timer with Alpha, Chroma Green & Luma Key.',
-            path: `/overlay?id=${program.id}&bg=black&layout=lower-third`,
+            path: `/overlay?id=${program.id}&bg=transparent&layout=lower-third`,
             badgeColor: 'text-[#0EA5E9] bg-[#0EA5E9]/10 border-[#0EA5E9]/30',
             tabId: 'overlay'
         }
@@ -568,6 +568,31 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                 <p className="text-[10px] text-slate-500 dark:text-[#8A93A4]">Instant banner overlay on pulpit & stage displays.</p>
                             </div>
                         </div>
+
+                        {/* Active Live Cue Banner Indicator */}
+                        {promptMessage && (
+                            <div className="mb-4 p-3 rounded-lg border bg-amber-500/10 border-amber-500/30 flex items-center justify-between gap-3 animate-in fade-in duration-150">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping shrink-0" />
+                                    <div className="truncate">
+                                        <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-500">
+                                            ACTIVE ON STAGE ({promptMessage.isStrobe ? 'STROBE' : 'BANNER'})
+                                        </div>
+                                        <div className="text-xs font-mono font-bold text-slate-800 dark:text-slate-100 truncate">
+                                            "{promptMessage.text}"
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => clearStageMessage()}
+                                    className="px-2.5 py-1 text-[10px] font-mono font-bold bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 rounded shrink-0 transition-colors"
+                                    title="Clear active cue immediately"
+                                >
+                                    CLEAR CUE
+                                </button>
+                            </div>
+                        )}
 
                         {/* Master Strobe Effect Switch */}
                         <div className="mb-4 bg-slate-50 dark:bg-[#090A0C] p-3 rounded-lg border border-slate-200 dark:border-[#22262E] space-y-2.5">

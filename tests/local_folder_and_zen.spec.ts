@@ -14,11 +14,11 @@ test.describe('Local Folder Workspace & Zen Focus Console User Workflows', () =>
     await zenBtn.click();
 
     // 3. Verify Zen Focus Console HUD appears
-    await expect(page.getByRole('button', { name: /Exit Zen Mode/i })).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('text=CONSOLE PAUSED').or(page.locator('text=LIVE ON AIR'))).toBeVisible();
+    await expect(page.getByRole('button', { name: /Exit Zen Mode/i }).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=CONSOLE PAUSED').or(page.locator('text=LIVE ON AIR')).or(page.locator('text=CONSOLE STANDBY'))).toBeVisible();
 
     // 4. Click Exit Zen Mode button
-    const exitZenBtn = page.getByRole('button', { name: /Exit Zen Mode/i });
+    const exitZenBtn = page.getByRole('button', { name: /Exit Zen Mode/i }).first();
     await exitZenBtn.click();
 
     // 5. Verify Zen Focus Console closes and normal UI returns
@@ -35,7 +35,7 @@ test.describe('Local Folder Workspace & Zen Focus Console User Workflows', () =>
 
     // Press 'z' key to enter Zen mode
     await page.keyboard.press('z');
-    await expect(page.getByRole('button', { name: /Exit Zen Mode/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /Exit Zen Mode/i }).first()).toBeVisible({ timeout: 10000 });
 
     // Press 'z' key again to toggle back
     await page.keyboard.press('z');

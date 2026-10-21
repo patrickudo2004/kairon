@@ -11,8 +11,9 @@ import { Radio, Clock, User, ChevronRight, AlertTriangle } from 'lucide-react';
 export const BroadcastOverlayView: React.FC = () => {
   const [searchParams] = useSearchParams();
   const programIdParam = searchParams.get('programId') || searchParams.get('id');
-  const bgMode = (searchParams.get('bg') || 'transparent').toLowerCase() as 'transparent' | 'green' | 'black';
+  const bgMode = (searchParams.get('bg') || 'transparent').toLowerCase() as 'transparent' | 'green' | 'magenta' | 'black';
   const layoutMode = (searchParams.get('layout') || 'lower-third').toLowerCase() as 'lower-third' | 'corner-timer' | 'full-bug';
+  const showCues = searchParams.get('showCues') === 'true';
 
   const rawProgram = useConvexQuery(
     api.programs.getProgramById,
@@ -21,8 +22,10 @@ export const BroadcastOverlayView: React.FC = () => {
 
   const [localFallback, setLocalFallback] = useState<Program | null>(() => {
     try {
+      const cleanParam = programIdParam?.replace(/^local-/, '');
       const cached =
         (programIdParam && localStorage.getItem(`kairon_offline_cache_${programIdParam}`)) ||
+        (cleanParam && localStorage.getItem(`kairon_offline_cache_${cleanParam}`)) ||
         (() => {
           const live = localStorage.getItem('kairon_offline_cache_live');
           if (live) {
@@ -32,7 +35,8 @@ export const BroadcastOverlayView: React.FC = () => {
             } catch {}
           }
           return null;
-        })();
+        })() ||
+        localStorage.getItem('kairon_program');
       return cached ? JSON.parse(cached) : null;
     } catch {
       return null;
@@ -96,6 +100,8 @@ export const BroadcastOverlayView: React.FC = () => {
       document.body.style.backgroundColor = 'transparent';
     } else if (bgMode === 'green') {
       document.body.style.backgroundColor = '#00FF00';
+    } else if (bgMode === 'magenta') {
+      document.body.style.backgroundColor = '#FF00FF';
     } else if (bgMode === 'black') {
       document.body.style.backgroundColor = '#000000';
     }
@@ -107,14 +113,22 @@ export const BroadcastOverlayView: React.FC = () => {
   const bgClass =
     bgMode === 'green'
       ? 'bg-[#00FF00]'
+      : bgMode === 'magenta'
+      ? 'bg-[#FF00FF]'
       : bgMode === 'black'
       ? 'bg-[#000000]'
       : 'bg-transparent';
 
+  const isChroma = bgMode === 'green' || bgMode === 'magenta';
+  const shadowClass = isChroma ? 'shadow-none' : 'shadow-2xl';
+  const panelBgClass = isChroma ? 'bg-[#090A0C]' : 'bg-[#090A0C]/95';
+  // Avoid green digits on green chroma key to prevent ATEM suppression erosion
+  const normalTimerColor = bgMode === 'green' ? 'text-[#0EA5E9]' : 'text-[#10B981]';
+
   if (!program || !currentSlot) {
     return (
       <div className={`w-screen h-screen overflow-hidden ${bgClass} flex items-end p-12 select-none font-sans`}>
-        <div className="bg-[#090A0C]/90 border border-[#22262E] rounded-lg px-5 py-3 text-white font-mono text-xs flex items-center gap-3 shadow-2xl">
+        <div className={`bg-[#090A0C] border border-[#22262E] rounded-lg px-5 py-3 text-white font-mono text-xs flex items-center gap-3 ${shadowClass}`}>
           <span className="w-2 h-2 rounded-full bg-[#F59E0B]" />
           <span>KAIRON BROADCAST OVERLAY — STANDBY</span>
         </div>
@@ -124,8 +138,8 @@ export const BroadcastOverlayView: React.FC = () => {
 
   return (
     <div className={`w-screen h-screen overflow-hidden ${bgClass} relative select-none font-sans`}>
-      {/* Stage Alert Banner Overlay (Top Center) */}
-      {promptMessage && (
+      {/* Stage Alert Banner Overlay (Top Center) - Only rendered if showCues is enabled */}
+      {promptMessage && showCues && (
         <div className="fixed top-8 left-1/2 -translate-x-1/2 z-50 max-w-4xl w-full px-8">
           <div
             className={`px-6 py-4 rounded-xl border-2 shadow-2xl flex items-center justify-center gap-3 font-mono font-bold text-xl uppercase tracking-wider ${
@@ -142,7 +156,7 @@ export const BroadcastOverlayView: React.FC = () => {
 
       {/* Layout 1: Corner Timer Bug (Top-Right) */}
       {layoutMode === 'corner-timer' && (
-        <div className="fixed top-8 right-10 flex items-center gap-3 bg-[#090A0C]/92 border border-[#22262E] rounded-xl px-5 py-3 shadow-2xl">
+        <div className={`fixed top-8 right-10 flex items-center gap-3 ${panelBgClass} border border-[#22262E] rounded-xl px-5 py-3 ${shadowClass}`}>
           <div className="flex flex-col">
             <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#8A93A4] truncate max-w-[200px]">
               {currentSlot.title}
@@ -162,7 +176,7 @@ export const BroadcastOverlayView: React.FC = () => {
                 ? 'text-[#EF4444]'
                 : isWarning
                 ? 'text-[#F59E0B]'
-                : 'text-[#10B981]'
+                : normalTimerColor
             }`}
           >
             {program.isOnHold ? 'HOLD' : formatDuration(timeLeft)}
@@ -173,11 +187,11 @@ export const BroadcastOverlayView: React.FC = () => {
       {/* Layout 2: Broadcast Lower-Third (Bottom-Left) */}
       {layoutMode === 'lower-third' && (
         <div className="fixed bottom-12 left-12 right-12 flex items-end justify-between pointer-events-none">
-          <div className="bg-[#090A0C]/95 border border-[#22262E] border-l-4 border-l-[#0EA5E9] rounded-r-xl shadow-2xl overflow-hidden min-w-[540px] max-w-[780px]">
+          <div className={`${panelBgClass} border border-[#22262E] border-l-4 border-l-[#0EA5E9] rounded-r-xl ${shadowClass} overflow-hidden min-w-[540px] max-w-[780px]`}>
             {/* Top Bar: Event Name & Live Status */}
             <div className="px-5 py-1.5 bg-[#121418] border-b border-[#22262E] flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-[#8A93A4]">
               <span className="flex items-center gap-2 font-bold text-white">
-                <span className={`w-2 h-2 rounded-full ${isTimerActive ? 'bg-[#10B981]' : 'bg-[#F59E0B]'}`} />
+                <span className={`w-2 h-2 rounded-full ${isTimerActive ? (bgMode === 'green' ? 'bg-[#0EA5E9]' : 'bg-[#10B981]') : 'bg-[#F59E0B]'}`} />
                 {program.title}
               </span>
               <span className="text-[#0EA5E9] font-bold">{currentSlot.type}</span>
@@ -215,7 +229,7 @@ export const BroadcastOverlayView: React.FC = () => {
                       ? 'text-[#EF4444]'
                       : isWarning
                       ? 'text-[#F59E0B]'
-                      : 'text-[#10B981]'
+                      : normalTimerColor
                   }`}
                 >
                   {program.isOnHold ? 'HOLD' : formatDuration(timeLeft)}
@@ -240,9 +254,9 @@ export const BroadcastOverlayView: React.FC = () => {
 
       {/* Layout 3: Full Bottom Broadcast Ticker Strip */}
       {layoutMode === 'full-bug' && (
-        <div className="fixed bottom-0 left-0 right-0 h-16 bg-[#090A0C]/95 border-t-2 border-[#0EA5E9] px-8 flex items-center justify-between shadow-2xl">
+        <div className={`fixed bottom-0 left-0 right-0 h-16 ${panelBgClass} border-t-2 border-[#0EA5E9] px-8 flex items-center justify-between ${shadowClass}`}>
           <div className="flex items-center gap-4 min-w-0">
-            <span className="px-2.5 py-1 rounded bg-[#10B981]/15 border border-[#10B981]/40 text-[#10B981] font-mono text-xs font-bold uppercase flex items-center gap-1.5 shrink-0">
+            <span className={`px-2.5 py-1 rounded ${bgMode === 'green' ? 'bg-[#0EA5E9]/15 border-[#0EA5E9]/40 text-[#0EA5E9]' : 'bg-[#10B981]/15 border-[#10B981]/40 text-[#10B981]'} border font-mono text-xs font-bold uppercase flex items-center gap-1.5 shrink-0`}>
               <Radio size={13} />
               LIVE
             </span>
@@ -264,7 +278,7 @@ export const BroadcastOverlayView: React.FC = () => {
             )}
             <div
               className={`px-4 py-1.5 rounded-lg bg-[#121418] border border-[#22262E] text-3xl font-mono font-black tabular-nums ${
-                isOvertime ? 'text-[#EF4444]' : isWarning ? 'text-[#F59E0B]' : 'text-[#10B981]'
+                isOvertime ? 'text-[#EF4444]' : isWarning ? 'text-[#F59E0B]' : normalTimerColor
               }`}
             >
               {program.isOnHold ? 'HOLD' : formatDuration(timeLeft)}

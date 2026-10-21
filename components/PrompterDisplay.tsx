@@ -4,6 +4,7 @@ import { Sun, Moon, Maximize, Minimize, Play, Pause, ChevronUp, ChevronDown, Che
 import { useTimerSync } from '../hooks/useTimerSync';
 import { formatDuration } from '../utils/time';
 import { useWakeLock } from '../hooks/useWakeLock';
+import { useStageMessages } from '../hooks/useStageMessages';
 
 interface PrompterDisplayProps {
     program: Program;
@@ -31,6 +32,7 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
     customTheme
 }) => {
     useWakeLock(true);
+    const { promptMessage } = useStageMessages(program?.id);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isScrolling, setIsScrolling] = useState(false);
     const [scrollSpeed, setScrollSpeed] = useState<number | 'sync'>(1); // pixels per frame, or 'sync'
@@ -351,6 +353,30 @@ export const PrompterDisplay: React.FC<PrompterDisplayProps> = ({
                     <p className="text-slate-400 font-mono text-sm uppercase tracking-widest mt-4">
                         Standby • Service paused by booth
                     </p>
+                </div>
+            )}
+
+            {/* Emergency Strobe Overlay */}
+            {promptMessage && promptMessage.isStrobe && (
+                <div className="absolute inset-0 z-[60] flex flex-col items-center justify-center p-8 bg-rose-950/95 border-8 border-rose-600 animate-pulse select-none">
+                    <div className="text-4xl md:text-7xl font-mono font-black tracking-widest text-white uppercase text-center drop-shadow-xl">
+                        🚨 {promptMessage.text}
+                    </div>
+                    <p className="text-rose-300 font-mono text-base tracking-widest uppercase mt-6 font-bold">
+                        EMERGENCY BOOTH DIRECTIVE
+                    </p>
+                </div>
+            )}
+
+            {/* Standard Stage Cue Floating Banner */}
+            {promptMessage && !promptMessage.isStrobe && (
+                <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 max-w-3xl w-full px-6 animate-in slide-in-from-top-4 duration-200 pointer-events-none">
+                    <div className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-[#090A0C]/95 border-2 border-[#10B981] shadow-2xl backdrop-blur-md">
+                        <div className="w-3.5 h-3.5 rounded-full bg-[#10B981] animate-ping shrink-0" />
+                        <span className="font-mono font-black text-xl md:text-2xl text-emerald-400 tracking-wide uppercase">
+                            {promptMessage.text}
+                        </span>
+                    </div>
                 </div>
             )}
             
