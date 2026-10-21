@@ -89,12 +89,20 @@ export const useFlightBridge = () => {
         setIsFloatingBridgeOpen(false);
     }, [pipWindow]);
 
+    const recallFlightBridge = useCallback(() => {
+        const electron = typeof window !== 'undefined' ? ((window as any).electron || (window as any).electronAPI) : null;
+        if (electron && typeof electron.recallFlightBridge === 'function') {
+            electron.recallFlightBridge();
+        }
+    }, []);
+
     return {
         pipWindow,
         isFloatingBridgeOpen,
         isSupported: true, // Always supported via Native Window, PiP, or Floating HUD
         hasNativePip,
         openFlightBridge,
-        closeFlightBridge
+        closeFlightBridge,
+        recallFlightBridge
     };
 };

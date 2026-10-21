@@ -6,7 +6,7 @@ import { useTimerSync } from '../hooks/useTimerSync';
 import { useUIStore } from '../store/uiStore';
 import { useQuery } from '../hooks/useConvexMock';
 import { api } from '../convex/_generated/api';
-import { GripHorizontal, X, Sun, Moon } from 'lucide-react';
+import { GripHorizontal, X, Sun, Moon, AppWindow, LocateFixed } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 
 export const FlightBridgeStandaloneView: React.FC = () => {
@@ -250,6 +250,24 @@ export const FlightBridgeStandaloneView: React.FC = () => {
         sendControl('TOGGLE_MANUAL', { targetId: effectiveProgram?.id });
     }, [effectiveProgram?.id, sendControl]);
 
+    const handleReturnToApp = useCallback(() => {
+        const electron = typeof window !== 'undefined' ? ((window as any).electron || (window as any).electronAPI) : null;
+        if (electron && typeof electron.focusMainWindow === 'function') {
+            electron.focusMainWindow();
+        } else if (typeof window !== 'undefined' && window.opener && !window.opener.closed) {
+            try {
+                window.opener.focus();
+            } catch {}
+        }
+    }, []);
+
+    const handleRecallHome = useCallback(() => {
+        const electron = typeof window !== 'undefined' ? ((window as any).electron || (window as any).electronAPI) : null;
+        if (electron && typeof electron.recallFlightBridge === 'function') {
+            electron.recallFlightBridge();
+        }
+    }, []);
+
     const handleCloseWindow = () => {
         const electron = typeof window !== 'undefined' ? ((window as any).electron || (window as any).electronAPI) : null;
         if (electron && typeof electron.closeFlightBridge === 'function') {
@@ -273,8 +291,9 @@ export const FlightBridgeStandaloneView: React.FC = () => {
             {/* Native OS Frameless Drag Header */}
             <div 
                 style={{ WebkitAppRegion: 'drag' } as any}
+                onDoubleClick={handleRecallHome}
                 className="h-8 px-3 bg-slate-900 border-b border-slate-800 text-slate-400 text-xs font-mono flex items-center justify-between shrink-0 select-none cursor-move"
-                title="Drag to position Flight Bridge anywhere across your desktop or monitors"
+                title="Drag to position anywhere • Double-click to snap back to Screen 1"
             >
                 <div className="flex items-center gap-2 pointer-events-none">
                     <GripHorizontal size={13} className="text-slate-500" />
@@ -290,6 +309,22 @@ export const FlightBridgeStandaloneView: React.FC = () => {
                     style={{ WebkitAppRegion: 'no-drag' } as any}
                     className="flex items-center gap-1 cursor-default pointer-events-auto"
                 >
+                    <button
+                        type="button"
+                        onClick={handleReturnToApp}
+                        className="p-1 text-slate-400 hover:text-sky-400 hover:bg-slate-800 rounded transition-colors"
+                        title="Return to Main App (Focus Kairon Studio)"
+                    >
+                        <AppWindow size={13} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleRecallHome}
+                        className="p-1 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded transition-colors"
+                        title="Snap to Primary Screen (Screen 1 Safe Corner)"
+                    >
+                        <LocateFixed size={13} />
+                    </button>
                     <button
                         type="button"
                         onClick={toggleTheme}
@@ -327,6 +362,8 @@ export const FlightBridgeStandaloneView: React.FC = () => {
                     onRequestEndEvent={handleRequestEndEvent}
                     isManualMode={Boolean(effectiveProgram.isManualMode)}
                     onToggleManualMode={handleToggleManualMode}
+                    onReturnToApp={handleReturnToApp}
+                    onRecall={handleRecallHome}
                 />
             </div>
 

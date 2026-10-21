@@ -393,7 +393,13 @@ const AppContent: React.FC = () => {
   // --- Auth & Org State ---
   // Use real Convex Auth hooks
   const { isAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
-  const { pipWindow, isFloatingBridgeOpen, isSupported: isFlightBridgeSupported, openFlightBridge, closeFlightBridge } = useFlightBridge();
+  const { pipWindow, isFloatingBridgeOpen, isSupported: isFlightBridgeSupported, openFlightBridge, closeFlightBridge, recallFlightBridge } = useFlightBridge();
+
+  const handleReturnToAppFromPip = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.focus();
+    }
+  }, []);
 
   // --- Draggable In-App Flight Bridge HUD Position ---
   const [hudPos, setHudPos] = useState<{ x: number; y: number } | null>(() => {
@@ -2851,6 +2857,11 @@ const AppContent: React.FC = () => {
       } else if (e.key === 'a' || e.key === 'A') {
         e.preventDefault();
         handleToggleAutopilot();
+      } else if (e.shiftKey && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        recallFlightBridge();
+        setHudPos(null);
+        try { localStorage.removeItem('kairon_flight_bridge_pos'); } catch {}
       } else if (e.key === '1') {
         e.preventDefault();
         navigate('/editor');
@@ -3387,12 +3398,18 @@ const AppContent: React.FC = () => {
             {canControlLive && (
               <button
                 onClick={() => openFlightBridge(displayProgram?.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  recallFlightBridge();
+                  setHudPos(null);
+                  try { localStorage.removeItem('kairon_flight_bridge_pos'); } catch {}
+                }}
                 className={`hidden sm:inline-flex p-1.5 rounded border transition-colors ${
                   (pipWindow || isFloatingBridgeOpen)
                     ? 'bg-[#0EA5E9]/20 border-[#0EA5E9] text-[#0EA5E9]' 
                     : 'bg-slate-50 dark:bg-[#121418] border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white'
                 }`}
-                title="Toggle Floating Flight Bridge (PiP / HUD)"
+                title="Flight Bridge (Click to toggle • Shift+B or right-click to recall to Screen 1)"
               >
                 <AppWindow size={14} />
               </button>
@@ -3852,6 +3869,8 @@ const AppContent: React.FC = () => {
           onRequestEndEvent={requestEndEventConfirmation}
           isManualMode={displayProgram.isManualMode}
           onToggleManualMode={handleToggleManualMode}
+          onReturnToApp={handleReturnToAppFromPip}
+          onRecall={recallFlightBridge}
         />,
         pipWindow.document.body
       )}
@@ -3876,20 +3895,19 @@ const AppContent: React.FC = () => {
               FLIGHT BRIDGE HUD
             </span>
             <div className="flex items-center gap-1">
-              {hudPos && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setHudPos(null);
-                    localStorage.removeItem('kairon_flight_bridge_pos');
-                  }}
-                  className="px-1.5 py-0.5 text-[9px] text-slate-500 hover:text-slate-300 transition-colors rounded"
-                  title="Reset to default bottom-right position"
-                >
-                  Snap
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setHudPos(null);
+                  try { localStorage.removeItem('kairon_flight_bridge_pos'); } catch {}
+                  recallFlightBridge();
+                }}
+                className="px-1.5 py-0.5 text-[9px] text-slate-400 hover:text-emerald-400 transition-colors rounded"
+                title="Snap to default bottom-right position (or Shift+B)"
+              >
+                Snap
+              </button>
               <button
                 type="button"
                 onClick={(e) => {
@@ -3920,6 +3938,12 @@ const AppContent: React.FC = () => {
             onRequestEndEvent={requestEndEventConfirmation}
             isManualMode={displayProgram.isManualMode}
             onToggleManualMode={handleToggleManualMode}
+            onReturnToApp={handleReturnToAppFromPip}
+            onRecall={() => {
+              setHudPos(null);
+              try { localStorage.removeItem('kairon_flight_bridge_pos'); } catch {}
+              recallFlightBridge();
+            }}
           />
         </div>
       )}

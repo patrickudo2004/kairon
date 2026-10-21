@@ -30,6 +30,7 @@ const api = {
   openFlightBridge: (opts) => ipcRenderer.invoke('open-flight-bridge', opts),
   closeFlightBridge: () => ipcRenderer.invoke('close-flight-bridge'),
   toggleFlightBridge: (opts) => ipcRenderer.invoke('toggle-flight-bridge', opts),
+  recallFlightBridge: () => ipcRenderer.invoke('recall-flight-bridge'),
   onFlightBridgeClosed: (callback) => {
     const subscription = () => callback();
     ipcRenderer.on('flight-bridge-closed', subscription);
