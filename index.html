@@ -2,7 +2,7 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Kairon - The ultimate event production timer. Manage your schedule live, sync with your team, and share beautiful public schedules with attendees." />
     <!-- OpenGraph / Social Media -->
     <meta property="og:title" content="Kairon - Pro Event Production Timer" />
@@ -10,6 +10,8 @@
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <title>Kairon - Production Timer</title>
+    <link rel="icon" type="image/png" href="/kairon-logo.png" />
+    <link rel="apple-touch-icon" href="/kairon-logo.png" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -89,55 +91,67 @@
 
       /* Print Styles - Robust Overrides */
       @media print {
-        /* Hide everything by default */
-        body * {
-          visibility: hidden;
+        @page {
+          size: portrait;
+          margin: 10mm 12mm;
+          background-color: #ffffff !important;
         }
 
-        /* Force exact colors so backgrounds print */
+        /* Remove #root completely from layout flow during print so it takes 0px */
+        #root {
+          display: none !important;
+        }
+
+        html, body {
+          background: #ffffff !important;
+          background-color: #ffffff !important;
+          color: #0f172a !important;
+          border: none !important;
+          box-shadow: none !important;
+          outline: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: visible !important;
+          height: auto !important;
+        }
+
+        /* Hide all interactive app shell elements */
+        .no-print,
+        aside,
+        header,
+        nav,
+        button,
+        input,
+        select,
+        textarea,
+        [role="dialog"] {
+          display: none !important;
+        }
+
+        /* Printable area portaled to document.body starts immediately on page 1 */
+        #printable-area {
+          display: block !important;
+          position: relative !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+          background-color: #ffffff !important;
+          color: #0f172a !important;
+          border: none !important;
+          box-shadow: none !important;
+          outline: none !important;
+          visibility: visible !important;
+        }
+
+        #printable-area, #printable-area * {
+          visibility: visible !important;
+        }
+
         * {
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
-        }
-
-        /* Re-enable visibility for printable area and its children */
-        #printable-area, #printable-area * {
-          visibility: visible;
-        }
-
-        /* Position printable area over everything else */
-        #printable-area {
-          display: block !important;
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 100%;
-          margin: 0;
-          padding: 20px; /* Add some padding for paper */
-          background-color: white !important;
-          color: black !important;
-        }
-
-        /* Ensure body allows full height printing */
-        body, html {
-          height: auto !important;
-          overflow: visible !important;
-          background-color: white !important;
-        }
-
-        /* Override dark mode text and backgrounds for print */
-        .dark \:text-white, .dark\:text-white { color: #0f172a !important; }
-        .dark \:text-slate-400, .dark\:text-slate-400 { color: #64748b !important; }
-        .dark \:text-slate-300, .dark\:text-slate-300 { color: #475569 !important; }
-        .dark \:bg-slate-900, .dark\:bg-slate-900 { background-color: #ffffff !important; }
-        .dark \:bg-slate-800, .dark\:bg-slate-800 { background-color: #f8fafc !important; }
-        .dark \:bg-slate-800\/50, .dark\:bg-slate-800\/50 { background-color: #f8fafc !important; }
-        .dark \:border-slate-800, .dark\:border-slate-800 { border-color: #e2e8f0 !important; }
-        .dark \:border-slate-700, .dark\:border-slate-700 { border-color: #cbd5e1 !important; }
-
-        /* Explicitly hide the interactive app wrapper */
-        .no-print {
-          display: none !important;
         }
       }
     </style>

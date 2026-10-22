@@ -44,6 +44,16 @@ export const upsertProfile = async (userId: string, fullName: string, avatarUrl?
     await convex.mutation(api.profiles.upsertProfile, { userId, fullName, avatarUrl });
 };
 
-export const signOut = async () => {
-    throw new Error("Use useAuthActions() hook for signOut");
+export const signOut = async (): Promise<void> => {
+    try {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('kairon_booth_mode');
+            localStorage.removeItem('testBypass');
+            localStorage.removeItem('__convexAuthJWT');
+            localStorage.removeItem('__convexAuthRefreshToken');
+            window.dispatchEvent(new Event('kairon_booth_mode_changed'));
+        }
+    } catch (e) {
+        console.warn("Error during local sign-out cleanup:", e);
+    }
 };

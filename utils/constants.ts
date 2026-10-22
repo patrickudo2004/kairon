@@ -16,4 +16,3 @@ export const getInitialProgram = (organizationId?: string): Program => {
         slots: []
     };
 };
-

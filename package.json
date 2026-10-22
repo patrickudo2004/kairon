@@ -1,7 +1,7 @@
 {
   "name": "kairon",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Broadcast Stage & Rundown Engine for Live Events and Ministry",
   "author": "Patrick Udo <patrickudo2004@users.noreply.github.com>",
   "repository": {
@@ -14,7 +14,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "electron:dev": "concurrently -k -s first \"npm run dev\" \"wait-on tcp:3000 && electron .\"",
+    "electron:dev": "concurrently -k -s first \"npm run dev\" \"wait-on tcp:3000 && node electron/dev-runner.cjs\"",
     "electron:build": "cross-env ELECTRON_BUILD=true npm run build && electron-builder",
     "electron:build:win": "cross-env ELECTRON_BUILD=true npm run build && electron-builder --win",
     "electron:build:mac": "cross-env ELECTRON_BUILD=true npm run build && electron-builder --mac",
@@ -44,6 +44,8 @@
   "devDependencies": {
     "@playwright/test": "^1.57.0",
     "@types/node": "^22.19.11",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.0.0",
     "concurrently": "^10.0.5",
     "cross-env": "^10.1.0",
@@ -56,6 +58,14 @@
   "build": {
     "appId": "app.kairon.desktop",
     "productName": "Kairon",
+    "fileAssociations": [
+      {
+        "ext": "kairon",
+        "name": "Kairon Production Rundown",
+        "description": "Kairon Portable Production Rundown Bundle",
+        "role": "Editor"
+      }
+    ],
     "directories": {
       "output": "release"
     },
@@ -70,6 +80,7 @@
       "package.json"
     ],
     "win": {
+      "icon": "public/icon.ico",
       "target": [
         "nsis",
         "portable"
@@ -81,14 +92,20 @@
         "zip"
       ],
       "identity": null,
-      "category": "public.app-category.video"
+      "category": "public.app-category.video",
+      "icon": "public/kairon-logo.png",
+      "arch": [
+        "x64",
+        "arm64"
+      ]
     },
     "linux": {
       "target": [
         "AppImage",
         "deb"
       ],
-      "category": "AudioVideo"
+      "category": "AudioVideo",
+      "icon": "public/kairon-logo.png"
     }
   }
 }

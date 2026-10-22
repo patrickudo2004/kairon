@@ -1,18 +1,19 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { Component, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams, Navigate, useParams } from 'react-router-dom';
-import { Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, User as UserIcon, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus, ExternalLink, Tv, AppWindow, SkipBack, SkipForward, Pause, Clock, Monitor, Building, MessageSquare, Bell, Crown, Volume2, Lightbulb, Video, Plus, Minus, BarChart3, Power, Keyboard } from 'lucide-react';
+import { Maximize2, Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, User as UserIcon, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus, ExternalLink, Tv, AppWindow, SkipBack, SkipForward, Pause, Clock, Monitor, Building, MessageSquare, Bell, Crown, Volume2, Lightbulb, Video, Plus, Minus, BarChart3, Power, Keyboard, PanelRight, Layers, GripHorizontal } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Services
 import { ConvexAuthProvider, useAuthActions } from "@convex-dev/auth/react";
-import { useConvexAuth, useQuery as useConvexQuery, useMutation as useConvexMutation } from "./hooks/useConvexMock";
+import { useConvexAuth, useQuery as useConvexQuery, useMutation as useConvexMutation, getLocalPrograms } from "./hooks/useConvexMock";
 import { api } from "./convex/_generated/api";
 import { convex } from "./services/convexClient";
 import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService, transformProgram } from './services/programService';
 import { getProfile } from './services/authService';
 import { getMyOrganizations, checkPendingInvites, getInviteDetails } from './services/orgService';
 import { rebalanceSchedule } from './services/geminiService';
+import { getOfflineLedger, enqueueOfflineChange, clearOfflineLedger, cacheWorkspaceEntitlement, getCachedWorkspaceEntitlement } from './services/offlineSyncLedger';
 
 // Store & Hooks
 import { useUIStore } from './store/uiStore';
@@ -20,6 +21,7 @@ import { useStageMessages } from './hooks/useStageMessages';
 import { useWakeLock } from './hooks/useWakeLock';
 import { useFlightBridge } from './hooks/useFlightBridge';
 import { useTimerSync } from './hooks/useTimerSync';
+import { useScreenManagement } from './hooks/useScreenManagement';
 
 // Components
 import { FlightBridge } from './components/FlightBridge';
@@ -58,8 +60,17 @@ import { MonitorDashboard } from './components/MonitorDashboard';
 import { CommandCenter } from './components/CommandCenter';
 import { ConfirmationModal } from './components/ConfirmationModal';
 import { CrewHUD } from './components/CrewHUD';
+import FlightBridgeStandaloneView from './components/FlightBridgeStandaloneView';
 import { MobileFlightBridge } from './components/MobileFlightBridge';
+import { ZenFocusConsole } from './components/ZenFocusConsole';
 import { BroadcastHotkeysModal } from './components/BroadcastHotkeysModal';
+import { StudioMenuBar } from './components/StudioMenuBar';
+import { StudioRightDock } from './components/StudioRightDock';
+import { StudioStatusBar } from './components/StudioStatusBar';
+import { CommandPaletteModal } from './components/CommandPaletteModal';
+import { BroadcastIntegrationsModal } from './components/BroadcastIntegrationsModal';
+import { BroadcastOverlayView } from './components/BroadcastOverlayView';
+import { DesktopAuthApproval } from './components/DesktopAuthApproval';
 
 import { MobileNav } from './components/MobileNav';
 
@@ -68,6 +79,9 @@ import { Program, Slot, SlotType, Profile, Organization, TimerState } from './ty
 import { timeToMinutes, minutesToTime, formatDuration } from './utils/time';
 import { encodeProgramData, decodeProgramData } from './utils/encoding';
 import { getInitialProgram } from './utils/constants';
+import { getActiveLocalFolder, toLocalFolderOrg, readLocalFolderPrograms, saveProgramToLocalFolder, deleteProgramFromLocalFolder } from './services/localFolderService';
+import { saveKaironFileToDisk, parseKaironFile, autoArchiveToLocalWorkspace, downloadProgramCsv, parseCsvToSlots } from './utils/kaironFileFormat';
+import { PRODUCTION_TEMPLATES } from './utils/rundownParser';
 
 // --- Analytics Wrapper (Dedicated Component to avoid render loops) ---
 const AnalyticsWrapper: React.FC<{ onUpdateSlot?: (slotId: string, updates: Partial<Slot>) => void }> = ({ onUpdateSlot }) => {
@@ -228,6 +242,15 @@ const healScheduleOverruns = (program: Program, currentSlotIndex: number, overru
 };
 
 
+export const DEFAULT_OFFLINE_ORG: Organization = {
+  id: 'local-workspace',
+  name: 'Local Workspace',
+  slug: 'local-workspace',
+  subscriptionStatus: 'enterprise',
+  createdBy: 'local-guest-user',
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
+
 // --- App Content Component ---
 const AppContent: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -250,8 +273,18 @@ const AppContent: React.FC = () => {
     }
     return false;
   });
+  const [isRightDockCollapsed, setIsRightDockCollapsed] = useState(false);
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
+  const [isIntegrationsOpen, setIsIntegrationsOpen] = useState<boolean>(false);
+  const [lastDiskArchiveAt, setLastDiskArchiveAt] = useState<string | null>(null);
+  const [pendingOfflineCount, setPendingOfflineCount] = useState<number>(() => getOfflineLedger().length);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const { screens, openOnTargetScreen } = useScreenManagement();
   const queryClient = useQueryClient();
   const recentlyToggledRef = React.useRef<boolean>(false);
+  const lastControlActionTimestampRef = React.useRef<number>(0);
+  const lastControlActionKeyRef = React.useRef<string>('');
   const lastAdvancedIndexRef = React.useRef<number>(-1);
   const lastProcessedIndexRef = React.useRef<number>(-1);
   const [displayStatuses, setDisplayStatuses] = useState<Record<string, { isFullscreen: boolean; isOnSecondary: boolean; timestamp: number; isDarkMode?: boolean }>>({});
@@ -295,7 +328,31 @@ const AppContent: React.FC = () => {
 
 
   // Main State
-  const [program, setProgram] = useState<Program>(() => getInitialProgram());
+  const [program, setProgram] = useState<Program>(() => {
+    try {
+      const isBooth = typeof window !== 'undefined' && (
+        localStorage.getItem('kairon_booth_mode') === 'true' ||
+        window.location.search.includes('testBypass=true') ||
+        sessionStorage.getItem('testBypass') === 'true'
+      );
+      if (typeof window !== 'undefined') {
+        const urlId = new URLSearchParams(window.location.search).get('id');
+        if (urlId) {
+          if (isBooth) {
+            const localList = getLocalPrograms();
+            const cleanUrlId = urlId.replace(/^local-/, '');
+            const found = localList.find((p: any) => p.id === urlId || p.slug === urlId || p.id?.replace(/^local-/, '') === cleanUrlId);
+            if (found) return found;
+          }
+          const cached = localStorage.getItem(`kairon_offline_cache_${urlId}`);
+          if (cached) {
+            try { return JSON.parse(cached); } catch {}
+          }
+        }
+      }
+    } catch {}
+    return getInitialProgram();
+  });
   const [currentSlotIndex, setCurrentSlotIndex] = useState<number>(0);
   const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
   const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
@@ -336,69 +393,359 @@ const AppContent: React.FC = () => {
   // --- Auth & Org State ---
   // Use real Convex Auth hooks
   const { isAuthenticated, isLoading: isConvexAuthLoading } = useConvexAuth();
-  const { pipWindow, isSupported: isFlightBridgeSupported, openFlightBridge } = useFlightBridge();
+  const { pipWindow, isFloatingBridgeOpen, isSupported: isFlightBridgeSupported, openFlightBridge, closeFlightBridge, recallFlightBridge } = useFlightBridge();
+
+  const handleReturnToAppFromPip = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.focus();
+    }
+  }, []);
+
+  // --- Draggable In-App Flight Bridge HUD Position ---
+  const [hudPos, setHudPos] = useState<{ x: number; y: number } | null>(() => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const saved = localStorage.getItem('kairon_flight_bridge_pos');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          const clampedX = Math.max(8, Math.min(window.innerWidth - 390, parsed.x));
+          const clampedY = Math.max(8, Math.min(window.innerHeight - 80, parsed.y));
+          return { x: clampedX, y: clampedY };
+        }
+      }
+    } catch {}
+    return null;
+  });
+
+  const [isDraggingHud, setIsDraggingHud] = useState(false);
+  const hudDragRef = useRef<{ mouseX: number; mouseY: number; startX: number; startY: number } | null>(null);
+
+  // Resize listener to prevent HUD getting lost off-screen on window shrink
+  useEffect(() => {
+    const handleResize = () => {
+      setHudPos(prev => {
+        if (!prev) return null;
+        const clampedX = Math.max(8, Math.min(window.innerWidth - 390, prev.x));
+        const clampedY = Math.max(8, Math.min(window.innerHeight - 80, prev.y));
+        if (clampedX === prev.x && clampedY === prev.y) return prev;
+        return { x: clampedX, y: clampedY };
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleHudPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) return;
+
+    const currentX = hudPos?.x ?? Math.max(8, window.innerWidth - 410);
+    const currentY = hudPos?.y ?? Math.max(8, window.innerHeight - 340);
+
+    hudDragRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      startX: currentX,
+      startY: currentY,
+    };
+    setIsDraggingHud(true);
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {}
+  }, [hudPos]);
+
+  const handleHudPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDraggingHud || !hudDragRef.current) return;
+    const dx = e.clientX - hudDragRef.current.mouseX;
+    const dy = e.clientY - hudDragRef.current.mouseY;
+    const newX = Math.max(8, Math.min(window.innerWidth - 390, hudDragRef.current.startX + dx));
+    const newY = Math.max(8, Math.min(window.innerHeight - 80, hudDragRef.current.startY + dy));
+    setHudPos({ x: newX, y: newY });
+  }, [isDraggingHud]);
+
+  const handleHudPointerUp = useCallback((e: React.PointerEvent) => {
+    if (!isDraggingHud) return;
+    setIsDraggingHud(false);
+    hudDragRef.current = null;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+    setHudPos(latest => {
+      if (latest) {
+        try {
+          localStorage.setItem('kairon_flight_bridge_pos', JSON.stringify(latest));
+        } catch {}
+      }
+      return latest;
+    });
+  }, [isDraggingHud]);
+
   const { signOut } = useAuthActions();
   const convexUser = useConvexQuery(
     api.authQueries.getCurrentUser,
     isAuthenticated ? {} : "skip"
   );
 
+  const isElectronRuntime = typeof window !== 'undefined' && Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron);
+
+  // Check if running in offline Booth Mode or Test Bypass
+  const [isBoothMode, setIsBoothMode] = useState<boolean>(() => {
+    try {
+      if (typeof window === 'undefined') return false;
+      const isBooth = localStorage.getItem('kairon_booth_mode') === 'true';
+      const isTestBypass = window.location.search.includes('testBypass=true') || sessionStorage.getItem('testBypass') === 'true';
+      return isBooth || isTestBypass;
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const handleBoothModeSync = () => {
+      try {
+        const isBooth = localStorage.getItem('kairon_booth_mode') === 'true';
+        const isTestBypass = window.location.search.includes('testBypass=true') || sessionStorage.getItem('testBypass') === 'true';
+        setIsBoothMode(isBooth || isTestBypass);
+      } catch {}
+    };
+    window.addEventListener('kairon_booth_mode_changed', handleBoothModeSync);
+    return () => window.removeEventListener('kairon_booth_mode_changed', handleBoothModeSync);
+  }, []);
+
   // Derive a simple user object compatible with existing code
-  const user = isAuthenticated && convexUser
+  const user = (isAuthenticated && convexUser)
     ? { id: convexUser.id as string, email: convexUser.email as string | undefined }
+    : isBoothMode
+    ? { id: 'local-guest-user', email: 'guest@kairon.app' }
     : null;
 
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
-  const [activeOrg, setActiveOrg] = useState<Organization | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    if (typeof window !== 'undefined' && (localStorage.getItem('kairon_booth_mode') === 'true' || window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true')) {
+      return {
+        id: 'local-booth-profile',
+        userId: 'local-guest-user',
+        fullName: 'Guest',
+        subscriptionStatus: 'enterprise',
+      };
+    }
+    return null;
+  });
+  const [activeOrgId, setActiveOrgId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const isTest = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true';
+      if (isTest || localStorage.getItem('kairon_booth_mode') === 'true') {
+        return DEFAULT_OFFLINE_ORG.id;
+      }
+      const savedActive = localStorage.getItem('kairon_active_org_id');
+      if (savedActive) return savedActive;
+      const savedLocal = getActiveLocalFolder();
+      if (savedLocal) {
+        return toLocalFolderOrg(savedLocal.folderPath, savedLocal.folderName).id;
+      }
+    }
+    return null;
+  });
+  const [activeOrg, setActiveOrg] = useState<Organization | null>(() => {
+    if (typeof window !== 'undefined') {
+      const isTest = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true';
+      if (isTest || localStorage.getItem('kairon_booth_mode') === 'true') {
+        return DEFAULT_OFFLINE_ORG;
+      }
+      const savedLocal = getActiveLocalFolder();
+      if (savedLocal) {
+        return toLocalFolderOrg(savedLocal.folderPath, savedLocal.folderName);
+      }
+    }
+    return null;
+  });
 
-  // Workspace Switch Isolation: Reset active program and timer state when switching workspaces
+  useEffect(() => {
+    if (activeOrgId && typeof window !== 'undefined') {
+      localStorage.setItem('kairon_active_org_id', activeOrgId);
+    }
+  }, [activeOrgId]);
+
+  // Master Live Session: Background persistence for on-air services across workspace transitions
+  const [masterLiveSession, setMasterLiveSession] = useState<{
+    programId: string;
+    orgId: string | null;
+    orgName?: string;
+    isLocalFolder: boolean;
+    timerStartTimestamp: number | null;
+    currentSlotIndex: number;
+    isTimerActive: boolean;
+    secondsElapsed: number;
+    lastUpdated: number;
+    program: Program;
+  } | null>(() => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const raw = localStorage.getItem('kairon_master_live_session');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const syncMasterSession = () => {
+      try {
+        const raw = localStorage.getItem('kairon_master_live_session');
+        setMasterLiveSession(raw ? JSON.parse(raw) : null);
+      } catch {
+        setMasterLiveSession(null);
+      }
+    };
+    window.addEventListener('storage', syncMasterSession);
+    window.addEventListener('kairon_master_session_changed', syncMasterSession);
+    return () => {
+      window.removeEventListener('storage', syncMasterSession);
+      window.removeEventListener('kairon_master_session_changed', syncMasterSession);
+    };
+  }, []);
+
+  // Startup storage hygiene: cleanse contaminated test flags and stale ghost timers
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const isTest = window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true' || sessionStorage.getItem('testBypass') === 'true';
+        if (!isTest) {
+          localStorage.removeItem('testBypass');
+        }
+        const rawLive = localStorage.getItem('kairon_offline_cache_live');
+        if (rawLive && !isTest) {
+          const parsed = JSON.parse(rawLive);
+          const isStale = parsed?.timerStartTimestamp && (Date.now() - parsed.timerStartTimestamp > 2 * 60 * 60 * 1000);
+          if (isStale || parsed.status !== 'live' || !parsed.slots || parsed.slots.length === 0) {
+            localStorage.removeItem('kairon_offline_cache_live');
+          }
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Workspace Switch Isolation: Reset active program and timer state when switching workspaces,
+  // BUT PRESERVE live events (Master Live Session) so switching orgs/views never kills an ON-AIR service!
   const prevOrgIdRef = React.useRef<string | null>(activeOrgId);
   useEffect(() => {
     if (prevOrgIdRef.current !== null && prevOrgIdRef.current !== activeOrgId) {
-      setProgram(getInitialProgram());
-      setIsTimerActive(false);
-      setTimerStartTimestamp(null);
-      setSecondsElapsed(0);
-      setCurrentSlotIndex(0);
-      setSelectedLiveId(null);
-      if (searchParams.has('id')) {
-        const next = new URLSearchParams(searchParams);
-        next.delete('id');
-        setSearchParams(next, { replace: true });
+      // Check if the session we are leaving is running or live using stable refs
+      const currentProg = programRef.current;
+      const currentTimerState = timerStateRef.current;
+      const wasLive = currentTimerState.isTimerActive || currentProg.status === 'live';
+      const isLocal = Boolean(activeOrg?.isLocalFolder || String(prevOrgIdRef.current).startsWith('local-folder-'));
+
+      if (wasLive && currentProg.slots && currentProg.slots.length > 0) {
+        const liveSnapshot = {
+          programId: currentProg.id,
+          orgId: prevOrgIdRef.current,
+          orgName: activeOrg?.name || (isLocal ? 'Local Workspace' : 'Previous Workspace'),
+          isLocalFolder: isLocal,
+          timerStartTimestamp: currentTimerState.timerStartTimestamp,
+          currentSlotIndex: currentTimerState.currentSlotIndex,
+          isTimerActive: currentTimerState.isTimerActive,
+          secondsElapsed: currentTimerState.secondsElapsed,
+          lastUpdated: Date.now(),
+          program: currentProg,
+        };
+        try {
+          localStorage.setItem('kairon_master_live_session', JSON.stringify(liveSnapshot));
+          setMasterLiveSession(liveSnapshot);
+          window.dispatchEvent(new Event('kairon_master_session_changed'));
+        } catch {}
+      }
+
+      // Check if the NEW workspace we are entering is the one with the running master live session!
+      let restoredFromMaster = false;
+      try {
+        const rawMaster = localStorage.getItem('kairon_master_live_session');
+        if (rawMaster) {
+          const master = JSON.parse(rawMaster);
+          if (master && master.orgId === activeOrgId && master.program) {
+            const wallClockElapsed = (master.isTimerActive && master.timerStartTimestamp)
+              ? Math.floor((Date.now() - master.timerStartTimestamp) / 1000)
+              : master.secondsElapsed;
+            
+            setProgram({
+              ...master.program,
+              status: 'live',
+              currentSlotIndex: master.currentSlotIndex,
+              isTimerActive: master.isTimerActive,
+              timerStartTimestamp: master.timerStartTimestamp,
+              secondsElapsed: wallClockElapsed,
+            });
+            setCurrentSlotIndex(master.currentSlotIndex);
+            setSecondsElapsed(wallClockElapsed);
+            setIsTimerActive(master.isTimerActive);
+            setTimerStartTimestamp(master.timerStartTimestamp);
+            setSelectedLiveId(master.programId);
+            restoredFromMaster = true;
+          }
+        }
+      } catch {}
+
+      if (!restoredFromMaster) {
+        setProgram(getInitialProgram());
+        setIsTimerActive(false);
+        setTimerStartTimestamp(null);
+        setSecondsElapsed(0);
+        setCurrentSlotIndex(0);
+        setSelectedLiveId(null);
+        if (searchParams.has('id')) {
+          const next = new URLSearchParams(searchParams);
+          next.delete('id');
+          setSearchParams(next, { replace: true });
+        }
       }
     }
     prevOrgIdRef.current = activeOrgId;
-  }, [activeOrgId, searchParams, setSearchParams]);
+  }, [activeOrgId, searchParams, setSearchParams, activeOrg]);
 
   // --- Permissions & Membership ---
+  const isLocalFolderWorkspace = Boolean(activeOrg?.isLocalFolder || String(activeOrgId).startsWith('local-folder-'));
+
   // Fetch membership for current user in active org
   const myMembership = useConvexQuery(
     api.members.getMyMembershipInOrg,
-    activeOrgId && isAuthenticated ? { organizationId: activeOrgId as any } : "skip"
+    activeOrgId && isAuthenticated && !isBoothMode && !isLocalFolderWorkspace && !String(activeOrgId).startsWith('local-')
+      ? { organizationId: activeOrgId as any }
+      : "skip"
   );
 
-  const userRole = myMembership?.role; // 'admin', 'manager', 'operator'
-
-  // Permissions Logic (Auto-grant admin to org creator/owner or in local test bypass)
   const isOwner = !!(user?.id && (activeOrg?.createdBy === user?.id || String(activeOrg?.createdBy) === String(user?.id)));
   const isTestBypassMode = typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
-  const isAdmin = userRole === 'admin' || isOwner || isTestBypassMode;
+
+  // Permissions Logic:
+  // In Local Folder Workspaces (This PC), the local user is ALWAYS an Administrator (Local Owner)
+  // In Cloud Workspaces, role is fetched from Convex membership, falling back to org creator ('admin') or activeOrg.role
+  const userRole = (isLocalFolderWorkspace || isBoothMode || isTestBypassMode || String(activeOrgId).startsWith('local-'))
+    ? 'admin'
+    : (myMembership?.role || (isOwner ? 'admin' : (activeOrg?.role || 'admin')));
+
+  const isAdmin = userRole === 'admin' || isOwner || isTestBypassMode || isBoothMode || isLocalFolderWorkspace;
+  const isSpeaker = userRole === 'speaker';
   const isManager = userRole === 'manager';
   const isOperator = userRole === 'operator';
-  const canManagePrograms = isAdmin || isManager;
+  const canManagePrograms = isAdmin || isManager || isBoothMode || isLocalFolderWorkspace;
 
   // 1. URL-based overrides (purely aesthetic for Admins/Managers)
   const isUrlReadOnly = mode === 'viewer' || mode === 'ReadOnly';
 
   // 2. Auth Resolution (Wait for Convex to settle)
-  const isAuthResolved = !isConvexAuthLoading && (!isAuthenticated || (isAuthenticated && myMembership !== undefined));
+  const isAuthResolved = isBoothMode || (!isConvexAuthLoading && (!isAuthenticated || (isAuthenticated && myMembership !== undefined)));
 
   // 3. Permission Evaluation (POWER-BASED)
   // Admins and Managers are NEVER restricted by mode, unless they choose to be viewers.
   useEffect(() => {
-    document.title = "Kairon - Production Timer";
-  }, []);
+    const rawHash = (location.hash || '').replace(/^#\/?/, '').split('?')[0].toLowerCase();
+    const rawPath = (location.pathname || '').replace(/^\//, '').split('?')[0].toLowerCase();
+    const token = rawHash || rawPath;
+    if (!['stage', 'tv', 'prompter', 'overlay', 'crew'].includes(token)) {
+      document.title = "Kairon - Production Timer";
+    }
+  }, [location.pathname, location.hash]);
 
   const isReadOnly = !isAuthResolved ? false : (
     program.status === 'archived' || (
@@ -408,15 +755,49 @@ const AppContent: React.FC = () => {
     )
   );
 
-  const canControlLive = isAdmin || isManager || isOperator;
-  const isCoEditor = isAdmin || isManager || (mode === 'coeditor');
+  const canControlLive = (isAdmin || isManager || isOperator || isBoothMode || isLocalFolderWorkspace) && !isSpeaker;
+  const isCoEditor = (isAdmin || isManager || (mode === 'coeditor') || isBoothMode || isLocalFolderWorkspace) && !isOperator && !isSpeaker;
 
   const isReadOnlyRef = React.useRef(isReadOnly);
   useEffect(() => {
     isReadOnlyRef.current = isReadOnly;
   }, [isReadOnly]);
 
-  const isPro = activeOrg?.subscriptionStatus === 'pro';
+  const [isOnline, setIsOnline] = useState(window.navigator.onLine);
+
+  // Cache Pro Workspace Entitlement for 14-day silent offline grace period
+  useEffect(() => {
+    if (activeOrg?.id && activeOrg.subscriptionStatus) {
+      cacheWorkspaceEntitlement({
+        orgId: activeOrg.id,
+        orgName: activeOrg.name,
+        subscriptionStatus: (activeOrg.subscriptionStatus === 'pro' || activeOrg.subscriptionStatus === 'enterprise') ? activeOrg.subscriptionStatus : 'free',
+        role: userRole || 'admin',
+      });
+    }
+  }, [activeOrg?.id, activeOrg?.name, activeOrg?.subscriptionStatus, userRole]);
+
+  const cachedEntitlement = activeOrgId ? getCachedWorkspaceEntitlement(activeOrgId) : null;
+  const isPro = true; // All Pro features unlocked across all accounts until monetization launch
+
+  const [localFolderOrg, setLocalFolderOrg] = useState<Organization | null>(() => {
+    const saved = getActiveLocalFolder();
+    return saved ? toLocalFolderOrg(saved.folderPath, saved.folderName) : null;
+  });
+
+  useEffect(() => {
+    const handleWorkspaceChange = () => {
+      const saved = getActiveLocalFolder();
+      const org = saved ? toLocalFolderOrg(saved.folderPath, saved.folderName) : null;
+      setLocalFolderOrg(org);
+      if (org) {
+        setActiveOrgId(org.id);
+        setActiveOrg(org);
+      }
+    };
+    window.addEventListener('kairon_workspace_changed', handleWorkspaceChange);
+    return () => window.removeEventListener('kairon_workspace_changed', handleWorkspaceChange);
+  }, []);
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [isDataHydrated, setIsDataHydrated] = useState(false);
   const [authRetryCount, setAuthRetryCount] = useState(0);
@@ -427,12 +808,44 @@ const AppContent: React.FC = () => {
     setAuthRetryCount(prev => prev + 1);
   };
 
+  const defaultOfflineOrg: Organization = DEFAULT_OFFLINE_ORG;
+
   // Fetch all organizations for the user
-  const { data: userOrganizations = [], isLoading: loadingOrgs } = useQuery<Organization[]>({
+  const { data: rawUserOrganizations = [], isLoading: loadingOrgs } = useQuery<Organization[]>({
     queryKey: ['myOrganizations', user?.id],
     queryFn: () => getMyOrganizations(user?.id || ''),
-    enabled: !!user
+    enabled: !!user && !isBoothMode
   });
+
+  const userOrganizations = useMemo(() => {
+    const list: Organization[] = [...rawUserOrganizations];
+    if (localFolderOrg) {
+      list.push(localFolderOrg);
+    }
+    if (isBoothMode && list.length === 0) {
+      return [DEFAULT_OFFLINE_ORG];
+    }
+    if (user && list.length === 0) return [];
+    return list.length > 0 ? list : [DEFAULT_OFFLINE_ORG];
+  }, [rawUserOrganizations, localFolderOrg, isBoothMode, user]);
+
+  // Auto-initialize profile and active org for offline booth mode
+  useEffect(() => {
+    if (isBoothMode || isTestMode) {
+      if (!profile) {
+        setProfile({
+          id: 'local-booth-profile',
+          userId: 'local-guest-user',
+          fullName: 'Guest',
+          subscriptionStatus: 'enterprise',
+        });
+      }
+      if (!activeOrg) {
+        setActiveOrg(DEFAULT_OFFLINE_ORG);
+        setActiveOrgId(DEFAULT_OFFLINE_ORG.id);
+      }
+    }
+  }, [isBoothMode, profile, activeOrg]);
 
   // Invite ID handling for personalized banner
   const urlInviteId = searchParams.get('inviteId');
@@ -468,7 +881,7 @@ const AppContent: React.FC = () => {
 
   const effectiveInviteDetails = inviteId === 'generic' ? {
     organizationName: genericOrgDetails?.name || "Kairon Workspace",
-    role: 'member',
+    role: 'operator',
     isGeneric: true
   } : inviteDetails;
 
@@ -476,13 +889,19 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (activeOrgId) {
       const found = userOrganizations.find(o => o.id === activeOrgId);
-      if (found) setActiveOrg(found);
+      if (found) {
+        setActiveOrg(found);
+      } else if (localFolderOrg && localFolderOrg.id === activeOrgId) {
+        setActiveOrg(localFolderOrg);
+      }
     } else if (userOrganizations.length > 0) {
-      // Default to first org if none selected
-      setActiveOrgId(userOrganizations[0].id);
-      setActiveOrg(userOrganizations[0]);
+      const savedActive = typeof window !== 'undefined' ? localStorage.getItem('kairon_active_org_id') : null;
+      const match = savedActive ? userOrganizations.find(o => o.id === savedActive) : null;
+      const target = match || (localFolderOrg ? localFolderOrg : userOrganizations[0]);
+      setActiveOrgId(target.id);
+      setActiveOrg(target);
     }
-  }, [activeOrgId, userOrganizations]);
+  }, [activeOrgId, userOrganizations, localFolderOrg]);
 
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const authLoadingRef = React.useRef(true);
@@ -495,7 +914,6 @@ const AppContent: React.FC = () => {
   // Auth is considered loading while Convex Auth is loading
   const effectiveAuthLoading = isConvexAuthLoading;
 
-  const [isOnline, setIsOnline] = useState(window.navigator.onLine);
   const [isOnboardingManual, setIsOnboardingManual] = useState(false);
   const [isAutopilotEnabled, setIsAutopilotEnabled] = useState<boolean>(() => {
     try {
@@ -518,13 +936,32 @@ const AppContent: React.FC = () => {
   };
 
   useEffect(() => {
-    const handleOnline = () => {
+    const handleOnline = async () => {
       setIsOnline(true);
       setNetworkError(null);
+      // Flush Offline Sync Ledger using Last-Write-Wins
+      const ledger = getOfflineLedger();
+      if (ledger.length > 0) {
+        try {
+          for (const entry of ledger) {
+            if (entry.program.id?.startsWith('local-')) {
+              await createProgramService(entry.program);
+            } else {
+              await updateProgramService(entry.program);
+            }
+          }
+          clearOfflineLedger();
+          setPendingOfflineCount(0);
+          queryClient.invalidateQueries({ queryKey: ['programs'] });
+        } catch (err) {
+          console.warn('Partial offline ledger flush:', err);
+        }
+      }
     };
     const handleOffline = () => {
       setIsOnline(false);
-      setNetworkError("Your device is offline. Kairon requires an active internet connection to sync.");
+      // Local-First Relay Mode: NEVER block the operator with a modal when internet drops mid-service
+      setNetworkError(null);
     };
 
     window.addEventListener('online', handleOnline);
@@ -538,7 +975,7 @@ const AppContent: React.FC = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [queryClient]);
 
   // Handle Auth Session - now driven by Convex Auth state
   useEffect(() => {
@@ -588,7 +1025,11 @@ const AppContent: React.FC = () => {
   const { clearStageMessage } = useStageMessages(program.id);
 
   const handleSignOut = async () => {
-    // useAuthActions hook handles sign out in components that need to trigger it
+    try {
+      localStorage.removeItem('kairon_booth_mode');
+      setIsBoothMode(false);
+      window.dispatchEvent(new Event('kairon_booth_mode_changed'));
+    } catch {}
     await signOut();
     setProfile(null);
     setActiveOrgId(null);
@@ -606,28 +1047,98 @@ const AppContent: React.FC = () => {
   // --- Reactive Global Live Channels (Multi-Track) ---
   const [selectedLiveId, setSelectedLiveId] = useState<string | null>(null);
   
+  const isTestMode = typeof window !== 'undefined' && (
+    window.location.search.includes('testBypass=true') ||
+    localStorage.getItem('testBypass') === 'true'
+  );
+
+  // isLocalFolderWorkspace hoisted above
+  const [localFolderPrograms, setLocalFolderPrograms] = useState<Program[]>([]);
+  const [localFolderTick, setLocalFolderTick] = useState(0);
+
+  useEffect(() => {
+    if (isLocalFolderWorkspace) {
+      readLocalFolderPrograms(activeOrg?.folderPath).then(progs => {
+        setLocalFolderPrograms(progs);
+      });
+    }
+  }, [isLocalFolderWorkspace, activeOrg?.folderPath, localFolderTick]);
+
+  const isConvexOrgId = Boolean(
+    activeOrgId &&
+    !isBoothMode &&
+    !isLocalFolderWorkspace &&
+    !String(activeOrgId).startsWith('local-') &&
+    !String(activeOrgId).startsWith('test-') &&
+    String(activeOrgId).length >= 19
+  );
+
   const activeSessionsRaw = useConvexQuery(
     api.programs.getActiveSessions, 
-    activeOrgId ? { organizationId: activeOrgId as any } : "skip"
+    (isConvexOrgId || isTestMode) ? { organizationId: (activeOrgId || 'test-org-id') as any } : "skip"
   );
 
   const activeSessions = useMemo(() => {
+    if (isLocalFolderWorkspace) {
+      return program.status === 'live' ? [program] : [];
+    }
+    if (isBoothMode || isTestMode) {
+      const localList = getLocalPrograms();
+      const currentLive = program.status === 'live' ? [program] : [];
+      const cleanProgramId = (program.id || '').replace(/^local-/, '');
+      const otherLive = localList.filter((p: any) => 
+        p.status === 'live' && 
+        p.id !== program.id && 
+        p.id?.replace(/^local-/, '') !== cleanProgramId
+      );
+      return [...currentLive, ...otherLive];
+    }
     if (!activeSessionsRaw) return [];
     return activeSessionsRaw.map(s => ({
       ...s,
-      // CRITICAL: Force string normalization for ID comparisons (prevents object-vs-string mismatch)
       id: String(s._id || s.id),
       slug: String((s as any).slug || (s as any).uuid || s._id || s.id).replace(/^local-/, ''),
       isPublic: (s as any).isPublic ?? true,
     })) as Program[];
-  }, [activeSessionsRaw]);
+  }, [activeSessionsRaw, isBoothMode, program, isLocalFolderWorkspace]);
 
   const allProgramsRaw = useConvexQuery(
     api.programs.getPrograms,
-    activeOrgId ? { organizationId: activeOrgId as any } : "skip"
+    (isConvexOrgId || isTestMode) ? { organizationId: (activeOrgId || 'test-org-id') as any } : "skip"
   );
 
   const programs = useMemo(() => {
+    if (isLocalFolderWorkspace) {
+      if (!program || !program.id) return localFolderPrograms;
+      const cleanProgramId = (program.id || '').replace(/^local-/, '');
+      const existingIdx = localFolderPrograms.findIndex((p: any) => 
+        p.id === program.id || 
+        p.id?.replace(/^local-/, '') === cleanProgramId ||
+        (p.slug && p.slug === program.slug)
+      );
+      if (existingIdx >= 0) {
+        const copy = [...localFolderPrograms];
+        copy[existingIdx] = { ...copy[existingIdx], ...program };
+        return copy;
+      }
+      return localFolderPrograms;
+    }
+    if (isBoothMode || isTestMode) {
+      const localList = getLocalPrograms();
+      const cleanProgramId = (program.id || '').replace(/^local-/, '');
+      const existingIdx = localList.findIndex((p: any) => 
+        p.id === program.id || 
+        p.id?.replace(/^local-/, '') === cleanProgramId
+      );
+      if (existingIdx >= 0) {
+        localList[existingIdx] = program;
+        return localList;
+      }
+      return [program, ...localList.filter((p: any) => 
+        p.id !== program.id && 
+        p.id?.replace(/^local-/, '') !== cleanProgramId
+      )];
+    }
     if (!allProgramsRaw) return [];
     return allProgramsRaw.map(s => ({
       ...s,
@@ -635,7 +1146,7 @@ const AppContent: React.FC = () => {
       slug: String((s as any).slug || (s as any).uuid || s._id || s.id).replace(/^local-/, ''),
       isPublic: (s as any).isPublic ?? true,
     })) as Program[];
-  }, [allProgramsRaw]);
+  }, [allProgramsRaw, isBoothMode, program, isLocalFolderWorkspace, localFolderPrograms]);
 
   // Auto-selection & Cleanup logic
   useEffect(() => {
@@ -697,29 +1208,46 @@ const AppContent: React.FC = () => {
   // Decides if we show the "Global Live" event or the "Local Draft" event.
   // ---------------------------------------------------------
   const isLiveEventActive = !!globalLiveProgram;
-  const isTargetSameAsLocal = isLiveEventActive && (String(globalLiveProgram?.id) === String(program.id));
+  const isTargetSameAsLocal = isLiveEventActive && (
+    String(globalLiveProgram?.id) === String(program.id) ||
+    String(globalLiveProgram?.id).replace(/^local-/, '') === String(program.id).replace(/^local-/, '')
+  );
   const isUntouchedPlaceholder = program.id?.startsWith('local-') && program.slots.length === 0 && program.title === 'New Event' && !program.subtitle;
-  const fallbackWorkspaceProgram = (!isLiveEventActive && isUntouchedPlaceholder && programs.length > 0) ? programs[0] : null;
+  const fallbackWorkspaceProgram = null;
 
-  const displayProgram = isLiveEventActive ? globalLiveProgram! : (fallbackWorkspaceProgram || program);
-  const displayCurrentSlotIndex = isLiveEventActive ? (globalLiveProgram?.currentSlotIndex ?? 0) : currentSlotIndex;
+  const displayIsManualMode = isLiveEventActive
+    ? (isTargetSameAsLocal ? Boolean(program.isManualMode ?? globalLiveProgram?.isManualMode) : Boolean(globalLiveProgram?.isManualMode))
+    : Boolean(program.isManualMode);
+
+  const displayProgram = useMemo(() => {
+    const base = isLiveEventActive 
+      ? (isTargetSameAsLocal ? { ...globalLiveProgram!, ...program, slots: program.slots } : globalLiveProgram!) 
+      : (fallbackWorkspaceProgram || program);
+    return {
+      ...base,
+      isManualMode: isTargetSameAsLocal ? (program.isManualMode ?? base.isManualMode ?? false) : (base.isManualMode ?? false),
+    };
+  }, [isLiveEventActive, isTargetSameAsLocal, globalLiveProgram, program, fallbackWorkspaceProgram]);
+  const displayCurrentSlotIndex = isLiveEventActive 
+    ? (isTargetSameAsLocal ? currentSlotIndex : (globalLiveProgram?.currentSlotIndex ?? 0)) 
+    : currentSlotIndex;
   
   const displayIsTimerActive = isLiveEventActive 
     ? (isTargetSameAsLocal ? isTimerActive : (globalLiveProgram?.isTimerActive ?? false)) 
-    : isTimerActive;
+    : (program.slots.length > 0 ? isTimerActive : false);
 
   const displayTimerStartTimestamp = isLiveEventActive 
     ? (isTargetSameAsLocal ? timerStartTimestamp : (globalLiveProgram?.timerStartTimestamp ?? null)) 
-    : timerStartTimestamp;
+    : (program.slots.length > 0 ? timerStartTimestamp : null);
 
   const displaySecondsElapsed = isLiveEventActive 
     ? (displayIsTimerActive 
         ? Math.floor((Date.now() - (displayTimerStartTimestamp ?? Date.now())) / 1000) 
         // OPTIMISTIC FIX: Prioritize local 'secondsElapsed' if it's the same program to avoid "Pause Resets"
         : (isTargetSameAsLocal ? secondsElapsed : (globalLiveProgram?.secondsElapsed ?? 0)))
-    : (isTimerActive && timerStartTimestamp 
+    : (program.slots.length > 0 && isTimerActive && timerStartTimestamp 
         ? Math.floor((Date.now() - timerStartTimestamp) / 1000) 
-        : secondsElapsed);
+        : (program.slots.length > 0 ? secondsElapsed : 0));
 
   // Keep localStorage caches synchronized for instant preview, iframe thumbnails, and offline fallback
   useEffect(() => {
@@ -736,21 +1264,35 @@ const AppContent: React.FC = () => {
         }
       }
       if (displayProgram) {
-        const serializedDisplay = JSON.stringify(displayProgram);
-        localStorage.setItem('kairon_offline_cache_live', serializedDisplay);
-        if (displayProgram.id) {
-          localStorage.setItem(`kairon_offline_cache_${displayProgram.id}`, serializedDisplay);
-          localStorage.setItem(`kairon_offline_cache_${displayProgram.id.replace(/^local-/, '')}`, serializedDisplay);
-          localStorage.setItem(`kairon_offline_cache_${displayProgram.id}_prompter`, serializedDisplay);
-        }
-        if (displayProgram.slug) {
-          localStorage.setItem(`kairon_offline_cache_${displayProgram.slug.replace(/^local-/, '')}`, serializedDisplay);
+        const isLiveNow = (displayIsTimerActive || displayProgram.status === 'live');
+        // Safety: Do not overwrite kairon_offline_cache_live with an empty draft if there is a running master live session in another workspace!
+        const rawMaster = localStorage.getItem('kairon_master_live_session');
+        const hasExternalMasterLive = rawMaster && !isLiveNow;
+        if (!hasExternalMasterLive) {
+          const liveDisplay = {
+            ...displayProgram,
+            currentSlotIndex: displayCurrentSlotIndex,
+            isTimerActive: displayIsTimerActive,
+            timerStartTimestamp: displayTimerStartTimestamp,
+            secondsElapsed: displaySecondsElapsed,
+            status: isLiveNow ? 'live' : displayProgram.status,
+          };
+          const serializedDisplay = JSON.stringify(liveDisplay);
+          localStorage.setItem('kairon_offline_cache_live', serializedDisplay);
+          if (displayProgram.id) {
+            localStorage.setItem(`kairon_offline_cache_${displayProgram.id}`, serializedDisplay);
+            localStorage.setItem(`kairon_offline_cache_${displayProgram.id.replace(/^local-/, '')}`, serializedDisplay);
+            localStorage.setItem(`kairon_offline_cache_${displayProgram.id}_prompter`, serializedDisplay);
+          }
+          if (displayProgram.slug) {
+            localStorage.setItem(`kairon_offline_cache_${displayProgram.slug.replace(/^local-/, '')}`, serializedDisplay);
+          }
         }
       }
     } catch (err) {
       console.warn('Could not sync offline cache in localStorage:', err);
     }
-  }, [program, displayProgram]);
+  }, [program, displayProgram, displayCurrentSlotIndex, displayIsTimerActive, displayTimerStartTimestamp, displaySecondsElapsed]);
 
 
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
@@ -787,6 +1329,9 @@ const AppContent: React.FC = () => {
   // Theme State (Zustand)
   const isDarkMode = useUIStore((state) => state.isDarkMode);
   const toggleTheme = useUIStore((state) => state.toggleTheme);
+  const isZenMode = useUIStore((state) => state.isZenMode);
+  const toggleZenMode = useUIStore((state) => state.toggleZenMode);
+  const setZenMode = useUIStore((state) => state.setZenMode);
   // We use the effect inside the store or just here just to apply classes if store doesn't handle side effects 
   // (Our store handles side effects, so we just read value)
 
@@ -865,7 +1410,8 @@ const AppContent: React.FC = () => {
         
         if (urlId) {
           const matchesUrl = fetchedProgram.id === urlId || 
-            (urlIdClean && (fetchedUuidClean === urlIdClean || fetchedSlugClean === urlIdClean));
+            fetchedProgram.slug === urlId ||
+            (urlIdClean && (fetchedUuidClean === urlIdClean || fetchedSlugClean === urlIdClean || fetchedProgram.slug === urlIdClean));
           if (!matchesUrl) {
             return;
           }
@@ -914,8 +1460,8 @@ const AppContent: React.FC = () => {
         if (fetchedProgram.isTimerActive !== undefined && !isTransitioning) {
           const isLive = fetchedProgram.status === 'live';
 
-          // SANITY CHECK: If not live OR the start timestamp is "stale" (e.g., from more than 4 hours ago), timer MUST be inactive
-          const isStale = isLive && fetchedProgram.timerStartTimestamp && (Date.now() - fetchedProgram.timerStartTimestamp > 4 * 60 * 60 * 1000);
+          const isTestBypassMode = typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
+          const isStale = !isTestBypassMode && isLive && fetchedProgram.timerStartTimestamp && (Date.now() - fetchedProgram.timerStartTimestamp > 4 * 60 * 60 * 1000);
 
           const targetIsActive = (isLive && !isStale) ? (fetchedProgram.isTimerActive ?? false) : false;
           const targetStartTs = (isLive && !isStale) ? (fetchedProgram.timerStartTimestamp ?? null) : null;
@@ -978,35 +1524,171 @@ const AppContent: React.FC = () => {
         return;
       }
 
-      // 3. Offline Deep Recovery Fallback (Deprecated)
-      // Convex is now the single source of truth.
+      // 3. Offline Deep Recovery Fallback
+      if (!fetchedProgram && !importData) {
+        try {
+          const currentUrlId = searchParams.get('id');
+          let offlineProgram: Program | null = null;
+
+          if (currentUrlId) {
+            const cleanUrlId = currentUrlId.replace('local-', '');
+            const candidateKeys = [
+              `kairon_offline_cache_${currentUrlId}`,
+              `kairon_offline_cache_${cleanUrlId}`,
+              `kairon_offline_cache_local-${cleanUrlId}`,
+            ];
+            for (const key of candidateKeys) {
+              const raw = localStorage.getItem(key);
+              if (raw) {
+                try {
+                  const parsed = JSON.parse(raw);
+                  if (parsed && (parsed.id === currentUrlId || parsed.id === cleanUrlId || parsed.id === `local-${cleanUrlId}` || parsed.slug === currentUrlId || parsed.slug === cleanUrlId)) {
+                    offlineProgram = parsed;
+                    break;
+                  }
+                } catch {}
+              }
+            }
+
+            if (!offlineProgram) {
+              const rawPrograms = localStorage.getItem('kairon_offline_programs') || localStorage.getItem('test_programs');
+              if (rawPrograms) {
+                try {
+                  const list = JSON.parse(rawPrograms);
+                  if (Array.isArray(list)) {
+                    offlineProgram = list.find((p: any) => p.id === currentUrlId || p.id === cleanUrlId || p.id === `local-${cleanUrlId}` || p.slug === currentUrlId || p.slug === cleanUrlId) || null;
+                  }
+                } catch {}
+              }
+            }
+          } else if (typeof window !== 'undefined' && !window.navigator.onLine) {
+            // Only fall back to generic live cache when WAN is genuinely offline and no specific ID was requested
+            const rawLive = localStorage.getItem('kairon_offline_cache_live');
+            if (rawLive) {
+              try { offlineProgram = JSON.parse(rawLive); } catch {}
+            }
+          }
+
+          if (offlineProgram && offlineProgram.id && offlineProgram.id !== programRef.current.id) {
+            console.log("Restoring program from Offline Deep Recovery:", offlineProgram.title);
+            lastSavedProgramRef.current = offlineProgram;
+            setProgram(offlineProgram);
+
+            const isLive = offlineProgram.status === 'live';
+            if (isLive) {
+              if (offlineProgram.currentSlotIndex !== undefined) {
+                setCurrentSlotIndex(offlineProgram.currentSlotIndex);
+              }
+              if (offlineProgram.isTimerActive !== undefined) {
+                setIsTimerActive(Boolean(offlineProgram.isTimerActive));
+              }
+              if (offlineProgram.timerStartTimestamp) {
+                setTimerStartTimestamp(offlineProgram.timerStartTimestamp);
+                const elapsed = Math.floor((Date.now() - offlineProgram.timerStartTimestamp) / 1000);
+                if (elapsed >= 0) setSecondsElapsed(elapsed);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Offline deep recovery fallback error:", err);
+        }
+      }
     };
 
     hydrate();
   }, [importData, fetchedProgram, searchParams, saveStatus]);
 
-  // Persistence (Convex)
+  // Persistence (Convex + Local-First Offline Ledger + Electron Auto-Archive)
   const mutation = useMutation({
     mutationFn: async (p: Program): Promise<Program | void> => {
       // Broadcast local offline state sync across tabs immediately
       try {
         const channel = new BroadcastChannel('kairon_offline_sync');
+        const isLiveNow = (p.id === displayProgram.id && displayIsTimerActive) || (p.id === program.id && isTimerActive) || p.status === 'live';
+        const liveSnapshot: Program = {
+          ...p,
+          isTimerActive: isLiveNow ? (p.id === displayProgram.id ? displayIsTimerActive : isTimerActive) : p.isTimerActive,
+          timerStartTimestamp: isLiveNow ? (p.id === displayProgram.id ? displayTimerStartTimestamp : timerStartTimestamp) : p.timerStartTimestamp,
+          currentSlotIndex: p.id === displayProgram.id ? displayCurrentSlotIndex : (p.currentSlotIndex ?? currentSlotIndex),
+          status: isLiveNow ? 'live' : p.status,
+        };
         channel.postMessage({
           id: p.id,
-          program: p
+          program: liveSnapshot
         });
         channel.close();
+
+        // Also relay to Electron BrowserWindow instances across process boundaries
+        const electronApi = (window as any).electron || (window as any).electronAPI;
+        if (electronApi?.sendTimerState) {
+          electronApi.sendTimerState({
+            id: p.id,
+            program: liveSnapshot,
+            isTimerActive: liveSnapshot.isTimerActive,
+            timerStartTimestamp: liveSnapshot.timerStartTimestamp,
+            currentSlotIndex: liveSnapshot.currentSlotIndex,
+            status: liveSnapshot.status,
+          });
+        }
+
+        // Persist local offline recovery snapshot
+        try {
+          localStorage.setItem(`kairon_offline_cache_${p.id}`, JSON.stringify(liveSnapshot));
+          if (p.id?.startsWith('local-')) {
+            localStorage.setItem(`kairon_offline_cache_${p.id.replace('local-', '')}`, JSON.stringify(liveSnapshot));
+          }
+          if (isLiveNow) {
+            localStorage.setItem('kairon_offline_cache_live', JSON.stringify(liveSnapshot));
+          }
+        } catch (storageErr) {
+          console.warn("Failed to update local offline cache snapshot:", storageErr);
+        }
       } catch (err) {
-        console.error("Local BroadcastChannel sync failed:", err);
+        console.error("Local BroadcastChannel / IPC sync failed:", err);
       }
 
-      // Only attempt creation if it's a local-prefixed ID
-      if (p.id?.startsWith('local-')) {
-        return await createProgramService(p);
+      // Silently auto-archive to local Electron disk workspace if available
+      if (isLocalFolderWorkspace) {
+        await saveProgramToLocalFolder(p, activeOrg?.folderPath);
+        setLocalFolderTick(t => t + 1);
+        return p;
       }
 
-      // Otherwise, it's already a Convex program, just update it
-      return await updateProgramService(p);
+      void autoArchiveToLocalWorkspace(p, activeOrg?.name).then((savedPath) => {
+        if (savedPath) {
+          setLastDiskArchiveAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        }
+      });
+
+      if (typeof window !== 'undefined' && !window.navigator.onLine) {
+        enqueueOfflineChange({
+          programId: p.id,
+          lastEdited: Date.now(),
+          action: 'save_program',
+          program: p,
+        });
+        setPendingOfflineCount(getOfflineLedger().length);
+        return p;
+      }
+
+      try {
+        // Only attempt creation if it's a local-prefixed ID
+        if (p.id?.startsWith('local-')) {
+          return await createProgramService(p);
+        }
+
+        // Otherwise, it's already a Convex program, just update it
+        return await updateProgramService(p);
+      } catch (err) {
+        enqueueOfflineChange({
+          programId: p.id,
+          lastEdited: Date.now(),
+          action: 'save_program',
+          program: p,
+        });
+        setPendingOfflineCount(getOfflineLedger().length);
+        throw err;
+      }
     }
   });
 
@@ -1024,24 +1706,55 @@ const AppContent: React.FC = () => {
     }) => {
       const { id, ...timerState } = state;
 
+      // Keep offline cache synchronized with timer mutations
+      let updatedProgram: any = null;
+      try {
+        const cleanId = id.replace(/^local-/, '');
+        const cachedRaw = localStorage.getItem(`kairon_offline_cache_${id}`) ||
+                          localStorage.getItem(`kairon_offline_cache_${cleanId}`) ||
+                          localStorage.getItem('kairon_offline_cache_live') ||
+                          localStorage.getItem('kairon_program');
+        if (cachedRaw) {
+          try {
+            const cached = JSON.parse(cachedRaw);
+            updatedProgram = { ...cached, ...timerState, id };
+            const serialized = JSON.stringify(updatedProgram);
+            localStorage.setItem(`kairon_offline_cache_${id}`, serialized);
+            localStorage.setItem(`kairon_offline_cache_${cleanId}`, serialized);
+            localStorage.setItem('kairon_offline_cache_live', serialized);
+          } catch (parseErr) {}
+        }
+      } catch (err) {
+        // silent
+      }
+
+      const fullPayload = {
+        id,
+        program: updatedProgram,
+        ...timerState
+      };
+
       // Broadcast local offline state sync across tabs immediately
       try {
         const channel = new BroadcastChannel('kairon_offline_sync');
-        channel.postMessage({
-          id,
-          ...timerState
-        });
+        channel.postMessage(fullPayload);
         channel.close();
       } catch (err) {
         console.error("Local BroadcastChannel sync failed:", err);
       }
 
-      const isTestBypass = typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
-      // CRITICAL GUARD
-      if (id?.startsWith('local-') && !isTestBypass) {
-        console.warn("Timer save blocked: Program ID is local.");
-        return;
+      // Electron IPC relay: fan out to ALL open BrowserWindows (Stage, TV, Prompter etc.)
+      // BroadcastChannel does NOT cross Electron process boundaries — this IPC call does.
+      try {
+        const electronApi = (window as any).electron || (window as any).electronAPI;
+        if (electronApi?.sendTimerState) {
+          electronApi.sendTimerState(fullPayload);
+        }
+      } catch (err) {
+        console.error("Electron timer-state relay failed:", err);
       }
+
+
       return updateTimerStateService(id, timerState);
     }
   });
@@ -1068,39 +1781,32 @@ const AppContent: React.FC = () => {
   };
 
   const handleNudge = (minutes: number, targetProgramId?: string) => {
-    if (isReadOnly) return;
+    if (!canControlLive) return;
     
     const targetId = targetProgramId || displayProgram.id;
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     const targetIdx = targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0);
 
-    const newSlots = [...targetProg.slots];
-    const currentSlot = newSlots[targetIdx];
+    const currentSlot = targetProg.slots[targetIdx];
     console.log('handleNudge called with:', minutes, 'currentSlot duration minutes before nudge:', currentSlot?.durationMinutes);
 
     if (currentSlot) {
-      currentSlot.durationMinutes = Math.max(0, currentSlot.durationMinutes + minutes);
-      const updated = { ...targetProg, slots: newSlots };
-      console.log('updated slot durationMinutes:', updated.slots[targetIdx].durationMinutes);
+      const nextDuration = Math.max(0, currentSlot.durationMinutes + minutes);
+      const newSlots = targetProg.slots.map((s, idx) => 
+        idx === targetIdx ? { ...s, durationMinutes: nextDuration } : s
+      );
+      const activeManualMode = targetProg.isManualMode ?? displayIsManualMode ?? programRef.current?.isManualMode ?? false;
+      const updated = { 
+        ...targetProg, 
+        ...programRef.current, 
+        slots: newSlots,
+        isManualMode: activeManualMode
+      };
+      console.log('updated slot durationMinutes:', nextDuration, 'isManualMode:', activeManualMode);
 
-      const targetIsLive = targetProg.status === 'live';
-      const targetIsActive = (targetProg.isTimerActive !== undefined ? targetProg.isTimerActive : false) ||
-                            activeSessions.some(as => String(as.id) === String(targetId) && as.isTimerActive) || 
-                            (String(targetId) === String(displayProgram.id) ? displayIsTimerActive : false) ||
-                            (String(targetId) === String(program.id) ? isTimerActive : false);
-      const targetStartTs = targetId === displayProgram.id ? displayTimerStartTimestamp : targetProg.timerStartTimestamp;
-      const targetElapsed = targetId === displayProgram.id ? displaySecondsElapsed : (targetProg.secondsElapsed || 0);
-
-      if (targetIsLive) {
-        timerSaveMutation.mutate({
-          id: targetId,
-          currentSlotIndex: targetIdx,
-          isTimerActive: targetIsActive,
-          secondsElapsed: targetElapsed,
-          timerStartTimestamp: targetStartTs,
-          isManualMode: targetProg.isManualMode
-        });
-      }
+      // Immediately synchronize refs so debounces and background listeners never revert to stale slot durations
+      programRef.current = updated;
+      lastSavedProgramRef.current = updated;
 
       if (targetId === program.id || targetId === displayProgram.id) {
         updateLocalProgram(updated);
@@ -1112,7 +1818,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleEndEvent = (targetProgramId?: string) => {
-    if (isReadOnly) return;
+    if (!canControlLive) return;
     const targetId = targetProgramId || displayProgram.id;
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     const targetIdx = targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0);
@@ -1128,12 +1834,28 @@ const AppContent: React.FC = () => {
       );
     }
 
-    const updatedProgram = { 
+    const updatedProgram: Program = { 
       ...targetProg, 
       slots: slotsWithFinalDuration,
       status: 'concluded' as const, 
-      isTimerActive: false 
+      isTimerActive: false,
+      timerStartTimestamp: null
     };
+
+    // Update offline cache immediately so all display screens cleanly transition to concluded state
+    try {
+      const serialized = JSON.stringify(updatedProgram);
+      const cleanId = targetId.replace(/^local-/, '');
+      localStorage.setItem(`kairon_offline_cache_${targetId}`, serialized);
+      localStorage.setItem(`kairon_offline_cache_${cleanId}`, serialized);
+      localStorage.setItem('kairon_offline_cache_live', serialized);
+      localStorage.setItem('kairon_program', serialized);
+      localStorage.removeItem('kairon_master_live_session');
+      setMasterLiveSession(null);
+      window.dispatchEvent(new Event('kairon_master_session_changed'));
+    } catch (e) {
+      console.warn("Failed to update offline cache on end event:", e);
+    }
 
     // PUSH TO CLOUD
     timerSaveMutation.mutate({
@@ -1145,11 +1867,40 @@ const AppContent: React.FC = () => {
       status: 'concluded'
     });
 
-    if (targetId === program.id) {
+    if (targetId === program.id || targetId === displayProgram.id) {
       updateLocalProgram(updatedProgram);
       setIsTimerActive(false);
       setTimerStartTimestamp(null);
       setSecondsElapsed(0);
+    }
+
+    // Reset selected live session
+    setSelectedLiveId(null);
+
+    // Broadcast concluded state across all local tabs and Electron secondary windows
+    try {
+      const channel = new BroadcastChannel('kairon_offline_sync');
+      channel.postMessage({
+        id: targetId,
+        program: updatedProgram,
+        isTimerActive: false,
+        timerStartTimestamp: null,
+        status: 'concluded'
+      });
+      channel.close();
+
+      const electronApi = (window as any).electron || (window as any).electronAPI;
+      if (electronApi?.sendTimerState) {
+        electronApi.sendTimerState({
+          id: targetId,
+          program: updatedProgram,
+          isTimerActive: false,
+          timerStartTimestamp: null,
+          status: 'concluded'
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to broadcast end event:", e);
     }
     
     // Final save to DB - Explicitly clear timer state for this venue
@@ -1174,7 +1925,7 @@ const AppContent: React.FC = () => {
     if (isReadOnly) return;
 
     // Don't auto-save empty placeholder programs
-    if (program.slots.length === 0 && program.title === 'New Event' && program.subtitle === '') {
+    if (program.slots.length === 0 && program.title === 'New Event' && !program.subtitle) {
       return;
     }
 
@@ -1185,14 +1936,22 @@ const AppContent: React.FC = () => {
       return;
     }
 
+    // Skip saving if unchanged from last saved local state
+    if (lastSavedProgramRef.current && isProgramContentEqual(program, lastSavedProgramRef.current)) {
+      setSaveStatus('saved');
+      return;
+    }
+
     // Mark as unsaved when program changes
     setSaveStatus('unsaved');
 
     const timer = setTimeout(() => {
-      console.log(`Auto-saving program "${program.title}" to Convex...`);
+      const latestProgram = programRef.current;
+      const isLocalAutoSave = isBoothMode || latestProgram.id?.startsWith('local-') || latestProgram.organizationId?.startsWith('local-') || latestProgram.organizationId === 'local-workspace';
+      console.log(`Auto-saving program "${latestProgram.title}" ${isLocalAutoSave ? 'locally' : 'to Convex'}...`);
       setSaveStatus('saving');
-      lastSavedProgramRef.current = program;
-      mutation.mutate(program);
+      lastSavedProgramRef.current = latestProgram;
+      mutation.mutate(latestProgram);
     }, 2000); // 2s debounce
 
     return () => clearTimeout(timer);
@@ -1265,19 +2024,44 @@ const AppContent: React.FC = () => {
     setProgram(normalizedProgram);
     setSaveStatus('saved');
 
+    // Safety: Check if this program matches the running master live session
+    let restoredFromMaster = false;
+    try {
+      const rawMaster = localStorage.getItem('kairon_master_live_session');
+      if (rawMaster) {
+        const master = JSON.parse(rawMaster);
+        const matchesId = master && (
+          master.programId === normalizedProgram.id ||
+          String(master.programId).replace(/^local-/, '') === String(normalizedProgram.id).replace(/^local-/, '')
+        );
+        if (matchesId && master.isTimerActive) {
+          const wallClockElapsed = master.timerStartTimestamp
+            ? Math.floor((Date.now() - master.timerStartTimestamp) / 1000)
+            : master.secondsElapsed;
+          setCurrentSlotIndex(master.currentSlotIndex || 0);
+          setSecondsElapsed(wallClockElapsed);
+          setIsTimerActive(master.isTimerActive);
+          setTimerStartTimestamp(master.timerStartTimestamp);
+          restoredFromMaster = true;
+        }
+      }
+    } catch {}
+
     // Safety: Only reset local viewer state if we are NOT loading the live program.
     // If loading the live program, we want to keep the current running pointers.
-    if (globalLiveProgram?.id !== normalizedProgram.id) {
-      setCurrentSlotIndex(0);
-      setSecondsElapsed(0);
-      setIsTimerActive(false);
-      setTimerStartTimestamp(null);
-    } else {
-      // Even if loading the same program, ensure it's synced to the global state
-      setCurrentSlotIndex(globalLiveProgram.currentSlotIndex || 0);
-      setSecondsElapsed(globalLiveProgram.secondsElapsed || 0);
-      setIsTimerActive(globalLiveProgram.isTimerActive || false);
-      setTimerStartTimestamp(globalLiveProgram.timerStartTimestamp || null);
+    if (!restoredFromMaster) {
+      if (globalLiveProgram?.id !== normalizedProgram.id) {
+        setCurrentSlotIndex(0);
+        setSecondsElapsed(0);
+        setIsTimerActive(false);
+        setTimerStartTimestamp(null);
+      } else {
+        // Even if loading the same program, ensure it's synced to the global state
+        setCurrentSlotIndex(globalLiveProgram.currentSlotIndex || 0);
+        setSecondsElapsed(globalLiveProgram.secondsElapsed || 0);
+        setIsTimerActive(globalLiveProgram.isTimerActive || false);
+        setTimerStartTimestamp(globalLiveProgram.timerStartTimestamp || null);
+      }
     }
 
     // Clear persisted state for safety when explicitly switching/loading
@@ -1322,6 +2106,12 @@ const AppContent: React.FC = () => {
       ...baseProgram,
       date: date,
     };
+    if (isLocalFolderWorkspace) {
+      setLocalFolderPrograms(prev => [newProgram, ...prev.filter(p => p.id !== newProgram.id)]);
+      saveProgramToLocalFolder(newProgram, activeOrg?.folderPath).then(() => {
+        setLocalFolderTick(t => t + 1);
+      });
+    }
     loadProgram(newProgram);
   };
 
@@ -1333,7 +2123,28 @@ const AppContent: React.FC = () => {
     }
 
     try {
+      if (isLocalFolderWorkspace) {
+        const cleanId = id.replace(/^(local-file-|local-)/, '');
+        const found = localFolderPrograms.find(p => 
+          p.id === id || 
+          p.id?.replace(/^(local-file-|local-)/, '') === cleanId ||
+          (p.slug && p.slug.replace(/^local-/, '') === cleanId) ||
+          (p._fileName && p._fileName.replace(/\.[^/.]+$/, '') === cleanId)
+        );
+        if (found?._filePath) {
+          await deleteProgramFromLocalFolder(found._filePath);
+        }
+        setLocalFolderPrograms(prev => prev.filter(p => 
+          p.id !== id && 
+          p.id?.replace(/^(local-file-|local-)/, '') !== cleanId &&
+          (!p.slug || p.slug.replace(/^local-/, '') !== cleanId)
+        ));
+      }
+
       await deleteProgramService(id);
+      if (isLocalFolderWorkspace) {
+        setLocalFolderTick(t => t + 1);
+      }
 
       // Invalidate cache to refresh home and calendar views
       queryClient.invalidateQueries({ queryKey: ['programs'] });
@@ -1349,15 +2160,18 @@ const AppContent: React.FC = () => {
       const cleanDeletedId = id.replace('local-', '');
       const isCurrentDeleted = program.id === id || program.id.replace('local-', '') === cleanDeletedId;
       if (isCurrentDeleted) {
-        // Fetch programs with activeOrgId so we don't get an empty list
-        const allPrograms = await getPrograms(activeOrgId ?? undefined);
+        const allPrograms = isLocalFolderWorkspace 
+          ? await readLocalFolderPrograms(activeOrg?.folderPath)
+          : await getPrograms(activeOrgId ?? undefined);
         const remaining = allPrograms.filter(p => p.id !== id && p.id.replace('local-', '') !== cleanDeletedId);
         if (remaining.length > 0) {
           loadProgram(remaining[0]);
         } else {
-          // Reset to initial if all deleted
+          // Reset to clean initial state in memory without auto-saving to disk
           const reset = getInitialProgram(activeOrgId ?? undefined);
-          loadProgram(reset);
+          lastSavedProgramRef.current = reset;
+          setProgram(reset);
+          setSaveStatus('saved');
         }
       }
     } catch (error) {
@@ -1506,7 +2320,7 @@ const AppContent: React.FC = () => {
     }
 
     return () => clearInterval(interval);
-  }, [isTimerActive, timerStartTimestamp]);
+  }, [isTimerActive, timerStartTimestamp, displayIsTimerActive, displayTimerStartTimestamp, displayProgram?.id]);
 
 
   const handleSlotComplete = (slotId: string, actualDuration: number) => {
@@ -1540,7 +2354,7 @@ const AppContent: React.FC = () => {
   // Universal Auto-Advance Watcher (Corrected)
   useEffect(() => {
     if (!displayProgram || !displayProgram.id) return;
-    if (displayProgram.isManualMode) return;
+    if (displayIsManualMode || displayProgram.isManualMode) return;
     if (!displayIsTimerActive) return; // FIX: Never auto-advance or unpause if timer is paused!
 
     const currentIdx = displayCurrentSlotIndex;
@@ -1591,7 +2405,7 @@ const AppContent: React.FC = () => {
         handleEndEvent();
       }
     }
-  }, [displaySecondsElapsed, displayIsTimerActive, displayProgram.id, displayCurrentSlotIndex, displayProgram.slots, displayProgram.isManualMode]);
+  }, [displaySecondsElapsed, displayIsTimerActive, displayProgram.id, displayCurrentSlotIndex, displayProgram.slots, displayIsManualMode, displayProgram.isManualMode]);
 
   // Auto-Start Watcher (New Feature)
   useEffect(() => {
@@ -1681,22 +2495,35 @@ const AppContent: React.FC = () => {
       ? displayCurrentSlotIndex 
       : (target.currentSlotIndex || 0);
 
+    const isConcluded = target.status === 'concluded' || displayProgram.status === 'concluded';
+    const totalSlots = target.slots?.length || displayProgram.slots?.length || 1;
+    const isPastEnd = indexToUse >= totalSlots - 1 && (displaySecondsElapsed >= (displayProgram.slots?.[indexToUse]?.durationMinutes || 0) * 60 || isConcluded);
+
+    let effectiveIndex = indexToUse;
+    let secondsToUse = localSecondsOverride !== undefined 
+      ? localSecondsOverride 
+      : (targetIdStr === String(displayProgram.id) ? displaySecondsElapsed : (target.secondsElapsed || 0));
+
+    // REPLAY / RESTART FIX:
+    // If starting a service that has already concluded, or restarting at the end of the rundown,
+    // cleanly rewind to Slot 0 and reset elapsed seconds to 0!
+    if (newState && (isConcluded || isPastEnd)) {
+      effectiveIndex = 0;
+      secondsToUse = 0;
+    }
+
     if (newState) {
       const now = Date.now();
       if (targetIdStr === String(displayProgram.id)) {
         lastAdvancedIndexRef.current = -1;
         lastProcessedIndexRef.current = -1;
       }
-      // For PLAY: Use localSecondsOverride (from manual start) or existing display/target elapsed
-      const secondsToUse = localSecondsOverride !== undefined 
-        ? localSecondsOverride 
-        : (targetIdStr === String(displayProgram.id) ? displaySecondsElapsed : (target.secondsElapsed || 0));
       
       const shiftedStart = now - (secondsToUse * 1000);
 
       timerSaveMutation.mutate({
         id: target.id,
-        currentSlotIndex: indexToUse,
+        currentSlotIndex: effectiveIndex,
         isTimerActive: true,
         secondsElapsed: secondsToUse, 
         timerStartTimestamp: shiftedStart,
@@ -1708,9 +2535,18 @@ const AppContent: React.FC = () => {
       });
 
       if (targetIdStr === String(program.id) || targetIdStr === String(displayProgram.id)) {
+        setCurrentSlotIndex(effectiveIndex);
+        setSecondsElapsed(secondsToUse);
         setIsTimerActive(true);
         setTimerStartTimestamp(shiftedStart);
-        updateLocalProgram(prev => ({ ...prev, status: 'live' }));
+        updateLocalProgram(prev => ({
+          ...prev,
+          status: 'live',
+          isTimerActive: true,
+          timerStartTimestamp: shiftedStart,
+          currentSlotIndex: effectiveIndex,
+          secondsElapsed: secondsToUse
+        }));
         
         // REDIRECT FIX: Only navigate to Editor if starting from a non-production view
         const currentPath = window.location.pathname;
@@ -1722,11 +2558,14 @@ const AppContent: React.FC = () => {
     } else {
       // Pause - ABSOLUTE WALL-CLOCK AUTHORITY
       const now = Date.now();
-      const wallDelta = target.timerStartTimestamp ? Math.floor((now - target.timerStartTimestamp) / 1000) : (target.secondsElapsed || 0);
+      const effectiveStartTs = target.timerStartTimestamp ?? (targetIdStr === String(displayProgram.id) ? displayTimerStartTimestamp : null);
+      const wallDelta = effectiveStartTs ? Math.floor((now - effectiveStartTs) / 1000) : (target.secondsElapsed || 0);
       
-      const secondsToSave = (target.status === 'live' && target.timerStartTimestamp)
-        ? Math.max(wallDelta, currentTickingSecondsRef.current)
-        : (localSecondsOverride !== undefined ? localSecondsOverride : wallDelta);
+      const secondsToSave = (localSecondsOverride !== undefined)
+        ? localSecondsOverride
+        : ((target.status === 'live' || targetIdStr === String(displayProgram.id))
+            ? Math.max(wallDelta, currentTickingSecondsRef.current || 0)
+            : wallDelta);
 
       timerSaveMutation.mutate({
         id: target.id,
@@ -1741,6 +2580,13 @@ const AppContent: React.FC = () => {
         setIsTimerActive(false);
         setTimerStartTimestamp(null);
         setSecondsElapsed(secondsToSave); 
+        updateLocalProgram(prev => ({
+          ...prev,
+          isTimerActive: false,
+          timerStartTimestamp: null,
+          secondsElapsed: secondsToSave,
+          currentSlotIndex: indexToUse
+        }));
       }
     }
   };
@@ -1818,11 +2664,18 @@ const AppContent: React.FC = () => {
   };
 
   const handleToggleManualMode = (targetProgramId?: string) => {
-    if (isReadOnly) return;
+    if (!canControlLive) return;
     const targetId = targetProgramId || displayProgram.id;
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     
-    const nextManualState = !targetProg.isManualMode;
+    const nextManualState = !(targetProg.isManualMode ?? displayIsManualMode);
+
+    if (programRef.current) {
+      programRef.current = { ...programRef.current, isManualMode: nextManualState };
+    }
+    if (lastSavedProgramRef.current) {
+      lastSavedProgramRef.current = { ...lastSavedProgramRef.current, isManualMode: nextManualState };
+    }
 
     // PUSH TO CLOUD - Ensure HUDs update instantly
     timerSaveMutation.mutate({
@@ -1841,7 +2694,7 @@ const AppContent: React.FC = () => {
 
 
   const handleNext = (targetProgramId?: string) => {
-    if (isReadOnly) return;
+    if (!canControlLive) return;
     const targetId = targetProgramId || displayProgram.id;
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     const targetIdx = targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0);
@@ -1907,7 +2760,7 @@ const AppContent: React.FC = () => {
   };
 
   const handlePrev = (targetProgramId?: string) => {
-    if (isReadOnly) return;
+    if (!canControlLive) return;
     const targetId = targetProgramId || displayProgram.id;
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     const targetIdx = targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0);
@@ -1947,10 +2800,117 @@ const AppContent: React.FC = () => {
 
   const [isHotkeysOpen, setIsHotkeysOpen] = useState(false);
 
-  // Global Tactical Broadcast Hotkeys
+  const exportTargetProgram = location.pathname.startsWith('/editor') ? program : displayProgram;
+
+  // --- Portable .kairon & .csv File I/O Handlers ---
+  const handleSaveKaironFile = React.useCallback(async (targetProg: Program = exportTargetProgram) => {
+    if (isLocalFolderWorkspace) {
+      const res = await saveProgramToLocalFolder(targetProg, activeOrg?.folderPath);
+      if (res.success) {
+        setLocalFolderTick(t => t + 1);
+        setLastDiskArchiveAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        return;
+      }
+    }
+    const res = await saveKaironFileToDisk(targetProg, activeOrg?.name);
+    if (res.saved) {
+      setLastDiskArchiveAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    }
+  }, [exportTargetProgram, activeOrg?.name, isLocalFolderWorkspace, activeOrg?.folderPath]);
+
+  const handleOpenKaironFile = React.useCallback(async () => {
+    const anyWin = window as any;
+    if (anyWin?.electronAPI?.openKaironFile) {
+      try {
+        const res = await anyWin.electronAPI.openKaironFile();
+        if ((res?.success || res?.opened) && res?.content) {
+          const parsed = parseKaironFile(res.content);
+          if (parsed?.program) {
+            const imported = parsed.program;
+            loadProgram(imported);
+            if (imported.slots.length > 0) setSelectedSlotId(imported.slots[0].id);
+            if (isLocalFolderWorkspace) {
+              await saveProgramToLocalFolder(imported, activeOrg?.folderPath);
+              setLocalFolderTick(t => t + 1);
+            }
+          } else {
+            alert('Invalid .kairon file format.');
+          }
+        }
+        return;
+      } catch (err) {
+        console.warn('Electron open dialog fallback to browser input:', err);
+      }
+    }
+    fileInputRef.current?.click();
+  }, [loadProgram, isLocalFolderWorkspace, activeOrg?.folderPath]);
+
+  const handleBrowserFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = String(reader.result || '');
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        const slots = parseCsvToSlots(content);
+        if (slots.length > 0) {
+          updateLocalProgram(prev => ({
+            ...prev,
+            slots,
+          }));
+          setSelectedSlotId(slots[0].id);
+          navigate('/editor');
+        } else {
+          alert('No valid schedule rows found in CSV file.');
+        }
+      } else {
+        const parsed = parseKaironFile(content);
+        if (parsed?.program) {
+          const imported = parsed.program;
+          loadProgram(imported);
+          if (imported.slots.length > 0) setSelectedSlotId(imported.slots[0].id);
+          if (isLocalFolderWorkspace) {
+            saveProgramToLocalFolder(imported, activeOrg?.folderPath).then(() => {
+              setLocalFolderTick(t => t + 1);
+            });
+          }
+        } else {
+          alert('Could not parse .kairon file.');
+        }
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  };
+
+  // Global Tactical Broadcast & Studio Hotkeys
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Ignore keystrokes when typing inside text inputs, textareas, or contentEditable
+      const isMod = e.ctrlKey || e.metaKey;
+
+      // Studio-wide Ctrl/Cmd shortcuts work even if focus is in an input (except Ctrl+B)
+      if (isMod && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+        return;
+      }
+      if (isMod && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        void handleSaveKaironFile();
+        return;
+      }
+      if (isMod && (e.key === 'o' || e.key === 'O')) {
+        e.preventDefault();
+        void handleOpenKaironFile();
+        return;
+      }
+      if (isMod && e.key === '\\') {
+        e.preventDefault();
+        setIsRightDockCollapsed(prev => !prev);
+        return;
+      }
+
+      // Ignore single-key broadcast hotkeys when typing inside text inputs, textareas, or contentEditable
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -1962,6 +2922,12 @@ const AppContent: React.FC = () => {
         return;
       }
 
+      if (isMod && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        setIsSidebarCollapsed(prev => !prev);
+        return;
+      }
+
       // '?' toggles Hotkeys Modal
       if (e.key === '?') {
         e.preventDefault();
@@ -1969,8 +2935,18 @@ const AppContent: React.FC = () => {
         return;
       }
 
-      // 'Escape' closes Hotkeys Modal if open
+      // 'Escape' closes modals if open
       if (e.key === 'Escape') {
+        if (isCommandPaletteOpen) {
+          e.preventDefault();
+          setIsCommandPaletteOpen(false);
+          return;
+        }
+        if (isIntegrationsOpen) {
+          e.preventDefault();
+          setIsIntegrationsOpen(false);
+          return;
+        }
         if (isHotkeysOpen) {
           e.preventDefault();
           setIsHotkeysOpen(false);
@@ -1978,13 +2954,19 @@ const AppContent: React.FC = () => {
         }
       }
 
-      // If hotkeys modal is open, let user press Esc or ? to close, ignore other triggers
-      if (isHotkeysOpen) return;
+      if (isHotkeysOpen || isCommandPaletteOpen || isIntegrationsOpen) return;
+
+      // 'Z' key toggles Zen Focus Mode
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault();
+        toggleZenMode();
+        return;
+      }
 
       // Broadcast hotkeys
       if (e.code === 'Space') {
         e.preventDefault();
-        handleToggleTimer();
+        handleToggleTimer(displayProgram, false, headerElapsed);
       } else if (e.key === 'n' || e.key === 'N') {
         e.preventDefault();
         handleNext();
@@ -2006,6 +2988,11 @@ const AppContent: React.FC = () => {
       } else if (e.key === 'a' || e.key === 'A') {
         e.preventDefault();
         handleToggleAutopilot();
+      } else if (e.shiftKey && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        recallFlightBridge();
+        setHudPos(null);
+        try { localStorage.removeItem('kairon_flight_bridge_pos'); } catch {}
       } else if (e.key === '1') {
         e.preventDefault();
         navigate('/editor');
@@ -2025,6 +3012,10 @@ const AppContent: React.FC = () => {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [
     isHotkeysOpen,
+    isCommandPaletteOpen,
+    isIntegrationsOpen,
+    handleSaveKaironFile,
+    handleOpenKaironFile,
     handleToggleTimer,
     handleNext,
     handlePrev,
@@ -2035,8 +3026,6 @@ const AppContent: React.FC = () => {
     displayProgram?.id,
     navigate
   ]);
-
-  // Wrappers (Replaced with external components)
 
   // --- Public Path Logic ---
   const isPublicPath =
@@ -2092,11 +3081,108 @@ const AppContent: React.FC = () => {
     };
   }, []);
 
-  const isSoundAcked = (currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-sound`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'sound');
-  const isLightsAcked = (currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-lighting`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'lighting');
-  const isVideoAcked = (currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-video`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'video');
+  const isSoundAcked = !!(currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-sound`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'sound');
+  const isLightsAcked = !!(currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-lighting`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'lighting');
+  const isVideoAcked = !!(currentHeaderSlot && headerLocalAcks.has(`${currentHeaderSlot.id}-video`)) || crewAcks.some((a: any) => a.slotId === currentHeaderSlot?.id && a.role === 'video');
 
-  const exportTargetProgram = location.pathname.startsWith('/editor') ? program : displayProgram;
+  // Listen for timer control actions sent from detached secondary windows (e.g. Flight Bridge)
+  useEffect(() => {
+    const handleControlAction = (msg: any) => {
+      if (!msg || !msg.action) return;
+      const now = Date.now();
+      const actionKey = `${msg.action}-${msg.targetId || ''}-${msg.minutes || ''}-${msg.seconds || ''}-${msg.nextState !== undefined ? msg.nextState : ''}`;
+      if (now - lastControlActionTimestampRef.current < 250 && lastControlActionKeyRef.current === actionKey) {
+        return; // Suppress duplicate execution across IPC and BroadcastChannel
+      }
+      lastControlActionTimestampRef.current = now;
+      lastControlActionKeyRef.current = actionKey;
+      const targetProg = displayProgram;
+      switch (msg.action) {
+        case 'TOGGLE_TIMER':
+          handleToggleTimer(targetProg, msg.force, msg.seconds);
+          break;
+        case 'NEXT':
+          handleNext(msg.targetId);
+          break;
+        case 'PREV':
+          handlePrev(msg.targetId);
+          break;
+        case 'NUDGE':
+          handleNudge(msg.minutes || (msg.seconds ? msg.seconds / 60 : 1), msg.targetId);
+          break;
+        case 'HOLD':
+          handleToggleHold(msg.nextState, msg.targetId);
+          break;
+        case 'END_EVENT':
+          handleEndEvent(msg.targetId);
+          break;
+        case 'REQUEST_END_EVENT':
+          requestEndEventConfirmation(msg.targetId || targetProg.id);
+          break;
+        case 'TOGGLE_MANUAL':
+          handleToggleManualMode(msg.targetId);
+          break;
+        case 'REQUEST_SYNC': {
+          const liveSnapshot = {
+            ...displayProgram,
+            isTimerActive: displayIsTimerActive,
+            timerStartTimestamp: displayTimerStartTimestamp,
+            currentSlotIndex: displayCurrentSlotIndex,
+            secondsElapsed: displaySecondsElapsed,
+            status: (displayIsTimerActive || displayProgram.status === 'live') ? 'live' : displayProgram.status,
+          };
+          try {
+            const chan = new BroadcastChannel('kairon_offline_sync');
+            chan.postMessage({
+              id: displayProgram.id,
+              program: liveSnapshot,
+              isTimerActive: displayIsTimerActive,
+              timerStartTimestamp: displayTimerStartTimestamp,
+              currentSlotIndex: displayCurrentSlotIndex,
+              secondsElapsed: displaySecondsElapsed,
+              status: liveSnapshot.status
+            });
+            chan.close();
+          } catch {}
+          const electronApi = (window as any).electron || (window as any).electronAPI;
+          if (electronApi?.sendTimerState) {
+            electronApi.sendTimerState({
+              id: displayProgram.id,
+              program: liveSnapshot,
+              isTimerActive: displayIsTimerActive,
+              timerStartTimestamp: displayTimerStartTimestamp,
+              currentSlotIndex: displayCurrentSlotIndex,
+              secondsElapsed: displaySecondsElapsed,
+              status: liveSnapshot.status
+            });
+          }
+          break;
+        }
+      }
+    };
+
+    // 1. Electron IPC control listener
+    const electron = typeof window !== 'undefined' ? ((window as any).electron || (window as any).electronAPI) : null;
+    let unsubIpc: (() => void) | undefined;
+    if (electron && typeof electron.onTimerControl === 'function') {
+      unsubIpc = electron.onTimerControl(handleControlAction);
+    }
+
+    // 2. BroadcastChannel control listener (for multi-window / backup)
+    const controlChannel = new BroadcastChannel('kairon_control_sync');
+    const handleChannelMsg = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'TIMER_CONTROL') {
+        handleControlAction(e.data);
+      }
+    };
+    controlChannel.addEventListener('message', handleChannelMsg);
+
+    return () => {
+      if (unsubIpc) unsubIpc();
+      controlChannel.removeEventListener('message', handleChannelMsg);
+      controlChannel.close();
+    };
+  }, [displayProgram, handleToggleTimer, handleNext, handlePrev, handleNudge, handleToggleHold, handleEndEvent, requestEndEventConfirmation, handleToggleManualMode]);
 
   // --- Public View Bypass (TOP LEVEL) ---
   // We check this before ANY auth or shell rendering to ensure zero-friction guest access and no flicker.
@@ -2125,315 +3211,433 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Special Route Handling: TV Mode, Stage, Prompter, Crew HUD, Public
-  // We render this exclusively, bypassing the main application shell (header, footer, etc.)
-  // Support both standard BrowserRouter paths (/stage) and compiled Electron hash paths (#stage, #/stage)
-  const rawHash = (location.hash || '').replace(/^#\/?/, '').split('?')[0].toLowerCase();
-  const rawPath = (location.pathname || '').replace(/^\//, '').split('?')[0].toLowerCase();
-  const currentRouteToken = rawHash || rawPath;
-
-  if (currentRouteToken === 'tv' || location.pathname === '/tv') {
-    return <TVWrapper />;
-  }
-
-  if (currentRouteToken === 'stage' || location.pathname === '/stage') {
-    return <StageWrapper />;
-  }
-
-  if (currentRouteToken === 'prompter' || location.pathname === '/prompter') {
-    return <PrompterWrapper />;
-  }
-
-  if (currentRouteToken === 'crew' || location.pathname === '/crew') {
-    return <CrewHUD />;
-  }
-
-  if (currentRouteToken === 'public' || currentRouteToken === 'portal' || location.pathname === '/public' || location.pathname === '/portal') {
-    return <PublicPortal />;
+  // Zen / Focus Mode: Fullscreen distraction-free operator console
+  if (isZenMode) {
+    return (
+      <ZenFocusConsole
+        program={displayProgram}
+        currentSlotIndex={displayCurrentSlotIndex}
+        isTimerActive={displayIsTimerActive}
+        timerStartTimestamp={displayTimerStartTimestamp}
+        secondsElapsed={displaySecondsElapsed}
+        onToggleTimer={() => handleToggleTimer(displayProgram, false, headerElapsed)}
+        onNext={() => handleNext(displayProgram.id)}
+        onPrev={() => handlePrev(displayProgram.id)}
+        onNudge={(mins) => handleNudge(mins, displayProgram.id)}
+        onToggleHold={() => handleToggleHold(undefined, displayProgram.id)}
+        onExitZen={() => setZenMode(false)}
+        onEndEvent={() => handleEndEvent(displayProgram.id)}
+        onRequestEndEvent={() => requestEndEventConfirmation(displayProgram.id)}
+      />
+    );
   }
 
   return (
-    <div className="h-screen flex bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-hidden">
+    <div className="h-screen flex flex-col bg-slate-50 dark:bg-[#0B0C0E] text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-hidden">
+      {/* =========================================================
+          ROW 1: DESKTOP STUDIO MENU BAR (28px, lg:flex)
+         ========================================================= */}
       {user && (
-        <Sidebar
-          activeOrg={activeOrg}
-          userOrganizations={userOrganizations}
-          setActiveOrgId={setActiveOrgId}
-          profile={profile}
-          user={user}
-          onProfileUpdate={setProfile}
-          handleSignOut={handleSignOut}
-          isOnline={isOnline}
-          programTitle={displayProgram.title}
-          programId={displayProgram.id}
-          editorProgramId={program.id}
-          activeSessions={activeSessions}
-          selectedLiveId={selectedLiveId}
-          onSelectLive={setSelectedLiveId}
-          isCollapsed={isSidebarCollapsed}
-          onToggle={setIsSidebarCollapsed}
-          onCreateOrg={() => setIsOnboardingManual(true)}
-          onStopAllSessions={handleStopAllSessions}
-        />
-      )}
-
-      {user && (userOrganizations.length === 0 || isOnboardingManual) && !effectiveAuthLoading && !loadingOrgs && (
-        <OnboardingOverlay
-          userId={user.id}
-          userEmail={user.email || ''}
-          onClose={userOrganizations.length > 0 || isOnboardingManual ? () => setIsOnboardingManual(false) : undefined}
-          onOrgCreated={(newOrg) => {
-            queryClient.invalidateQueries({ queryKey: ['myOrganizations', user?.id] });
-            setActiveOrgId(newOrg.id);
-            setIsOnboardingManual(false);
-            navigate('/');
+        <StudioMenuBar
+          program={exportTargetProgram}
+          isTimerActive={displayIsTimerActive}
+          isAutopilotEnabled={isAutopilotEnabled}
+          isSidebarCollapsed={isSidebarCollapsed}
+          isRightDockOpen={!isRightDockCollapsed}
+          lastArchivedPath={lastDiskArchiveAt}
+          onCreateNewEvent={() => createProgram(new Date().toISOString().split('T')[0])}
+          onOpenKaironFile={() => void handleOpenKaironFile()}
+          onSaveKaironFile={() => void handleSaveKaironFile()}
+          onExportCsv={() => downloadProgramCsv(exportTargetProgram)}
+          onOpenExportPdf={() => setIsExportOpen(true)}
+          onDuplicateEvent={() => duplicateProgram(program.id)}
+          onTurnaroundEvent={() => handleTurnaroundProgram(program.id)}
+          onApplyTemplate={(tmplId) => {
+            const tmpl = PRODUCTION_TEMPLATES.find(t => t.id === tmplId);
+            if (!tmpl) return;
+            const newSlots: Slot[] = tmpl.slots.map((s, idx) => ({
+              id: `slot-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+              title: s.title,
+              speaker: s.speaker,
+              durationMinutes: s.durationMinutes,
+              type: s.type as SlotType,
+              details: s.details || '',
+              productionNotes: s.productionNotes || '',
+              prompterText: s.prompterText || '',
+            }));
+            updateLocalProgram(prev => ({
+              ...prev,
+              title: prev.title === 'New Event' ? tmpl.name : prev.title,
+              startTime: tmpl.startTime,
+              slots: newSlots,
+            }));
+            if (newSlots.length > 0) setSelectedSlotId(newSlots[0].id);
+            navigate('/editor');
           }}
+          onToggleAutopilot={() => handleToggleAutopilot()}
+          onToggleManualMode={() => handleToggleManualMode()}
+          onToggleTimer={() => handleToggleTimer(displayProgram, false, headerElapsed)}
+          onNextSlot={() => handleNext()}
+          onPrevSlot={() => handlePrev()}
+          onNudge={(mins) => handleNudge(mins)}
+          onToggleHold={() => handleToggleHold()}
+          onClearStageMessage={() => clearStageMessage()}
+          onProjectScreen={(path, screenIdx, winName) => openOnTargetScreen(path, screenIdx, winName)}
+          onOpenIntegrations={() => setIsIntegrationsOpen(true)}
+          onToggleSidebar={() => setIsSidebarCollapsed(prev => !prev)}
+          onToggleRightDock={() => setIsRightDockCollapsed(prev => !prev)}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          onOpenHotkeys={() => setIsHotkeysOpen(true)}
+          onOpenPip={() => openFlightBridge(displayProgram?.id)}
         />
       )}
 
-      <div className={`flex-1 flex flex-col h-screen transition-all duration-300 overflow-hidden ${
-        user 
-          ? (isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64') 
-          : ''
-      }`}>
-        {/* Header (Studio Precision Top Bar) */}
-        <header className="h-14 shrink-0 border-b border-slate-200 dark:border-[#22262E] bg-white/95 dark:bg-[#090A0C]/95 backdrop-blur-md transition-colors z-40 flex items-center shrink-0 no-print font-sans">
-          <div className="w-full px-4 md:px-5 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              {!user ? (
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center">
-                    <Mic className="text-[#0EA5E9]" size={15} />
-                  </div>
-                  <span className="font-mono font-bold text-sm tracking-wider text-slate-900 dark:text-white uppercase">KAIRON</span>
+      {/* =========================================================
+          ROW 2: COMPACT STUDIO HEADER & TRANSPORT BAR (56px)
+         ========================================================= */}
+      <header className="h-14 shrink-0 border-b border-slate-200 dark:border-[#22262E] bg-white/95 dark:bg-[#090A0C]/95 backdrop-blur-md transition-colors z-40 flex items-center no-print font-sans">
+        <div className="w-full px-4 md:px-5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            {!user ? (
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center">
+                  <Mic className="text-[#0EA5E9]" size={15} />
                 </div>
-              ) : (
-                <>
-                  <div className="flex-1 min-w-0 overflow-hidden">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <h2 className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white truncate max-w-[110px] sm:max-w-xs md:max-w-sm">
-                        {displayProgram.title}
-                      </h2>
-                      {displayIsTimerActive ? (
-                        <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#10B981]/10 border border-[#10B981]/30 text-[10px] font-mono font-bold text-[#10B981] shrink-0">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-tally" />
-                          LIVE
-                        </span>
-                      ) : (
-                        <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[10px] font-mono font-bold text-[#F59E0B] shrink-0">
-                          STANDBY
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Live Control Center & Header Timer */}
-            {!isReadOnly && displayProgram.slots.length > 0 && (
-              <div className="flex items-center gap-1 sm:gap-2 md:gap-3 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] px-1.5 sm:px-2.5 py-1 rounded-md shadow-sm shrink-0">
-                <div className={`text-xs sm:text-sm md:text-base font-mono font-bold tabular-nums min-w-[45px] sm:min-w-[55px] md:min-w-[70px] text-center ${
-                  displayIsTimerActive 
-                    ? (headerTimeLeft < 0 ? 'text-[#EF4444] animate-pulse' : 'text-[#10B981]') 
-                    : 'text-slate-500 dark:text-[#8A93A4]'
-                }`}>
-                  {currentHeaderSlot ? formatDuration(headerTimeLeft) : '00:00'}
-                </div>
-
-                <div className="w-[1px] h-3 sm:h-4 bg-slate-200 dark:bg-[#22262E]" />
-
-                <div className="flex items-center gap-0.5 sm:gap-1">
-                  <button
-                    onClick={() => handleToggleTimer()}
-                    className={`p-1 sm:p-1.5 rounded transition-all ${
-                      displayIsTimerActive 
-                        ? 'bg-slate-200 dark:bg-[#1C2028] text-slate-900 dark:text-white border border-slate-300 dark:border-[#2D333F]' 
-                        : 'bg-[#10B981] text-white hover:bg-[#059669]'
-                    }`}
-                    title={displayIsTimerActive ? "Pause Timer" : "Start Event"}
-                  >
-                    {displayIsTimerActive ? <Pause size={12} fill="currentColor" /> : <Play size={12} fill="currentColor" />}
-                  </button>
-
-                  <button
-                    onClick={() => handlePrev()}
-                    disabled={displayCurrentSlotIndex === 0}
-                    className={`hidden sm:inline-flex p-1 sm:p-1.5 rounded transition-all ${
-                      displayCurrentSlotIndex === 0 
-                        ? 'text-slate-300 dark:text-[#4B5563] cursor-not-allowed' 
-                        : 'text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22]'
-                    }`}
-                    title="Previous Slot"
-                  >
-                    <SkipBack size={12} />
-                  </button>
-
-                  <button
-                    onClick={() => handleNext()}
-                    disabled={displayCurrentSlotIndex === displayProgram.slots.length - 1}
-                    className={`p-1 sm:p-1.5 rounded transition-all ${
-                      displayCurrentSlotIndex === displayProgram.slots.length - 1 
-                        ? 'text-slate-300 dark:text-[#4B5563] cursor-not-allowed' 
-                        : 'text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22]'
-                    }`}
-                    title="Next Slot"
-                  >
-                    <SkipForward size={12} />
-                  </button>
-
-                  {/* Nudge Controls */}
-                  <div className="hidden md:inline-flex items-center bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] rounded p-0.5 mx-0.5">
-                    <button
-                      onClick={() => handleNudge(-1)}
-                      className="px-1.5 py-0.5 hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-all font-mono text-[10px] font-bold"
-                      title="Nudge Down -1 min"
-                    >
-                      <Minus size={11} />
-                    </button>
-                    <button
-                      onClick={() => handleNudge(1)}
-                      className="px-1.5 py-0.5 hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-all font-mono text-[10px] font-bold"
-                      title="Nudge Up +1 min"
-                    >
-                      <Plus size={11} />
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => handleToggleHold()}
-                    className={`p-1 sm:p-1.5 rounded transition-all ${
-                      displayProgram.isOnHold 
-                        ? 'bg-[#F59E0B] text-black' 
-                        : 'text-slate-600 dark:text-[#8A93A4] hover:text-[#F59E0B] hover:bg-slate-100 dark:hover:bg-[#181B22]'
-                    }`}
-                    title="Toggle Hold"
-                  >
-                    <Clock size={12} />
-                  </button>
-
-                  <div className="w-[1px] h-4 bg-slate-200 dark:bg-[#22262E] mx-0.5 hidden sm:block" />
-
-                  <button
-                    onClick={() => handleToggleManualMode()}
-                    className={`hidden sm:flex items-center gap-1.5 px-2 py-1 rounded transition-all ${
-                      displayProgram.isManualMode
-                        ? 'bg-slate-100 dark:bg-[#181B22] text-[#0EA5E9] border border-slate-300 dark:border-[#2D333F]'
-                        : 'text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22]'
-                    }`}
-                    title={displayProgram.isManualMode ? "Manual Mode (Manual Advance)" : "Auto-Advance Mode (Continuous)"}
-                  >
-                    {displayProgram.isManualMode ? <MousePointerClick size={12} /> : <Zap size={12} />}
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider hidden lg:block">
-                      {displayProgram.isManualMode ? 'MAN' : 'AUTO'}
+                <span className="font-mono font-bold text-sm tracking-wider text-slate-900 dark:text-white uppercase">KAIRON</span>
+              </div>
+            ) : (
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <div className="flex items-center gap-2 min-w-0">
+                  <h2 className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white truncate max-w-[110px] sm:max-w-xs md:max-w-sm">
+                    {displayProgram.title}
+                  </h2>
+                  {displayIsTimerActive ? (
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#10B981]/10 border border-[#10B981]/30 text-[10px] font-mono font-bold text-[#10B981] shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-tally" />
+                      LIVE
                     </span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Crew Tactical HUD Readiness Indicators */}
-            {currentHeaderSlot && (
-              <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md font-mono text-[10px] shadow-sm shrink-0" title="Crew Tactical HUD Live Readiness">
-                <span className="text-slate-400 dark:text-[#6A7382] uppercase mr-0.5 text-[9px]">CREW:</span>
-                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors ${isSoundAcked ? 'bg-[#10B981]/15 text-[#10B981] font-bold' : 'text-slate-400 dark:text-[#6A7382]'}`} title={isSoundAcked ? "Sound Team: Ready" : "Sound Team: Standby"}>
-                  <Volume2 size={11} />
-                  <span>S</span>
-                  {isSoundAcked && <span className="w-1 h-1 rounded-full bg-[#10B981]" />}
-                </span>
-                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors ${isLightsAcked ? 'bg-[#10B981]/15 text-[#10B981] font-bold' : 'text-slate-400 dark:text-[#6A7382]'}`} title={isLightsAcked ? "Lighting Team: Ready" : "Lighting Team: Standby"}>
-                  <Lightbulb size={11} />
-                  <span>L</span>
-                  {isLightsAcked && <span className="w-1 h-1 rounded-full bg-[#10B981]" />}
-                </span>
-                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors ${isVideoAcked ? 'bg-[#10B981]/15 text-[#10B981] font-bold' : 'text-slate-400 dark:text-[#6A7382]'}`} title={isVideoAcked ? "Video Team: Ready" : "Video Team: Standby"}>
-                  <Video size={11} />
-                  <span>V</span>
-                  {isVideoAcked && <span className="w-1 h-1 rounded-full bg-[#10B981]" />}
-                </span>
-              </div>
-            )}
-
-            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-              {/* Post-Event Analytics Report Button */}
-              {displayProgram?.id && (
-                <button
-                  onClick={() => navigate(`/analytics/${displayProgram.id}`)}
-                  className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-amber-600 dark:text-[#F59E0B] rounded text-xs font-mono font-semibold transition-all shadow-sm"
-                  title="View Event Report & Analytics"
-                >
-                  <BarChart3 size={13} />
-                  <span>Report</span>
-                </button>
-              )}
-
-              {/* End Event / Stop Button (Protected Hold Confirmation) */}
-              {displayIsTimerActive && (
-                <HoldToConfirmButton
-                  durationMs={2000}
-                  onConfirm={() => requestEndEventConfirmation(displayProgram.id)}
-                  label="End"
-                  holdingLabel="Hold"
-                  className="px-2 py-1 text-xs font-mono font-semibold"
-                  title="Press and hold 2 seconds to end this live session"
-                />
-              )}
-
-              {/* Network Status Indicator */}
-              <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded text-[10px] font-mono text-slate-600 dark:text-[#8A93A4]">
-                {isOnline ? <Wifi size={11} className="text-[#10B981]" /> : <WifiOff size={11} className="text-[#EF4444]" />}
-                <span className="hidden md:inline">{isOnline ? 'ONLINE' : 'OFFLINE'}</span>
-              </div>
-
-              {!isReadOnly && (
-                <button
-                  onClick={toggleTheme}
-                  className="hidden sm:inline-flex p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
-                  title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                >
-                  {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
-                </button>
-              )}
-
-              <button
-                onClick={() => setIsHotkeysOpen(true)}
-                className="hidden sm:inline-flex p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
-                title="Broadcast Hotkeys Reference (?)"
-              >
-                <Keyboard size={14} />
-              </button>
-
-              {!isReadOnly && user && (
-                <>
-                  {canControlLive && isFlightBridgeSupported && (
+                  ) : (
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[10px] font-mono font-bold text-[#F59E0B] shrink-0">
+                      STANDBY
+                    </span>
+                  )}
+                  {/* Master Live Session External Alert (Visible when navigating another workspace) */}
+                  {masterLiveSession && masterLiveSession.orgId !== activeOrgId && masterLiveSession.isTimerActive && (
                     <button
-                      onClick={() => openFlightBridge()}
-                      className={`hidden sm:inline-flex p-1.5 rounded border transition-colors ${
-                        pipWindow 
-                          ? 'bg-[#0EA5E9]/20 border-[#0EA5E9] text-[#0EA5E9]' 
-                          : 'bg-slate-50 dark:bg-[#121418] border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white'
-                      }`}
-                      title="Open Floating PiP Window"
+                      type="button"
+                      onClick={() => {
+                        if (masterLiveSession.orgId) {
+                          setActiveOrgId(masterLiveSession.orgId);
+                        }
+                        loadProgram(masterLiveSession.program);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#EF4444]/15 border border-[#EF4444]/40 hover:bg-[#EF4444]/25 text-[#EF4444] text-[11px] font-mono font-bold transition-all shadow-sm shrink-0"
+                      title="Click to jump back to the active live event"
                     >
-                      <AppWindow size={14} />
+                      <span className="w-2 h-2 rounded-full bg-[#EF4444] animate-ping shrink-0" />
+                      <span className="hidden sm:inline font-black">🔴 ON AIR:</span>
+                      <span className="truncate max-w-[120px] sm:max-w-[160px]">{masterLiveSession.program.title}</span>
+                      <span className="underline ml-0.5">RETURN</span>
                     </button>
                   )}
-
-                  <button
-                    onClick={() => setIsExportOpen(true)}
-                    className="inline-flex p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
-                    title="Export Schedule"
-                  >
-                    <Download size={14} />
-                  </button>
-                </>
-              )}
-            </div>
+                </div>
+              </div>
+            )}
           </div>
-        </header>
+
+          {/* Live Control Center & Header Timer */}
+          {!isReadOnly && displayProgram.slots.length > 0 && (
+            <div className="flex items-center gap-1 sm:gap-2 md:gap-3 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] px-1.5 sm:px-2.5 py-1 rounded-md shadow-sm shrink-0">
+              <div className={`text-xs sm:text-sm md:text-base font-mono font-bold tabular-nums min-w-[45px] sm:min-w-[55px] md:min-w-[70px] text-center ${
+                displayIsTimerActive 
+                  ? (headerTimeLeft < 0 ? 'text-[#EF4444] animate-pulse' : 'text-[#10B981]') 
+                  : 'text-slate-500 dark:text-[#8A93A4]'
+              }`}>
+                {currentHeaderSlot ? formatDuration(headerTimeLeft) : '00:00'}
+              </div>
+
+              <div className="w-[1px] h-3 sm:h-4 bg-slate-200 dark:bg-[#22262E]" />
+
+              <div className="flex items-center gap-0.5 sm:gap-1">
+                <button
+                  onClick={() => handleToggleTimer(displayProgram, false, headerElapsed)}
+                  className={`p-1 sm:p-1.5 rounded transition-all ${
+                    displayIsTimerActive 
+                      ? 'bg-slate-200 dark:bg-[#1C2028] text-slate-900 dark:text-white border border-slate-300 dark:border-[#2D333F]' 
+                      : 'bg-[#10B981] text-white hover:bg-[#059669]'
+                  }`}
+                  title={displayIsTimerActive ? "Pause Timer" : "Start Event"}
+                >
+                  {displayIsTimerActive ? <Pause size={12} fill="currentColor" /> : <Play size={12} fill="currentColor" />}
+                </button>
+
+                <button
+                  onClick={() => handlePrev()}
+                  disabled={displayCurrentSlotIndex === 0}
+                  className={`hidden sm:inline-flex p-1 sm:p-1.5 rounded transition-all ${
+                    displayCurrentSlotIndex === 0 
+                      ? 'text-slate-300 dark:text-[#4B5563] cursor-not-allowed' 
+                      : 'text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22]'
+                  }`}
+                  title="Previous Slot"
+                >
+                  <SkipBack size={12} />
+                </button>
+
+                <button
+                  onClick={() => handleNext()}
+                  disabled={displayCurrentSlotIndex === displayProgram.slots.length - 1}
+                  className={`p-1 sm:p-1.5 rounded transition-all ${
+                    displayCurrentSlotIndex === displayProgram.slots.length - 1 
+                      ? 'text-slate-300 dark:text-[#4B5563] cursor-not-allowed' 
+                      : 'text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22]'
+                  }`}
+                  title="Next Slot"
+                >
+                  <SkipForward size={12} />
+                </button>
+
+                {/* Nudge Controls */}
+                <div className="hidden md:inline-flex items-center bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] rounded p-0.5 mx-0.5">
+                  <button
+                    onClick={() => handleNudge(-1)}
+                    className="px-1.5 py-0.5 hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-all font-mono text-[10px] font-bold"
+                    title="Nudge Down -1 min"
+                  >
+                    <Minus size={11} />
+                  </button>
+                  <button
+                    onClick={() => handleNudge(1)}
+                    className="px-1.5 py-0.5 hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-all font-mono text-[10px] font-bold"
+                    title="Nudge Up +1 min"
+                  >
+                    <Plus size={11} />
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => handleToggleHold()}
+                  className={`p-1 sm:p-1.5 rounded transition-all ${
+                    displayProgram.isOnHold 
+                      ? 'bg-[#F59E0B] text-black' 
+                      : 'text-slate-600 dark:text-[#8A93A4] hover:text-[#F59E0B] hover:bg-slate-100 dark:hover:bg-[#181B22]'
+                  }`}
+                  title="Toggle Hold"
+                >
+                  <Clock size={12} />
+                </button>
+
+                <div className="w-[1px] h-4 bg-slate-200 dark:bg-[#22262E] mx-0.5 hidden sm:block" />
+
+                <button
+                  onClick={() => handleToggleManualMode()}
+                  className={`hidden sm:flex items-center gap-1.5 px-2 py-1 rounded transition-all ${
+                    displayProgram.isManualMode
+                      ? 'bg-slate-100 dark:bg-[#181B22] text-[#0EA5E9] border border-slate-300 dark:border-[#2D333F]'
+                      : 'text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22]'
+                  }`}
+                  title={displayProgram.isManualMode ? "Manual Mode (Manual Advance)" : "Auto-Advance Mode (Continuous)"}
+                >
+                  {displayProgram.isManualMode ? <MousePointerClick size={12} /> : <Zap size={12} />}
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-wider hidden lg:block">
+                    {displayProgram.isManualMode ? 'MAN' : 'AUTO'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Crew Tactical HUD Readiness Indicators */}
+          {currentHeaderSlot && (
+            <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md font-mono text-[10px] shadow-sm shrink-0" title="Crew Tactical HUD Live Readiness">
+              <span className="text-slate-400 dark:text-[#6A7382] uppercase mr-0.5 text-[9px]">CREW:</span>
+              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors ${isSoundAcked ? 'bg-[#10B981]/15 text-[#10B981] font-bold' : 'text-slate-400 dark:text-[#6A7382]'}`} title={isSoundAcked ? "Sound Team: Ready" : "Sound Team: Standby"}>
+                <Volume2 size={11} />
+                <span>S</span>
+                {isSoundAcked && <span className="w-1 h-1 rounded-full bg-[#10B981]" />}
+              </span>
+              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors ${isLightsAcked ? 'bg-[#10B981]/15 text-[#10B981] font-bold' : 'text-slate-400 dark:text-[#6A7382]'}`} title={isLightsAcked ? "Lighting Team: Ready" : "Lighting Team: Standby"}>
+                <Lightbulb size={11} />
+                <span>L</span>
+                {isLightsAcked && <span className="w-1 h-1 rounded-full bg-[#10B981]" />}
+              </span>
+              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors ${isVideoAcked ? 'bg-[#10B981]/15 text-[#10B981] font-bold' : 'text-slate-400 dark:text-[#6A7382]'}`} title={isVideoAcked ? "Video Team: Ready" : "Video Team: Standby"}>
+                <Video size={11} />
+                <span>V</span>
+                {isVideoAcked && <span className="w-1 h-1 rounded-full bg-[#10B981]" />}
+              </span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Post-Event Analytics Report Button */}
+            {displayProgram?.id && (
+              <button
+                onClick={() => navigate(`/analytics/${displayProgram.id}`)}
+                className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-amber-600 dark:text-[#F59E0B] rounded text-xs font-mono font-semibold transition-all shadow-sm"
+                title="View Event Report & Analytics"
+              >
+                <BarChart3 size={13} />
+                <span>Report</span>
+              </button>
+            )}
+
+            {/* End Event / Stop Button (Protected Hold Confirmation) */}
+            {displayIsTimerActive && (
+              <HoldToConfirmButton
+                durationMs={2000}
+                onConfirm={() => requestEndEventConfirmation(displayProgram.id)}
+                label="End"
+                holdingLabel="Hold"
+                className="px-2 py-1 text-xs font-mono font-semibold"
+                title="Press and hold 2 seconds to end this live session"
+              />
+            )}
+
+            {/* Network Status Indicator */}
+            <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded text-[10px] font-mono text-slate-600 dark:text-[#8A93A4]">
+              {isOnline ? <Wifi size={11} className="text-[#10B981]" /> : <WifiOff size={11} className="text-[#F59E0B]" />}
+              <span className="hidden md:inline">{isOnline ? 'ONLINE' : 'LOCAL RELAY'}</span>
+            </div>
+
+            {isBoothMode && (
+              <button
+                onClick={handleSignOut}
+                className="hidden sm:flex items-center gap-1 px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded text-[10px] font-mono font-bold transition-colors cursor-pointer"
+                title="Currently in Offline Guest Booth Mode. Click to sign in to your account for cloud sync."
+              >
+                <span>GUEST BOOTH</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => toggleZenMode()}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#252B37] border border-slate-300 dark:border-[#2D333F] text-slate-700 dark:text-[#E1E4EA] rounded text-xs font-mono font-bold transition-all shadow-sm active:scale-95"
+              title="Toggle Zen / Focus Console (Z)"
+            >
+              <Maximize2 size={13} className="text-[#0EA5E9]" />
+              <span>Zen</span>
+            </button>
+
+            {!isReadOnly && (
+              <button
+                onClick={toggleTheme}
+                className="hidden sm:inline-flex p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
+                title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              >
+                {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
+              </button>
+            )}
+
+            <button
+              onClick={() => setIsHotkeysOpen(true)}
+              className="hidden sm:inline-flex p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
+              title="Broadcast Hotkeys Reference (?)"
+            >
+              <Keyboard size={14} />
+            </button>
+
+            {user && (
+              <button
+                onClick={() => setIsIntegrationsOpen(true)}
+                className="hidden sm:inline-flex p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-[#0EA5E9] rounded transition-colors"
+                title="Broadcast Integrations (OBS, vMix, ATEM, ProPresenter 7)"
+              >
+                <Layers size={14} />
+              </button>
+            )}
+
+            {canControlLive && (
+              <button
+                onClick={() => openFlightBridge(displayProgram?.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  recallFlightBridge();
+                  setHudPos(null);
+                  try { localStorage.removeItem('kairon_flight_bridge_pos'); } catch {}
+                }}
+                className={`hidden sm:inline-flex p-1.5 rounded border transition-colors ${
+                  (pipWindow || isFloatingBridgeOpen)
+                    ? 'bg-[#0EA5E9]/20 border-[#0EA5E9] text-[#0EA5E9]' 
+                    : 'bg-slate-50 dark:bg-[#121418] border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="Flight Bridge (Click to toggle • Shift+B or right-click to recall to Screen 1)"
+              >
+                <AppWindow size={14} />
+              </button>
+            )}
+
+            {!isReadOnly && user && (
+              <button
+                onClick={() => setIsExportOpen(true)}
+                className="inline-flex p-1.5 bg-slate-50 dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white rounded transition-colors"
+                title="Export Schedule"
+              >
+                <Download size={14} />
+              </button>
+            )}
+
+            {user && (
+              <button
+                onClick={() => setIsRightDockCollapsed(prev => !prev)}
+                className={`hidden lg:inline-flex p-1.5 rounded border transition-colors ${
+                  !isRightDockCollapsed
+                    ? 'bg-[#0EA5E9]/15 border-[#0EA5E9]/40 text-[#0EA5E9]'
+                    : 'bg-slate-50 dark:bg-[#121418] border-slate-200 dark:border-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="Toggle Right Studio Dock (Ctrl+\)"
+              >
+                <PanelRight size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* =========================================================
+          ROW 3: 3-ZONE STUDIO WORKSPACE (LEFT RAIL | CENTER CANVAS | RIGHT DOCK)
+         ========================================================= */}
+      <div className="flex-1 flex min-h-0 overflow-hidden relative">
+        {/* ZONE A: Left Navigation Rail */}
+        {user && (
+          <Sidebar
+            activeOrg={activeOrg}
+            userOrganizations={userOrganizations}
+            setActiveOrgId={setActiveOrgId}
+            profile={profile}
+            user={user}
+            onProfileUpdate={setProfile}
+            handleSignOut={handleSignOut}
+            isOnline={isOnline}
+            programTitle={displayProgram.title}
+            programId={displayProgram.id}
+            editorProgramId={program.id}
+            activeSessions={activeSessions}
+            selectedLiveId={selectedLiveId}
+            onSelectLive={setSelectedLiveId}
+            isCollapsed={isSidebarCollapsed}
+            onToggle={setIsSidebarCollapsed}
+            onCreateOrg={() => setIsOnboardingManual(true)}
+            onStopAllSessions={handleStopAllSessions}
+          />
+        )}
+
+        {user && !isBoothMode && (userOrganizations.length === 0 || isOnboardingManual) && !effectiveAuthLoading && !loadingOrgs && (
+          <OnboardingOverlay
+            userId={user.id}
+            userEmail={user.email || ''}
+            onClose={userOrganizations.length > 0 || isOnboardingManual ? () => setIsOnboardingManual(false) : undefined}
+            onOrgCreated={(newOrg) => {
+              queryClient.invalidateQueries({ queryKey: ['myOrganizations', user?.id] });
+              setActiveOrgId(newOrg.id);
+              setIsOnboardingManual(false);
+              navigate('/');
+            }}
+          />
+        )}
 
         {promptMessage && (
-          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] w-full max-w-xl px-4 animate-in slide-in-from-top-4 duration-500">
+          <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] w-full max-w-xl px-4 animate-in slide-in-from-top-4 duration-500">
             <div className="bg-rose-600 text-white py-4 px-8 rounded-2xl shadow-2xl flex items-center gap-4 border-2 border-white/20 backdrop-blur-xl">
               <Bell className="animate-bounce" size={24} />
               <span className="text-xl font-bold uppercase tracking-tight">{promptMessage.text}</span>
@@ -2441,41 +3645,18 @@ const AppContent: React.FC = () => {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto pb-36 lg:pb-8 relative custom-scrollbar">
+        {/* ZONE B: Center Primary Canvas */}
+        <main className="flex-1 min-w-0 overflow-y-auto pb-36 lg:pb-8 relative custom-scrollbar">
           {/* Venue Dock (Pill Switcher) */}
           <VenueDock 
             activeSessions={activeSessions}
             selectedLiveId={selectedLiveId}
             onSelect={setSelectedLiveId}
           />
-          <div className="max-w-7xl mx-auto px-4 pb-4 pt-1 md:p-8 h-full">
-            {/* Invitation Banner for Unauthenticated Users */}
-
+          <div className="max-w-7xl mx-auto px-4 pb-4 pt-1 md:p-6 h-full">
             {effectiveAuthLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : networkError ? (
-              <div className="flex flex-col items-center justify-center h-full max-w-sm mx-auto text-center p-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl">
-                <div className="w-16 h-16 bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mb-6 mx-auto">
-                  <WifiOff size={32} />
-                </div>
-                <h2 className="text-xl font-bold mb-2">Connection Issues</h2>
-                <p className="text-slate-500 dark:text-slate-400 mb-8">{networkError}</p>
-                <div className="flex flex-col gap-3 w-full">
-                  <button
-                    onClick={retryAuth}
-                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2"
-                  >
-                    <Sparkles size={18} /> Try Again
-                  </button>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="w-full py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-semibold transition-all"
-                  >
-                    Refresh Page
-                  </button>
-                </div>
               </div>
             ) : null}
 
@@ -2486,185 +3667,214 @@ const AppContent: React.FC = () => {
               confirmText="Start Concurrent"
               cancelText="Replace Current"
               onConfirm={() => handleConfirmStart('concurrent')}
-              onClose={() => setIsInterlockOpen(false)} // Safe Cancel
-              onAction={() => handleConfirmStart('replace')} // We'll use a custom button if needed, but for now let's map onClose to Cancel and provide a 'Replace' option in the message or modal
+              onClose={() => setIsInterlockOpen(false)}
+              onAction={() => handleConfirmStart('replace')}
               type="warning"
             />
 
-            {!user ? (
+            {!user && !isBoothMode ? (
               <Auth inviteDetails={effectiveInviteDetails} />
             ) : (
               <Routes>
-                    <Route path="/org" element={
-                      <OrganizationManager
-                        userId={user.id}
-                        activeOrgId={activeOrgId ?? undefined}
-                        onSelect={setActiveOrgId}
-                      />
-                    } />
+                <Route path="/org" element={
+                  <OrganizationManager
+                    userId={user.id}
+                    activeOrgId={activeOrgId ?? undefined}
+                    onSelect={setActiveOrgId}
+                  />
+                } />
 
-                    <Route path="/guide" element={<UserGuide />} />
+                <Route path="/guide" element={<UserGuide />} />
 
-                    {/* Main Views */}
-                    <Route path="/" element={
-                      <HomeWrapper
-                        activeOrgId={activeOrgId ?? undefined}
-                        activeProgramId={program.id}
-                        activeSessions={activeSessions}
-                        loadProgram={loadProgram}
-                        createProgram={createProgram}
-                        deleteProgram={deleteProgram}
-                        duplicateProgram={duplicateProgram}
-                        onTurnaround={handleTurnaroundProgram}
-                        onPlay={handlePlayProgram}
-                        mode={mode}
-                      />
-                    } />
+                {/* Main Views */}
+                <Route path="/" element={
+                  <HomeWrapper
+                    programs={programs}
+                    activeOrgId={activeOrgId ?? undefined}
+                    activeProgramId={program.id}
+                    activeSessions={activeSessions}
+                    loadProgram={loadProgram}
+                    createProgram={createProgram}
+                    deleteProgram={deleteProgram}
+                    duplicateProgram={duplicateProgram}
+                    onTurnaround={handleTurnaroundProgram}
+                    onPlay={handlePlayProgram}
+                    mode={mode}
+                  />
+                } />
 
-                    <Route path="/calendar" element={
-                      <CalendarWrapper
-                        activeOrgId={activeOrgId ?? undefined}
-                        activeProgramId={program.id}
-                        activeSessions={activeSessions}
-                        loadProgram={loadProgram}
-                        createProgram={createProgram}
-                        deleteProgram={deleteProgram}
-                        duplicateProgram={duplicateProgram}
-                        onPlay={handlePlayProgram}
-                        mode={mode}
-                      />
-                    } />
+                <Route path="/calendar" element={
+                  <CalendarWrapper
+                    programs={programs}
+                    activeOrgId={activeOrgId ?? undefined}
+                    activeProgramId={program.id}
+                    activeSessions={activeSessions}
+                    loadProgram={loadProgram}
+                    createProgram={createProgram}
+                    deleteProgram={deleteProgram}
+                    duplicateProgram={duplicateProgram}
+                    onPlay={handlePlayProgram}
+                    mode={mode}
+                  />
+                } />
 
-                    <Route path="/admin" element={
-                      activeOrg ? (
-                        <AdminPanel organization={activeOrg} currentUserRole={userRole} currentUser={user} />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4">
-                          <Building size={48} className="opacity-20" />
-                          <p>Select a workspace from the sidebar to manage settings.</p>
-                        </div>
-                      )
-                    } />
+                <Route path="/admin" element={
+                  activeOrg ? (
+                    <AdminPanel organization={activeOrg} currentUserRole={userRole} currentUser={user} />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4">
+                      <Building size={48} className="opacity-20" />
+                      <p>Select a workspace from the sidebar to manage settings.</p>
+                    </div>
+                  )
+                } />
 
-                    <Route path="/monitors" element={
-                      <MonitorDashboard
-                        program={displayProgram}
-                        activeOrg={activeOrg}
-                        onLaunchFlightBridge={() => openFlightBridge()}
-                        isFlightBridgeSupported={isFlightBridgeSupported}
-                        isPro={isPro}
-                        displayStatuses={displayStatuses}
-                      />
-                    } />
+                <Route path="/monitors" element={
+                  <MonitorDashboard
+                    program={displayProgram}
+                    activeOrg={activeOrg}
+                    onLaunchFlightBridge={() => openFlightBridge(displayProgram?.id)}
+                    isFlightBridgeSupported={isFlightBridgeSupported}
+                    isPro={isPro}
+                    displayStatuses={displayStatuses}
+                  />
+                } />
 
-                    <Route path="/command" element={
-                      <CommandCenter
-                        programs={programs}
-                        activeSessions={activeSessions}
-                        onToggleTimer={(p) => handleToggleTimer(p)}
-                        onNext={handleNext}
-                        onPrev={handlePrev}
-                        onNudge={handleNudge}
-                        onSelectProgram={handleSelectProgramFromCommand}
-                      />
-                    } />
+                <Route path="/command" element={
+                  <CommandCenter
+                    programs={programs}
+                    activeSessions={activeSessions}
+                    onToggleTimer={(p) => handleToggleTimer(p)}
+                    onNext={handleNext}
+                    onPrev={handlePrev}
+                    onNudge={handleNudge}
+                    onSelectProgram={handleSelectProgramFromCommand}
+                  />
+                } />
 
-                    <Route path="/analytics/:id" element={<AnalyticsWrapper onUpdateSlot={handleUpdateSlot} />} />
+                <Route path="/analytics/:id" element={<AnalyticsWrapper onUpdateSlot={handleUpdateSlot} />} />
 
-                    <Route path="/live" element={
-                      <LiveTimer
-                        program={displayProgram}
-                        currentSlotIndex={displayCurrentSlotIndex}
-                        isTimerActive={displayIsTimerActive}
-                        timerStartTimestamp={displayTimerStartTimestamp}
-                        secondsElapsed={displaySecondsElapsed}
-                        onToggleTimer={handleToggleTimer}
-                        onToggleHold={handleToggleHold}
-                        onNext={handleNext}
-                        onPrev={handlePrev}
-                        onEndEvent={(id) => requestEndEventConfirmation(id || displayProgram.id)}
-                        onNudge={handleNudge}
-                        readOnly={isReadOnly && userRole !== 'operator'}
-                        isAutopilotEnabled={isAutopilotEnabled}
-                        onToggleAutopilot={handleToggleAutopilot}
-                      />
-                    } />
+                <Route path="/live" element={
+                  <LiveTimer
+                    program={displayProgram}
+                    currentSlotIndex={displayCurrentSlotIndex}
+                    isTimerActive={displayIsTimerActive}
+                    timerStartTimestamp={displayTimerStartTimestamp}
+                    secondsElapsed={displaySecondsElapsed}
+                    onToggleTimer={handleToggleTimer}
+                    onToggleHold={handleToggleHold}
+                    onNext={handleNext}
+                    onPrev={handlePrev}
+                    onEndEvent={(id) => handleEndEvent(id || displayProgram.id)}
+                    onRequestEndEvent={(id) => requestEndEventConfirmation(id || displayProgram.id)}
+                    onNudge={handleNudge}
+                    readOnly={!canControlLive}
+                    isAutopilotEnabled={isAutopilotEnabled}
+                    onToggleAutopilot={handleToggleAutopilot}
+                  />
+                } />
 
-                    <Route path="/list" element={
-                      <ScheduleList
-                        program={displayProgram}
-                        currentSlotIndex={displayCurrentSlotIndex}
-                        timerStartTimestamp={displayTimerStartTimestamp}
-                        isTimerActive={displayIsTimerActive}
-                        readOnly={isReadOnly}
-                      />
-                    } />
-                    <Route path="/editor" element={
-                      <ProgramEditor
-                        program={program}
-                        isReadOnly={isReadOnly}
-                        isCoEditor={isCoEditor}
-                        isAdminOnline={isAdminOnline}
-                        isTimerActive={isTimerActive}
-                        currentSlotIndex={currentSlotIndex}
-                        isPro={isPro}
-                        isAutopilotEnabled={isAutopilotEnabled}
-                        onToggleAutopilot={handleToggleAutopilot}
-                        onTurnaround={() => handleTurnaroundProgram(program.id)}
-                        onEndEvent={(id) => requestEndEventConfirmation(id || program.id)}
-                        onNudge={handleNudge}
-                        onUpdate={(p) => {
-                          if ((p as any)._triggerRebalance) {
-                            handleAiRebalance(p);
-                            return;
+                <Route path="/list" element={
+                  <ScheduleList
+                    program={displayProgram}
+                    currentSlotIndex={displayCurrentSlotIndex}
+                    timerStartTimestamp={displayTimerStartTimestamp}
+                    isTimerActive={displayIsTimerActive}
+                    readOnly={isReadOnly}
+                  />
+                } />
+                <Route path="/editor" element={
+                  <ProgramEditor
+                    program={program}
+                    isReadOnly={isReadOnly}
+                    isCoEditor={isCoEditor}
+                    isAdminOnline={isAdminOnline}
+                    isTimerActive={isTimerActive}
+                    currentSlotIndex={currentSlotIndex}
+                    isPro={isPro}
+                    isAutopilotEnabled={isAutopilotEnabled}
+                    onToggleAutopilot={handleToggleAutopilot}
+                    onTurnaround={() => handleTurnaroundProgram(program.id)}
+                    onEndEvent={(id) => requestEndEventConfirmation(id || program.id)}
+                    onNudge={handleNudge}
+                    selectedSlotId={selectedSlotId}
+                    onSelectSlotId={setSelectedSlotId}
+                    onSaveKaironFile={() => void handleSaveKaironFile(program)}
+                    onOpenKaironFile={() => void handleOpenKaironFile()}
+                    onUpdate={(p) => {
+                      if ((p as any)._triggerRebalance) {
+                        handleAiRebalance(p);
+                        return;
+                      }
+
+                      // ACTIVE SLOT UUID STABILITY:
+                      const activeSlotId = program.slots[currentSlotIndex]?.id;
+                      if (activeSlotId && p.slots.length > 0) {
+                        const newActiveIdx = p.slots.findIndex(s => s.id === activeSlotId);
+                        if (newActiveIdx !== -1 && newActiveIdx !== currentSlotIndex) {
+                          setCurrentSlotIndex(newActiveIdx);
+                          if (p.status === 'live') {
+                            timerSaveMutation.mutate({
+                              id: p.id,
+                              currentSlotIndex: newActiveIdx,
+                              isTimerActive,
+                              secondsElapsed,
+                              timerStartTimestamp
+                            });
                           }
-
-                          // ACTIVE SLOT UUID STABILITY:
-                          // If slots are reordered or deleted while program is live or being edited,
-                          // track the active slot by immutable UUID rather than raw index shift.
-                          const activeSlotId = program.slots[currentSlotIndex]?.id;
-                          if (activeSlotId && p.slots.length > 0) {
-                            const newActiveIdx = p.slots.findIndex(s => s.id === activeSlotId);
-                            if (newActiveIdx !== -1 && newActiveIdx !== currentSlotIndex) {
-                              setCurrentSlotIndex(newActiveIdx);
-                              if (p.status === 'live') {
-                                timerSaveMutation.mutate({
-                                  id: p.id,
-                                  currentSlotIndex: newActiveIdx,
-                                  isTimerActive,
-                                  secondsElapsed,
-                                  timerStartTimestamp
-                                });
-                              }
-                            } else if (newActiveIdx === -1) {
-                              // Active slot was deleted; clamp index safely
-                              const clampedIdx = Math.max(0, Math.min(currentSlotIndex, p.slots.length - 1));
-                              setCurrentSlotIndex(clampedIdx);
-                              if (p.status === 'live') {
-                                timerSaveMutation.mutate({
-                                  id: p.id,
-                                  currentSlotIndex: clampedIdx,
-                                  isTimerActive,
-                                  secondsElapsed,
-                                  timerStartTimestamp
-                                });
-                              }
-                            }
+                        } else if (newActiveIdx === -1) {
+                          const clampedIdx = Math.max(0, Math.min(currentSlotIndex, p.slots.length - 1));
+                          setCurrentSlotIndex(clampedIdx);
+                          if (p.status === 'live') {
+                            timerSaveMutation.mutate({
+                              id: p.id,
+                              currentSlotIndex: clampedIdx,
+                              isTimerActive,
+                              secondsElapsed,
+                              timerStartTimestamp
+                            });
                           }
+                        }
+                      }
 
-                          updateLocalProgram(p);
-                          if (p.slots.length === 0) {
-                            setCurrentSlotIndex(0);
-                            setSecondsElapsed(0);
-                            setIsTimerActive(false);
-                          }
-                        }}
-                      />
-                    } />
-                  </Routes>
-                )}
+                      updateLocalProgram(p);
+                      if (p.slots.length === 0) {
+                        setCurrentSlotIndex(0);
+                        setSecondsElapsed(0);
+                        setIsTimerActive(false);
+                      }
+                    }}
+                  />
+                } />
+              </Routes>
+            )}
           </div>
         </main>
+
+        {/* ZONE C: Collapsible Right Studio Dock (Live Output Preview + Context Inspector / Stage Cues) */}
+        {user && (
+          <StudioRightDock
+            isOpen={!isRightDockCollapsed}
+            onClose={() => setIsRightDockCollapsed(true)}
+            program={displayProgram}
+            editorProgram={program}
+            currentSlotIndex={displayCurrentSlotIndex}
+            isTimerActive={displayIsTimerActive}
+            timerStartTimestamp={displayTimerStartTimestamp}
+            secondsElapsed={headerElapsed}
+            selectedSlotId={selectedSlotId}
+            onSelectSlotId={setSelectedSlotId}
+            isReadOnly={isReadOnly}
+            onUpdateEditorProgram={(updated) => updateLocalProgram(updated)}
+            onToggleHold={() => handleToggleHold()}
+            onOpenIntegrations={() => setIsIntegrationsOpen(true)}
+            onSaveKaironFile={(p) => void handleSaveKaironFile(p)}
+            onPlayProgram={(p) => handlePlayProgram(p)}
+            isSoundAcked={isSoundAcked}
+            isLightsAcked={isLightsAcked}
+            isVideoAcked={isVideoAcked}
+          />
+        )}
 
         {/* AI Suggestion Toast */}
         {aiSuggestion && (
@@ -2700,7 +3910,22 @@ const AppContent: React.FC = () => {
         )}
       </div>
 
-
+      {/* =========================================================
+          ROW 4: BOTTOM STUDIO STATUS & TELEMETRY BAR (24px, lg:flex)
+         ========================================================= */}
+      {user && (
+        <StudioStatusBar
+          isOnline={isOnline}
+          saveStatus={saveStatus}
+          isAutopilotEnabled={isAutopilotEnabled}
+          onToggleAutopilot={() => handleToggleAutopilot()}
+          connectedDisplayCount={Math.max(screens.length - 1, Object.keys(displayStatuses).length)}
+          lastArchivedPath={lastDiskArchiveAt}
+          isSoundAcked={isSoundAcked}
+          isLightsAcked={isLightsAcked}
+          isVideoAcked={isVideoAcked}
+        />
+      )}
 
       <ExportDialog
         isOpen={isExportOpen}
@@ -2708,37 +3933,8 @@ const AppContent: React.FC = () => {
         program={exportTargetProgram}
         options={exportOptions}
         setOptions={setExportOptions}
+        activeOrg={activeOrg}
       />
-
-      {/* Network Error Overlay */}
-      {networkError && (
-        <div className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-2xl border border-red-500/20 text-center animate-in zoom-in-95 duration-300">
-            <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Bell className="text-red-600 dark:text-red-400" size={40} />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Connection Issues</h2>
-            <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed text-sm">
-              {networkError} Check your internet connection or try again in a moment.
-            </p>
-
-            {/* Diagnostic Block */}
-            <div className="text-left bg-slate-100 dark:bg-slate-800/50 p-4 rounded-2xl mb-8 border border-slate-200 dark:border-slate-700">
-              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Technical Diagnostics</h3>
-              <p className="text-[10px] text-slate-500 break-all font-mono">
-                CONVEX_URL: <span className="text-indigo-500">{import.meta.env.VITE_CONVEX_URL}</span>
-              </p>
-            </div>
-            <button
-              onClick={() => window.location.reload()}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition-all active:scale-[0.98] shadow-lg shadow-indigo-500/25"
-            >
-              Retry Connection
-            </button>
-          </div>
-        </div>
-      )}
-
 
       {!location.pathname.startsWith('/analytics') && (
         <PrintableSchedule
@@ -2764,6 +3960,49 @@ const AppContent: React.FC = () => {
         onClose={() => setIsHotkeysOpen(false)}
       />
 
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        program={displayProgram}
+        isTimerActive={displayIsTimerActive}
+        onToggleTimer={() => handleToggleTimer()}
+        onNextSlot={() => handleNext()}
+        onPrevSlot={() => handlePrev()}
+        onToggleHold={() => handleToggleHold()}
+        onSaveKaironFile={() => void handleSaveKaironFile()}
+        onOpenKaironFile={() => void handleOpenKaironFile()}
+        onExportCsv={() => downloadProgramCsv(exportTargetProgram)}
+        onApplyTemplate={(tmplId) => {
+          const tmpl = PRODUCTION_TEMPLATES.find(t => t.id === tmplId);
+          if (!tmpl) return;
+          const newSlots: Slot[] = tmpl.slots.map((s, idx) => ({
+            id: `slot-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+            title: s.title,
+            speaker: s.speaker,
+            durationMinutes: s.durationMinutes,
+            type: s.type as SlotType,
+            details: s.details || '',
+            productionNotes: s.productionNotes || '',
+            prompterText: s.prompterText || '',
+          }));
+          updateLocalProgram(prev => ({
+            ...prev,
+            title: prev.title === 'New Event' ? tmpl.name : prev.title,
+            startTime: tmpl.startTime,
+            slots: newSlots,
+          }));
+          if (newSlots.length > 0) setSelectedSlotId(newSlots[0].id);
+          navigate('/editor');
+        }}
+        onOpenIntegrations={() => setIsIntegrationsOpen(true)}
+      />
+
+      <BroadcastIntegrationsModal
+        isOpen={isIntegrationsOpen}
+        onClose={() => setIsIntegrationsOpen(false)}
+        program={displayProgram}
+      />
+
       {pipWindow && createPortal(
         <FlightBridge
           program={displayProgram}
@@ -2778,14 +4017,90 @@ const AppContent: React.FC = () => {
           onNext={handleNext}
           onPrev={handlePrev}
           onNudge={handleNudge}
-          onEndEvent={requestEndEventConfirmation}
+          onEndEvent={handleEndEvent}
+          onRequestEndEvent={requestEndEventConfirmation}
           isManualMode={displayProgram.isManualMode}
           onToggleManualMode={handleToggleManualMode}
+          onReturnToApp={handleReturnToAppFromPip}
+          onRecall={recallFlightBridge}
         />,
         pipWindow.document.body
       )}
 
-      {user && canControlLive && (displayProgram && displayProgram.slots.length > 0) && !pipWindow && (
+      {/* In-App Floating Flight Bridge HUD for Web Browsers without Document PiP */}
+      {!isElectronRuntime && !pipWindow && isFloatingBridgeOpen && (displayProgram && displayProgram.slots.length > 0) && (
+        <div 
+          style={hudPos ? { left: `${hudPos.x}px`, top: `${hudPos.y}px`, right: 'auto', bottom: 'auto' } : undefined}
+          className={`fixed ${!hudPos ? 'bottom-6 right-6' : ''} z-[9999] shadow-2xl rounded-2xl overflow-hidden border border-slate-300 dark:border-[#22262E] w-[380px] max-w-[calc(100vw-32px)] ${isDraggingHud ? 'select-none pointer-events-auto shadow-emerald-500/10' : 'transition-all animate-in fade-in duration-150'}`}
+        >
+          <div 
+            onPointerDown={handleHudPointerDown}
+            onPointerMove={handleHudPointerMove}
+            onPointerUp={handleHudPointerUp}
+            onPointerCancel={handleHudPointerUp}
+            className={`flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-slate-400 text-xs font-mono select-none ${isDraggingHud ? 'cursor-grabbing bg-slate-950' : 'cursor-grab hover:bg-slate-800/80'}`}
+            title="Drag to reposition HUD anywhere on screen"
+          >
+            <span className="flex items-center gap-1.5 font-bold text-[10px] tracking-wider text-slate-300 pointer-events-none">
+              <GripHorizontal size={14} className="text-slate-500" />
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              FLIGHT BRIDGE HUD
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setHudPos(null);
+                  try { localStorage.removeItem('kairon_flight_bridge_pos'); } catch {}
+                  recallFlightBridge();
+                }}
+                className="px-1.5 py-0.5 text-[9px] text-slate-400 hover:text-emerald-400 transition-colors rounded"
+                title="Snap to default bottom-right position (or Shift+B)"
+              >
+                Snap
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeFlightBridge();
+                }}
+                className="p-1 hover:text-white transition-colors"
+                title="Close Flight Bridge"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+          <FlightBridge
+            program={displayProgram}
+            currentSlotIndex={displayCurrentSlotIndex}
+            isTimerActive={displayIsTimerActive}
+            timerStartTimestamp={displayTimerStartTimestamp}
+            secondsElapsed={headerElapsed}
+            isDarkMode={isDarkMode}
+            onToggleTheme={toggleTheme}
+            onToggleTimer={handleToggleTimer}
+            onToggleHold={handleToggleHold}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            onNudge={handleNudge}
+            onEndEvent={handleEndEvent}
+            onRequestEndEvent={requestEndEventConfirmation}
+            isManualMode={displayProgram.isManualMode}
+            onToggleManualMode={handleToggleManualMode}
+            onReturnToApp={handleReturnToAppFromPip}
+            onRecall={() => {
+              setHudPos(null);
+              try { localStorage.removeItem('kairon_flight_bridge_pos'); } catch {}
+              recallFlightBridge();
+            }}
+          />
+        </div>
+      )}
+
+      {!isElectronRuntime && (typeof window !== 'undefined' && window.innerWidth < 768) && canControlLive && (displayProgram && displayProgram.slots.length > 0) && !pipWindow && !isFloatingBridgeOpen && (
         <MobileFlightBridge
           program={displayProgram}
           currentSlotIndex={displayCurrentSlotIndex}
@@ -2799,7 +4114,7 @@ const AppContent: React.FC = () => {
           onToggleManualMode={() => handleToggleManualMode(displayProgram.id)}
           onToggleHold={() => handleToggleHold(undefined, displayProgram.id)}
           onNudge={handleNudge}
-          onEndEvent={() => requestEndEventConfirmation(displayProgram.id)}
+          onEndEvent={() => handleEndEvent(displayProgram.id)}
           onViewAnalysis={(id) => navigate(`/analytics/${id}`)}
         />
       )}
@@ -2818,18 +4133,130 @@ const AppContent: React.FC = () => {
           liveProgramId={displayProgram.id}
         />
       )}
+
+      {/* Hidden Browser File Input for .kairon & .csv */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".kairon,.json,.csv"
+        onChange={handleBrowserFileChange}
+        className="hidden"
+      />
     </div>
   );
 };
 
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class AppErrorBoundary extends Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+  override state: ErrorBoundaryState = { hasError: false, error: null };
+
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("[Kairon ErrorBoundary] Caught render error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#090A0C] flex flex-col items-center justify-center p-8 text-center font-sans">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mb-6">
+            <span className="text-2xl text-amber-500">⚠️</span>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Something interrupted Kairon Studio</h2>
+          <p className="text-[#8A93A4] text-sm max-w-md mb-6 leading-relaxed">
+            {this.state.error?.message || "An unexpected error occurred while rendering the studio interface."}
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-5 py-2.5 rounded-xl bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-xs font-mono font-bold uppercase tracking-wider transition-all"
+            >
+              Reload Studio
+            </button>
+            <button
+              onClick={() => {
+                try {
+                  localStorage.setItem('kairon_booth_mode', 'true');
+                  window.location.reload();
+                } catch {}
+              }}
+              className="px-5 py-2.5 rounded-xl bg-[#181B22] hover:bg-[#22262E] text-[#8A93A4] hover:text-white border border-[#22262E] text-xs font-mono font-bold uppercase tracking-wider transition-all"
+            >
+              Launch Offline Booth Mode
+            </button>
+            <button
+              onClick={() => {
+                try {
+                  localStorage.removeItem('kairon_booth_mode');
+                  sessionStorage.clear();
+                  window.location.href = '/';
+                } catch {}
+              }}
+              className="px-5 py-2.5 rounded-xl bg-transparent hover:bg-red-500/10 text-red-400 text-xs font-mono font-bold uppercase tracking-wider transition-all"
+            >
+              Clear Session & Reset
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const queryClient = new QueryClient();
+
+const StandaloneDispatcher: React.FC = () => {
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const hrefLower = (typeof window !== 'undefined' ? window.location.href : '').toLowerCase();
+  const pathLower = (location.pathname || '').toLowerCase();
+  const hashLower = (location.hash || '').toLowerCase();
+  const rawHash = hashLower.replace(/^#\/?/, '').split('?')[0];
+  const rawPath = pathLower.replace(/^\//, '').split('?')[0];
+  const currentRouteToken = rawHash || rawPath;
+
+  const isTvRoute = currentRouteToken === 'tv' || pathLower === '/tv' || /[\/#]tv(\b|\?|\/)/i.test(hrefLower);
+  const isStageRoute = currentRouteToken === 'stage' || pathLower === '/stage' || /[\/#]stage(\b|\?|\/)/i.test(hrefLower);
+  const isPrompterRoute = currentRouteToken === 'prompter' || pathLower === '/prompter' || /[\/#]prompter(\b|\?|\/)/i.test(hrefLower);
+  const isOverlayRoute = currentRouteToken === 'overlay' || pathLower === '/overlay' || /[\/#]overlay(\b|\?|\/)/i.test(hrefLower);
+  const isCrewRoute = currentRouteToken === 'crew' || pathLower === '/crew' || /[\/#]crew(\b|\?|\/)/i.test(hrefLower);
+  const isBridgeRoute = currentRouteToken === 'bridge' || pathLower === '/bridge' || /[\/#]bridge(\b|\?|\/)/i.test(hrefLower);
+  const isPortalRoute = currentRouteToken === 'public' || currentRouteToken === 'portal' || pathLower === '/public' || pathLower === '/portal' || /[\/#](public|portal)(\b|\?|\/)/i.test(hrefLower);
+  const isDesktopAuthRoute = location.pathname === '/desktop-auth' || currentRouteToken === 'desktop-auth' || searchParams.has('desktopCode');
+
+  if (isTvRoute) return <TVWrapper />;
+  if (isStageRoute) return <StageWrapper />;
+  if (isPrompterRoute) return <PrompterWrapper />;
+  if (isOverlayRoute) return <BroadcastOverlayView />;
+  if (isCrewRoute) return <CrewHUD />;
+  if (isPortalRoute) return <PublicPortal />;
+  if (isBridgeRoute) return <FlightBridgeStandaloneView />;
+  if (isDesktopAuthRoute) return <DesktopAuthApproval />;
+
+  return <AppContent />;
+};
 
 const App: React.FC = () => {
   return (
     <ConvexAuthProvider client={convex}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <AppContent />
+          <AppErrorBoundary>
+            <StandaloneDispatcher />
+          </AppErrorBoundary>
         </BrowserRouter>
       </QueryClientProvider>
     </ConvexAuthProvider>

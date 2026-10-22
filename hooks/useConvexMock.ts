@@ -1,14 +1,35 @@
 import { useQuery as useQueryReal, useMutation as useMutationReal, useConvexAuth as useConvexAuthReal, useConvex as useConvexReal } from 'convex/react';
 import { useState, useEffect } from 'react';
 
+import { getDefaultSeedPrograms } from '../utils/seedData';
+
+function safeJsonParse<T>(raw: string | null, fallback: T): T {
+    if (!raw) return fallback;
+    try {
+        const val = JSON.parse(raw);
+        return val !== null && val !== undefined ? val : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
 const isTestBypass = () => {
     try {
         if (typeof window !== 'undefined') {
             if (window.location.search.includes('testBypass=true')) {
-                localStorage.setItem('testBypass', 'true');
+                try { sessionStorage.setItem('testBypass', 'true'); } catch {}
                 return true;
             }
-            return localStorage.getItem('testBypass') === 'true';
+            if (sessionStorage.getItem('testBypass') === 'true') {
+                return true;
+            }
+            if (localStorage.getItem('testBypass') === 'true') {
+                localStorage.removeItem('testBypass');
+            }
+            if (localStorage.getItem('kairon_booth_mode') === 'true') {
+                return true;
+            }
+            return false;
         }
         return false;
     } catch {
@@ -16,10 +37,31 @@ const isTestBypass = () => {
     }
 };
 
+export const getLocalPrograms = () => {
+    try {
+        const local = localStorage.getItem('kairon_offline_programs') || (isTestBypass() ? localStorage.getItem('test_programs') : null);
+        if (local) {
+            const parsed = JSON.parse(local);
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+    } catch {
+        // Fallback to seeding
+    }
+    if (isTestBypass()) {
+        const seed = getDefaultSeedPrograms();
+        try {
+            localStorage.setItem('kairon_offline_programs', JSON.stringify(seed));
+            localStorage.setItem('test_programs', JSON.stringify(seed));
+        } catch {}
+        return seed;
+    }
+    return [];
+};
+
 export const useConvexAuth = () => {
     const isTestMode = isTestBypass();
     const realVal = useConvexAuthReal();
-    if (isTestMode) {
+    if (isTestBypass()) {
         return { isAuthenticated: true, isLoading: false };
     }
     return realVal;
@@ -28,7 +70,7 @@ export const useConvexAuth = () => {
 export const useConvex = () => {
     const isTestMode = isTestBypass();
     const realVal = useConvexReal();
-    if (isTestMode) {
+    if (isTestBypass()) {
         return {
             status: () => 'connected'
         };
@@ -55,9 +97,11 @@ export const useQuery = (query: any, args: any) => {
         };
         window.addEventListener('storage', handleUpdate);
         window.addEventListener('program_update', handleUpdate);
+        window.addEventListener('kairon_booth_mode_changed', handleUpdate);
         return () => {
             window.removeEventListener('storage', handleUpdate);
             window.removeEventListener('program_update', handleUpdate);
+            window.removeEventListener('kairon_booth_mode_changed', handleUpdate);
         };
     }, [isTestMode]);
 
@@ -80,32 +124,29 @@ export const useQuery = (query: any, args: any) => {
         }
     }
     if (path.includes('getCurrentUser')) {
-        return { id: "test-user-id", email: "test@kairon.app", name: "Test User" };
+        return { id: "local-guest-user", email: "guest@kairon.app", name: "Guest" };
     }
     if (path.includes('getMyMembershipInOrg')) {
         return { role: "admin" };
     }
+
     if (path.includes('getPrograms')) {
-        const local = localStorage.getItem('test_programs');
-        return local ? JSON.parse(local) : [];
+        return getLocalPrograms();
     }
     if (path.includes('getActiveSessions')) {
-        const local = localStorage.getItem('test_programs');
-        const list = local ? JSON.parse(local) : [];
+        const list = getLocalPrograms();
         return list.filter((p: any) => p.status === 'live');
     }
     if (path.includes('getLiveProgram')) {
-        const local = localStorage.getItem('test_programs');
-        const list = local ? JSON.parse(local) : [];
+        const list = getLocalPrograms();
         const live = list.find((p: any) => p.status === 'live');
         return live || null;
     }
     if (path.includes('getProgramById')) {
-        const local = localStorage.getItem('test_programs');
-        const list = local ? JSON.parse(local) : [];
+        const list = getLocalPrograms();
         const idStr = args?.id || '';
         const cleanId = idStr.replace('local-', '');
-        const found = list.find((p: any) => p.id === idStr || p.id?.replace('local-', '') === cleanId || p._id === idStr);
+        const found = list.find((p: any) => p.id === idStr || p.id?.replace('local-', '') === cleanId || p._id === idStr || p.slug === idStr || p.slug === cleanId);
         return found || null;
     }
     if (path.includes('getProgramBySlug')) {
@@ -117,15 +158,15 @@ export const useQuery = (query: any, args: any) => {
     }
     if (path.includes('getOrganizationById') || path.includes('getMyOrganizations')) {
         const cachedBranding = localStorage.getItem('test_org_branding');
-        const branding = cachedBranding ? JSON.parse(cachedBranding) : { logoUrl: "", brandColor: "#4f46e5", name: "Test Organization" };
+        const branding = cachedBranding ? JSON.parse(cachedBranding) : { logoUrl: "", brandColor: "#0ea5e9", name: "Winners Chapel Manchester" };
         const org = {
-            id: "test-org-id",
-            name: branding.name || "Test Organization",
-            slug: "test-org",
+            id: "local-workspace",
+            name: branding.name || "Winners Chapel Manchester",
+            slug: "winners-chapel-manchester",
             logoUrl: branding.logoUrl,
             brandColor: branding.brandColor,
-            subscriptionStatus: "pro",
-            createdBy: "test-user-id",
+            subscriptionStatus: "enterprise",
+            createdBy: "local-guest-user",
             createdAt: new Date().toISOString()
         };
         return path.includes('getMyOrganizations') ? [org] : org;

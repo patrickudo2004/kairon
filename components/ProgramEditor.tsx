@@ -42,6 +42,10 @@ interface ProgramEditorProps {
   isAutopilotEnabled?: boolean;
   onToggleAutopilot?: (enabled?: boolean) => void;
   onTurnaround?: () => void;
+  selectedSlotId?: string | null;
+  onSelectSlotId?: (id: string) => void;
+  onSaveKaironFile?: () => void;
+  onOpenKaironFile?: () => void;
 }
 
 const ProgramEditor: React.FC<ProgramEditorProps> = ({
@@ -52,7 +56,11 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   isPro = false,
   isAutopilotEnabled = true,
   onToggleAutopilot,
-  onTurnaround
+  onTurnaround,
+  selectedSlotId,
+  onSelectSlotId,
+  onSaveKaironFile,
+  onOpenKaironFile,
 }) => {
   const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
   const [aiInput, setAiInput] = useState('');
@@ -60,6 +68,12 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   const [expandedSlots, setExpandedSlots] = useState<Set<string>>(new Set());
   const [isCopied, setIsCopied] = useState(false);
   const [showPublicQr, setShowPublicQr] = useState(false);
+  const [pendingImport, setPendingImport] = useState<{
+    title?: string;
+    startTime?: string;
+    slots: Slot[];
+    sourceLabel: string;
+  } | null>(null);
 
   const publicPortalUrl = getPublicPortalUrl(program);
   const publicPortalPath = getPublicPortalPath(program);
@@ -91,6 +105,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
   );
 
   const handleSlotChange = (id: string, field: keyof Slot, value: any) => {
+    if (onSelectSlotId) onSelectSlotId(id);
     const newSlots = program.slots.map(s => s.id === id ? { ...s, [field]: value } : s);
     onUpdate({ ...program, slots: newSlots });
   };
@@ -110,6 +125,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
     const newSlots = [...program.slots];
     newSlots.splice(index + 1, 0, newSlot);
     onUpdate({ ...program, slots: newSlots });
+    if (onSelectSlotId) onSelectSlotId(newSlot.id);
   };
 
   const addSlot = () => {
@@ -122,9 +138,11 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
     };
     const newSlots = [...program.slots, newSlot];
     onUpdate({ ...program, slots: newSlots });
+    if (onSelectSlotId) onSelectSlotId(newSlot.id);
   };
 
   const toggleSlotDetails = (id: string) => {
+    if (onSelectSlotId) onSelectSlotId(id);
     setExpandedSlots(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -138,6 +156,28 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
     return parseRundownText(aiInput);
   }, [aiInput]);
 
+  const commitSlotImport = (
+    payload: { title?: string; startTime?: string; slots: Slot[] },
+    mode: 'replace' | 'append'
+  ) => {
+    const nextSlots = mode === 'append' ? [...program.slots, ...payload.slots] : payload.slots;
+    onUpdate({
+      ...program,
+      title:
+        payload.title && (mode === 'replace' || program.title === 'New Event' || !program.title)
+          ? payload.title
+          : program.title,
+      startTime: payload.startTime || program.startTime,
+      slots: nextSlots,
+    });
+    if (nextSlots[0] && onSelectSlotId) {
+      onSelectSlotId(nextSlots[0].id);
+    }
+    setPendingImport(null);
+    setIsAIDialogOpen(false);
+    setAiInput('');
+  };
+
   const handleApplyTemplate = (templateId: string) => {
     const tmpl = PRODUCTION_TEMPLATES.find(t => t.id === templateId);
     if (!tmpl) return;
@@ -145,29 +185,34 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
       ...s,
       id: crypto.randomUUID ? crypto.randomUUID() : `slot-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
     }));
-    onUpdate({
-      ...program,
-      title: program.title === 'New Event' || !program.title ? tmpl.name : program.title,
-      startTime: program.startTime || tmpl.startTime,
-      slots: newSlots
-    });
-    setIsAIDialogOpen(false);
-    setAiInput('');
+
+    if (program.slots.length > 0) {
+      setPendingImport({
+        title: tmpl.name,
+        startTime: tmpl.startTime,
+        slots: newSlots,
+        sourceLabel: tmpl.name,
+      });
+      return;
+    }
+
+    commitSlotImport({ title: tmpl.name, startTime: tmpl.startTime, slots: newSlots }, 'replace');
   };
 
   const handleMagicDraft = () => {
     if (!aiInput.trim()) return;
     const result = parseRundownText(aiInput);
     if (result && result.slots.length > 0) {
-      const merged: Program = {
-        ...program,
-        title: result.title && (program.title === 'New Event' || !program.title) ? result.title : program.title,
-        startTime: result.startTime || program.startTime,
-        slots: result.slots
-      };
-      onUpdate(merged);
-      setIsAIDialogOpen(false);
-      setAiInput('');
+      if (program.slots.length > 0) {
+        setPendingImport({
+          title: result.title,
+          startTime: result.startTime,
+          slots: result.slots,
+          sourceLabel: `Smart Importer (${result.slots.length} slots)`,
+        });
+        return;
+      }
+      commitSlotImport(result, 'replace');
     }
   };
 
@@ -227,6 +272,29 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
             <span>AUTOPILOT: {isAutopilotEnabled ? 'ARMED' : 'OFF'}</span>
           </button>
 
+          {/* Portable .kairon File Open & Save Buttons */}
+          {!isReadOnly && onOpenKaironFile && (
+            <button
+              type="button"
+              onClick={onOpenKaironFile}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-700 dark:text-[#E1E4EA] border border-slate-300 dark:border-[#2D333F] rounded-md font-mono text-xs font-semibold transition-all shadow-xs"
+              title="Open a portable .kairon or .csv rundown file from disk (Ctrl+O)"
+            >
+              <span>Open .kairon</span>
+            </button>
+          )}
+
+          {onSaveKaironFile && (
+            <button
+              type="button"
+              onClick={onSaveKaironFile}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-700 dark:text-[#E1E4EA] border border-slate-300 dark:border-[#2D333F] rounded-md font-mono text-xs font-semibold transition-all shadow-xs"
+              title="Save this rundown as a portable .kairon file (Ctrl+S)"
+            >
+              <span>Save .kairon</span>
+            </button>
+          )}
+
           {/* Multi-Service Turnaround Button */}
           {!isReadOnly && onTurnaround && (
             <button
@@ -254,6 +322,19 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
           )}
         </div>
       </div>
+
+      {/* Read-Only Status Banner for Operators & Speakers */}
+      {isReadOnly && (
+        <div className="mb-4 p-3 bg-slate-50 dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md flex items-center justify-between text-xs font-mono">
+          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            <span><strong>Read-Only Mode:</strong> Your role has view-only access to this rundown. Live timer and cue synchronization controls remain fully functional.</span>
+          </div>
+          <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+            Locked
+          </span>
+        </div>
+      )}
 
       {/* Quick Production Template Pills Strip - TOP LEVEL */}
       {!isReadOnly && (
@@ -322,7 +403,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
         </div>
 
         {/* Timing Controls & Telemetry Readout */}
-        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50/50 dark:bg-[#0E1013]">
+        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4 bg-slate-50/50 dark:bg-[#0E1013]">
           <div>
             <label className="block text-[10px] font-mono font-bold text-slate-500 dark:text-[#8A93A4] uppercase mb-1 flex items-center gap-1.5">
               <Calendar size={11} className="text-[#0EA5E9]" /> Date
@@ -381,69 +462,104 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
 
       </div>
 
-      {/* Public Access Link Bar */}
-      <div className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md p-3.5 mb-6 flex flex-col gap-3 shadow-sm">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
-          <div className="flex items-start sm:items-center gap-2.5 min-w-0 w-full lg:w-auto">
-            <div className="p-2 bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] text-[#0EA5E9] rounded shrink-0">
-              <Globe size={15} />
+      {/* =========================================================
+          PUBLIC ATTENDEE ACCESS PORTAL BAR (RESPONSIVE & TOUCH-SAFE)
+         ========================================================= */}
+      <div className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-xl p-4 sm:p-5 mb-6 shadow-xs transition-all font-sans">
+        
+        {/* TIER 1: Header Identity & Master Privacy Toggle */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#1E222A]">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`p-2.5 rounded-lg border shrink-0 transition-colors ${
+              program.isPublic
+                ? 'bg-[#0EA5E9]/10 border-[#0EA5E9]/30 text-[#0EA5E9]'
+                : 'bg-slate-100 dark:bg-[#181B22] border-slate-200 dark:border-[#22262E] text-slate-400 dark:text-[#6A7382]'
+            }`}>
+              <Globe size={18} />
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="text-xs font-bold text-slate-900 dark:text-white font-mono uppercase">Public Attendee Link</h4>
-                {program.isPublic && publicPortalUrl && (
-                  <span
-                    onClick={handleCopyLink}
-                    title={publicPortalUrl}
-                    className="cursor-pointer max-w-full sm:max-w-[280px] md:max-w-[340px] truncate px-2 py-0.5 rounded bg-slate-100 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] text-[10px] font-mono text-[#0EA5E9] hover:border-[#0EA5E9]/50 transition-colors"
-                  >
-                    {publicPortalUrl}
-                  </span>
-                )}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white font-mono uppercase tracking-wide">
+                  Public Attendee Portal
+                </h4>
+                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
+                  program.isPublic
+                    ? 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30'
+                    : 'bg-slate-100 dark:bg-[#1C2028] text-slate-500 border-slate-200 dark:border-[#2D333F]'
+                }`}>
+                  {program.isPublic ? 'Live Online' : 'Private'}
+                </span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-[#8A93A4] mt-0.5">
-                Same live attendee URL & QR code across Editor, PDF Printouts, and Display Hub.
+              <p className="text-[11px] text-slate-500 dark:text-[#8A93A4] mt-0.5 truncate">
+                Universal mobile attendee URL & QR code for congregation devices and printed schedules.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap sm:flex-nowrap justify-start sm:justify-end">
-            <button
-              type="button"
-              onClick={() => onUpdate({ ...program, isPublic: !program.isPublic })}
-              disabled={isReadOnly}
-              className={`px-3 py-1.5 rounded text-xs font-mono font-bold transition-all border shrink-0 ${
-                program.isPublic
-                  ? 'bg-[#10B981]/10 border-[#10B981]/30 text-[#10B981]'
-                  : 'bg-slate-100 dark:bg-[#181B22] border-slate-200 dark:border-[#22262E] text-slate-500 dark:text-[#6A7382]'
-              }`}
-            >
-              {program.isPublic ? 'PUBLIC ENABLED' : 'PRIVATE'}
-            </button>
-            
-            {program.isPublic && (
-              <>
+          {/* Master Privacy Toggle (Isolated from actions, 38px touch target) */}
+          <button
+            type="button"
+            onClick={() => onUpdate({ ...program, isPublic: !program.isPublic })}
+            disabled={isReadOnly}
+            className={`min-h-[38px] px-4 py-2 rounded-lg text-xs font-mono font-bold transition-all border flex items-center justify-center gap-2 shrink-0 active:scale-95 touch-manipulation ${
+              program.isPublic
+                ? 'bg-[#10B981]/15 hover:bg-[#10B981]/25 border-[#10B981]/40 text-[#10B981] shadow-xs'
+                : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border-slate-300 dark:border-[#2D333F] text-slate-600 dark:text-[#8A93A4]'
+            }`}
+            title={program.isPublic ? "Click to disable public portal access" : "Click to enable live public portal"}
+          >
+            <div className={`w-2 h-2 rounded-full ${program.isPublic ? 'bg-[#10B981] animate-tally' : 'bg-slate-400'}`} />
+            <span>{program.isPublic ? 'PUBLIC ENABLED' : 'ENABLE PUBLIC ACCESS'}</span>
+          </button>
+        </div>
+
+        {/* TIER 2: Active URL Group & Action Toolbar */}
+        {program.isPublic && publicPortalUrl && (
+          <div className="pt-3.5 space-y-3 animate-in fade-in duration-200">
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2.5">
+              
+              {/* Full-width Sleek Monospace Link Display Box */}
+              <div 
+                onClick={handleCopyLink}
+                className="flex-1 min-w-0 bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] hover:border-[#0EA5E9]/50 rounded-lg px-3 py-2 flex items-center gap-2.5 cursor-pointer transition-colors group shadow-inner"
+                title="Click to copy full public URL to clipboard"
+              >
+                <Share2 size={13} className="text-[#0EA5E9] shrink-0" />
+                <span className="text-xs font-mono text-slate-700 dark:text-[#E1E4EA] group-hover:text-[#0EA5E9] truncate select-all">
+                  {publicPortalUrl}
+                </span>
+                <span className="ml-auto text-[10px] font-mono text-slate-400 dark:text-[#6A7382] group-hover:text-[#0EA5E9] uppercase shrink-0 hidden sm:inline">
+                  {isCopied ? 'Copied!' : 'Click to copy'}
+                </span>
+              </div>
+
+              {/* Action Buttons Toolbar (Min 38px height, 10px gap, clear touch targets) */}
+              <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="px-3 py-1.5 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-white rounded text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors shrink-0 active:scale-95"
+                  className={`min-h-[38px] px-3.5 py-2 rounded-lg text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-all border shrink-0 active:scale-95 touch-manipulation shadow-xs ${
+                    isCopied
+                      ? 'bg-[#10B981]/15 border-[#10B981]/40 text-[#10B981]'
+                      : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border-slate-300 dark:border-[#2D333F] text-slate-800 dark:text-white'
+                  }`}
                   title="Copy attendee web link to clipboard"
                 >
-                  {isCopied ? <Check size={12} className="text-[#10B981]" /> : <Copy size={12} />}
+                  {isCopied ? <Check size={13} className="text-[#10B981]" /> : <Copy size={13} />}
                   <span>{isCopied ? 'COPIED!' : 'COPY LINK'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setShowPublicQr((prev) => !prev)}
-                  className={`px-3 py-1.5 border rounded text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors shrink-0 active:scale-95 ${
+                  className={`min-h-[38px] px-3.5 py-2 rounded-lg text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-all border shrink-0 active:scale-95 touch-manipulation shadow-xs ${
                     showPublicQr
-                      ? 'bg-[#0EA5E9]/10 border-[#0EA5E9]/40 text-[#0EA5E9]'
-                      : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-white'
+                      ? 'bg-[#0EA5E9]/15 border-[#0EA5E9]/50 text-[#0EA5E9]'
+                      : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border-slate-300 dark:border-[#2D333F] text-slate-800 dark:text-white'
                   }`}
-                  title="Show Attendee QR Code"
+                  title="Show or hide QR Code drawer"
                 >
-                  <QrCode size={12} />
+                  <QrCode size={13} />
                   <span>QR CODE</span>
                 </button>
 
@@ -451,32 +567,40 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
                   href={publicPortalPath}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3 py-1.5 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-200 dark:border-[#22262E] text-slate-700 dark:text-white rounded text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors shrink-0 active:scale-95"
+                  className="min-h-[38px] px-3.5 py-2 bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-300 dark:border-[#2D333F] text-slate-800 dark:text-white rounded-lg text-xs font-mono font-semibold flex items-center justify-center gap-1.5 transition-all shrink-0 active:scale-95 touch-manipulation shadow-xs"
+                  title="Open live attendee view in new browser tab"
                 >
-                  <Share2 size={12} />
+                  <Globe size={13} className="text-[#0EA5E9]" />
                   <span>PREVIEW</span>
                 </a>
-              </>
-            )}
-          </div>
-        </div>
+              </div>
+            </div>
 
-        {program.isPublic && showPublicQr && publicPortalUrl && (
-          <div className="pt-3 border-t border-slate-200 dark:border-[#22262E] flex flex-col sm:flex-row items-center gap-4 bg-slate-50/70 dark:bg-[#090A0C]/60 p-3 rounded animate-in fade-in duration-200">
-            <div className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-xs shrink-0">
-              <QRCode value={publicPortalUrl} size={96} />
-            </div>
-            <div className="text-center sm:text-left min-w-0 flex-1 space-y-1">
-              <div className="text-xs font-mono font-bold text-slate-900 dark:text-white uppercase">
-                Live Attendee Portal QR Code
+            {/* Expandable High-Contrast QR Code Drawer */}
+            {showPublicQr && (
+              <div className="pt-3 border-t border-slate-200/80 dark:border-[#1E222A] flex flex-col sm:flex-row items-center gap-4 bg-slate-50/80 dark:bg-[#090A0C]/80 p-3.5 rounded-lg animate-in fade-in duration-200">
+                <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-xs shrink-0">
+                  <QRCode value={publicPortalUrl} size={104} />
+                </div>
+                <div className="text-center sm:text-left min-w-0 flex-1 space-y-1">
+                  <div className="text-xs font-mono font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center justify-center sm:justify-start gap-1.5">
+                    <QrCode size={13} className="text-[#0EA5E9]" />
+                    <span>Live Attendee Portal QR Code</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-[#8A93A4] leading-relaxed">
+                    Scan from any phone or tablet to view real-time countdown, scripture notes, and running order. This identical QR code is embedded in PDF printouts and the Monitors hub.
+                  </p>
+                  <div className="text-[11px] font-mono text-[#0EA5E9] break-all pt-0.5">
+                    {publicPortalUrl}
+                  </div>
+                  {program.id.startsWith('local-') && (
+                    <div className="mt-2 text-[10px] font-mono text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded flex items-center gap-1.5">
+                      <span>⚠️ Local Offline Mode: This event is stored locally. Sign in to your account to enable live cloud sync for mobile attendee QR codes.</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-[#8A93A4]">
-                Matches the QR code printed on exported PDF schedules and the Public Portal card in Monitors & Displays.
-              </p>
-              <div className="text-[11px] font-mono text-[#0EA5E9] break-all">
-                {publicPortalUrl}
-              </div>
-            </div>
+            )}
           </div>
         )}
       </div>
@@ -647,6 +771,57 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
                   <span>Import {parsedPreview?.slots.length ? `${parsedPreview.slots.length} Slots` : 'Rundown'} ❯</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Overwrite vs. Append Confirmation Guard Modal */}
+      {pendingImport && (
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-[130] p-4 font-sans animate-in fade-in duration-150"
+          onClick={() => setPendingImport(null)}
+        >
+          <div
+            className="bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-xl w-full max-w-md p-5 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-[#F59E0B]/15 text-[#F59E0B] shrink-0">
+                <AlertCircle size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-mono font-bold uppercase text-slate-900 dark:text-white">
+                  Schedule Already Has {program.slots.length} Slots
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-[#8A93A4] mt-1 leading-relaxed">
+                  How would you like to load <strong className="text-slate-900 dark:text-white">{pendingImport.sourceLabel}</strong> ({pendingImport.slots.length} items) into this rundown?
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => commitSlotImport(pendingImport, 'replace')}
+                className="w-full py-2.5 px-4 rounded-lg bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-xs font-mono font-bold uppercase tracking-wider transition-all"
+              >
+                Replace Existing Schedule ({pendingImport.slots.length} Slots)
+              </button>
+              <button
+                type="button"
+                onClick={() => commitSlotImport(pendingImport, 'append')}
+                className="w-full py-2.5 px-4 rounded-lg bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] border border-slate-300 dark:border-[#2D333F] text-slate-800 dark:text-white text-xs font-mono font-bold uppercase tracking-wider transition-all"
+              >
+                Append to End ({program.slots.length + pendingImport.slots.length} Total Slots)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingImport(null)}
+                className="w-full py-2 px-4 rounded-lg text-slate-500 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white text-xs font-mono"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

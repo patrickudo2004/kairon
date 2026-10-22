@@ -71,9 +71,9 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
         )}
 
         {/* 12-Column Input Grid (Strictly for inputs so buttons never overflow into fields) */}
-        <div className="flex-1 grid grid-cols-12 gap-3 w-full items-center min-w-0">
+        <div className="flex-1 grid grid-cols-12 gap-2.5 w-full items-center min-w-0">
           {/* Title & Expand Toggle */}
-          <div className="col-span-12 xl:col-span-5 flex items-center gap-1.5 min-w-0">
+          <div className="col-span-12 2xl:col-span-5 flex items-center gap-1.5 min-w-0">
             <button
               type="button"
               onClick={() => onToggleDetails(slot.id)}
@@ -93,7 +93,7 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
           </div>
 
           {/* Speaker */}
-          <div className="col-span-6 xl:col-span-3 min-w-0 pl-7 xl:pl-0">
+          <div className="col-span-5 2xl:col-span-3 min-w-0 pl-7 2xl:pl-0">
             <input
               type="text"
               value={slot.speaker}
@@ -105,8 +105,8 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
           </div>
 
           {/* Duration Minutes */}
-          <div className="col-span-3 xl:col-span-2 min-w-0">
-            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] focus-within:border-[#0EA5E9] rounded px-2.5 py-1.5 transition-colors">
+          <div className="col-span-3 2xl:col-span-2 min-w-0">
+            <div className="flex items-center gap-1 bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] focus-within:border-[#0EA5E9] rounded px-2 py-1.5 transition-colors">
               <Clock size={12} className="text-slate-400 dark:text-[#6A7382] shrink-0" />
               <input
                 type="number"
@@ -114,14 +114,14 @@ export const SortableSlot: React.FC<SortableSlotProps> = ({
                 value={slot.durationMinutes}
                 readOnly={isReadOnly}
                 onChange={(e) => onSlotChange(slot.id, 'durationMinutes', Math.max(1, parseInt(e.target.value) || 0))}
-                className="w-full min-w-0 bg-transparent font-mono text-xs font-bold text-slate-900 dark:text-white text-right focus:outline-none"
+                className="w-full min-w-[2.25rem] bg-transparent font-mono text-xs font-bold text-slate-900 dark:text-white text-right focus:outline-none"
               />
               <span className="text-[10px] font-mono text-slate-400 dark:text-[#6A7382] shrink-0">min</span>
             </div>
           </div>
 
           {/* Type Preset */}
-          <div className="col-span-3 xl:col-span-2 min-w-0">
+          <div className="col-span-4 2xl:col-span-2 min-w-0">
             <input
               type="text"
               list="slot-types"

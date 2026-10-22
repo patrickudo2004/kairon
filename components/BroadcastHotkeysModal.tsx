@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Keyboard, Radio, Play, Pause, SkipForward, SkipBack, Plus, Minus, Clock, Zap, Monitor, Tv, Sliders, Maximize } from 'lucide-react';
+import { X, Keyboard, Radio, Play, Pause, SkipForward, SkipBack, Plus, Minus, Clock, Zap, Monitor, Tv, Sliders, Maximize, AppWindow } from 'lucide-react';
 
 interface BroadcastHotkeysModalProps {
   isOpen: boolean;
@@ -37,6 +37,7 @@ export const BroadcastHotkeysModal: React.FC<BroadcastHotkeysModalProps> = ({ is
       title: 'Screen & Navigation',
       icon: Tv,
       shortcuts: [
+        { key: 'Shift + B', action: 'Recall Flight Bridge to Screen 1', icon: AppWindow },
         { key: 'F / F11', action: 'Toggle Fullscreen Mode', icon: Maximize },
         { key: '?', action: 'Toggle This Keyboard Reference', icon: Keyboard },
         { key: 'Esc', action: 'Close Modal / Exit Fullscreen', icon: X },
@@ -67,7 +68,7 @@ export const BroadcastHotkeysModal: React.FC<BroadcastHotkeysModalProps> = ({ is
                 </span>
               </h2>
               <p className="text-xs text-slate-500 dark:text-[#8A93A4]">
-                Instant tactile controls for live church broadcast and FOH operators.
+                Instant tactile controls for live broadcast and FOH operators.
               </p>
             </div>
           </div>

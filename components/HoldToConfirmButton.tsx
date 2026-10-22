@@ -22,7 +22,7 @@ export const HoldToConfirmButton: React.FC<HoldToConfirmButtonProps> = ({
   className = '',
   variant = 'danger',
   disabled = false,
-  title = 'Hold to end this live session'
+  title = 'Press and hold 2 seconds to end this live session'
 }) => {
   const [progress, setProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
@@ -109,6 +109,10 @@ export const HoldToConfirmButton: React.FC<HoldToConfirmButtonProps> = ({
   return (
     <button
       type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
       title={title}
       disabled={disabled}
       onMouseDown={startHolding}
