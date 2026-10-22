@@ -139,7 +139,7 @@ export const CrewHUD: React.FC = () => {
     // Convex Reactive Query
     const programData = useQuery(
         api.programs.getProgramBySlug,
-        slug ? { slug } : (targetId ? { slug: targetId } : "skip")
+        slug ? { slug, includeProductionNotes: true } : (targetId ? { slug: targetId, includeProductionNotes: true } : "skip")
     );
 
     const programByIdData = useQuery(

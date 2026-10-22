@@ -172,51 +172,103 @@ export const stopAllActiveSessions = mutation({
 });
 
 export const getProgramBySlug = query({
-    args: { slug: v.string() },
+    args: { 
+        slug: v.string(),
+        includeProductionNotes: v.optional(v.boolean()),
+    },
     handler: async (ctx, args) => {
         if (!args.slug) return null;
         try {
             const cleanSlug = args.slug.replace(/^local-/, '');
+            let doc = null;
 
             // 1. Try by exact slug (or cleaned slug)
             const bySlug = await ctx.db
                 .query("programs")
                 .withIndex("by_slug", (q) => q.eq("slug", cleanSlug))
                 .first();
-            if (bySlug) return bySlug;
+            if (bySlug) doc = bySlug;
 
-            if (cleanSlug !== args.slug) {
+            if (!doc && cleanSlug !== args.slug) {
                 const byRawSlug = await ctx.db
                     .query("programs")
                     .withIndex("by_slug", (q) => q.eq("slug", args.slug))
                     .first();
-                if (byRawSlug) return byRawSlug;
+                if (byRawSlug) doc = byRawSlug;
             }
 
             // 2. Try as Convex ID
-            const normalizedId = ctx.db.normalizeId("programs", cleanSlug);
-            if (normalizedId) {
-                const doc = await ctx.db.get(normalizedId);
-                if (doc) return doc;
+            if (!doc) {
+                const normalizedId = ctx.db.normalizeId("programs", cleanSlug);
+                if (normalizedId) {
+                    const docById = await ctx.db.get(normalizedId);
+                    if (docById) doc = docById;
+                }
             }
 
             // 3. Try as UUID
-            const byUuid = await ctx.db
-                .query("programs")
-                .withIndex("by_uuid", (q) => q.eq("uuid", cleanSlug))
-                .first();
-            if (byUuid) return byUuid;
+            if (!doc) {
+                const byUuid = await ctx.db
+                    .query("programs")
+                    .withIndex("by_uuid", (q) => q.eq("uuid", cleanSlug))
+                    .first();
+                if (byUuid) doc = byUuid;
+            }
 
             // 4. Try fallback search by title or UUID
-            const fallback = await ctx.db
-                .query("programs")
-                .filter((q) => q.or(
-                    q.eq(q.field("uuid"), cleanSlug),
-                    q.eq(q.field("slug"), cleanSlug),
-                    q.eq(q.field("title"), args.slug)
-                ))
-                .first();
-            if (fallback) return fallback;
+            if (!doc) {
+                const fallback = await ctx.db
+                    .query("programs")
+                    .filter((q) => q.or(
+                        q.eq(q.field("uuid"), cleanSlug),
+                        q.eq(q.field("slug"), cleanSlug),
+                        q.eq(q.field("title"), args.slug)
+                    ))
+                    .first();
+                if (fallback) doc = fallback;
+            }
+
+            if (!doc) return null;
+
+            // Security: Enforce isPublic visibility restriction
+            if (doc.isPublic === false) return null;
+
+            // Security Projection: Never leak confidential sermon notes (prompterText),
+            // internal financial rates (averageHourlyRate), or sensitive metrics to attendees.
+            const sanitizedSlots = (doc.slots || []).map((slot: any) => ({
+                id: slot.id,
+                title: slot.title,
+                speaker: slot.speaker,
+                durationMinutes: slot.durationMinutes,
+                actualDuration: slot.actualDuration,
+                type: slot.type,
+                details: slot.details,
+                // Only disclose production cues to tactical crew if explicitly requested
+                ...(args.includeProductionNotes ? { productionNotes: slot.productionNotes } : {}),
+            }));
+
+            return {
+                _id: doc._id,
+                id: doc._id,
+                title: doc.title,
+                subtitle: doc.subtitle,
+                date: doc.date,
+                startTime: doc.startTime,
+                endTime: doc.endTime,
+                organizationId: doc.organizationId,
+                status: doc.status,
+                isTimerActive: doc.isTimerActive,
+                secondsElapsed: doc.secondsElapsed,
+                currentSlotIndex: doc.currentSlotIndex,
+                timerStartTimestamp: doc.timerStartTimestamp,
+                isOnHold: doc.isOnHold,
+                holdMessage: doc.holdMessage,
+                isManualMode: doc.isManualMode,
+                slug: doc.slug,
+                uuid: doc.uuid,
+                isPublic: doc.isPublic,
+                slots: sanitizedSlots,
+            };
         } catch (e) {
             console.warn("getProgramBySlug query fallback error:", e);
         }
@@ -296,6 +348,9 @@ export const migrateProgram = mutation({
         uuid: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
+        // Enforce administrative permissions in target organization
+        await checkPermissions(ctx, args.organizationId, "admin");
+
         if (args.uuid) {
             const existing = await ctx.db
                 .query("programs")
@@ -452,7 +507,11 @@ export const migratePrograms = mutation({
             throw new Error("Insufficient permissions in the target organization.");
         }
 
+        // Cross-Tenant Protection: Verify user has management permissions over each source program
         for (const id of args.programIds) {
+            const prog = await ctx.db.get(id);
+            if (!prog) continue;
+            await checkPermissions(ctx, prog.organizationId, "manager");
             await ctx.db.patch(id, { organizationId: args.targetOrganizationId });
         }
     },
@@ -465,8 +524,11 @@ export const deleteAllProgramsInOrg = mutation({
         if (!userId) throw new Error("Unauthorized");
 
         const org = await ctx.db.get(args.organizationId);
-        if (org?.createdBy !== userId) {
-            throw new Error("Only the owner can purge all programs.");
+        if (!org) throw new Error("Organization not found");
+
+        if (org.createdBy !== userId && String(org.createdBy) !== String(userId)) {
+            // Also allow an admin if owner field is legacy or matches admin check
+            await checkPermissions(ctx, args.organizationId, "admin");
         }
 
         const programs = await ctx.db

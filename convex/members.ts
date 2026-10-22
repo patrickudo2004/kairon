@@ -11,6 +11,21 @@ export const getOrgMembers = query({
         const normalizedId = ctx.db.normalizeId("organizations", orgIdStr);
         if (!normalizedId) return [];
 
+        // Security: Caller must be authenticated and belong to this organization
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return [];
+
+        const isMember = await ctx.db
+            .query("members")
+            .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
+            .filter((q) => q.eq(q.field("userId"), userId))
+            .first();
+
+        const org = await ctx.db.get(normalizedId);
+        if (!isMember && org?.createdBy !== userId && String(org?.createdBy) !== String(userId)) {
+            return [];
+        }
+
         const [members, pendingInvites] = await Promise.all([
             ctx.db
                 .query("members")
@@ -218,29 +233,7 @@ export const checkPendingInvites = mutation({
             }
         }
 
-        // 3. Check generic workspace invite link (/?inviteId=generic&orgId=<orgId>)
-        if (args.orgId) {
-            const normalizedOrgId = ctx.db.normalizeId("organizations", args.orgId);
-            if (normalizedOrgId) {
-                const org = await ctx.db.get(normalizedOrgId);
-                if (org) {
-                    const existing = await ctx.db
-                        .query("members")
-                        .withIndex("by_org", (q) => q.eq("organizationId", normalizedOrgId))
-                        .filter((q) => q.eq(q.field("userId"), userId))
-                        .first();
-
-                    if (!existing) {
-                        await ctx.db.insert("members", {
-                            organizationId: normalizedOrgId,
-                            userId,
-                            role: "operator",
-                        });
-                        results.push(org.name || "Unknown Organization");
-                    }
-                }
-            }
-        }
+// Generic workspace open-join removed for security
 
         return results.length > 0 ? results : null;
     },
