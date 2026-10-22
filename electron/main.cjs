@@ -140,7 +140,7 @@ function createMainWindow() {
     console.log(`[Kairon Studio] Loading Vite dev server: ${devUrl}`);
     mainWindow.loadURL(devUrl);
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: '/' });
   }
 
   // Safely route external OAuth / documentation URLs to system browser while allowing local output windows
@@ -309,6 +309,7 @@ app.on('window-all-closed', () => {
 });
 
 // IPC: Return all connected hardware screens
+ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('get-screens', () => {
   return getScreenList();
 });

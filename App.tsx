@@ -1,6 +1,6 @@
 import React, { Component, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { BrowserRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, NavLink, useNavigate, useLocation, useSearchParams, Navigate, useParams } from 'react-router-dom';
 import { Maximize2, Mic, Edit3, Play, ClipboardList, Calendar as CalendarIcon, Home, Sun, Moon, Share2, Copy, Check, X, AlertTriangle, FileText, Download, User, User as UserIcon, AlignLeft, QrCode, Clipboard, Wifi, WifiOff, Sparkles, Zap, CheckCircle, MousePointerClick, UserPlus, ExternalLink, Tv, AppWindow, SkipBack, SkipForward, Pause, Clock, Monitor, Building, MessageSquare, Bell, Crown, Volume2, Lightbulb, Video, Plus, Minus, BarChart3, Power, Keyboard, PanelRight, Layers, GripHorizontal } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -70,6 +70,9 @@ import { StudioStatusBar } from './components/StudioStatusBar';
 import { CommandPaletteModal } from './components/CommandPaletteModal';
 import { BroadcastIntegrationsModal } from './components/BroadcastIntegrationsModal';
 import { BroadcastOverlayView } from './components/BroadcastOverlayView';
+import { UpdateCheckerModal } from './components/UpdateCheckerModal';
+import { checkForUpdates, UpdateCheckResult } from './services/updateService';
+
 import { DesktopAuthApproval } from './components/DesktopAuthApproval';
 
 import { MobileNav } from './components/MobileNav';
@@ -2799,6 +2802,20 @@ const AppContent: React.FC = () => {
     }`;
 
   const [isHotkeysOpen, setIsHotkeysOpen] = useState(false);
+  const [isUpdateCheckerOpen, setIsUpdateCheckerOpen] = useState(false);
+  const [latestUpdateResult, setLatestUpdateResult] = useState<UpdateCheckResult | null>(null);
+
+  useEffect(() => {
+    try {
+      const autoCheck = localStorage.getItem('kairon_auto_check_updates') !== 'false';
+      if (autoCheck && window.navigator.onLine) {
+        checkForUpdates(false).then(res => {
+          setLatestUpdateResult(res);
+        }).catch(() => {});
+      }
+    } catch {}
+  }, []);
+
 
   const exportTargetProgram = location.pathname.startsWith('/editor') ? program : displayProgram;
 
@@ -3289,6 +3306,9 @@ const AppContent: React.FC = () => {
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           onOpenHotkeys={() => setIsHotkeysOpen(true)}
           onOpenPip={() => openFlightBridge(displayProgram?.id)}
+          onOpenUpdateChecker={() => setIsUpdateCheckerOpen(true)}
+          hasUpdateAvailable={Boolean(latestUpdateResult?.isUpdateAvailable)}
+          latestVersionAvailable={latestUpdateResult?.latestVersion}
         />
       )}
 
@@ -3846,6 +3866,7 @@ const AppContent: React.FC = () => {
                     }}
                   />
                 } />
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             )}
           </div>
@@ -3924,6 +3945,9 @@ const AppContent: React.FC = () => {
           isSoundAcked={isSoundAcked}
           isLightsAcked={isLightsAcked}
           isVideoAcked={isVideoAcked}
+          onOpenUpdateChecker={() => setIsUpdateCheckerOpen(true)}
+          isUpdateAvailable={Boolean(latestUpdateResult?.isUpdateAvailable)}
+          latestVersion={latestUpdateResult?.latestVersion}
         />
       )}
 
@@ -3955,6 +3979,12 @@ const AppContent: React.FC = () => {
         onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
       />
 
+            <UpdateCheckerModal
+        isOpen={isUpdateCheckerOpen}
+        onClose={() => setIsUpdateCheckerOpen(false)}
+        cachedResult={latestUpdateResult}
+        onResultUpdated={setLatestUpdateResult}
+      />
       <BroadcastHotkeysModal
         isOpen={isHotkeysOpen}
         onClose={() => setIsHotkeysOpen(false)}
@@ -4249,18 +4279,32 @@ const StandaloneDispatcher: React.FC = () => {
   return <AppContent />;
 };
 
+const KaironRouter: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isElectronOrFile = typeof window !== 'undefined' && Boolean(
+    (window as any).electron?.isElectron ||
+    (window as any).electronAPI?.isElectron ||
+    window.location.protocol === 'file:'
+  );
+
+  if (isElectronOrFile) {
+    return <HashRouter>{children}</HashRouter>;
+  }
+  return <BrowserRouter>{children}</BrowserRouter>;
+};
+
 const App: React.FC = () => {
   return (
     <ConvexAuthProvider client={convex}>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
+        <KaironRouter>
           <AppErrorBoundary>
             <StandaloneDispatcher />
           </AppErrorBoundary>
-        </BrowserRouter>
+        </KaironRouter>
       </QueryClientProvider>
     </ConvexAuthProvider>
   );
 };
+
 
 export default App;
