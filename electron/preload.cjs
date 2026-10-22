@@ -54,6 +54,8 @@ const api = {
   },
   // Direct vector PDF export
   savePdf: (options) => ipcRenderer.invoke('save-pdf', options),
+  // In-app update checker via Node/Electron backend (resilient to API rate limits)
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   // Local Workspace Folder APIs
   chooseWorkspaceFolder: () => ipcRenderer.invoke('choose-workspace-folder'),
   readWorkspaceFolder: (folderPath) => ipcRenderer.invoke('read-workspace-folder', folderPath),

@@ -36,6 +36,7 @@ export interface UpdateCheckResult {
   assetName?: string;
   targetOS: 'windows' | 'mac' | 'linux' | 'web';
   error?: string;
+  isRateLimited?: boolean;
 }
 
 /**
@@ -135,20 +136,57 @@ export async function checkForUpdates(force = false): Promise<UpdateCheckResult>
     targetOS: platform,
   };
 
+  // Throttling for automatic background calls (4 hour cooldown)
+  if (!force && typeof localStorage !== 'undefined') {
+    const lastCheck = parseInt(localStorage.getItem('kairon_last_update_check_time') || '0', 10);
+    const cached = localStorage.getItem('kairon_latest_release_cache');
+    if (Date.now() - lastCheck < 4 * 60 * 60 * 1000 && cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        return parsed;
+      } catch {}
+    }
+  }
+
+  // 1. Electron Desktop Runtime: Delegate to IPC handler (bypasses browser CORS & API rate limits via Atom feed fallback)
+  const electronAPI = typeof window !== 'undefined' ? ((window as any).electronAPI || (window as any).electron) : null;
+  if (electronAPI && typeof electronAPI.checkForUpdates === 'function') {
+    try {
+      const resp = await electronAPI.checkForUpdates();
+      if (resp?.success && resp.data) {
+        const data = resp.data;
+        const rawTag = data.tag_name || '';
+        const cleanTag = rawTag.replace(/^v/i, '');
+        const hasNewerVersion = compareSemver(cleanTag, currentVersion) > 0;
+        const matchedAsset = selectAssetForPlatform(data.assets, platform);
+
+        const result: UpdateCheckResult = {
+          isUpdateAvailable: hasNewerVersion,
+          currentVersion,
+          latestVersion: cleanTag,
+          releaseNotes: data.body || 'No release notes provided.',
+          releaseName: data.name || data.tag_name,
+          publishedAt: data.published_at || '',
+          releaseUrl: data.html_url || 'https://github.com/patrickudo2004/kairon/releases',
+          downloadUrl: matchedAsset?.downloadUrl || data.html_url,
+          assetName: matchedAsset?.assetName,
+          targetOS: platform,
+        };
+
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('kairon_last_update_check_time', Date.now().toString());
+          localStorage.setItem('kairon_latest_release_cache', JSON.stringify(result));
+        }
+        return result;
+      }
+    } catch (e) {
+      console.warn('[Kairon Update Service] Electron IPC update check fallback:', e);
+    }
+  }
+
+  // 2. Web Browser Runtime: Direct fetch from GitHub API with rate-limit resilience
   try {
     const GITHUB_REPO_URL = 'https://api.github.com/repos/patrickudo2004/kairon/releases/latest';
-
-    // Throttling for automatic background calls (4 hour cooldown)
-    if (!force && typeof localStorage !== 'undefined') {
-      const lastCheck = parseInt(localStorage.getItem('kairon_last_update_check_time') || '0', 10);
-      const cached = localStorage.getItem('kairon_latest_release_cache');
-      if (Date.now() - lastCheck < 4 * 60 * 60 * 1000 && cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          return parsed;
-        } catch {}
-      }
-    }
 
     const response = await fetch(GITHUB_REPO_URL, {
       headers: {
@@ -160,6 +198,19 @@ export async function checkForUpdates(force = false): Promise<UpdateCheckResult>
     if (!response.ok) {
       if (response.status === 404) {
         return fallbackResult;
+      }
+      if (response.status === 403) {
+        const cached = typeof localStorage !== 'undefined' ? localStorage.getItem('kairon_latest_release_cache') : null;
+        if (cached) {
+          try {
+            return JSON.parse(cached);
+          } catch {}
+        }
+        return {
+          ...fallbackResult,
+          isRateLimited: true,
+          error: 'GitHub API rate limit reached (60/hour). Kairon is running normally.',
+        };
       }
       throw new Error(`GitHub API returned status ${response.status}`);
     }

@@ -126,6 +126,33 @@ export const UpdateCheckerModal: React.FC<UpdateCheckerModalProps> = ({
               <p className="text-sm font-medium text-white">Checking for latest release on GitHub...</p>
               <p className="text-xs text-[#8A93A4]">Querying patrickudo2004/kairon</p>
             </div>
+          ) : (result?.isRateLimited || result?.error?.includes('rate limit')) && !result?.isUpdateAvailable ? (
+            /* GitHub Rate Limit State */
+            <div className="py-6 flex flex-col items-center justify-center text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
+                <Sparkles size={24} />
+              </div>
+              <h4 className="text-base font-bold text-white">GitHub Rate Limit Active</h4>
+              <p className="text-xs text-[#8A93A4] max-w-sm leading-relaxed">
+                GitHub temporarily limits anonymous API checks to 60/hr. You are running installed build <span className="font-mono text-emerald-400 font-bold">v{currentVersion}</span>. You can inspect all releases directly on GitHub.
+              </p>
+              <div className="pt-2 flex items-center gap-2.5">
+                <button
+                  onClick={() => openDownloadUrl(result?.releaseUrl || 'https://github.com/patrickudo2004/kairon/releases')}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-xs font-mono font-bold transition-colors cursor-pointer"
+                >
+                  <ExternalLink size={13} />
+                  <span>Open GitHub Releases</span>
+                </button>
+                <button
+                  onClick={() => performCheck(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#181B22] hover:bg-[#22262E] border border-[#22262E] text-xs font-mono font-bold text-slate-300 hover:text-white transition-colors cursor-pointer"
+                >
+                  <RefreshCw size={12} />
+                  <span>Retry Check</span>
+                </button>
+              </div>
+            </div>
           ) : result?.error && !result?.isUpdateAvailable ? (
             /* Error / Offline state */
             <div className="py-6 flex flex-col items-center justify-center text-center space-y-3">
@@ -138,7 +165,7 @@ export const UpdateCheckerModal: React.FC<UpdateCheckerModalProps> = ({
               </p>
               <button
                 onClick={() => performCheck(true)}
-                className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#22262E] hover:bg-[#2D333F] text-xs font-mono font-bold text-white transition-colors"
+                className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#22262E] hover:bg-[#2D333F] text-xs font-mono font-bold text-white transition-colors cursor-pointer"
               >
                 <RefreshCw size={13} />
                 <span>Retry Check</span>
