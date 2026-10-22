@@ -53,7 +53,7 @@ test.describe('Routing & In-App Auto-Update E2E Workflows', () => {
 
     // Verify UpdateCheckerModal is open
     await expect(page.getByRole('heading', { name: 'Kairon Studio Updates' })).toBeVisible();
-    await expect(page.locator('text=Current build: v1.0.6')).toBeVisible();
+    await expect(page.locator('text=Current build: v1.0.7')).toBeVisible();
   });
 
   test('should display "Up to Date" when latest release matches current version', async ({ page }) => {
@@ -64,10 +64,10 @@ test.describe('Routing & In-App Auto-Update E2E Workflows', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           id: 1,
-          tag_name: 'v1.0.6',
-          name: 'Kairon v1.0.6 Stable',
+          tag_name: 'v1.0.7',
+          name: 'Kairon v1.0.7 Stable',
           body: 'Current stable release.',
-          html_url: 'https://github.com/patrickudo2004/kairon/releases/tag/v1.0.6',
+          html_url: 'https://github.com/patrickudo2004/kairon/releases/tag/v1.0.7',
           published_at: new Date().toISOString(),
           assets: [],
         }),
@@ -100,16 +100,16 @@ test.describe('Routing & In-App Auto-Update E2E Workflows', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           id: 2,
-          tag_name: 'v1.0.7',
-          name: 'Kairon v1.0.7 - Upcoming Reliability Update',
+          tag_name: 'v1.0.8',
+          name: 'Kairon v1.0.8 - Upcoming Reliability Update',
           body: '- Added in-app update checker\n- Fixed blank desktop canvas\n- Enhanced stage cue dispatcher',
-          html_url: 'https://github.com/patrickudo2004/kairon/releases/tag/v1.0.7',
+          html_url: 'https://github.com/patrickudo2004/kairon/releases/tag/v1.0.8',
           published_at: new Date().toISOString(),
           assets: [
             {
               id: 101,
-              name: 'Kairon-Setup-1.0.7.exe',
-              browser_download_url: 'https://github.com/patrickudo2004/kairon/releases/download/v1.0.7/Kairon-Setup-1.0.7.exe',
+              name: 'Kairon-Setup-1.0.8.exe',
+              browser_download_url: 'https://github.com/patrickudo2004/kairon/releases/download/v1.0.8/Kairon-Setup-1.0.8.exe',
               size: 85000000,
               content_type: 'application/octet-stream',
             },
@@ -133,7 +133,7 @@ test.describe('Routing & In-App Auto-Update E2E Workflows', () => {
 
     // Verify new version available state
     await expect(page.locator('text=New Version Available')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('text=v1.0.7').first()).toBeVisible();
+    await expect(page.locator('text=v1.0.8').first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Download for/i })).toBeVisible();
     await expect(page.locator('text=Enhanced stage cue dispatcher')).toBeVisible();
   });
@@ -148,7 +148,7 @@ test.describe('Routing & In-App Auto-Update E2E Workflows', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Click version button in status bar (e.g. 'v1.0.6' or 'UPDATE v...')
-    const versionBtn = page.getByRole('button', { name: /v1\.0\.6|UPDATE/i });
+    const versionBtn = page.getByRole('button', { name: /v1\.\d+\.\d+|UPDATE/i });
     await expect(versionBtn).toBeVisible({ timeout: 5000 });
     await versionBtn.click();
     await expect(page.getByRole('heading', { name: 'Kairon Studio Updates' })).toBeVisible();

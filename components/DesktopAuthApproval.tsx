@@ -48,7 +48,7 @@ export const DesktopAuthApproval: React.FC = () => {
     (paramCode && paramCode.toUpperCase().startsWith('KRN-') ? paramCode : '') ||
     (storedCode && storedCode.toUpperCase().startsWith('KRN-') ? storedCode : '') ||
     paramDesktopCode ||
-    (paramCode && !/^\d+$/.test(paramCode) && paramCode.length <= 10 ? paramCode : '')
+    (paramCode && !/^\d+$/.test(paramCode) && paramCode.length <= 16 ? paramCode : '')
   ).trim().toUpperCase();
 
   const [activeCode, setActiveCode] = useState(resolvedCode);

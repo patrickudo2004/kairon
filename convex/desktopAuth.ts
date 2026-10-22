@@ -1,11 +1,22 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
+
+export function normalizeCode(code: string): string {
+    const clean = code.trim().toUpperCase().replace(/[\s-]/g, '');
+    if (clean.startsWith('KRN')) {
+        return `KRN-${clean.slice(3)}`;
+    }
+    return `KRN-${clean}`;
+}
 
 function generateCleanCode(): string {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
     let randomPart = "";
-    for (let i = 0; i < 4; i++) {
-        randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+    for (let i = 0; i < 8; i++) {
+        randomPart += chars[bytes[i] % chars.length];
     }
     return `KRN-${randomPart}`;
 }
@@ -39,10 +50,23 @@ export const getSession = query({
     args: { code: v.string() },
     handler: async (ctx, args) => {
         if (!args.code) return null;
+        const normalized = normalizeCode(args.code);
         const session = await ctx.db
             .query("desktopAuthSessions")
-            .withIndex("by_code", (q) => q.eq("code", args.code))
+            .withIndex("by_code", (q) => q.eq("code", normalized))
             .first();
+
+        if (!session) {
+            const raw = await ctx.db
+                .query("desktopAuthSessions")
+                .withIndex("by_code", (q) => q.eq("code", args.code))
+                .first();
+            if (!raw) return null;
+            if (Date.now() > raw.expiresAt && raw.status === "pending") {
+                return { ...raw, status: "expired" as const };
+            }
+            return raw;
+        }
 
         if (!session) return null;
         if (Date.now() > session.expiresAt && session.status === "pending") {
@@ -65,10 +89,23 @@ export const approveSession = mutation({
         userName: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const session = await ctx.db
+        const userId = await getAuthUserId(ctx);
+        if (!userId) {
+            throw new Error("Unauthorized: You must be logged in to approve a desktop session.");
+        }
+
+        const normalized = normalizeCode(args.code);
+        let session = await ctx.db
             .query("desktopAuthSessions")
-            .withIndex("by_code", (q) => q.eq("code", args.code))
+            .withIndex("by_code", (q) => q.eq("code", normalized))
             .first();
+
+        if (!session) {
+            session = await ctx.db
+                .query("desktopAuthSessions")
+                .withIndex("by_code", (q) => q.eq("code", args.code))
+                .first();
+        }
 
         if (!session) {
             throw new Error("Invalid or unknown session code.");
@@ -87,5 +124,35 @@ export const approveSession = mutation({
         });
 
         return { success: true };
+    },
+});
+
+
+/**
+ * Purges the ephemeral desktop pairing session immediately once the desktop app
+ * has retrieved and persisted its credentials to avoid lingering tokens in the cloud.
+ */
+export const consumeSession = mutation({
+    args: { code: v.string() },
+    handler: async (ctx, args) => {
+        if (!args.code) return { success: false };
+        const normalized = normalizeCode(args.code);
+        let session = await ctx.db
+            .query("desktopAuthSessions")
+            .withIndex("by_code", (q) => q.eq("code", normalized))
+            .first();
+
+        if (!session) {
+            session = await ctx.db
+                .query("desktopAuthSessions")
+                .withIndex("by_code", (q) => q.eq("code", args.code))
+                .first();
+        }
+
+        if (session) {
+            await ctx.db.delete(session._id);
+            return { success: true };
+        }
+        return { success: false };
     },
 });

@@ -208,15 +208,15 @@ export const StudioMenuBar: React.FC<StudioMenuBarProps> = ({
             </button>
 
             {openMenu === m.key && (
-              <div className="absolute top-full left-0 mt-0.5 min-w-[260px] w-max bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-xl shadow-2xl py-1 z-50 animate-in fade-in-50 zoom-in-95 duration-100">
+              <div className="absolute top-full left-0 mt-0.5 min-w-[280px] w-max bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-xl shadow-2xl py-1 z-50 animate-in fade-in-50 zoom-in-95 duration-100">
                 {m.key === 'file' && (
                   <>
                     <MenuItem icon={Plus} label="New Service Rundown" shortcut="Ctrl+N" onClick={onCreateNewEvent} />
                     <MenuItem icon={FolderOpen} label="Open .kairon File..." shortcut="Ctrl+O" onClick={onOpenKaironFile} />
-                    <MenuItem icon={Save} label="Save to Local Disk (.kairon)" shortcut="Ctrl+S" onClick={onSaveKaironFile} />
+                    <MenuItem icon={Save} label="Save .kairon File to Local Disk" shortcut="Ctrl+S" onClick={onSaveKaironFile} />
                     <MenuDivider />
-                    <MenuItem icon={Download} label="Export Schedule as PDF..." onClick={onOpenExportPdf} />
-                    <MenuItem icon={FileSpreadsheet} label="Export Schedule as CSV..." onClick={onExportCsv} />
+                    <MenuItem icon={Download} label="Export Printable PDF..." onClick={onOpenExportPdf} />
+                    <MenuItem icon={FileSpreadsheet} label="Export CSV Spreadsheet" onClick={onExportCsv} />
                   </>
                 )}
 

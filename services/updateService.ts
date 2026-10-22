@@ -4,7 +4,7 @@
  * Zero-friction, offline-resilient, non-blocking broadcast design.
  */
 
-export const CURRENT_APP_VERSION = '1.0.6';
+export const CURRENT_APP_VERSION = '1.0.7';
 
 export interface GitHubReleaseAsset {
   id: number;
