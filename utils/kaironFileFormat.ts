@@ -27,7 +27,7 @@ export interface KaironFileEnvelope {
 export function serializeKaironFile(program: Program, organizationName: string = 'Kairon Workspace'): string {
   const envelope: KaironFileEnvelope = {
     schema: 'kairon.rundown.v1',
-    version: '1.0.4',
+    version: '1.0.5',
     exportedAt: new Date().toISOString(),
     lastEdited: Date.now(),
     organizationName,
