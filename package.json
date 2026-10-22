@@ -1,7 +1,7 @@
 {
   "name": "kairon",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Broadcast Stage & Rundown Engine for Live Events and Ministry",
   "author": "Patrick Udo <patrickudo2004@users.noreply.github.com>",
   "repository": {
@@ -88,16 +88,24 @@
     },
     "mac": {
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "identity": null,
       "category": "public.app-category.video",
-      "icon": "public/kairon-logo.png",
-      "arch": [
-        "x64",
-        "arm64"
-      ]
+      "icon": "public/kairon-logo.png"
     },
     "linux": {
       "target": [

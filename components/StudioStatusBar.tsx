@@ -133,7 +133,7 @@ export const StudioStatusBar: React.FC<StudioStatusBarProps> = ({
 
         <span className="text-slate-300 dark:text-[#22262E]">|</span>
 
-        <span className="text-slate-400 dark:text-[#6A7382]">v1.0.2</span>
+        <span className="text-slate-400 dark:text-[#6A7382]">v1.0.3</span>
       </div>
     </footer>
   );
