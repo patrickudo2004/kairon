@@ -92,14 +92,20 @@
         "zip"
       ],
       "identity": null,
-      "category": "public.app-category.video"
+      "category": "public.app-category.video",
+      "icon": "public/kairon-logo.png",
+      "arch": [
+        "x64",
+        "arm64"
+      ]
     },
     "linux": {
       "target": [
         "AppImage",
         "deb"
       ],
-      "category": "AudioVideo"
+      "category": "AudioVideo",
+      "icon": "public/kairon-logo.png"
     }
   }
 }

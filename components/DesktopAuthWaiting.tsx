@@ -9,9 +9,7 @@ import { getCanonicalWebOrigin } from '../utils/url';
 // Utility: Generate a random short code on the client side (mirrors server fn)
 // ──────────────────────────────────────────────────────────────────────────────
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || 'https://majestic-gecko-369.convex.cloud';
-const SITE_URL = typeof window !== 'undefined' && window.location.origin && !window.location.origin.startsWith('file:')
-  ? window.location.origin
-  : 'http://localhost:3000';
+const SITE_URL = getCanonicalWebOrigin();
 
 interface DesktopAuthWaitingProps {
   onOfflineMode: () => void;

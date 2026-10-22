@@ -2823,7 +2823,7 @@ const AppContent: React.FC = () => {
     if (anyWin?.electronAPI?.openKaironFile) {
       try {
         const res = await anyWin.electronAPI.openKaironFile();
-        if (res?.opened && res?.content) {
+        if ((res?.success || res?.opened) && res?.content) {
           const parsed = parseKaironFile(res.content);
           if (parsed?.program) {
             const imported = parsed.program;
