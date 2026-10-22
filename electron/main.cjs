@@ -875,5 +875,74 @@ ipcMain.handle('save-pdf', async (event, { title } = {}) => {
   }
 });
 
+// IPC: Resilient update checker with fallback to GitHub Atom feed (bypasses REST API rate limiting)
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    // 1. Try standard GitHub REST API
+    const apiRes = await fetch('https://api.github.com/repos/patrickudo2004/kairon/releases/latest', {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'Kairon-Desktop-App'
+      }
+    });
+
+    if (apiRes.ok) {
+      const data = await apiRes.json();
+      return { success: true, source: 'api', data };
+    }
+
+    // 2. Fallback to GitHub Releases Atom feed (unauthenticated & unthrottled)
+    const atomRes = await fetch('https://github.com/patrickudo2004/kairon/releases.atom', {
+      headers: { 'User-Agent': 'Kairon-Desktop-App' }
+    });
+
+    if (atomRes.ok) {
+      const xml = await atomRes.text();
+      const entryMatch = xml.match(/<entry>[\s\S]*?<\/entry>/);
+      if (entryMatch) {
+        const entry = entryMatch[0];
+        const titleMatch = entry.match(/<title>([^<]+)<\/title>/);
+        const linkMatch = entry.match(/<link[^>]*href="([^"]+)"/);
+        const updatedMatch = entry.match(/<updated>([^<]+)<\/updated>/);
+        const contentMatch = entry.match(/<content[^>]*>([\s\S]*?)<\/content>/);
+
+        const rawTag = titleMatch ? titleMatch[1].trim() : '';
+        const tag = rawTag.startsWith('v') ? rawTag : `v${rawTag}`;
+        const cleanTag = rawTag.replace(/^v/i, '');
+
+        return {
+          success: true,
+          source: 'atom',
+          data: {
+            tag_name: tag,
+            name: `Kairon ${tag}`,
+            body: contentMatch ? contentMatch[1].replace(/<[^>]+>/g, '').trim() : 'Release notes available on GitHub.',
+            published_at: updatedMatch ? updatedMatch[1] : new Date().toISOString(),
+            html_url: linkMatch ? linkMatch[1] : `https://github.com/patrickudo2004/kairon/releases/tag/${tag}`,
+            assets: [
+              {
+                name: `Kairon-Setup-${cleanTag}.exe`,
+                browser_download_url: `https://github.com/patrickudo2004/kairon/releases/download/${tag}/Kairon-Setup-${cleanTag}.exe`
+              },
+              {
+                name: `Kairon-${cleanTag}.dmg`,
+                browser_download_url: `https://github.com/patrickudo2004/kairon/releases/download/${tag}/Kairon-${cleanTag}.dmg`
+              },
+              {
+                name: `Kairon-${cleanTag}.AppImage`,
+                browser_download_url: `https://github.com/patrickudo2004/kairon/releases/download/${tag}/Kairon-${cleanTag}.AppImage`
+              }
+            ]
+          }
+        };
+      }
+    }
+    return { success: false, error: 'Could not fetch release from GitHub API or Atom feed' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+
 
 
