@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, WifiOff, Monitor, Sparkles, Volume2, Lightbulb, Video, HardDrive } from 'lucide-react';
+import { Wifi, WifiOff, Monitor, Sparkles, HardDrive, ArrowUpCircle } from 'lucide-react';
 import { getOfflineLedger } from '../services/offlineSyncLedger';
+import { CURRENT_APP_VERSION } from '../services/updateService';
 
 interface StudioStatusBarProps {
   isOnline: boolean;
@@ -12,6 +13,9 @@ interface StudioStatusBarProps {
   isLightsAcked?: boolean;
   isVideoAcked?: boolean;
   lastArchivedPath?: string | null;
+  onOpenUpdateChecker?: () => void;
+  isUpdateAvailable?: boolean;
+  latestVersion?: string;
 }
 
 export const StudioStatusBar: React.FC<StudioStatusBarProps> = ({
@@ -24,6 +28,9 @@ export const StudioStatusBar: React.FC<StudioStatusBarProps> = ({
   isLightsAcked,
   isVideoAcked,
   lastArchivedPath,
+  onOpenUpdateChecker,
+  isUpdateAvailable,
+  latestVersion,
 }) => {
   const [wallClock, setWallClock] = useState<string>(() =>
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -133,7 +140,27 @@ export const StudioStatusBar: React.FC<StudioStatusBarProps> = ({
 
         <span className="text-slate-300 dark:text-[#22262E]">|</span>
 
-        <span className="text-slate-400 dark:text-[#6A7382]">v1.0.5</span>
+        {/* Version & Update Indicator */}
+        {isUpdateAvailable ? (
+          <button
+            type="button"
+            onClick={onOpenUpdateChecker}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25 transition-all animate-pulse cursor-pointer"
+            title={`Kairon v${latestVersion} is available! Click to update.`}
+          >
+            <ArrowUpCircle size={10} className="text-emerald-400" />
+            <span className="font-bold">UPDATE v{latestVersion}</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onOpenUpdateChecker}
+            className="text-slate-400 dark:text-[#6A7382] hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+            title="Click to check for updates"
+          >
+            v{CURRENT_APP_VERSION}
+          </button>
+        )}
       </div>
     </footer>
   );

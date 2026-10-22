@@ -6,7 +6,7 @@
 - **Local project path:** `c:\Users\patri\Documents\kairon-main`
 - **GitHub repo:** `https://github.com/patrickudo2004/kairon`
 - **Live Convex backend URL:** `https://majestic-gecko-369.convex.cloud`
-- **Current version:** `v1.0.1`
+- **Current version:** `v1.0.6`
 
 ## Tech Stack
 - **Frontend:** React + TypeScript + Vite + TailwindCSS + Lucide React
