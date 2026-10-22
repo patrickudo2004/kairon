@@ -1,7 +1,7 @@
 {
   "name": "kairon",
   "private": true,
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Broadcast Stage & Rundown Engine for Live Events and Ministry",
   "author": "Patrick Udo <patrickudo2004@users.noreply.github.com>",
   "repository": {
