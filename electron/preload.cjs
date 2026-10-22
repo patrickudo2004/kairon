@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 const api = {
   isElectron: true,
   platform: process.platform,
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getScreens: () => ipcRenderer.invoke('get-screens'),
   openTargetScreen: (options) => ipcRenderer.invoke('open-target-screen', options),
   closeTargetScreen: (options) => ipcRenderer.invoke('close-target-screen', options),
@@ -62,5 +63,3 @@ const api = {
 
 contextBridge.exposeInMainWorld('electron', api);
 contextBridge.exposeInMainWorld('electronAPI', api);
-
-
