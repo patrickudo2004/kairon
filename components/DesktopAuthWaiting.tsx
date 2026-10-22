@@ -189,7 +189,7 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
 
   // ── Helpers ──
   const approvalUrl = sessionCode
-    ? `${SITE_URL}/desktop-auth?code=${encodeURIComponent(sessionCode)}`
+    ? `${SITE_URL}/desktop-auth?desktopCode=${encodeURIComponent(sessionCode)}`
     : null;
 
   const handleOpenBrowser = useCallback(() => {
