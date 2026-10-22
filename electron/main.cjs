@@ -56,6 +56,20 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.kairon.studio');
 }
 
+// Enforce single instance across platforms (focus existing window if second launched)
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  console.log('[Kairon Main] Another instance is already running. Quitting duplicate.');
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
 const appIconIco = path.join(__dirname, '../public/icon.ico');
 const appIconPng = path.join(__dirname, '../public/kairon-logo.png');
 const appIconPath = (process.platform === 'win32' && fs.existsSync(appIconIco)) ? appIconIco : appIconPng;
@@ -320,17 +334,20 @@ ipcMain.handle('open-target-screen', async (event, { url, screenIndex, windowId 
     if (secondaryWindows[winKey] && !secondaryWindows[winKey].isDestroyed()) {
       const existingWin = secondaryWindows[winKey];
       existingWin.setTitle(deterministicTitle);
+      existingWin.setBounds(targetDisplay.bounds);
       await loadRouteIntoWindow(existingWin, url);
       existingWin.focus();
       return { success: true, retargeted: true };
     }
 
+    const isDarwin = process.platform === 'darwin';
     const win = new BrowserWindow({
       x: targetDisplay.bounds.x,
       y: targetDisplay.bounds.y,
       width: targetDisplay.bounds.width,
       height: targetDisplay.bounds.height,
-      fullscreen: true,
+      fullscreen: !isDarwin,
+      simpleFullscreen: isDarwin,
       frame: false,
       transparent: Boolean(isTransparentOverlay),
       alwaysOnTop: false,
@@ -348,7 +365,9 @@ ipcMain.handle('open-target-screen', async (event, { url, screenIndex, windowId 
     // Escape key safety: Exit fullscreen or close secondary window cleanly
     win.webContents.on('before-input-event', (evt, input) => {
       if (input.type === 'keyDown' && input.key === 'Escape') {
-        if (win.isFullScreen()) {
+        const isFS = win.isFullScreen() || (win.isSimpleFullScreen && win.isSimpleFullScreen());
+        if (isFS) {
+          if (win.setSimpleFullScreen) win.setSimpleFullScreen(false);
           win.setFullScreen(false);
         } else {
           win.close();
@@ -424,8 +443,9 @@ ipcMain.handle('save-kairon-file', async (event, { content, defaultFileName, org
     });
 
     if (canceled || !filePath) return { success: false, canceled: true };
-    await fs.promises.writeFile(filePath, content, 'utf-8');
-    return { success: true, filePath };
+    const targetPath = filePath.endsWith('.kairon') || filePath.endsWith('.json') ? filePath : `${filePath}.kairon`;
+    await fs.promises.writeFile(targetPath, content, 'utf-8');
+    return { success: true, filePath: targetPath };
   } catch (err) {
     console.error('save-kairon-file failed:', err);
     return { success: false, error: err.message };
@@ -454,7 +474,7 @@ ipcMain.handle('open-kairon-file', async () => {
     const selectedPath = filePaths[0];
     const content = await fs.promises.readFile(selectedPath, 'utf-8');
     const ext = path.extname(selectedPath).toLowerCase().replace('.', '');
-    return { success: true, content, filePath: selectedPath, ext };
+    return { success: true, opened: true, content, filePath: selectedPath, ext };
   } catch (err) {
     console.error('open-kairon-file failed:', err);
     return { success: false, error: err.message };
@@ -677,6 +697,11 @@ function createFlightBridgeWindow(programId) {
     },
   });
 
+  if (process.platform === 'darwin') {
+    flightBridgeWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    flightBridgeWindow.setAlwaysOnTop(true, 'screen-saver', 1);
+  }
+
   flightBridgeWindow.on('closed', () => {
     flightBridgeWindow = null;
     if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
@@ -830,6 +855,8 @@ ipcMain.handle('save-pdf', async (event, { title } = {}) => {
       return { success: false, canceled: true };
     }
 
+    const targetPath = filePath.toLowerCase().endsWith('.pdf') ? filePath : `${filePath}.pdf`;
+
     const pdfBuffer = await targetWin.webContents.printToPDF({
       printBackground: true,
       pageSize: 'A4',
@@ -839,8 +866,8 @@ ipcMain.handle('save-pdf', async (event, { title } = {}) => {
       }
     });
 
-    fs.writeFileSync(filePath, pdfBuffer);
-    return { success: true, filePath };
+    fs.writeFileSync(targetPath, pdfBuffer);
+    return { success: true, filePath: targetPath };
   } catch (err) {
     console.error('[Kairon Main] save-pdf failed:', err);
     return { success: false, error: err.message };
