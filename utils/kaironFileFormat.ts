@@ -3,7 +3,7 @@ import { detectSlotType } from './rundownParser';
 
 export interface KaironFileEnvelope {
   schema: 'kairon.rundown.v1';
-  version: '1.0.2';
+  version: string;
   exportedAt: string;
   lastEdited: number;
   organizationName: string;
@@ -27,7 +27,7 @@ export interface KaironFileEnvelope {
 export function serializeKaironFile(program: Program, organizationName: string = 'Kairon Workspace'): string {
   const envelope: KaironFileEnvelope = {
     schema: 'kairon.rundown.v1',
-    version: '1.0.2',
+    version: '1.0.3',
     exportedAt: new Date().toISOString(),
     lastEdited: Date.now(),
     organizationName,
