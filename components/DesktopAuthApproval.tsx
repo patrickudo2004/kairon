@@ -30,10 +30,47 @@ import {
  * 3. Real-time approval dispatch to Convex backend, waking up Kairon Studio on desktop.
  */
 export const DesktopAuthApproval: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const rawCode = searchParams.get('code') || searchParams.get('desktopCode') || '';
-  const code = rawCode.trim().toUpperCase();
+
+  // Extract desktop pairing code, prioritizing explicit desktopCode parameter or sessionStorage over OAuth collision
+  const paramDesktopCode = searchParams.get('desktopCode') || searchParams.get('sessionCode') || '';
+  const paramCode = searchParams.get('code') || '';
+  const storedCode = typeof window !== 'undefined' && window.sessionStorage
+    ? window.sessionStorage.getItem('kairon_desktop_pairing_code') || ''
+    : '';
+
+  // Determine the true pairing code:
+  // Kairon pairing codes start with "KRN-". If paramCode starts with KRN-, it's valid.
+  // If paramCode is an OAuth code (e.g. numeric "28826305" or Google auth token), ignore it and check desktopCode/sessionStorage.
+  const resolvedCode = (
+    (paramDesktopCode && paramDesktopCode.toUpperCase().startsWith('KRN-') ? paramDesktopCode : '') ||
+    (paramCode && paramCode.toUpperCase().startsWith('KRN-') ? paramCode : '') ||
+    (storedCode && storedCode.toUpperCase().startsWith('KRN-') ? storedCode : '') ||
+    paramDesktopCode ||
+    (paramCode && !/^\d+$/.test(paramCode) && paramCode.length <= 10 ? paramCode : '')
+  ).trim().toUpperCase();
+
+  const [activeCode, setActiveCode] = useState(resolvedCode);
+  const [manualCodeInput, setManualCodeInput] = useState('');
+
+  // Keep activeCode in sync if query param or storage updates
+  useEffect(() => {
+    if (resolvedCode && resolvedCode !== activeCode) {
+      setActiveCode(resolvedCode);
+    }
+  }, [resolvedCode]);
+
+  // Persist code in sessionStorage so OAuth redirects never lose it
+  useEffect(() => {
+    if (activeCode && activeCode.startsWith('KRN-')) {
+      try {
+        sessionStorage.setItem('kairon_desktop_pairing_code', activeCode);
+      } catch {}
+    }
+  }, [activeCode]);
+
+  const code = activeCode;
 
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const { signIn } = useAuthActions();
@@ -66,11 +103,14 @@ export const DesktopAuthApproval: React.FC = () => {
     try {
       setIsSubmittingAuth(true);
       setAuthFeedback(null);
+      if (code) {
+        try { sessionStorage.setItem('kairon_desktop_pairing_code', code); } catch {}
+      }
       const canonicalOrigin = getCanonicalWebOrigin();
       const isLocal = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1');
       const targetRedirect = isLocal
-        ? `${window.location.origin}/desktop-auth?code=${encodeURIComponent(code)}`
-        : window.location.href;
+        ? `${window.location.origin}/desktop-auth?desktopCode=${encodeURIComponent(code)}`
+        : `${canonicalOrigin}/desktop-auth?desktopCode=${encodeURIComponent(code)}`;
       await signIn("google", { redirectTo: targetRedirect });
     } catch (err: any) {
       console.error("[DesktopAuthApproval] Google sign-in failed:", err);
@@ -149,13 +189,56 @@ export const DesktopAuthApproval: React.FC = () => {
         </div>
         <div className="text-center max-w-sm">
           <h2 className="text-xl font-bold text-white mb-2">Invalid or Expired Code</h2>
-          <p className="text-[#8A93A4] text-sm leading-relaxed">
-            The authorization code <span className="font-mono text-[#0EA5E9] font-bold">{code || 'N/A'}</span> was not found or has expired. Please request a new code in Kairon Desktop Studio.
+          <p className="text-[#8A93A4] text-sm leading-relaxed mb-4">
+            {code ? (
+              <>
+                The code <span className="font-mono text-[#0EA5E9] font-bold">{code}</span> was not found or has expired.
+              </>
+            ) : (
+              'No valid desktop pairing code was detected.'
+            )}
           </p>
+
+          {/* Quick Manual Code Entry so users can link instantly without restarting */}
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              let formatted = manualCodeInput.trim().toUpperCase();
+              if (formatted && !formatted.startsWith('KRN-')) {
+                formatted = `KRN-${formatted}`;
+              }
+              if (formatted) {
+                setActiveCode(formatted);
+                setSearchParams({ desktopCode: formatted });
+                setPhase('ready');
+              }
+            }}
+            className="flex flex-col gap-2 w-full max-w-xs mx-auto mb-4"
+          >
+            <label className="text-[11px] font-mono text-[#8A93A4] uppercase tracking-wider text-left">
+              Enter pairing code from Desktop:
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g. KRN-7G8A"
+                value={manualCodeInput}
+                onChange={(e) => setManualCodeInput(e.target.value.toUpperCase())}
+                className="flex-1 bg-[#181B22] border border-[#22262E] focus:border-[#0EA5E9] text-white font-mono text-center text-sm font-bold rounded-xl px-3 py-2 outline-none"
+              />
+              <button
+                type="submit"
+                disabled={!manualCodeInput.trim()}
+                className="px-4 py-2 bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-50 text-white font-mono text-xs font-bold rounded-xl transition-all"
+              >
+                Link
+              </button>
+            </div>
+          </form>
         </div>
         <button 
           onClick={() => navigate('/')} 
-          className="py-3 px-6 rounded-xl bg-[#0EA5E9] hover:bg-[#0284C7] text-white font-mono text-xs font-bold uppercase tracking-wider transition-all"
+          className="py-2.5 px-5 rounded-xl border border-[#22262E] text-[#8A93A4] hover:text-white font-mono text-xs uppercase tracking-wider transition-all"
         >
           Return to Dashboard
         </button>
