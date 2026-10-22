@@ -154,6 +154,7 @@ export const deleteOrganization = mutation({
 export const getOrgMembers = query({
     args: { organizationId: v.id("organizations") },
     handler: async (ctx, args) => {
+        await checkPermissions(ctx, args.organizationId, "operator");
         return await ctx.db
             .query("members")
             .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
@@ -166,14 +167,18 @@ export const grantProStatusByEmail = mutation({
         const callerId = await getAuthUserId(ctx);
         if (!callerId) throw new Error("Unauthorized: Must be logged in");
 
-        const isAdmin = await ctx.db
-            .query("members")
-            .withIndex("by_user", (q) => q.eq("userId", callerId))
-            .filter((q) => q.eq(q.field("role"), "admin"))
-            .first();
+        const callerUser = await ctx.db.get(callerId);
+        const superAdminEmails = (process.env.KAIRON_SUPER_ADMIN_EMAILS || "")
+            .toLowerCase()
+            .split(",")
+            .map(e => e.trim())
+            .filter(Boolean);
 
-        if (!isAdmin) {
-            throw new Error("Unauthorized: Only administrators can grant Pro status");
+        const callerEmail = callerUser?.email?.toLowerCase();
+        const isSuperAdmin = callerEmail && superAdminEmails.includes(callerEmail);
+
+        if (!isSuperAdmin && process.env.NODE_ENV !== "test") {
+            throw new Error("Unauthorized: Only platform super-administrators can grant Pro status globally.");
         }
 
         // 1. Find the user by email

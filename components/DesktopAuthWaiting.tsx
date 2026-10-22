@@ -62,6 +62,7 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const createSession = useMutation(api.desktopAuth.createSession);
+  const consumeSession = useMutation((api.desktopAuth as any).consumeSession);
 
   // Poll for session status
   const sessionData = useConvexQueryReal(
@@ -171,6 +172,10 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
           localStorage.setItem(`__convexAuthRefreshToken_${escapedNamespace}`, sessionData.refreshToken);
           localStorage.setItem('__convexAuthRefreshToken', sessionData.refreshToken);
           localStorage.setItem(`${namespace}__convexAuthRefreshToken`, sessionData.refreshToken);
+        }
+        // Purge session credentials from cloud immediately after persisting locally
+        if (sessionCode && consumeSession) {
+          consumeSession({ code: sessionCode }).catch(() => {});
         }
       } catch (e) {
         console.error('[DesktopAuth] Failed to store tokens:', e);
