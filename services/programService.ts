@@ -2,20 +2,52 @@
 import { convex } from './convexClient';
 import { api } from '../convex/_generated/api';
 import { Program, Slot } from '../types';
+import { getDefaultSeedPrograms } from '../utils/seedData';
+import { readLocalFolderPrograms, saveProgramToLocalFolder, deleteProgramFromLocalFolder, getActiveLocalFolder, isElectronAvailable } from './localFolderService';
 
 const isTestBypass = () => {
     try {
-        return typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
+        return typeof window !== 'undefined' && (
+            window.location.search.includes('testBypass=true') || 
+            localStorage.getItem('testBypass') === 'true'
+        );
     } catch {
         return false;
     }
 };
 
+const safeParseList = (raw: string | null): Program[] => {
+    if (!raw) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
+
+const getLocalStoredPrograms = (): Program[] => {
+    const local = typeof window !== 'undefined' ? (localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs')) : null;
+    const list = safeParseList(local);
+    if (list.length > 0) return list;
+    if (isTestBypass()) {
+        const seed = getDefaultSeedPrograms();
+        try {
+            localStorage.setItem('kairon_offline_programs', JSON.stringify(seed));
+            localStorage.setItem('test_programs', JSON.stringify(seed));
+        } catch {}
+        return seed;
+    }
+    return [];
+};
+
 const updateTestPrograms = (programs: Program[] | null) => {
     if (programs === null) {
         localStorage.removeItem('test_programs');
+        localStorage.removeItem('kairon_offline_programs');
     } else {
         localStorage.setItem('test_programs', JSON.stringify(programs));
+        localStorage.setItem('kairon_offline_programs', JSON.stringify(programs));
     }
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('program_update'));
@@ -23,11 +55,17 @@ const updateTestPrograms = (programs: Program[] | null) => {
 };
 
 export const getPrograms = async (organizationId?: string): Promise<Program[]> => {
-    if (isTestBypass()) {
-        const local = localStorage.getItem('test_programs');
-        return local ? JSON.parse(local) : [];
+    if (organizationId?.startsWith('local-folder-')) {
+        return await readLocalFolderPrograms();
     }
-    if (!organizationId) return [];
+    if (isTestBypass()) {
+        return getLocalStoredPrograms();
+    }
+    if (!organizationId) {
+        const localFolder = getActiveLocalFolder();
+        if (localFolder) return await readLocalFolderPrograms(localFolder.folderPath);
+        return [];
+    }
 
     const data = await convex.query(api.programs.getPrograms, {
         organizationId: organizationId as any
@@ -37,11 +75,16 @@ export const getPrograms = async (organizationId?: string): Promise<Program[]> =
 };
 
 export const getProgramById = async (id: string): Promise<Program | null> => {
+    if (id.startsWith('local-file-') || id.startsWith('local-folder-')) {
+        const localList = await readLocalFolderPrograms();
+        const cleanId = id.replace('local-file-', '').replace('local-', '');
+        const found = localList.find((p) => p.id === id || p.id?.replace(/^local-file-/, '') === cleanId || p.slug === cleanId);
+        if (found) return found;
+    }
     if (isTestBypass()) {
-        const local = localStorage.getItem('test_programs');
-        const list: Program[] = local ? JSON.parse(local) : [];
+        const list = getLocalStoredPrograms();
         const cleanId = id.replace('local-', '');
-        const found = list.find((p) => p.id === id || p.id?.replace('local-', '') === cleanId);
+        const found = list.find((p) => p.id === id || p.id?.replace('local-', '') === cleanId || p.slug === cleanId);
         return found || null;
     }
     const data = await convex.query(api.programs.getProgramById, { id: id as any });
@@ -50,11 +93,18 @@ export const getProgramById = async (id: string): Promise<Program | null> => {
 };
 
 export const createProgram = async (program: Program): Promise<Program> => {
+    if (program.organizationId?.startsWith('local-folder-') || program.id?.startsWith('local-file-')) {
+        const saveRes = await saveProgramToLocalFolder(program);
+        if (saveRes.success && saveRes.filePath) {
+            program._filePath = saveRes.filePath;
+        }
+        return program;
+    }
     if (isTestBypass()) {
         const id = program.id?.startsWith('local-') ? program.id : `local-${crypto.randomUUID()}`;
-        const local = localStorage.getItem('test_programs');
-        const list: Program[] = local ? JSON.parse(local) : [];
-        const existing = list.find((p: any) => p.id === id);
+        const list: Program[] = safeParseList(localStorage.getItem('test_programs'));
+        const cleanId = id.replace(/^local-/, '');
+        const existing = list.find((p: any) => p.id === id || p.id?.replace(/^local-/, '') === cleanId || (p.slug && p.slug === cleanId));
         // CRITICAL: If an existing record is found, preserve timer-managed fields.
         // The React 'program' state does NOT contain currentSlotIndex/isTimerActive etc.
         // (those are separate React states), so a naive overwrite would clobber timer
@@ -80,7 +130,7 @@ export const createProgram = async (program: Program): Promise<Program> => {
                 uuid: id.replace('local-', ''),
                 slug: id.replace('local-', ''),
               };
-        const filtered = list.filter((p: any) => p.id !== id);
+        const filtered = list.filter((p: any) => p.id !== id && p.id?.replace(/^local-/, '') !== cleanId && (!p.slug || p.slug !== cleanId));
         filtered.push(newProg);
         updateTestPrograms(filtered);
         return newProg;
@@ -111,16 +161,24 @@ export const createProgram = async (program: Program): Promise<Program> => {
 };
 
 export const updateProgram = async (program: Program): Promise<void> => {
+    if (program.organizationId?.startsWith('local-folder-') || program.id?.startsWith('local-file-')) {
+        await saveProgramToLocalFolder(program);
+        return;
+    }
     const cleanSlug = (program.slug || program.id || '').replace(/^local-/, '');
+    const cleanId = (program.id || '').replace(/^local-/, '');
     if (isTestBypass()) {
-        const local = localStorage.getItem('test_programs');
-        let list: Program[] = local ? JSON.parse(local) : [];
+        let list: Program[] = safeParseList(localStorage.getItem('test_programs'));
         list = list.map((p) => {
-            if (p.id === program.id) {
+            const matches = p.id === program.id ||
+                p.id?.replace(/^local-/, '') === cleanId ||
+                (cleanSlug && (p.slug === cleanSlug || p.slug === cleanId));
+            if (matches) {
                 // Preserve timer-managed fields from localStorage (same reason as createProgram above)
                 return {
                     ...p,
                     ...program,
+                    id: p.id,
                     slug: cleanSlug || p.slug,
                     isPublic: program.isPublic ?? p.isPublic ?? true,
                     currentSlotIndex: p.currentSlotIndex,
@@ -157,10 +215,45 @@ export const updateProgram = async (program: Program): Promise<void> => {
 };
 
 export const deleteProgram = async (id: string): Promise<void> => {
+    const isLocalId = id.startsWith('local-') || id.startsWith('local-file-');
+    const localFolder = getActiveLocalFolder();
+
+    if (isLocalId || localFolder) {
+        const localList = await readLocalFolderPrograms(localFolder?.folderPath);
+        const cleanId = id.replace(/^(local-file-|local-)/, '');
+        const found = localList.find(p => 
+            p.id === id || 
+            p.id?.replace(/^(local-file-|local-)/, '') === cleanId ||
+            (p.slug && p.slug.replace(/^local-/, '') === cleanId) ||
+            (p._fileName && p._fileName.replace(/\.[^/.]+$/, '') === cleanId)
+        );
+        if (found?._filePath) {
+            await deleteProgramFromLocalFolder(found._filePath);
+        } else if (localFolder && isElectronAvailable()) {
+            const candidateNames = [
+                `${id}.kairon`,
+                `${cleanId}.kairon`,
+            ];
+            for (const name of candidateNames) {
+                const candidatePath = `${localFolder.folderPath}/${name}`.replace(/\\/g, '/');
+                await deleteProgramFromLocalFolder(candidatePath);
+            }
+        }
+        try {
+            localStorage.removeItem(`kairon_offline_cache_${id}`);
+            localStorage.removeItem(`kairon_offline_cache_${cleanId}`);
+            localStorage.removeItem(`kairon_offline_cache_${id}_prompter`);
+            localStorage.removeItem(`kairon_offline_cache_${cleanId}_prompter`);
+        } catch {}
+
+        if (isLocalId) {
+            return;
+        }
+    }
+
     const cleanId = id.replace('local-', '');
     if (isTestBypass()) {
-        const local = localStorage.getItem('test_programs');
-        let list: Program[] = local ? JSON.parse(local) : [];
+        let list: Program[] = safeParseList(localStorage.getItem('test_programs'));
         list = list.filter((p: any) => 
             p.id !== id && 
             p.id?.replace('local-', '') !== cleanId && 
@@ -170,7 +263,10 @@ export const deleteProgram = async (id: string): Promise<void> => {
         updateTestPrograms(list);
         return;
     }
-    await convex.mutation(api.programs.deleteProgram, { id: id as any });
+
+    if (!id.startsWith('local-') && !id.startsWith('test-') && id.length >= 19) {
+        await convex.mutation(api.programs.deleteProgram, { id: id as any });
+    }
     try {
         localStorage.removeItem(`kairon_offline_cache_${id}`);
         localStorage.removeItem(`kairon_offline_cache_${cleanId}`);
@@ -211,10 +307,10 @@ export const updateTimerState = async (programId: string, state: {
 }): Promise<void> => {
     if (isTestBypass()) {
         console.log(`[TEST BYPASS] updateTimerState for programId=${programId}`, state);
-        const local = localStorage.getItem('test_programs');
-        let list: Program[] = local ? JSON.parse(local) : [];
+        let list: Program[] = safeParseList(localStorage.getItem('test_programs'));
+        const cleanId = programId.replace(/^local-/, '');
         list = list.map((p) => {
-            if (p.id === programId) {
+            if (p.id === programId || p.id?.replace(/^local-/, '') === cleanId || (p as any)._id === programId) {
                 return { ...p, ...state };
             }
             return p;
@@ -235,10 +331,14 @@ export const updateTimerState = async (programId: string, state: {
     if (state.holdMessage !== undefined) stateToSave.holdMessage = state.holdMessage;
     if (state.status !== undefined) stateToSave.status = state.status;
 
-    await convex.mutation(api.programs.updateTimerState, {
-        id: programId as any,
-        timerState: stateToSave
-    });
+    try {
+        await convex.mutation(api.programs.updateTimerState, {
+            id: programId as any,
+            timerState: stateToSave
+        });
+    } catch (err) {
+        console.warn("Could not sync timer state to Convex cloud (offline or local session):", err);
+    }
 };
 
 export const getPublicProgram = async (slugOrId: string): Promise<Program | null> => {

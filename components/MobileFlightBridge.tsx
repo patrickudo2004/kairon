@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Play, Pause, SkipBack, SkipForward, ChevronDown, Clock, Zap, 
-  MousePointerClick, Timer, Power, BarChart3, List, Settings2 
+  MousePointerClick, Timer, Power, BarChart3, List, Settings2, X 
 } from 'lucide-react';
 import { Program, Slot } from '../types';
 import { useTimerSync } from '../hooks/useTimerSync';
@@ -20,6 +20,7 @@ interface MobileFlightBridgeProps {
   onNudge: (minutes: number) => void;
   onEndEvent: () => void;
   onViewAnalysis: (id: string) => void;
+  onClose?: () => void;
   secondsElapsed?: number;
 }
 
@@ -37,9 +38,11 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
   onNudge,
   onEndEvent,
   onViewAnalysis,
+  onClose,
   secondsElapsed = 0
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
   const [activeTab, setActiveTab] = useState<'controls' | 'schedule'>('controls');
   const [holdToEnd, setHoldToEnd] = useState(0);
   const [isEnding, setIsEnding] = useState(false);
@@ -114,9 +117,13 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
 
   const handleToggle = () => {
     setOptimisticTimerActive(!optimisticTimerActive);
-    // CRITICAL: Pass the local program and the independently tracked elapsed time
-    // This ensures that when pausing, the EXACT current duration is saved to the cloud.
     onToggleTimer(program, false, elapsed);
+  };
+
+  const handleDismiss = () => {
+    setIsDismissed(true);
+    setIsExpanded(false);
+    if (onClose) onClose();
   };
 
   const remainingSeconds = currentSlot 
@@ -124,7 +131,7 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
     : 0;
   const isOvertime = isShowLive && remainingSeconds < 0;
 
-  if (!currentSlot && !isExpanded) return null;
+  if (isDismissed || (!currentSlot && !isExpanded)) return null;
 
   return (
     <div 
@@ -137,16 +144,27 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
     >
       {/* Pull Tab / Handle */}
       <div 
-        className="flex justify-center items-center py-2.5 cursor-pointer"
+        className="flex justify-center items-center py-2.5 cursor-pointer relative"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full" />
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDismiss();
+          }}
+          className="absolute right-4 top-2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          title="Close Mobile Bridge"
+        >
+          <X size={16} />
+        </button>
       </div>
 
       {!isExpanded ? (
         /* --- COLLAPSED BAR VIEW --- */
         <div className="flex items-center justify-between px-6 pb-4 h-full">
-          <div className="flex flex-col min-w-0 flex-1 mr-4" onClick={() => setIsExpanded(true)}>
+          <div className="flex flex-col min-w-0 flex-1 mr-4 cursor-pointer" onClick={() => setIsExpanded(true)}>
             <div className="flex items-center gap-2">
               <span className={`text-[10px] font-black uppercase tracking-widest ${isShowLive ? (optimisticTimerActive ? 'text-emerald-500' : 'text-slate-400') : 'text-indigo-500'}`}>
                 {isShowLive ? (optimisticTimerActive ? 'Live' : 'Paused') : 'Ready'}
@@ -161,31 +179,39 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
              {!isShowLive ? (
                <button
                   onClick={(e) => { e.stopPropagation(); handleToggle(); }}
-                  className="px-6 h-12 rounded-full bg-indigo-600 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-500/30 transition-all active:scale-95"
+                  className="px-5 h-10 rounded-full bg-indigo-600 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-500/30 transition-all active:scale-95"
                >
                   Start
                </button>
              ) : (
                 <button
                   onClick={(e) => { e.stopPropagation(); handleToggle(); }}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
                     optimisticTimerActive 
                       ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' 
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
                   }`}
                 >
-                  {optimisticTimerActive ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
+                  {optimisticTimerActive ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
                 </button>
              )}
             <button
               onClick={(e) => { e.stopPropagation(); setIsExpanded(true); }}
-              className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 active:scale-95"
+              className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 active:scale-95"
+              title="Remote Controls"
             >
-              <Settings2 size={20} />
+              <Settings2 size={16} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDismiss(); }}
+              className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-rose-500 border border-slate-200 dark:border-slate-700 active:scale-95"
+              title="Dismiss"
+            >
+              <X size={16} />
             </button>
           </div>
         </div>
@@ -203,12 +229,22 @@ export const MobileFlightBridge: React.FC<MobileFlightBridgeProps> = ({
               </div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate">{program.title}</h3>
             </div>
-            <button 
-              onClick={() => setIsExpanded(false)}
-              className="p-3 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-500 active:scale-90 transition-all"
-            >
-              <ChevronDown size={24} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsExpanded(false)}
+                className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-500 active:scale-90 transition-all"
+                title="Collapse"
+              >
+                <ChevronDown size={20} />
+              </button>
+              <button 
+                onClick={handleDismiss}
+                className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-500 hover:text-rose-500 active:scale-90 transition-all"
+                title="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
           </div>
 
           {/* Tab Switcher */}

@@ -3,7 +3,7 @@ import {
     Play, Pause, SkipForward, SkipBack, Clock, ChevronDown, ChevronUp, 
     AlertCircle, Sun, Moon, X, List, FastForward, 
     Music, Mic, BookOpen, Flame, Coffee, Sparkles, Radio, ListMusic,
-    Volume2, Lightbulb, Video 
+    Volume2, Lightbulb, Video, AppWindow, LocateFixed 
 } from 'lucide-react';
 import { Program, Slot } from '../types';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
@@ -38,6 +38,7 @@ interface FlightBridgeProps {
     program: Program;
     currentSlotIndex: number;
     isTimerActive: boolean;
+    timerStartTimestamp?: number | null;
     secondsElapsed: number;
     isDarkMode: boolean;
     onToggleTheme: () => void;
@@ -47,14 +48,18 @@ interface FlightBridgeProps {
     onPrev: (targetId?: string) => void;
     onNudge: (minutes: number) => void;
     onEndEvent: (targetId?: string) => void;
+    onRequestEndEvent?: (targetId?: string) => void;
     isManualMode: boolean;
     onToggleManualMode: () => void;
+    onReturnToApp?: () => void;
+    onRecall?: () => void;
 }
 
 export const FlightBridge: React.FC<FlightBridgeProps> = ({
     program,
     currentSlotIndex,
     isTimerActive,
+    timerStartTimestamp,
     secondsElapsed,
     isDarkMode,
     onToggleTheme,
@@ -64,8 +69,11 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
     onPrev,
     onNudge,
     onEndEvent,
+    onRequestEndEvent,
     isManualMode,
-    onToggleManualMode
+    onToggleManualMode,
+    onReturnToApp,
+    onRecall
 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -128,16 +136,18 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
     const cutoffSeconds = cutoffMinutes * 60;
     const mcrSecondsRemaining = cutoffSeconds - wallClockSeconds;
 
-    // Sync theme to PiP window body
+    // Sync theme to PiP window body (only when running in an external Document PiP window)
     useEffect(() => {
         if (!containerRef.current) return;
         const localDoc = containerRef.current.ownerDocument;
-        localDoc.body.classList.toggle('dark', isDarkMode);
-        localDoc.body.style.backgroundColor = isDarkMode ? '#090A0C' : '#F1F5F9';
-        localDoc.body.style.color = isDarkMode ? '#FFFFFF' : '#0F172A';
-        localDoc.body.style.margin = '0';
-        localDoc.body.style.height = '100%';
-        localDoc.body.style.overflow = 'hidden';
+        if (localDoc !== document) {
+            localDoc.body.classList.toggle('dark', isDarkMode);
+            localDoc.body.style.backgroundColor = isDarkMode ? '#090A0C' : '#F1F5F9';
+            localDoc.body.style.color = isDarkMode ? '#FFFFFF' : '#0F172A';
+            localDoc.body.style.margin = '0';
+            localDoc.body.style.height = '100%';
+            localDoc.body.style.overflow = 'hidden';
+        }
     }, [isDarkMode]);
 
     // Click outside listener for the Rundown Drawer in the PiP window
@@ -155,7 +165,75 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
         };
     }, [isExpanded]);
 
-    if (!currentSlot) return null;
+    if (!currentSlot) {
+        return (
+            <div 
+                ref={containerRef} 
+                className={`flex flex-col h-full ${
+                    isDarkMode ? 'bg-[#090A0C] text-white' : 'bg-slate-50 text-slate-900'
+                } font-sans overflow-hidden border-l-4 border-slate-700 shadow-2xl transition-colors duration-200 relative select-none`}
+            >
+                {/* Top Telemetry Header */}
+                <div className={`px-3 py-2 border-b ${
+                    isDarkMode ? 'border-[#22262E] bg-[#121418]' : 'border-slate-200 bg-white'
+                } flex justify-between items-center z-10 shrink-0`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-3.5 h-3.5 rounded bg-slate-200 dark:bg-[#181B22] border border-slate-300 dark:border-[#2D333F] flex items-center justify-center shrink-0">
+                            <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                        </div>
+                        <span className={`text-[10px] font-mono font-bold uppercase tracking-wider truncate ${
+                            isDarkMode ? 'text-[#8A93A4]' : 'text-slate-600'
+                        }`}>
+                            Flight Bridge
+                        </span>
+                    </div>
+
+                    {/* Theme & Status */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                            type="button"
+                            onClick={onToggleTheme}
+                            className={`p-1 rounded-md transition-colors ${
+                                isDarkMode ? 'hover:bg-[#181B22] text-[#8A93A4]' : 'hover:bg-slate-100 text-slate-700 bg-slate-100/60'
+                            }`}
+                            title="Toggle Light/Dark Theme"
+                        >
+                            {isDarkMode ? <Sun size={12} /> : <Moon size={12} />}
+                        </button>
+                        <div className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded uppercase border bg-slate-100 dark:bg-[#1C2028] text-slate-600 dark:text-[#8A93A4] border-slate-300 dark:border-[#2D333F]">
+                            STANDBY
+                        </div>
+                    </div>
+                </div>
+
+                {/* Standby / Cold State Body */}
+                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                    <Clock size={36} className="text-slate-500 mb-3 animate-pulse" />
+                    <div className="text-sm font-mono font-bold text-slate-300 uppercase tracking-wider mb-1">
+                        {program?.title || 'Standby • Ready'}
+                    </div>
+                    <p className="text-xs text-slate-500 font-mono mb-4">
+                        {program?.slots?.length === 0 
+                            ? 'No schedule items. Add slots in Program Editor.' 
+                            : 'Event loaded. Waiting for playback to begin.'}
+                    </p>
+                    <div className="text-2xl font-mono font-bold text-slate-400 mb-4 tabular-nums">
+                        {new Date(wallClockSeconds * 1000).toISOString().substring(11, 19)}
+                    </div>
+                    {program?.slots && program.slots.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => onToggleTimer(program, true, 0)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0EA5E9] hover:bg-[#0284C7] text-white rounded text-xs font-mono font-bold transition-all shadow"
+                        >
+                            <Play size={12} />
+                            <span>Start Event</span>
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div 
@@ -207,6 +285,30 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
 
                 {/* Theme & Status */}
                 <div className="flex items-center gap-1.5 shrink-0">
+                    {onReturnToApp && (
+                        <button
+                            type="button"
+                            onClick={onReturnToApp}
+                            className={`p-1 rounded-md transition-colors ${
+                                isDarkMode ? 'hover:bg-[#181B22] text-[#8A93A4] hover:text-[#38BDF8]' : 'hover:bg-slate-100 text-slate-700 hover:text-sky-600 bg-slate-100/60'
+                            }`}
+                            title="Return to Main App (Focus Kairon Studio)"
+                        >
+                            <AppWindow size={12} />
+                        </button>
+                    )}
+                    {onRecall && (
+                        <button
+                            type="button"
+                            onClick={onRecall}
+                            className={`p-1 rounded-md transition-colors ${
+                                isDarkMode ? 'hover:bg-[#181B22] text-[#8A93A4] hover:text-[#10B981]' : 'hover:bg-slate-100 text-slate-700 hover:text-emerald-600 bg-slate-100/60'
+                            }`}
+                            title="Snap to Primary Screen (Screen 1)"
+                        >
+                            <LocateFixed size={12} />
+                        </button>
+                    )}
                     <button
                         onClick={onToggleTheme}
                         className={`p-1 rounded-md transition-colors ${
@@ -309,7 +411,7 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
 
                     {/* Master Play / Pause Button with High Contrast in Both Modes */}
                     <button
-                        onClick={() => onToggleTimer(program, false, secondsElapsed)}
+                        onClick={() => onToggleTimer(program, undefined, secondsElapsed)}
                         className={`w-14 h-14 rounded-xl flex items-center justify-center transition-all shadow-md active:scale-95 ${
                             isTimerActive
                                 ? (isDarkMode 
@@ -372,11 +474,11 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                     </button>
                     <HoldToConfirmButton
                         durationMs={2000}
-                        onConfirm={() => onEndEvent(program.id)}
+                        onConfirm={() => onRequestEndEvent ? onRequestEndEvent(program.id) : onEndEvent(program.id)}
                         label="End"
                         holdingLabel="Hold"
                         className="py-1.5 text-[11px] font-bold font-mono"
-                        title="Press and hold 2 seconds to end event"
+                        title="Press and hold 2 seconds to end this live session"
                     />
                 </div>
 

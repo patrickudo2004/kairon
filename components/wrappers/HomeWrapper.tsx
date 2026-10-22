@@ -5,15 +5,17 @@ import { api } from '../../convex/_generated/api';
 import HomeDashboard from '../HomeDashboard';
 import { Program } from '../../types';
 import { ConfirmationModal } from '../ConfirmationModal';
+import { updateTimerState as updateTimerStateService } from '../../services/programService';
 
 interface HomeWrapperProps {
     activeOrgId: string | undefined;
     activeProgramId: string;
     activeSessions: Program[];
+    programs?: Program[];
     loadProgram: (p: Program) => void;
     createProgram: (date: string) => void;
     deleteProgram: (id: string) => void;
-    duplicateProgram: (p: Program) => void;
+    duplicateProgram: (id: string) => void;
     onTurnaround?: (id: string) => void;
     onPlay: (p: Program, seconds?: number) => void;
     mode: string;
@@ -23,6 +25,7 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
     activeOrgId,
     activeProgramId,
     activeSessions,
+    programs: propPrograms,
     loadProgram,
     createProgram,
     deleteProgram,
@@ -34,31 +37,43 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
     const navigate = useNavigate();
     const [confirmStopId, setConfirmStopId] = useState<string | null>(null);
 
-    const allPrograms = useConvexQuery(
+    const isConvexOrg = Boolean(
+        activeOrgId &&
+        !activeOrgId.startsWith('local-') &&
+        !activeOrgId.startsWith('test-') &&
+        activeOrgId.length >= 19
+    );
+
+    const convexPrograms = useConvexQuery(
         api.programs.getPrograms,
-        activeOrgId ? { organizationId: activeOrgId as any } : "skip"
+        (isConvexOrg && !propPrograms) ? { organizationId: activeOrgId as any } : "skip"
     );
 
     const updateTimerState = useConvexMutation(api.programs.updateTimerState);
 
     const onStopLive = async (programId: string) => {
         try {
-            await updateTimerState({
-                id: programId as any,
-                timerState: {
-                    isTimerActive: false,
-                    secondsElapsed: 0,
-                    timerStartTimestamp: null,
-                    status: 'draft',
-                    currentSlotIndex: 0
-                }
-            });
+            const timerState = {
+                isTimerActive: false,
+                secondsElapsed: 0,
+                timerStartTimestamp: null,
+                status: 'draft' as const,
+                currentSlotIndex: 0
+            };
+            if (programId.startsWith('local-')) {
+                await updateTimerStateService(programId, timerState);
+            } else {
+                await updateTimerState({
+                    id: programId as any,
+                    timerState
+                });
+            }
         } catch (err) {
             console.error("Failed to stop live session:", err);
         }
     };
 
-    const isLoading = activeOrgId && allPrograms === undefined;
+    const isLoading = !propPrograms && isConvexOrg && convexPrograms === undefined;
 
     if (isLoading) {
         return (
@@ -71,8 +86,10 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
         );
     }
 
-    // CRITICAL: Transform Convex _id to id for the rest of the app
-    const transformedPrograms = (allPrograms || []).map((p: any) => ({
+    // Use propPrograms (from App.tsx, which includes localFolderPrograms and offline cache)
+    // or fallback to Convex programs
+    const rawList = propPrograms || convexPrograms || [];
+    const transformedPrograms = rawList.map((p: any) => ({
         ...p,
         id: String(p._id || p.id)
     }));

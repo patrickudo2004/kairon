@@ -25,7 +25,7 @@ export const getMyOrganizations = query({
                         console.error("Failed to get storage URL for logo:", e);
                     }
                 }
-                return org;
+                return org ? { ...org, role: m.role } : null;
             })
         );
         return orgs.filter((o) => o !== null);
@@ -72,7 +72,7 @@ export const createOrganization = mutation({
             .withIndex("by_userId", (q) => q.eq("userId", args.userId))
             .first();
 
-        const initialStatus = profile?.subscriptionStatus === "pro" ? "pro" : "free";
+        const initialStatus = "pro";
 
         const orgId = await ctx.db.insert("organizations", {
             name: args.name,

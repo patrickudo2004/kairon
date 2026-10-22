@@ -9,12 +9,23 @@ import { Link } from 'react-router-dom';
 interface ProfileDropdownProps {
     user: { id: string; email?: string };
     profile: Profile | null;
-    onProfileUpdate: (newProfile: Profile) => void;
+    onProfileUpdate?: (newProfile: Profile) => void;
+    onUpdate?: (newProfile: Profile) => void;
     handleSignOut?: () => void;
+    onSignOut?: () => void;
     isCollapsed?: boolean;
 }
 
-export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile, onProfileUpdate, handleSignOut: onSignOutProp, isCollapsed = false }) => {
+export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ 
+    user, 
+    profile, 
+    onProfileUpdate: onProfileUpdateProp, 
+    onUpdate, 
+    handleSignOut: onSignOutProp, 
+    onSignOut,
+    isCollapsed = false 
+}) => {
+    const onProfileUpdate = onProfileUpdateProp || onUpdate || (() => {});
     const { signOut } = useAuthActions();
     const [isOpen, setIsOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -36,10 +47,24 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile,
 
     const handleSignOut = async () => {
         try {
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem('kairon_booth_mode');
+                localStorage.removeItem('testBypass');
+                window.dispatchEvent(new Event('kairon_booth_mode_changed'));
+            }
+        } catch {}
+
+        try {
             await signOut();
-            if (onSignOutProp) onSignOutProp();
         } catch (err) {
-            console.error("Failed to sign out:", err);
+            console.warn("Convex sign out notice:", err);
+        }
+
+        if (onSignOutProp) onSignOutProp();
+        if (onSignOut) onSignOut();
+
+        if (typeof window !== 'undefined') {
+            window.location.href = '/';
         }
     };
 
@@ -170,13 +195,23 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, profile,
 
                         <div className="my-2 border-t border-slate-100 dark:border-slate-800" />
 
-                        <button
-                            onClick={handleSignOut}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-colors group font-semibold"
-                        >
-                            <LogOut size={18} />
-                            <span>Sign Out</span>
-                        </button>
+                        {(user?.id?.startsWith('local-') || !user?.email) ? (
+                            <button
+                                onClick={handleSignOut}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#0EA5E9] hover:bg-[#0EA5E9]/10 rounded-xl transition-colors group font-semibold"
+                            >
+                                <UserCircle size={18} />
+                                <span>Sign In to Account</span>
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleSignOut}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-colors group font-semibold"
+                            >
+                                <LogOut size={18} />
+                                <span>Sign Out</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             )}

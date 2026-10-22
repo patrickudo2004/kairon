@@ -46,6 +46,9 @@ const TVView: React.FC<TVViewProps> = ({
 
     // Real-time broadcast sync for display theme toggles
     useEffect(() => {
+        if (!isThumbnail && typeof document !== 'undefined') {
+            document.title = 'Kairon Output [TV]';
+        }
         const channel = new BroadcastChannel('kairon_displays');
         const handleMsg = (e: MessageEvent) => {
             if (e.data && e.data.type === 'toggle_theme' && (e.data.tabId === 'tv' || !e.data.tabId)) {

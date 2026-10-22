@@ -5,7 +5,11 @@ import { getSession } from './authService';
 
 const isTestBypass = () => {
     try {
-        return typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
+        return typeof window !== 'undefined' && (
+            window.location.search.includes('testBypass=true') || 
+            localStorage.getItem('testBypass') === 'true' ||
+            localStorage.getItem('kairon_booth_mode') === 'true'
+        );
     } catch {
         return false;
     }
@@ -143,5 +147,6 @@ const transformOrg = (o: any): Organization => ({
     subscriptionStatus: o.subscriptionStatus,
     stripeCustomerId: o.stripeCustomerId,
     createdBy: o.createdBy,
+    role: o.role,
     createdAt: new Date(o._creationTime).toISOString()
 });

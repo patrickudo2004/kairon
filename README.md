@@ -36,6 +36,16 @@ Powered by **React 19**, **Convex Real-Time Database**, and **Electron**, Kairon
 * **Public Attendee Portal (`/public`)**: Mobile-optimized schedule preview for audience members with persistent access on concluded events.
 * **Teleprompter (`/prompter`)**: Auto-scrolling dynamic outline synced directly to slot duration.
 
+### 6. 👥 Dual-Engine Workspaces & Role-Based Access Control (RBAC)
+* **Dual-Engine Architecture**:
+  * **Local Workspace (This PC)**: Saves events directly as human-readable `.kairon` files on your hard drive. 100% offline, zero cloud calls, zero cloud tokens. The user operating the local PC is **always the Administrator (Local Owner)**.
+  * **Cloud Workspaces (Convex)**: Real-time multi-device hub for team collaboration, stage synchronization, and public attendee QR access.
+* **Workspace-Scoped Role Hierarchy**:
+  * **🔴 Administrator (`admin`)**: Media Directors & Lead Pastors. Full authority over branding, team roles, billing, rundown creation, live controls, and hardware matrix outputs.
+  * **🔵 Manager (`manager`)**: Show Callers & Service Coordinators. Full authority to construct rundowns and direct live shows; cannot alter billing or delete the organization.
+  * **🟢 Operator (`operator`)**: Sound, Video, Lighting, and Prompter Crew. Operates live timers and acknowledges cues in the Tactical Crew HUD. Locked / read-only in Program Editor to prevent show-time errors.
+  * **🟡 Speaker (`speaker`)**: Pastors, Preachers, and Guest Ministers. Clean, distraction-free pulpit display, auto-scrolling teleprompter, and notes view. All technical controls are hidden.
+
 ---
 
 ## 🚀 Quick Start & Development

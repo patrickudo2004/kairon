@@ -192,72 +192,87 @@ export const Sidebar: React.FC<SidebarProps> = ({
         return `${base}?id=${idToUse}`;
     };
 
-    const navItems = [
-        { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-        { icon: Edit3, label: 'Editor', path: getLinkPath('/editor') },
-        { icon: Play, label: 'Live Control', path: getLinkPath('/live') },
-        { icon: ClipboardList, label: 'Rundown List', path: getLinkPath('/list') },
-        { icon: Monitor, label: 'Monitors & Displays', path: getLinkPath('/monitors') },
-        { icon: Radio, label: 'Command Center', path: getLinkPath('/command') },
-        { icon: Calendar, label: 'Calendar', path: '/calendar' },
-        { icon: FileText, label: 'User Guide', path: '/guide' },
-        { icon: Settings, label: 'Workspace', path: '/admin' },
+    const navGroups = [
+        {
+            title: 'PLAN & PREPARE',
+            items: [
+                { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+                { icon: Edit3, label: 'Editor', path: getLinkPath('/editor') },
+                { icon: Calendar, label: 'Calendar', path: '/calendar' },
+            ],
+        },
+        {
+            title: 'LIVE PRODUCTION',
+            items: [
+                { icon: Play, label: 'Live Control', path: getLinkPath('/live') },
+                { icon: Monitor, label: 'Monitors & Displays', path: getLinkPath('/monitors') },
+                { icon: Radio, label: 'Command Center', path: getLinkPath('/command') },
+                { icon: ClipboardList, label: 'Rundown List', path: getLinkPath('/list') },
+            ],
+        },
+        {
+            title: 'SYSTEM',
+            items: [
+                { icon: FileText, label: 'User Guide', path: '/guide' },
+                { icon: Settings, label: 'Workspace', path: '/admin' },
+            ],
+        },
     ];
 
     return (
         <aside
-            className={`fixed left-0 top-0 h-full bg-white dark:bg-[#090A0C] border-r border-slate-200 dark:border-[#22262E] text-slate-900 dark:text-white transition-all duration-200 z-50 flex flex-col no-print hidden lg:flex font-sans ${isCollapsed ? 'w-16' : 'w-60'}`}
+            className={`shrink-0 h-full bg-white dark:bg-[#0D0E12] border-r border-slate-200 dark:border-[#22262E] text-slate-900 dark:text-white transition-all duration-200 z-40 flex flex-col no-print hidden lg:flex font-sans ${isCollapsed ? 'w-14' : 'w-56'}`}
         >
             {/* Brand / Logo Header */}
-            <div className={`border-b border-slate-200 dark:border-[#22262E] transition-all ${isCollapsed ? 'p-2.5 flex flex-col items-center gap-1.5' : 'p-3 flex items-center justify-between'}`}>
+            <div className={`border-b border-slate-200 dark:border-[#22262E] transition-all ${isCollapsed ? 'p-2 flex flex-col items-center gap-1' : 'px-3 py-2.5 flex items-center justify-between'}`}>
                 {!isCollapsed ? (
                     <>
                         <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+                            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
                                 {activeOrg?.logoUrl ? (
                                     <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain p-1 shrink-0" />
                                 ) : (
-                                    <Mic className="text-[#0EA5E9] shrink-0" size={18} />
+                                    <Mic className="text-[#0EA5E9] shrink-0" size={16} />
                                 )}
                             </div>
-                            <span className="font-mono font-bold text-sm tracking-wider text-slate-900 dark:text-white truncate uppercase">
+                            <span className="font-mono font-bold text-xs tracking-wider text-slate-900 dark:text-white truncate uppercase">
                                 {activeOrg?.name ? activeOrg.name : 'KAIRON'}
                             </span>
                         </div>
                         <button
                             onClick={() => onToggle(true)}
                             className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#181B22] text-slate-400 dark:text-[#6A7382] hover:text-slate-800 dark:hover:text-white transition-colors hidden md:block"
-                            title="Collapse Sidebar"
+                            title="Collapse Sidebar (Ctrl+B)"
                         >
-                            <ChevronLeft size={15} />
+                            <ChevronLeft size={14} />
                         </button>
                     </>
                 ) : (
                     <>
                         <button
                             onClick={() => onToggle(false)}
-                            className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center shrink-0 overflow-hidden shadow-xs hover:border-[#0EA5E9] transition-all group"
-                            title="Expand Sidebar"
+                            className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-[#181B22] border border-slate-200 dark:border-[#2D333F] flex items-center justify-center shrink-0 overflow-hidden shadow-xs hover:border-[#0EA5E9] transition-all group"
+                            title="Expand Sidebar (Ctrl+B)"
                         >
                             {activeOrg?.logoUrl ? (
                                 <img src={activeOrg.logoUrl} alt="Logo" className="w-full h-full object-contain p-1 shrink-0" />
                             ) : (
-                                <Mic className="text-[#0EA5E9] shrink-0" size={18} />
+                                <Mic className="text-[#0EA5E9] shrink-0" size={16} />
                             )}
                         </button>
                         <button
                             onClick={() => onToggle(false)}
                             className="w-6 h-4 flex items-center justify-center rounded text-slate-400 dark:text-[#6A7382] hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22] transition-colors"
-                            title="Expand Sidebar"
+                            title="Expand Sidebar (Ctrl+B)"
                         >
-                            <ChevronRight size={13} />
+                            <ChevronRight size={12} />
                         </button>
                     </>
                 )}
             </div>
 
             {/* Workspace Switcher */}
-            <div className="p-3">
+            <div className="p-2.5 border-b border-slate-200 dark:border-[#22262E]">
                 <WorkspaceSwitcher
                     activeOrg={activeOrg}
                     organizations={userOrganizations}
@@ -276,62 +291,53 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onStopAllSessions={onStopAllSessions}
             />
 
-            {/* Navigation Items */}
-            <nav className="flex-1 px-2 space-y-1 py-3 overflow-y-auto">
-                {navItems.map((item) => (
-                    <NavLink
-                        key={item.label}
-                        to={item.path}
-                        className={({ isActive }) => `
-                            flex items-center gap-2.5 px-3 py-2 rounded-md transition-all group font-mono text-xs font-semibold
-                            ${isActive
-                                ? 'bg-slate-100 dark:bg-[#181B22] text-slate-900 dark:text-white border border-slate-300 dark:border-[#2D333F] shadow-sm'
-                                : 'text-slate-600 dark:text-[#8A93A4] hover:bg-slate-100 dark:hover:bg-[#121418] hover:text-slate-900 dark:hover:text-white border border-transparent'
-                            }
-                        `}
-                        title={isCollapsed ? item.label : undefined}
-                    >
-                        <item.icon
-                            size={16}
-                            className={`shrink-0 transition-colors ${
-                                location.pathname === item.path.split('?')[0]
-                                    ? 'text-[#0EA5E9]'
-                                    : 'text-slate-400 dark:text-[#6A7382] group-hover:text-slate-800 dark:group-hover:text-white'
-                            }`}
-                        />
-                        {!isCollapsed && <span className="truncate">{item.label}</span>}
-                    </NavLink>
+            {/* Grouped Studio Navigation Items */}
+            <nav className="flex-1 px-2 py-2.5 space-y-3 overflow-y-auto custom-scrollbar">
+                {navGroups.map((group) => (
+                    <div key={group.title} className="space-y-0.5">
+                        {!isCollapsed && (
+                            <div className="px-2.5 pb-1 text-[9px] font-mono font-bold uppercase tracking-widest text-slate-400 dark:text-[#6A7382]">
+                                {group.title}
+                            </div>
+                        )}
+                        {group.items.map((item) => (
+                            <NavLink
+                                key={item.label}
+                                to={item.path}
+                                className={({ isActive }) => `
+                                    flex items-center ${isCollapsed ? 'justify-center px-2' : 'gap-2.5 px-2.5'} py-1.5 rounded-md transition-all group font-mono text-xs font-semibold
+                                    ${isActive
+                                        ? 'bg-slate-100 dark:bg-[#181B22] text-slate-900 dark:text-white border border-slate-300 dark:border-[#2D333F] shadow-xs'
+                                        : 'text-slate-600 dark:text-[#8A93A4] hover:bg-slate-100 dark:hover:bg-[#121418] hover:text-slate-900 dark:hover:text-white border border-transparent'
+                                    }
+                                `}
+                                title={isCollapsed ? item.label : undefined}
+                            >
+                                <item.icon
+                                    size={15}
+                                    className={`shrink-0 transition-colors ${
+                                        location.pathname === item.path.split('?')[0]
+                                            ? 'text-[#0EA5E9]'
+                                            : 'text-slate-400 dark:text-[#6A7382] group-hover:text-slate-800 dark:group-hover:text-white'
+                                    }`}
+                                />
+                                {!isCollapsed && <span className="truncate">{item.label}</span>}
+                            </NavLink>
+                        ))}
+                    </div>
                 ))}
             </nav>
 
-            {/* Footer Profile & Network Status */}
-            <div className="p-3 border-t border-slate-200 dark:border-[#22262E] flex flex-col gap-2">
+            {/* Footer Profile */}
+            <div className="p-2.5 border-t border-slate-200 dark:border-[#22262E] flex flex-col gap-1.5">
                 <ProfileDropdown
                     profile={profile}
                     user={user}
                     onUpdate={onProfileUpdate}
                     onSignOut={handleSignOut}
+                    handleSignOut={handleSignOut}
                     isCollapsed={isCollapsed}
                 />
-
-                {!isCollapsed && (
-                    <div className="flex items-center justify-between px-2 pt-1 text-[10px] font-mono text-slate-400 dark:text-[#6A7382]">
-                        <span className="flex items-center gap-1.5">
-                            {isOnline ? (
-                                <>
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-                                    <span>LIVE SYNC</span>
-                                </>
-                            ) : (
-                                <>
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444]" />
-                                    <span>OFFLINE</span>
-                                </>
-                            )}
-                        </span>
-                        <span>v2.4</span>
-                    </div>
-                )}
             </div>
         </aside>
     );

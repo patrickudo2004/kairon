@@ -50,6 +50,8 @@ export interface Program {
   slug?: string;
   isPublic?: boolean;
   status?: 'draft' | 'live' | 'concluded' | 'archived';
+  _filePath?: string;
+  _fileName?: string;
 }
 
 export interface AnalyticsData {
@@ -59,12 +61,14 @@ export interface AnalyticsData {
 }
 
 // Phase 1: Identity & Organizations
-export type UserRole = 'admin' | 'manager' | 'operator';
+export type UserRole = 'admin' | 'manager' | 'operator' | 'speaker';
 
 export interface Profile {
   id: string;
   fullName: string;
   avatarUrl?: string;
+  userId?: string;
+  subscriptionStatus?: 'free' | 'pro' | 'enterprise';
 }
 export interface TimerState {
   programId: string;
@@ -87,6 +91,9 @@ export interface Organization {
   stripeCustomerId?: string;
   createdBy: string;
   createdAt: string;
+  isLocalFolder?: boolean;
+  folderPath?: string;
+  role?: UserRole;
 }
 
 export interface OrganizationMember {

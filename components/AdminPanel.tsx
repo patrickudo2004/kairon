@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Organization, OrganizationMember } from '../types';
+import { useAuthActions } from '@convex-dev/auth/react';
 import { getOrgMembers, updateOrganizationBranding, generateUploadUrl } from '../services/orgService';
 import {
     Settings,
@@ -26,7 +27,8 @@ import {
     LogOut,
     Sun,
     Moon,
-    Sparkles
+    Sparkles,
+    Laptop
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { deleteOrganization } from '../services/orgService';
@@ -43,6 +45,7 @@ interface AdminPanelProps {
 export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUserRole, currentUser }) => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const { signOut: convexSignOut } = useAuthActions();
     const [activeTab, setActiveTab] = useState<'account' | 'branding' | 'members' | 'danger'>('branding');
     const [userName, setUserName] = useState('');
     const [isSavingUser, setIsSavingUser] = useState(false);
@@ -219,7 +222,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
         }
     });
 
-    const isPro = organization.subscriptionStatus === 'pro';
+    const isPro = true; // All Pro features unlocked until monetization launch
 
     // Get candidate organizations for migration and deletion logic
     const { data: allOrgs = [] } = useQuery<Organization[]>({
@@ -326,7 +329,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                         </label>
                                         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-mono font-bold uppercase">
                                             <Shield size={14} />
-                                            <span>{currentUserRole || 'Member'}</span>
+                                            <span>
+                                                {organization.isLocalFolder
+                                                    ? 'Administrator (Local Owner)'
+                                                    : (currentUserRole === 'admin'
+                                                        ? 'Administrator'
+                                                        : currentUserRole === 'manager'
+                                                            ? 'Manager'
+                                                            : currentUserRole === 'speaker'
+                                                                ? 'Pastor / Speaker'
+                                                                : currentUserRole === 'operator'
+                                                                    ? 'Operator'
+                                                                    : 'Administrator')}
+                                            </span>
                                         </div>
                                     </div>
 
@@ -384,11 +399,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                             type="button"
                                             onClick={async () => {
                                                 try {
-                                                    await signOut();
-                                                    window.location.href = '/';
+                                                    if (typeof window !== 'undefined') {
+                                                        localStorage.removeItem('kairon_booth_mode');
+                                                        localStorage.removeItem('testBypass');
+                                                        localStorage.removeItem('__convexAuthJWT');
+                                                        localStorage.removeItem('__convexAuthRefreshToken');
+                                                        window.dispatchEvent(new Event('kairon_booth_mode_changed'));
+                                                    }
+                                                    await convexSignOut();
                                                 } catch (e) {
-                                                    window.location.reload();
+                                                    console.warn("Sign out notice:", e);
                                                 }
+                                                window.location.href = '/';
                                             }}
                                             className="px-5 py-2.5 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2"
                                         >
@@ -522,6 +544,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                         )}
 
                         {activeTab === 'members' && (
+                            organization.isLocalFolder ? (
+                                <div className="bg-white dark:bg-[#121418] rounded-2xl p-6 sm:p-8 border border-slate-200 dark:border-[#22262E] shadow-sm space-y-6">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-[#0EA5E9]/15 text-[#0EA5E9] flex items-center justify-center font-bold">
+                                            <Laptop size={20} />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Local Workspace Identity</h2>
+                                            <p className="text-slate-500 dark:text-[#8A93A4] text-xs font-mono">This PC • Physical Storage</p>
+                                        </div>
+                                    </div>
+                                    <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#181B22] border border-slate-200 dark:border-[#22262E] space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold font-mono uppercase tracking-wider text-slate-500">Your Authority</span>
+                                            <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20 uppercase">
+                                                Administrator (Local Owner)
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                            This workspace is stored directly on your computer's local hard drive. As the operator of this machine, you have full Administrator privileges over all <code className="text-[#0EA5E9]">.kairon</code> events in this folder.
+                                        </p>
+                                        <div className="pt-2 border-t border-slate-200/60 dark:border-[#22262E]">
+                                            <p className="text-[11px] font-mono text-slate-400 truncate">
+                                                Path: {organization.folderPath || 'Local Directory'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="p-4 rounded-xl border border-dashed border-slate-300 dark:border-[#22262E] text-xs text-slate-500 dark:text-slate-400">
+                                        💡 <strong>Multi-User Teammates:</strong> To invite operators, show callers, or pastors across different computers with real-time cloud sync, switch to or create an <strong>Online Cloud Workspace</strong> via the Workspace Switcher.
+                                    </div>
+                                </div>
+                            ) : (
                             <div className="bg-white dark:bg-[#121418] rounded-2xl p-5 sm:p-8 border border-slate-200 dark:border-[#22262E] shadow-sm relative">
                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                                     <div>
@@ -735,6 +789,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                      </div>
                                 )}
                             </div>
+                            )
                         )}
                         {(activeTab === 'danger' && currentUserRole === 'admin') && (
                             <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-rose-200 dark:border-rose-900/30 shadow-sm relative overflow-hidden">

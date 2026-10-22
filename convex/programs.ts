@@ -35,12 +35,16 @@ export async function checkPermissions(ctx: any, organizationId: Id<"organizatio
 }
 
 export const getPrograms = query({
-    args: { organizationId: v.optional(v.id("organizations")) },
+    args: { organizationId: v.optional(v.union(v.id("organizations"), v.string())) },
     handler: async (ctx, args) => {
         if (!args.organizationId) return [];
+        const orgIdStr = String(args.organizationId);
+        if (orgIdStr.startsWith('local-') || orgIdStr.startsWith('test-')) return [];
+        const normalizedId = ctx.db.normalizeId("organizations", orgIdStr);
+        if (!normalizedId) return [];
         return await ctx.db
             .query("programs")
-            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId!))
+            .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
             .collect();
     },
 });
@@ -99,11 +103,16 @@ export const getProgramById = query({
 });
 
 export const getActiveSessions = query({
-    args: { organizationId: v.id("organizations") },
+    args: { organizationId: v.union(v.id("organizations"), v.string()) },
     handler: async (ctx, args) => {
+        if (!args.organizationId) return [];
+        const orgIdStr = String(args.organizationId);
+        if (orgIdStr.startsWith('local-') || orgIdStr.startsWith('test-')) return [];
+        const normalizedId = ctx.db.normalizeId("organizations", orgIdStr);
+        if (!normalizedId) return [];
         return await ctx.db
             .query("programs")
-            .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+            .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
             .filter((q) => q.eq(q.field("status"), "live"))
             .collect();
     },
@@ -111,40 +120,29 @@ export const getActiveSessions = query({
 
 // Resilient live-fetch for monitors, external views, and public portals
 export const getLiveProgram = query({
-    args: { organizationId: v.optional(v.id("organizations")) },
+    args: { organizationId: v.optional(v.union(v.id("organizations"), v.string())) },
     handler: async (ctx, args) => {
         try {
             if (args.organizationId) {
+                const orgIdStr = String(args.organizationId);
+                if (orgIdStr.startsWith('local-') || orgIdStr.startsWith('test-')) return null;
+                const normalizedId = ctx.db.normalizeId("organizations", orgIdStr);
+                if (!normalizedId) return null;
+
                 const liveInOrg = await ctx.db
                     .query("programs")
-                    .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId!))
+                    .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
                     .filter((q) => q.eq(q.field("status"), "live"))
                     .first();
-                if (liveInOrg) return liveInOrg;
-
-                // Fallback within org: latest updated program in this organization
-                const latestInOrg = await ctx.db
-                    .query("programs")
-                    .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId!))
-                    .order("desc")
-                    .first();
-                if (latestInOrg) return latestInOrg;
+                return liveInOrg || null;
             } else {
-                // Public/unauthenticated fallback: check if any public program is currently live
                 const anyLive = await ctx.db
                     .query("programs")
                     .withIndex("by_status", (q) => q.eq("status", "live"))
                     .order("desc")
                     .first();
                 if (anyLive && anyLive.isPublic !== false) return anyLive;
-
-                // Secondary fallback: most recent public program so displays/portals are never empty in standby
-                const latestPublic = await ctx.db
-                    .query("programs")
-                    .order("desc")
-                    .filter((q) => q.neq(q.field("isPublic"), false))
-                    .first();
-                if (latestPublic) return latestPublic;
+                return null;
             }
         } catch (e) {
             console.warn("getLiveProgram query fallback error:", e);
@@ -378,6 +376,10 @@ export const deleteProgram = mutation({
 
         // Verify permissions - Only managers/admins can delete
         await checkPermissions(ctx, program.organizationId, "manager");
+
+        if (program.status === "archived") {
+            throw new Error("Cannot delete a finalized, archived Service Report.");
+        }
 
         await ctx.db.delete(program._id);
     },

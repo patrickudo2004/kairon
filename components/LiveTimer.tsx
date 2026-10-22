@@ -16,6 +16,7 @@ interface LiveTimerProps {
   onNext: (targetId?: string) => void;
   onPrev: (targetId?: string) => void;
   onEndEvent?: (targetId?: string) => void;
+  onRequestEndEvent?: (targetId?: string) => void;
   onNudge?: (minutes: number) => void;
   readOnly?: boolean;
   isAutopilotEnabled?: boolean;
@@ -33,6 +34,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
   onNext,
   onPrev,
   onEndEvent,
+  onRequestEndEvent,
   onNudge,
   readOnly = false,
   isAutopilotEnabled = false,
@@ -103,13 +105,23 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
           The program has concluded and all active timers have finished.
         </p>
         {!readOnly && (
-          <button
-            onClick={() => onPrev(program.id)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#1A1D24] text-slate-800 dark:text-[#E1E4EA] border border-slate-200 dark:border-[#22262E] rounded-md font-mono text-xs font-semibold transition-all shadow-sm"
-          >
-            <SkipBack size={14} />
-            <span>Return to Previous Slot</span>
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => onToggleTimer(program, true, 0)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#0EA5E9] hover:bg-[#0284C7] text-white rounded-md font-mono text-xs font-bold transition-all shadow-sm active:scale-95"
+              title="Restart service from Slot 0 (Opening Prayer)"
+            >
+              <Play size={14} />
+              <span>Restart Service from Beginning</span>
+            </button>
+            <button
+              onClick={() => onPrev(program.id)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-[#121418] hover:bg-slate-100 dark:hover:bg-[#1A1D24] text-slate-800 dark:text-[#E1E4EA] border border-slate-200 dark:border-[#22262E] rounded-md font-mono text-xs font-semibold transition-all shadow-sm"
+            >
+              <SkipBack size={14} />
+              <span>Return to Previous Slot</span>
+            </button>
+          </div>
         )}
       </div>
     );
@@ -379,13 +391,14 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
               <span>AUTOPILOT</span>
             </button>
 
-            {/* End Event Hold-to-Confirm */}
-            {onEndEvent && (
+            {/* End Event Hold-to-Confirm with Confirmation Modal */}
+            {(onEndEvent || onRequestEndEvent) && (
               <HoldToConfirmButton
-                onConfirm={() => onEndEvent(program.id)}
+                onConfirm={() => (onRequestEndEvent || onEndEvent)!(program.id)}
                 durationMs={2000}
                 label="END EVENT"
                 holdingLabel="HOLD TO END"
+                title="Press and hold 2 seconds to end this live session"
               />
             )}
 

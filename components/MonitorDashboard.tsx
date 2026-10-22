@@ -31,10 +31,20 @@ const LiveThumbnail: React.FC<{
         return () => observer.disconnect();
     }, []);
 
+    const resolvedSrc = (() => {
+        const querySep = path.includes('?') ? '&' : '?';
+        const query = `${querySep}mode=thumbnail&theme=${theme}`;
+        if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+            const clean = path.startsWith('/') ? path.slice(1) : path;
+            return `${window.location.pathname}#/${clean}${query}`;
+        }
+        return `${path}${query}`;
+    })();
+
     return (
         <div ref={containerRef} className="w-full h-full relative overflow-hidden">
             <iframe
-                src={`${path}${path.includes('?') ? '&' : '?'}mode=thumbnail&theme=${theme}`}
+                src={resolvedSrc}
                 className="pointer-events-none opacity-85 absolute top-0 left-0"
                 title={title}
                 style={{
@@ -66,7 +76,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
     isPro = false,
     displayStatuses = {}
 }) => {
-    const { sendStageMessage, clearStageMessage } = useStageMessages(program.id);
+    const { sendStageMessage, clearStageMessage, promptMessage } = useStageMessages(program.id);
     const { isSupported: isScreenApiSupported, screens, externalScreens, hasSecondaryScreen, requestScreenAccess, openOnSecondaryScreen, openOnTargetScreen } = useScreenManagement();
 
     const [customMessage, setCustomMessage] = useState('');
@@ -134,8 +144,11 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
         const left = (window.screen.width - width) / 2;
         const top = (window.screen.height - height) / 2;
         const targetName = `kairon_display_${tabId || 'window'}`;
+        const targetUrl = (typeof window !== 'undefined' && window.location.protocol === 'file:')
+            ? `${window.location.pathname}#/${path.startsWith('/') ? path.slice(1) : path}`
+            : path;
         window.open(
-            path,
+            targetUrl,
             targetName,
             `width=${width},height=${height},left=${left},top=${top},menubar=no,status=no,toolbar=no,location=no`
         );
@@ -147,10 +160,13 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
         if (hasSecondaryScreen) {
             await openOnSecondaryScreen(fullPath, targetName);
         } else {
+            const targetUrl = (typeof window !== 'undefined' && window.location.protocol === 'file:')
+                ? `${window.location.pathname}#/${fullPath.startsWith('/') ? fullPath.slice(1) : fullPath}`
+                : fullPath;
             const width = window.screen.availWidth || 1920;
             const height = window.screen.availHeight || 1080;
             window.open(
-                fullPath,
+                targetUrl,
                 targetName,
                 `width=${width},height=${height},left=0,top=0,menubar=no,status=no,toolbar=no,location=no`
             );
@@ -236,6 +252,14 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
             path: getPublicPortalPath(program),
             badgeColor: 'text-[#64748B] bg-[#64748B]/10 border-[#64748B]/30',
             tabId: 'public'
+        },
+        {
+            title: 'OBS / vMix / ATEM Overlay',
+            icon: Sliders,
+            description: '1080p Lower-Third & Corner Timer with Alpha, Chroma Green & Luma Key.',
+            path: `/overlay?id=${program.id}&bg=transparent&layout=lower-third`,
+            badgeColor: 'text-[#0EA5E9] bg-[#0EA5E9]/10 border-[#0EA5E9]/30',
+            tabId: 'overlay'
         }
     ];
 
@@ -318,7 +342,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                 <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                     {displayOptions.map((opt) => {
                         const isCrewHUD = opt.title === 'Crew Tactical HUD';
-                        const isLocked = isCrewHUD && !isPro;
+                        const isLocked = false;
                         const status = opt.tabId ? displayStatuses?.[opt.tabId] : null;
                         const currentTheme = status?.isDarkMode !== undefined
                             ? (status.isDarkMode ? 'dark' : 'light')
@@ -364,14 +388,32 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                                     {/* Individual Display Theme Toggle */}
                                                     <button
                                                         onClick={() => handleRemoteToggleTheme(opt.tabId || 'stage')}
-                                                        className={`p-1.5 rounded border transition-all ${
-                                                            currentTheme === 'light'
+                                                        className={`h-7 px-1.5 rounded border transition-all flex items-center justify-center gap-1 ${
+                                                            currentTheme === 'ambient-yellow'
+                                                                ? 'bg-amber-400/20 text-amber-500 dark:text-amber-300 border-amber-400/50 font-mono font-bold text-[10px]'
+                                                                : currentTheme === 'ambient-white'
+                                                                ? 'bg-slate-100 text-slate-900 dark:bg-white/20 dark:text-white border-slate-300 dark:border-white/40 font-mono font-bold text-[10px]'
+                                                                : currentTheme === 'light'
                                                                 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
                                                                 : 'bg-slate-100 dark:bg-[#181B22] hover:bg-slate-200 dark:hover:bg-[#22262E] text-slate-600 dark:text-[#8A93A4] hover:text-slate-900 dark:hover:text-white border-slate-200 dark:border-[#22262E]'
                                                         }`}
                                                         title={`Display Theme: ${currentTheme.toUpperCase()} (Click to toggle)`}
                                                     >
-                                                        {currentTheme === 'light' ? <Sun size={13} /> : <Moon size={13} />}
+                                                        {currentTheme === 'ambient-yellow' ? (
+                                                            <>
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block animate-pulse"></span>
+                                                                <span>YEL</span>
+                                                            </>
+                                                        ) : currentTheme === 'ambient-white' ? (
+                                                            <>
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-white inline-block"></span>
+                                                                <span>WHT</span>
+                                                            </>
+                                                        ) : currentTheme === 'light' ? (
+                                                            <Sun size={13} />
+                                                        ) : (
+                                                            <Moon size={13} />
+                                                        )}
                                                     </button>
 
                                                     <button
@@ -526,6 +568,31 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                 <p className="text-[10px] text-slate-500 dark:text-[#8A93A4]">Instant banner overlay on pulpit & stage displays.</p>
                             </div>
                         </div>
+
+                        {/* Active Live Cue Banner Indicator */}
+                        {promptMessage && (
+                            <div className="mb-4 p-3 rounded-lg border bg-amber-500/10 border-amber-500/30 flex items-center justify-between gap-3 animate-in fade-in duration-150">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping shrink-0" />
+                                    <div className="truncate">
+                                        <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-500">
+                                            ACTIVE ON STAGE ({promptMessage.isStrobe ? 'STROBE' : 'BANNER'})
+                                        </div>
+                                        <div className="text-xs font-mono font-bold text-slate-800 dark:text-slate-100 truncate">
+                                            "{promptMessage.text}"
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => clearStageMessage()}
+                                    className="px-2.5 py-1 text-[10px] font-mono font-bold bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 rounded shrink-0 transition-colors"
+                                    title="Clear active cue immediately"
+                                >
+                                    CLEAR CUE
+                                </button>
+                            </div>
+                        )}
 
                         {/* Master Strobe Effect Switch */}
                         <div className="mb-4 bg-slate-50 dark:bg-[#090A0C] p-3 rounded-lg border border-slate-200 dark:border-[#22262E] space-y-2.5">

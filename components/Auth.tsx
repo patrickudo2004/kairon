@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuthActions } from '@convex-dev/auth/react';
+import { useSearchParams } from 'react-router-dom';
 import { Mic, Mail, ArrowRight, Loader, Sun, Moon, Sparkles, UserPlus, Building, ShieldCheck, Zap } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
+import { DesktopAuthWaiting } from './DesktopAuthWaiting';
+import { getCanonicalWebOrigin } from '../utils/url';
+
+const isElectronRuntime = typeof window !== 'undefined' && Boolean((window as any).electron?.isElectron);
 
 interface AuthProps {
     inviteDetails?: {
@@ -11,20 +16,44 @@ interface AuthProps {
     } | null;
 }
 
+
 export const Auth: React.FC<AuthProps> = ({ inviteDetails }) => {
     const { signIn } = useAuthActions();
+    const isDarkMode = useUIStore((state) => state.isDarkMode);
+    const toggleTheme = useUIStore((state) => state.toggleTheme);
+    const [searchParams] = useSearchParams();
     const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [mode, setMode] = useState<'signin' | 'signup'>('signin');
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [step, setStep] = useState<'signIn' | 'verifyCode'>('signIn');
     const [code, setCode] = useState('');
-    const { isDarkMode, toggleTheme } = useUIStore();
+    const handleOfflineMode = () => {
+        try {
+            localStorage.setItem('kairon_booth_mode', 'true');
+            window.dispatchEvent(new Event('kairon_booth_mode_changed'));
+        } catch (e) {
+            console.warn('Could not set kairon_booth_mode:', e);
+        }
+        window.location.reload();
+    };
+
+    // In Electron, unless a desktopCode is present (meaning user is authenticating in browser),
+    // show the browser handshake auth screen.
+    const hasDesktopCode = !!searchParams.get('desktopCode');
+    if (isElectronRuntime && !hasDesktopCode) {
+        return <DesktopAuthWaiting onOfflineMode={handleOfflineMode} />;
+    }
+
+
 
     const handleGoogleSignIn = async () => {
         try {
             setIsLoading(true);
-            await signIn("google", { redirectTo: window.location.href });
+            const canonicalOrigin = getCanonicalWebOrigin();
+            const isLocal = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1');
+            const targetRedirect = isLocal ? `${canonicalOrigin}/` : window.location.href;
+            await signIn("google", { redirectTo: targetRedirect });
         } catch (error: any) {
             setMessage({ type: 'error', text: error.message || 'Google sign-in failed.' });
             setIsLoading(false);
@@ -130,10 +159,12 @@ export const Auth: React.FC<AuthProps> = ({ inviteDetails }) => {
                     <div className={inviteDetails ? '' : 'text-center'}>
                         {/* Logo & Title */}
                         <div className={`mb-8 ${inviteDetails ? 'lg:mb-10' : ''}`}>
-                            <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#121418] border border-[#22262E] text-[#0EA5E9] shadow-lg mb-4 ${inviteDetails ? 'lg:hidden' : ''}`}>
-                                <Mic size={28} />
-                            </div>
-                            <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight mb-1">Kairon</h1>
+                            <img
+                                src="/kairon-logo.png"
+                                alt="Kairon Studio"
+                                className={`w-16 h-16 rounded-2xl border border-[#22262E] shadow-xl shadow-[#0EA5E9]/15 object-contain mb-4 inline-block ${inviteDetails ? 'lg:hidden' : ''}`}
+                            />
+                            <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight mb-1">Kairon Studio</h1>
                             <p className="text-slate-500 dark:text-[#8A93A4] text-sm">
                                 {inviteDetails
                                     ? `Step inside to accept your invitation`
