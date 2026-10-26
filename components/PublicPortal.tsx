@@ -4,12 +4,12 @@ import { useQuery, useConvex } from '../hooks/useConvexMock';
 import { api } from '../convex/_generated/api';
 import { Program } from '../types';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
-import { getPublicPortalUrl } from '../utils/url';
+import { getPublicPortalUrl, getUniversalSearchParams, extractPathSlug } from '../utils/url';
 import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon, RefreshCw, Copy, Check } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 
 export const PublicPortal: React.FC = () => {
-    const { slug } = useParams<{ slug: string }>();
+    const routeParams = useParams<{ slug: string }>();
     const [isScrolled, setIsScrolled] = useState(false);
     const [secondsWaiting, setSecondsWaiting] = useState(0);
     const [isCopied, setIsCopied] = useState(false);
@@ -18,16 +18,9 @@ export const PublicPortal: React.FC = () => {
     // Monitor Convex connection status
     const [connStatus, setConnStatus] = useState<string>('connecting');
 
-    // Global Theme Sync + URL Theme Override (for MonitorDashboard thumbnails & hash routing)
-    const hashQuery = typeof window !== 'undefined' && window.location.hash.includes('?')
-        ? window.location.hash.slice(window.location.hash.indexOf('?'))
-        : '';
-    const searchParams = new URLSearchParams(
-        typeof window !== 'undefined' 
-            ? (window.location.search || hashQuery || '') 
-            : ''
-    );
-    const searchId = searchParams.get('id');
+    const searchParams = getUniversalSearchParams();
+    const slug = routeParams.slug || extractPathSlug();
+    const searchId = searchParams.get('id') || searchParams.get('programId');
     const themeParam = searchParams.get('theme');
     const isThumbnail = searchParams.get('mode') === 'thumbnail';
     const targetId = (slug || searchId || '').replace(/^local-/, '');

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Program } from '../types';
+import { resolveInternalAppUrl } from '../utils/url';
 import { PRODUCTION_TEMPLATES } from '../utils/rundownParser';
 import {
   FileText,
@@ -298,23 +299,23 @@ export const StudioMenuBar: React.FC<StudioMenuBarProps> = ({
                     <MenuDivider />
                     <MenuItem
                       label="Open Stage Display Window"
-                      onClick={() => window.open(`/stage?programId=${program.id}`, 'kairon_display_stage', 'width=1280,height=720')}
+                      onClick={() => window.open(resolveInternalAppUrl(`/stage?programId=${encodeURIComponent(program.id)}`), 'kairon_display_stage', 'width=1280,height=720')}
                     />
                     <MenuItem
                       label="Open Teleprompter Window"
-                      onClick={() => window.open(`/prompter?programId=${program.id}`, 'kairon_display_prompter', 'width=1280,height=720')}
+                      onClick={() => window.open(resolveInternalAppUrl(`/prompter?programId=${encodeURIComponent(program.id)}`), 'kairon_display_prompter', 'width=1280,height=720')}
                     />
                     <MenuItem
                       label="Open TV / Overflow Window"
-                      onClick={() => window.open(`/tv?programId=${program.id}`, 'kairon_display_tv', 'width=1280,height=720')}
+                      onClick={() => window.open(resolveInternalAppUrl(`/tv?programId=${encodeURIComponent(program.id)}`), 'kairon_display_tv', 'width=1280,height=720')}
                     />
                     <MenuItem
                       label="Open Crew Tactical HUD"
-                      onClick={() => window.open(`/crew?programId=${program.id}`, 'kairon_display_crew', 'width=1280,height=720')}
+                      onClick={() => window.open(resolveInternalAppUrl(`/crew?programId=${encodeURIComponent(program.id)}`), 'kairon_display_crew', 'width=1280,height=720')}
                     />
                     <MenuItem
                       label="Open OBS Lower-Third Overlay"
-                      onClick={() => window.open(`/overlay?programId=${program.id}&layout=lower-third&bg=transparent`, 'kairon_display_overlay', 'width=1280,height=720')}
+                      onClick={() => window.open(resolveInternalAppUrl(`/overlay?programId=${encodeURIComponent(program.id)}&layout=lower-third&bg=transparent`), 'kairon_display_overlay', 'width=1280,height=720')}
                     />
                   </>
                 )}

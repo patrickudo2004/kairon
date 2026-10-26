@@ -89,3 +89,93 @@ export const getWorkspaceInviteUrl = (params: { inviteId: string; orgId?: string
   }
   return `${base}/?${search.toString()}`;
 };
+
+/**
+ * Resolves an internal display or studio route (e.g. "/stage?programId=123", "/crew?id=123")
+ * so that iframes and popout windows work seamlessly in BOTH Web (BrowserRouter) and
+ * Electron Desktop / file:// (HashRouter).
+ */
+export const resolveInternalAppUrl = (pathWithQuery: string): string => {
+  const clean = pathWithQuery.replace(/^\/+/, '');
+  if (typeof window === 'undefined') return `/${clean}`;
+
+  const isElectronOrFile = Boolean(
+    window.location.protocol === 'file:' ||
+    (window as any).electron?.isElectron ||
+    (window as any).electronAPI?.isElectron
+  );
+
+  if (isElectronOrFile) {
+    const base = window.location.href.split('#')[0].split('?')[0];
+    return `${base}#/${clean}`;
+  }
+
+  return `/${clean}`;
+};
+
+/**
+ * Universally extracts query parameters across BrowserRouter (?a=1),
+ * HashRouter (#/route?a=1), and mixed Electron window URLs.
+ */
+export const getUniversalSearchParams = (routerParams?: URLSearchParams): URLSearchParams => {
+  const merged = new URLSearchParams();
+
+  if (typeof window !== 'undefined') {
+    if (window.location.search) {
+      const winSearch = new URLSearchParams(window.location.search);
+      winSearch.forEach((v, k) => merged.set(k, v));
+    }
+    if (window.location.hash && window.location.hash.includes('?')) {
+      const hashQuery = window.location.hash.substring(window.location.hash.indexOf('?'));
+      const hashSearch = new URLSearchParams(hashQuery);
+      hashSearch.forEach((v, k) => merged.set(k, v));
+    }
+  }
+
+  if (routerParams) {
+    routerParams.forEach((v, k) => merged.set(k, v));
+  }
+
+  return merged;
+};
+
+/**
+ * Extracts a public program slug from "/p/:slug" or "/p/:slug/crew" across pathname and hash.
+ */
+export const extractPathSlug = (pathname?: string, hash?: string): string => {
+  const candidates = [
+    pathname || '',
+    hash ? hash.replace(/^#/, '') : '',
+    typeof window !== 'undefined' ? window.location.pathname : '',
+    typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : '',
+  ];
+  for (const candidate of candidates) {
+    const match = candidate.match(/\/p\/([^/?#]+)/i);
+    if (match && match[1]) {
+      return decodeURIComponent(match[1]);
+    }
+  }
+  return '';
+};
+
+/**
+ * Synchronously primes localStorage offline cache for a program so same-origin
+ * iframe previews (Output Monitor, MonitorDashboard thumbnails) have instant frame-0 data.
+ */
+export const primeProgramPreviewCache = (program?: Program | null): void => {
+  if (typeof window === 'undefined' || !program || !program.id) return;
+  try {
+    const serialized = JSON.stringify(program);
+    const cleanId = program.id.replace(/^local-/, '');
+    localStorage.setItem(`kairon_offline_cache_${program.id}`, serialized);
+    if (cleanId) {
+      localStorage.setItem(`kairon_offline_cache_${cleanId}`, serialized);
+    }
+    localStorage.setItem(`kairon_offline_cache_${program.id}_prompter`, serialized);
+    if (program.slug) {
+      localStorage.setItem(`kairon_offline_cache_${program.slug.replace(/^local-/, '')}`, serialized);
+    }
+  } catch {
+    // Ignore storage quota errors
+  }
+};

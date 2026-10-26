@@ -1,3 +1,4 @@
+import { resolveInternalAppUrl } from '../utils/url';
 import { useState, useEffect, useCallback } from 'react';
 
 export interface ScreenInfo {
@@ -158,7 +159,7 @@ export const useScreenManagement = () => {
         const height = target.availHeight ?? target.height ?? 1080;
 
         const win = window.open(
-          path,
+          resolveInternalAppUrl(path),
           windowName,
           `left=${left},top=${top},width=${width},height=${height},menubar=no,status=no,toolbar=no,location=no`
         );
@@ -178,7 +179,7 @@ export const useScreenManagement = () => {
     const offsetMultiplier = typeof targetScreenIndex === 'number' && targetScreenIndex > 2 ? (targetScreenIndex - 1) : 1;
     const fallbackLeft = (window.screen.width || 1920) * offsetMultiplier;
     return window.open(
-      path,
+      resolveInternalAppUrl(path),
       windowName,
       `left=${fallbackLeft},top=0,width=1920,height=1080,menubar=no,status=no,toolbar=no,location=no`
     );

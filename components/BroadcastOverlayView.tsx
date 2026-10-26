@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { getUniversalSearchParams } from '../utils/url';
 import { useQuery as useConvexQuery } from '../hooks/useConvexMock';
 import { api } from '../convex/_generated/api';
 import { Program } from '../types';
@@ -9,7 +10,8 @@ import { formatDuration } from '../utils/time';
 import { Radio, Clock, User, ChevronRight, AlertTriangle } from 'lucide-react';
 
 export const BroadcastOverlayView: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const [routerSearchParams] = useSearchParams();
+  const searchParams = getUniversalSearchParams(routerSearchParams);
   const programIdParam = searchParams.get('programId') || searchParams.get('id');
   const bgMode = (searchParams.get('bg') || 'transparent').toLowerCase() as 'transparent' | 'green' | 'magenta' | 'black';
   const layoutMode = (searchParams.get('layout') || 'lower-third').toLowerCase() as 'lower-third' | 'corner-timer' | 'full-bug';
@@ -60,10 +62,24 @@ export const BroadcastOverlayView: React.FC = () => {
     const channel = new BroadcastChannel('kairon_offline_sync');
     channel.addEventListener('message', syncLocal);
     window.addEventListener('storage', syncLocal);
+
+    const electronApi = (window as any).electron || (window as any).electronAPI;
+    let unsubIpc: (() => void) | undefined;
+    if (electronApi?.onTimerState) {
+      unsubIpc = electronApi.onTimerState((payload: any) => {
+        if (payload?.program) {
+          setLocalFallback(payload.program);
+        } else if (payload) {
+          syncLocal();
+        }
+      });
+    }
+
     return () => {
       channel.removeEventListener('message', syncLocal);
       channel.close();
       window.removeEventListener('storage', syncLocal);
+      if (unsubIpc) unsubIpc();
     };
   }, [programIdParam]);
 
@@ -95,6 +111,7 @@ export const BroadcastOverlayView: React.FC = () => {
   // Set transparent or keyed background on body for OBS / vMix / ATEM
   useEffect(() => {
     const prevBg = document.body.style.backgroundColor;
+    const prevHtmlBg = document.documentElement.style.background;
     if (bgMode === 'transparent') {
       document.documentElement.style.background = 'transparent';
       document.body.style.backgroundColor = 'transparent';
@@ -107,6 +124,7 @@ export const BroadcastOverlayView: React.FC = () => {
     }
     return () => {
       document.body.style.backgroundColor = prevBg;
+      document.documentElement.style.background = prevHtmlBg;
     };
   }, [bgMode]);
 
