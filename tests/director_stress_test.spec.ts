@@ -198,7 +198,9 @@ test.describe('Broadcast Operations Director Stress & Format Test Suite', () => 
   });
 
   test('Stress 4: MCR Broadcast Cutoff Breach Telemetry in Live Timer view', async ({ page }) => {
-    // End time set in past (08:30 AM, current time is later in the day)
+    // Deterministically mock current time to 12:00 PM so 08:30 AM cutoff is always in the past regardless of CI time of day
+    await page.clock.setFixedTime(new Date('2026-10-26T12:00:00'));
+
     const breachedProgram = {
       id: 'stress-test-mcr',
       title: 'Live TV Gala Broadcast',
@@ -208,7 +210,7 @@ test.describe('Broadcast Operations Director Stress & Format Test Suite', () => 
       currentSlotIndex: 0,
       isTimerActive: true,
       secondsElapsed: 10,
-      timerStartTimestamp: Date.now() - 10000,
+      timerStartTimestamp: new Date('2026-10-26T11:59:50').getTime(),
       slots: [
         { id: 's1', title: 'Awards Segment 1', durationMinutes: 30, type: 'Talk' }
       ]
@@ -223,7 +225,6 @@ test.describe('Broadcast Operations Director Stress & Format Test Suite', () => 
     await page.goto('/live?id=stress-test-mcr&testBypass=true');
     await page.waitForLoadState('domcontentloaded');
 
-    // MCR cutoff warning must be visible in Live Timer top bar
     const mcrPill = page.locator('text=MCR CUTOFF:').first();
     await expect(mcrPill).toBeVisible({ timeout: 10000 });
     await expect(mcrPill).toContainText('BREACHED');

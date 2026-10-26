@@ -145,6 +145,31 @@ function createMainWindow() {
 
   // Safely route external OAuth / documentation URLs to system browser while allowing local output windows
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('file://') && !url.toLowerCase().includes('index.html')) {
+      try {
+        const parsed = new URL(url);
+        const rawRoute = parsed.pathname.replace(/^\/[A-Za-z]:/, '') + (parsed.search || '') + (parsed.hash || '');
+        if (/^\/(stage|tv|prompter|crew|overlay|bridge|public|portal|p\/)/i.test(rawRoute)) {
+          const childWin = new BrowserWindow({
+            width: 1280,
+            height: 720,
+            title: getDeterministicWindowTitle(rawRoute),
+            icon: !nativeAppIcon.isEmpty() ? nativeAppIcon : appIconPath,
+            backgroundColor: '#090A0C',
+            webPreferences: {
+              preload: path.join(__dirname, 'preload.cjs'),
+              contextIsolation: true,
+              nodeIntegration: false,
+              backgroundThrottling: false,
+            },
+          });
+          loadRouteIntoWindow(childWin, rawRoute);
+          return { action: 'deny' };
+        }
+      } catch (e) {
+        console.warn('[Kairon Main] Fallback route parse failed:', e);
+      }
+    }
     const isLocalRoute =
       url.startsWith('http://localhost') ||
       url.startsWith('file://') ||
