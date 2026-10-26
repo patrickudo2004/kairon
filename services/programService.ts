@@ -316,6 +316,19 @@ export const updateTimerState = async (programId: string, state: {
             return p;
         });
         updateTestPrograms(list);
+        const updatedProg = list.find((p) => p.id === programId || p.id?.replace(/^local-/, '') === cleanId || (p as any)._id === programId);
+        if (updatedProg) {
+            try {
+                const serialized = JSON.stringify(updatedProg);
+                localStorage.setItem(`kairon_offline_cache_${programId}`, serialized);
+                if (cleanId) localStorage.setItem(`kairon_offline_cache_${cleanId}`, serialized);
+                localStorage.setItem('kairon_offline_cache_live', serialized);
+                localStorage.setItem('kairon_program', serialized);
+                window.dispatchEvent(new Event('storage'));
+            } catch (err) {
+                console.warn('Could not sync test bypass cache in localStorage:', err);
+            }
+        }
         return;
     }
     const stateToSave: any = {
