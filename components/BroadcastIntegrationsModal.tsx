@@ -21,7 +21,7 @@ import {
   testProPresenterConnection,
   ProPresenterConfig,
 } from '../services/proPresenterBridge';
-import { getShareableDisplayUrl } from '../utils/url';
+import { getShareableDisplayUrl, resolveInternalAppUrl } from '../utils/url';
 
 interface BroadcastIntegrationsModalProps {
   isOpen: boolean;
@@ -80,7 +80,7 @@ export const BroadcastIntegrationsModal: React.FC<BroadcastIntegrationsModalProp
 
   const openOverlayWindow = () => {
     window.open(
-      overlayRelativePath,
+      resolveInternalAppUrl(overlayRelativePath),
       'kairon_display_overlay',
       'width=1280,height=720,menubar=no,toolbar=no,location=no,status=no'
     );

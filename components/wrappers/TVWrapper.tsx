@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { getUniversalSearchParams } from '../../utils/url';
 import { useQuery } from '../../hooks/useConvexMock';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
@@ -9,13 +10,10 @@ import { useUIStore } from '../../store/uiStore';
 import TVView from '../TVView';
 
 const TVWrapper: React.FC = () => {
-    const [searchParams] = useSearchParams();
-    // Accept both ?id= (canonical) and ?programId= (legacy callers from MenuBar / RightDock)
-    const hashParams = typeof window !== 'undefined' && window.location.hash.includes('?')
-        ? new URLSearchParams(window.location.hash.substring(window.location.hash.indexOf('?')))
-        : null;
-    const programId = searchParams.get('id') || searchParams.get('programId') || hashParams?.get('id') || hashParams?.get('programId');
-    const themeParam = searchParams.get('theme') || hashParams?.get('theme');
+    const [routerSearchParams] = useSearchParams();
+    const searchParams = getUniversalSearchParams(routerSearchParams);
+    const programId = searchParams.get('id') || searchParams.get('programId');
+    const themeParam = searchParams.get('theme');
 
     const globalDarkMode = useUIStore((state) => state.isDarkMode);
     const isDarkMode = themeParam ? (themeParam === 'dark') : globalDarkMode;
@@ -36,6 +34,7 @@ const TVWrapper: React.FC = () => {
             const cleanId = programId ? programId.replace(/^local-/, '') : null;
             if (programId) {
                 const candidates = [
+                    'kairon_offline_cache_live',
                     `kairon_offline_cache_${programId}`,
                     cleanId ? `kairon_offline_cache_${cleanId}` : null,
                 ].filter(Boolean) as string[];
@@ -200,7 +199,34 @@ const TVWrapper: React.FC = () => {
         }
     };
 
-    // BroadcastChannel sync effect (same-origin tabs / same renderer process)
+    useEffect(() => {
+        const handleStorage = () => {
+            const pid = programIdRef.current;
+            const cleanPid = pid?.replace(/^local-/, '');
+            const candidates = [
+                pid ? `kairon_offline_cache_${pid}` : null,
+                cleanPid ? `kairon_offline_cache_${cleanPid}` : null,
+                'kairon_offline_cache_live',
+                'kairon_program'
+            ].filter(Boolean) as string[];
+            for (const key of candidates) {
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    try {
+                        const parsed = JSON.parse(raw);
+                        if (parsed && (!pid || parsed.id === pid || parsed.id?.replace(/^local-/, '') === cleanPid || parsed.slug === cleanPid)) {
+                            setLocalOfflineProgram(parsed);
+                            break;
+                        }
+                    } catch {}
+                }
+            }
+        };
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
+    }, [programId]);
+
+        // BroadcastChannel sync effect (same-origin tabs / same renderer process)
     useEffect(() => {
         const offlineChannel = new BroadcastChannel('kairon_offline_sync');
         const handleOfflineMsg = (event: MessageEvent) => {

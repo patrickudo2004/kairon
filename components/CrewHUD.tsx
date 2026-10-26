@@ -4,21 +4,21 @@ import { useQuery, useMutation } from '../hooks/useConvexMock';
 import { api } from '../convex/_generated/api';
 import { Program } from '../types';
 import { formatDuration, timeToMinutes, minutesToTime } from '../utils/time';
+import { getUniversalSearchParams, extractPathSlug } from '../utils/url';
 import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon, RefreshCw, Volume2, Lightbulb, Video, CheckCircle2, Activity, Maximize, Minimize, MessageSquare, Send, Radio, Sparkles } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useTimerSync } from '../hooks/useTimerSync';
 
 export const CrewHUD: React.FC = () => {
-    const { slug } = useParams<{ slug: string }>();
-    const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-    const hashParams = typeof window !== 'undefined' && window.location.hash.includes('?')
-        ? new URLSearchParams(window.location.hash.substring(window.location.hash.indexOf('?')))
-        : null;
-    const searchId = searchParams.get('id') || searchParams.get('programId') || hashParams?.get('id') || hashParams?.get('programId');
+    const routeParams = useParams<{ slug: string }>();
+    const searchParams = getUniversalSearchParams();
+    const extractedSlug = routeParams.slug || extractPathSlug();
+    const slug = extractedSlug || undefined;
+    const searchId = searchParams.get('id') || searchParams.get('programId') || searchParams.get('slug');
     const targetId = slug || searchId || '';
     const cleanTargetId = targetId ? targetId.replace(/^local-/, '') : '';
-    const isAutoFs = searchParams.get('autofs') === '1' || hashParams?.get('autofs') === '1';
-    const urlTheme = (searchParams.get('theme') || hashParams?.get('theme')) as 'dark' | 'light' | null;
+    const isAutoFs = searchParams.get('autofs') === '1';
+    const urlTheme = searchParams.get('theme') as 'dark' | 'light' | null;
 
     const [currentTheme, setCurrentTheme] = useState<'dark' | 'light'>(() => {
         if (urlTheme) return urlTheme;
@@ -137,14 +137,15 @@ export const CrewHUD: React.FC = () => {
     }, []);
 
     // Convex Reactive Query
+    const shouldSkipCloud = !targetId || targetId.startsWith('local-');
     const programData = useQuery(
         api.programs.getProgramBySlug,
-        slug ? { slug, includeProductionNotes: true } : (targetId ? { slug: targetId, includeProductionNotes: true } : "skip")
+        slug ? { slug, includeProductionNotes: true } : (!shouldSkipCloud ? { slug: targetId, includeProductionNotes: true } : "skip")
     );
 
     const programByIdData = useQuery(
         api.programs.getProgramById,
-        targetId ? { id: targetId as any } : "skip"
+        !shouldSkipCloud ? { id: targetId as any } : "skip"
     );
 
     const liveProgramData = useQuery(
@@ -164,21 +165,22 @@ export const CrewHUD: React.FC = () => {
     const targetIdRef = useRef(targetId);
     targetIdRef.current = targetId;
 
-    // Local Program Fallback for offline, electron, or draft IDs
-    const [localProgram, setLocalProgram] = useState<Program | null>(() => {
+    const readLocalProgram = useCallback((): Program | null => {
         try {
             const cleanId = targetId ? targetId.replace(/^local-/, '') : null;
             if (targetId) {
                 const candidates = [
                     `kairon_offline_cache_${targetId}`,
                     cleanId ? `kairon_offline_cache_${cleanId}` : null,
+                    'kairon_offline_cache_live',
+                    'kairon_program'
                 ].filter(Boolean) as string[];
 
                 for (const key of candidates) {
                     const raw = localStorage.getItem(key);
                     if (raw) {
                         const parsed = JSON.parse(raw);
-                        if (parsed && (parsed.id === targetId || parsed.id?.replace(/^local-/, '') === cleanId || parsed.slug === cleanId)) {
+                        if (parsed && (parsed.id === targetId || parsed.id?.replace(/^local-/, '') === cleanId || parsed.slug === cleanId || !targetId)) {
                             return parsed;
                         }
                     }
@@ -192,18 +194,16 @@ export const CrewHUD: React.FC = () => {
                         if (Array.isArray(all) && all.length > 0) {
                             const match = all.find((p: any) => p.id === targetId || p.id?.replace(/^local-/, '') === cleanId || p.slug === cleanId);
                             if (match) return match;
+                            if (!targetId) return all[0];
                         }
                     }
                 }
-                return null;
             }
 
-            // If NO targetId specified, ONLY show if an event is actively broadcasting live
-            const liveCache = localStorage.getItem('kairon_offline_cache_live');
+            const liveCache = localStorage.getItem('kairon_offline_cache_live') || localStorage.getItem('kairon_program');
             if (liveCache) {
                 const parsed = JSON.parse(liveCache);
-                const isStale = parsed?.timerStartTimestamp && (Date.now() - parsed.timerStartTimestamp > 2 * 60 * 60 * 1000);
-                if (parsed && parsed.status === 'live' && parsed.slots && parsed.slots.length > 0 && !isStale) {
+                if (parsed && Array.isArray(parsed.slots)) {
                     return parsed;
                 }
             }
@@ -212,7 +212,24 @@ export const CrewHUD: React.FC = () => {
             console.warn("Could not read local fallback program in CrewHUD:", e);
             return null;
         }
-    });
+    }, [targetId]);
+
+    // Local Program Fallback for offline, electron, or draft IDs
+    const [localProgram, setLocalProgram] = useState<Program | null>(() => readLocalProgram());
+
+    useEffect(() => {
+        const found = readLocalProgram();
+        if (found) setLocalProgram(found);
+    }, [readLocalProgram]);
+
+    useEffect(() => {
+        const handleStorage = () => {
+            const found = readLocalProgram();
+            if (found) setLocalProgram(found);
+        };
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
+    }, [readLocalProgram]);
 
     const mergeIncomingData = useCallback((data: any) => {
         if (!data) return;
@@ -550,11 +567,11 @@ export const CrewHUD: React.FC = () => {
 
     const isThemeLight = currentTheme === 'light';
 
-    if (!program || !program.slots || program.slots.length === 0) {
+    if (!program) {
         return (
             <div className={`min-h-screen ${isThemeLight ? 'bg-slate-50 text-slate-900' : 'bg-[#090A0C] text-white'} flex flex-col items-center justify-center p-6 text-center font-mono`}>
                 <div className="w-10 h-10 border-2 border-[#0EA5E9] border-t-transparent rounded-full animate-spin mb-4" />
-                <p className={`text-xs font-mono ${isThemeLight ? 'text-slate-600' : 'text-[#8A93A4]'} uppercase tracking-widest font-bold`}>Awaiting Tactical Feed...</p>
+                <p className={`text-xs font-mono ${isThemeLight ? 'text-slate-600' : 'text-[#8A93A4]'} uppercase tracking-widest font-bold`}>Connecting to Tactical Feed...</p>
                 <p className="text-[10px] text-slate-400 mt-2">Target ID: {targetId || 'Live Session'}</p>
                 <button
                     onClick={() => window.location.reload()}
@@ -566,12 +583,43 @@ export const CrewHUD: React.FC = () => {
         );
     }
 
+    if (!program.slots || program.slots.length === 0) {
+        return (
+            <div className={`min-h-screen ${isThemeLight ? 'bg-slate-50 text-slate-900' : 'bg-[#090A0C] text-white'} flex flex-col font-mono select-none relative transition-colors duration-300`}>
+                <header className={`px-6 py-3.5 ${isThemeLight ? 'bg-white border-slate-200' : 'bg-[#121418] border-[#22262E]'} border-b flex items-center justify-between`}>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="bg-[#F59E0B] text-black text-[10px] font-mono font-bold px-2 py-0.5 rounded tracking-wider uppercase shrink-0">Crew HUD</div>
+                        <h1 className={`text-sm font-bold truncate max-w-[300px] ${isThemeLight ? 'text-slate-900' : 'text-white'} uppercase tracking-wider font-mono`}>{program.title}</h1>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">STANDBY</span>
+                        <button onClick={() => setCurrentTheme(t => t === 'dark' ? 'light' : 'dark')} className="p-1.5 border rounded text-xs">
+                            {isThemeLight ? <Moon size={13} /> : <Sun size={13} />}
+                        </button>
+                    </div>
+                </header>
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl mb-4 text-amber-500">
+                        <Clock size={32} />
+                    </div>
+                    <h2 className="text-xl font-bold uppercase tracking-wide mb-2">Tactical Standby Mode</h2>
+                    <p className="text-xs text-slate-400 max-w-md mb-6 leading-relaxed">
+                        Event <span className="text-[#0EA5E9] font-bold">"{program.title}"</span> is connected. Cues and timing will appear automatically once rundown items are loaded in Studio.
+                    </p>
+                    <span className="px-3 py-1 rounded bg-[#181B22] border border-[#22262E] text-[10px] text-[#10B981] font-bold uppercase tracking-widest">
+                        ● Booth Sync Ready
+                    </span>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div 
             onDoubleClick={toggleFullscreen}
-            className={`min-h-screen ${
+            className={`min-h-screen lg:h-screen ${
                 isThemeLight ? 'bg-slate-50 text-slate-900' : 'bg-[#090A0C] text-white'
-            } overflow-hidden flex flex-col font-mono select-none relative transition-colors duration-300`}
+            } overflow-x-hidden lg:overflow-hidden flex flex-col font-mono select-none relative transition-colors duration-300`}
         >
             {/* Auto Fullscreen Floating Banner */}
             {showFsPrompt && !isFullscreen && (
@@ -585,20 +633,20 @@ export const CrewHUD: React.FC = () => {
             )}
 
             {/* Header / Meta */}
-            <header className={`px-6 py-3.5 ${
+            <header className={`px-4 sm:px-6 py-3 ${
                 isThemeLight ? 'bg-white border-slate-200' : 'bg-[#121418] border-[#22262E]'
-            } border-b flex items-center justify-between`}>
-                <div className="flex items-center gap-3">
-                    <div className="bg-[#F59E0B] text-black text-[10px] font-mono font-bold px-2 py-0.5 rounded tracking-wider uppercase">
+            } border-b flex items-center justify-between gap-3 shrink-0`}>
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                    <div className="bg-[#F59E0B] text-black text-[10px] font-mono font-bold px-2 py-0.5 rounded tracking-wider uppercase shrink-0">
                         Crew HUD
                     </div>
-                    <h1 className={`text-sm font-bold truncate max-w-[300px] ${
+                    <h1 className={`text-xs sm:text-sm font-bold truncate min-w-0 max-w-[240px] sm:max-w-[400px] ${
                         isThemeLight ? 'text-slate-900' : 'text-white'
                     } uppercase tracking-wider font-mono`}>
                         {program.title}
                     </h1>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                     <div className="flex items-center gap-2">
                         <span className={`w-2 h-2 rounded-full ${program.isTimerActive ? 'bg-[#10B981] animate-tally' : 'bg-[#6A7382]'}`} />
                         <span className={`text-[10px] font-bold ${
@@ -607,7 +655,7 @@ export const CrewHUD: React.FC = () => {
                             {program.isTimerActive ? 'ON AIR' : 'STANDBY'}
                         </span>
                     </div>
-                    <div className={`text-[10px] font-mono font-bold ${
+                    <div className={`hidden sm:block text-[10px] font-mono font-bold ${
                         isThemeLight ? 'text-slate-500' : 'text-[#8A93A4]'
                     } tracking-widest`}>
                         {new Date().toLocaleTimeString()}
@@ -643,7 +691,7 @@ export const CrewHUD: React.FC = () => {
 
             <main className={`flex-1 grid grid-cols-12 gap-px ${
                 isThemeLight ? 'bg-slate-200' : 'bg-[#22262E]'
-            } overflow-hidden`}>
+            } overflow-visible lg:overflow-hidden`}>
                 {/* Left: The "Now" Block */}
                 <div className={`col-span-12 lg:col-span-8 ${
                     isThemeLight ? 'bg-white border-slate-200' : 'bg-[#090A0C] border-[#22262E]'

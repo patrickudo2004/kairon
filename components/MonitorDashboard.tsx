@@ -3,7 +3,7 @@ import { Program, Organization } from '../types';
 import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle, Trash2, Zap, Activity, Crown, Copy, Check, QrCode, AppWindow, Moon, Sun, Cast, CheckCircle2, Sliders, Shield, Maximize } from 'lucide-react';
 import { useStageMessages } from '../hooks/useStageMessages';
 import { useScreenManagement } from '../hooks/useScreenManagement';
-import { getPublicPortalPath, getShareableDisplayUrl } from '../utils/url';
+import { getPublicPortalPath, getShareableDisplayUrl, resolveInternalAppUrl, primeProgramPreviewCache } from '../utils/url';
 import QRCode from 'react-qr-code';
 
 const LiveThumbnail: React.FC<{
@@ -34,11 +34,7 @@ const LiveThumbnail: React.FC<{
     const resolvedSrc = (() => {
         const querySep = path.includes('?') ? '&' : '?';
         const query = `${querySep}mode=thumbnail&theme=${theme}`;
-        if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
-            const clean = path.startsWith('/') ? path.slice(1) : path;
-            return `${window.location.pathname}#/${clean}${query}`;
-        }
-        return `${path}${query}`;
+        return resolveInternalAppUrl(`${path}${query}`);
     })();
 
     return (
@@ -83,11 +79,15 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
     const [isStrobe, setIsStrobe] = useState(false);
     const [copiedPath, setCopiedPath] = useState<string | null>(null);
     const [openQrCodes, setOpenQrCodes] = useState<Record<string, boolean>>({});
+    primeProgramPreviewCache(program);
+
     const [localThemes, setLocalThemes] = useState<Record<string, 'dark' | 'light' | 'ambient-yellow' | 'ambient-white'>>({
         stage: 'dark',
         tv: 'dark',
         public: 'dark',
-        prompter: 'dark'
+        prompter: 'dark',
+        crew: 'dark',
+        overlay: 'dark'
     });
     const [cueAutoDismiss, setCueAutoDismiss] = useState<number | 'sticky'>(30); // 15, 30, 60, sticky
     const autoDismissTimeoutRef = useRef<any>(null);
@@ -144,9 +144,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
         const left = (window.screen.width - width) / 2;
         const top = (window.screen.height - height) / 2;
         const targetName = `kairon_display_${tabId || 'window'}`;
-        const targetUrl = (typeof window !== 'undefined' && window.location.protocol === 'file:')
-            ? `${window.location.pathname}#/${path.startsWith('/') ? path.slice(1) : path}`
-            : path;
+        const targetUrl = resolveInternalAppUrl(path);
         window.open(
             targetUrl,
             targetName,
@@ -160,9 +158,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
         if (hasSecondaryScreen) {
             await openOnSecondaryScreen(fullPath, targetName);
         } else {
-            const targetUrl = (typeof window !== 'undefined' && window.location.protocol === 'file:')
-                ? `${window.location.pathname}#/${fullPath.startsWith('/') ? fullPath.slice(1) : fullPath}`
-                : fullPath;
+            const targetUrl = resolveInternalAppUrl(fullPath);
             const width = window.screen.availWidth || 1920;
             const height = window.screen.availHeight || 1080;
             window.open(
@@ -466,7 +462,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                         {!isLocked && (
                                             <div className="absolute inset-0 bg-transparent flex items-center justify-center backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button 
-                                                    onClick={() => window.open(opt.path, `kairon_display_${opt.tabId || 'feed'}`)}
+                                                    onClick={() => window.open(resolveInternalAppUrl(opt.path), `kairon_display_${opt.tabId || 'feed'}`)}
                                                     className="bg-white/95 dark:bg-[#121418]/95 border border-slate-300 dark:border-[#2D333F] text-slate-900 dark:text-white px-3 py-1.5 rounded text-xs font-mono font-semibold flex items-center gap-1.5 shadow-xl hover:bg-slate-100 dark:hover:bg-[#1E232B] transition-all"
                                                 >
                                                     <ExternalLink size={12} />
@@ -521,7 +517,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                         <span className="hidden sm:inline">Fullscreen</span>
                                     </button>
                                     <button
-                                        onClick={() => window.open(opt.path, `kairon_display_${opt.tabId || 'view'}`)}
+                                        onClick={() => window.open(resolveInternalAppUrl(opt.path), `kairon_display_${opt.tabId || 'view'}`)}
                                         disabled={isLocked}
                                         className="py-2 px-2.5 sm:px-3 bg-[#0EA5E9] hover:bg-[#0284C7] disabled:opacity-40 text-white rounded-md text-[11px] sm:text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 shrink-0"
                                         title="Open view in target tab"
