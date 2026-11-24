@@ -1,7 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { ensureCryptoRandomUUID } from './utils/uuid';
 import './index.css';
 import App from './App';
+
+ensureCryptoRandomUUID();
 
 // Forcibly unregister any lingering Service Workers from the previous PWA build
 if ('serviceWorker' in navigator) {

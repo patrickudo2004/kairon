@@ -277,4 +277,36 @@ test.describe('Public Website, Legal/GDPR Shield, Incognito Isolation & WCAG 2.1
     await expect(page.getByRole('button', { name: /Download My Data|Export.*JSON/i }).first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/Delete My Account|Delete Account/i).first()).toBeVisible({ timeout: 10000 });
   });
+
+  test('Non-HTTPS LAN Mobile/Tablet Compatibility: loads / and creates programs cleanly when crypto.randomUUID is unavailable', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (err) => errors.push(err.message));
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(() => {
+      try {
+        Object.defineProperty(window.crypto, 'randomUUID', {
+          value: undefined,
+          configurable: true,
+          writable: true,
+        });
+      } catch {}
+    });
+
+    // 1. Public Landing Page must render cleanly without ErrorBoundary
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Something interrupted Kairon Studio/i)).toHaveCount(0);
+
+    // 2. Booth Mode Create New + Add Session Slot must also work cleanly without crypto.randomUUID
+    await page.goto('/?testBypass=true');
+    await page.waitForLoadState('domcontentloaded');
+    await page.getByRole('button', { name: 'Create New' }).click();
+    await expect(page).toHaveURL(/\/editor/);
+    await page.getByText('Add Session Slot').click();
+    await expect(page.locator('input[placeholder="Session Title"]:visible').first()).toBeVisible();
+
+    expect(errors).toHaveLength(0);
+  });
 });

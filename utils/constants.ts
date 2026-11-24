@@ -1,7 +1,8 @@
 import { Program } from '../types';
+import { generateUUID } from './uuid';
 
 export const getInitialProgram = (organizationId?: string): Program => {
-    const uuid = crypto.randomUUID();
+    const uuid = generateUUID();
     return {
         id: `local-${uuid}`,
         slug: uuid,

@@ -1,4 +1,5 @@
 import { Slot, SlotType } from '../types';
+import { generateUUID } from './uuid';
 
 export interface ParsedRundownResult {
   title?: string;
@@ -734,7 +735,7 @@ function parseLineToSlot(line: string): Slot | null {
   }
 
   return {
-    id: crypto.randomUUID ? crypto.randomUUID() : `slot-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    id: generateUUID(),
     title,
     speaker,
     durationMinutes,

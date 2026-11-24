@@ -1,5 +1,6 @@
 import { Program, Slot } from '../types';
 import { detectSlotType } from './rundownParser';
+import { generateUUID } from './uuid';
 
 export interface KaironFileEnvelope {
   schema: 'kairon.rundown.v1';
@@ -42,7 +43,7 @@ export function serializeKaironFile(program: Program, organizationName: string =
       isPublic: program.isPublic ?? true,
       status: program.status || 'draft',
       slots: (program.slots || []).map((s) => ({
-        id: s.id || crypto.randomUUID(),
+        id: s.id || generateUUID(),
         title: s.title,
         speaker: s.speaker || '',
         durationMinutes: Number(s.durationMinutes) || 5,
@@ -76,7 +77,7 @@ export function parseKaironFile(rawContent: string): {
   }
 
   const normalizedSlots: Slot[] = rawProg.slots.map((s: any, idx: number) => ({
-    id: s.id || (crypto.randomUUID ? crypto.randomUUID() : `slot-${Date.now()}-${idx}`),
+    id: s.id || generateUUID(),
     title: String(s.title || `Slot ${idx + 1}`),
     speaker: String(s.speaker || ''),
     durationMinutes: Math.max(1, Number(s.durationMinutes) || 5),
@@ -87,7 +88,7 @@ export function parseKaironFile(rawContent: string): {
     actualDuration: typeof s.actualDuration === 'number' ? s.actualDuration : undefined,
   }));
 
-  const newUuid = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`;
+  const newUuid = generateUUID();
   const program: Program = {
     id: `local-${newUuid}`,
     slug: newUuid,
@@ -298,7 +299,7 @@ export function parseCsvToSlots(csvContent: string): Slot[] {
     const prompterText = cols[offset + 6] || undefined;
 
     slots.push({
-      id: crypto.randomUUID ? crypto.randomUUID() : `slot-${Date.now()}-${idx}`,
+      id: generateUUID(),
       title,
       speaker,
       durationMinutes,

@@ -11,6 +11,7 @@ import { api } from "./convex/_generated/api";
 import { convex } from "./services/convexClient";
 import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService, transformProgram } from './services/programService';
 import { getProfile, clearLocalUserSessionData } from './services/authService';
+import { generateUUID } from './utils/uuid';
 import { getMyOrganizations, checkPendingInvites, getInviteDetails } from './services/orgService';
 import { rebalanceSchedule } from './services/geminiService';
 import { getOfflineLedger, enqueueOfflineChange, clearOfflineLedger, cacheWorkspaceEntitlement, getCachedWorkspaceEntitlement } from './services/offlineSyncLedger';
@@ -2198,7 +2199,7 @@ const AppContent: React.FC = () => {
         const original = await getProgramById(id);
         if (!original) return;
 
-        const newUuid = crypto.randomUUID();
+        const newUuid = generateUUID();
         const newProgram: Program = {
           ...original,
           id: `local-${newUuid}`,
@@ -2214,7 +2215,7 @@ const AppContent: React.FC = () => {
           holdMessage: '',
           slots: original.slots.map(s => ({
             ...s,
-            id: crypto.randomUUID()
+            id: generateUUID()
           }))
         };
 
@@ -2267,7 +2268,7 @@ const AppContent: React.FC = () => {
           return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
         };
 
-        const newUuid = crypto.randomUUID();
+        const newUuid = generateUUID();
         const newProgram: Program = {
           ...original,
           id: `local-${newUuid}`,
@@ -2284,7 +2285,7 @@ const AppContent: React.FC = () => {
           holdMessage: '',
           slots: original.slots.map(s => ({
             ...s,
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             actualDuration: undefined
           }))
         };

@@ -6,6 +6,7 @@ import { generateProgramDraft } from '../services/geminiService';
 import { parseRundownText, PRODUCTION_TEMPLATES } from '../utils/rundownParser';
 import { EmbedSnippet } from './EmbedSnippet';
 import { getPublicPortalUrl, getPublicPortalPath } from '../utils/url';
+import { generateUUID } from '../utils/uuid';
 
 import {
   DndContext,
@@ -119,7 +120,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
     const slotToClone = program.slots[index];
     const newSlot: Slot = {
       ...slotToClone,
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       title: `${slotToClone.title} (Copy)`
     };
     const newSlots = [...program.slots];
@@ -130,7 +131,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
 
   const addSlot = () => {
     const newSlot: Slot = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       title: 'New Session Item',
       speaker: '',
       durationMinutes: 15,
@@ -183,7 +184,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
     if (!tmpl) return;
     const newSlots: Slot[] = tmpl.slots.map(s => ({
       ...s,
-      id: crypto.randomUUID ? crypto.randomUUID() : `slot-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`
+      id: generateUUID()
     }));
 
     if (program.slots.length > 0) {

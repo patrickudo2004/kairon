@@ -2,6 +2,7 @@
 import { convex } from './convexClient';
 import { api } from '../convex/_generated/api';
 import { Program, Slot } from '../types';
+import { generateUUID } from '../utils/uuid';
 import { readLocalFolderPrograms, saveProgramToLocalFolder, deleteProgramFromLocalFolder, getActiveLocalFolder, isElectronAvailable } from './localFolderService';
 
 const isTestBypass = () => {
@@ -92,7 +93,7 @@ export const createProgram = async (program: Program): Promise<Program> => {
         return program;
     }
     if (isTestBypass()) {
-        const id = program.id?.startsWith('local-') ? program.id : `local-${crypto.randomUUID()}`;
+        const id = program.id?.startsWith('local-') ? program.id : `local-${generateUUID()}`;
         const list: Program[] = safeParseList(localStorage.getItem('test_programs'));
         const cleanId = id.replace(/^local-/, '');
         const existing = list.find((p: any) => p.id === id || p.id?.replace(/^local-/, '') === cleanId || (p.slug && p.slug === cleanId));
