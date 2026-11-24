@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { seedTestWorkspace } from './testFixtures';
 
 test.describe('Flight Bridge & Recall System End-to-End User Workflows', () => {
+  test.beforeEach(async ({ context }) => {
+    await seedTestWorkspace(context);
+  });
 
   test('should render Return to App and Snap buttons in Standalone Flight Bridge (/bridge) and handle clicks', async ({ page }) => {
     // Inject mock electron API to verify IPC handlers

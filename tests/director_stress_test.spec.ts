@@ -1,13 +1,15 @@
 import { test, expect } from '@playwright/test';
 import { PRODUCTION_TEMPLATES } from '../utils/rundownParser';
+import { seedTestWorkspace } from './testFixtures';
 
 test.describe('Broadcast Operations Director Stress & Format Test Suite', () => {
 
-  test('Format 1: Church Service - Winners Chapel Sunday Celebration Service (10 slots)', async ({ page }) => {
+  test('Format 1: Worship Service - Sunday Celebration Service Fixture (10 slots)', async ({ page }) => {
+    await seedTestWorkspace(page);
     await page.goto('/?testBypass=true');
     await page.waitForLoadState('domcontentloaded');
 
-    // Click on the pre-seeded Sunday Celebration Service
+    // Click on the test-seeded Sunday Celebration Service
     const sundayCard = page.locator('text=Sunday Celebration Service').first();
     await expect(sundayCard).toBeVisible({ timeout: 10000 });
     await sundayCard.click();
@@ -32,7 +34,8 @@ test.describe('Broadcast Operations Director Stress & Format Test Suite', () => 
     await expect(page.locator('input[value="Prophetic Blessings & Closing"]').first()).toBeVisible();
   });
 
-  test('Format 2: Church Service - Midweek Communion Service (11 slots)', async ({ page }) => {
+  test('Format 2: Worship Service - Midweek Communion Service Fixture (11 slots)', async ({ page }) => {
+    await seedTestWorkspace(page);
     await page.goto('/?testBypass=true');
     await page.waitForLoadState('domcontentloaded');
 

@@ -1,8 +1,6 @@
 import { useQuery as useQueryReal, useMutation as useMutationReal, useConvexAuth as useConvexAuthReal, useConvex as useConvexReal } from 'convex/react';
 import { useState, useEffect } from 'react';
 
-import { getDefaultSeedPrograms } from '../utils/seedData';
-
 function safeJsonParse<T>(raw: string | null, fallback: T): T {
     if (!raw) return fallback;
     try {
@@ -42,18 +40,10 @@ export const getLocalPrograms = () => {
         const local = localStorage.getItem('kairon_offline_programs') || (isTestBypass() ? localStorage.getItem('test_programs') : null);
         if (local) {
             const parsed = JSON.parse(local);
-            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            if (Array.isArray(parsed)) return parsed;
         }
     } catch {
-        // Fallback to seeding
-    }
-    if (isTestBypass()) {
-        const seed = getDefaultSeedPrograms();
-        try {
-            localStorage.setItem('kairon_offline_programs', JSON.stringify(seed));
-            localStorage.setItem('test_programs', JSON.stringify(seed));
-        } catch {}
-        return seed;
+        // Ignore corrupt local storage
     }
     return [];
 };
@@ -158,14 +148,14 @@ export const useQuery = (query: any, args: any) => {
     }
     if (path.includes('getOrganizationById') || path.includes('getMyOrganizations')) {
         const cachedBranding = localStorage.getItem('test_org_branding');
-        const branding = cachedBranding ? JSON.parse(cachedBranding) : { logoUrl: "", brandColor: "#0ea5e9", name: "Winners Chapel Manchester" };
+        const branding = cachedBranding ? JSON.parse(cachedBranding) : { logoUrl: "", brandColor: "#0ea5e9", name: "Local Studio Workspace" };
         const org = {
             id: "local-workspace",
-            name: branding.name || "Winners Chapel Manchester",
-            slug: "winners-chapel-manchester",
+            name: branding.name || "Local Studio Workspace",
+            slug: "local-workspace",
             logoUrl: branding.logoUrl,
             brandColor: branding.brandColor,
-            subscriptionStatus: "enterprise",
+            subscriptionStatus: "pro",
             createdBy: "local-guest-user",
             createdAt: new Date().toISOString()
         };

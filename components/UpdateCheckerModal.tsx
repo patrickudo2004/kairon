@@ -72,6 +72,15 @@ export const UpdateCheckerModal: React.FC<UpdateCheckerModalProps> = ({
     } catch {}
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const currentVersion = result?.currentVersion || CURRENT_APP_VERSION;
@@ -87,7 +96,12 @@ export const UpdateCheckerModal: React.FC<UpdateCheckerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="update-checker-modal-title"
+      className="fixed inset-0 z-[250] flex items-center justify-center p-4"
+    >
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-[#090A0C]/80 backdrop-blur-md animate-in fade-in duration-200" 
@@ -100,16 +114,18 @@ export const UpdateCheckerModal: React.FC<UpdateCheckerModalProps> = ({
         {/* Header Bar */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#22262E] bg-[#181B22]/50">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#0EA5E9]/15 border border-[#0EA5E9]/30 flex items-center justify-center text-[#0EA5E9]">
+            <div className="w-8 h-8 rounded-xl bg-[#0EA5E9]/15 border border-[#0EA5E9]/30 flex items-center justify-center text-[#0EA5E9]" aria-hidden="true">
               <Sparkles size={16} />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white tracking-wide">Kairon Studio Updates</h3>
+              <h3 id="update-checker-modal-title" className="text-sm font-bold text-white tracking-wide">Kairon Studio Updates</h3>
               <p className="text-[11px] text-[#8A93A4] font-mono">Current build: v{currentVersion}</p>
             </div>
           </div>
 
           <button
+            type="button"
+            aria-label="Close updates dialog"
             onClick={onClose}
             className="p-1.5 rounded-lg text-[#8A93A4] hover:text-white hover:bg-[#22262E] transition-colors"
             title="Close"

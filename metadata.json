@@ -1,7 +1,5 @@
 {
-  "name": "SynchroConf",
-  "description": "A real-time conference time management application for coordinators and speakers, featuring AI-powered schedule drafting and live timing analytics.",
-  "requestFramePermissions": [
-    "microphone"
-  ]
+  "name": "Kairon Studio",
+  "description": "Precision broadcast stage timer, live rundown engine, and synchronized multi-screen production studio for conferences, weddings, broadcasts, ceremonies, and houses of worship.",
+  "requestFramePermissions": []
 }

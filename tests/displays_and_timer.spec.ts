@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { seedTestWorkspace } from './testFixtures';
 
 test.describe('Displays & Live Timer Verification', () => {
+  test.beforeEach(async ({ context }) => {
+    await seedTestWorkspace(context);
+  });
 
   test('StageDisplay should cleanly transition between Standby and Live without hooks error', async ({ page }) => {
     const errorLogs: string[] = [];

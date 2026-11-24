@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { resolveProgram, checkPermissions } from "./programs";
 
 export const getLatestMessage = query({
@@ -8,6 +9,20 @@ export const getLatestMessage = query({
         if (!args.programId) return null;
 
         try {
+            const program = await resolveProgram(ctx, args.programId);
+            if (program && program.isPublic === false) {
+                const userId = await getAuthUserId(ctx);
+                if (!userId) return null;
+                const membership = await ctx.db
+                    .query("members")
+                    .withIndex("by_org", (q) => q.eq("organizationId", program.organizationId))
+                    .filter((q) => q.eq(q.field("userId"), String(userId)))
+                    .first();
+                const org = await ctx.db.get(program.organizationId as any);
+                const isOwner = Boolean(org && String((org as any).createdBy) === String(userId));
+                if (!membership && !isOwner) return null;
+            }
+
             const now = Date.now();
             const message = await ctx.db
                 .query("stageMessages")
@@ -16,12 +31,8 @@ export const getLatestMessage = query({
                 .filter((q) => q.gt(q.field("expiresAt"), now))
                 .first();
 
-            if (message) {
-                console.log(`[getLatestMessage] Found active message for ${args.programId}: ${message.text}`);
-            }
             return message;
-        } catch (err) {
-            console.error(`[stageMessages:getLatestMessage] Error for program ${args.programId}:`, err);
+        } catch {
             return null;
         }
     },

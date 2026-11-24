@@ -303,13 +303,13 @@ export const DesktopAuthApproval: React.FC = () => {
 
   // ── Main Card (Signed In vs Sign-In Required) ──
   return (
-    <div className="min-h-screen bg-[#090A0C] flex flex-col items-center justify-center p-6 font-sans">
+    <main id="main-content" className="min-h-screen bg-[#090A0C] flex flex-col items-center justify-center p-6 font-sans">
 
       {/* Brand Header */}
       <div className="inline-flex items-center gap-3 mb-8">
         <img
-          src="/kairon-logo.png"
-          alt="Kairon Studio"
+          src="./kairon-logo.png"
+          alt="Kairon Studio logo"
           className="w-10 h-10 rounded-xl border border-[#22262E] shadow-md shadow-[#0EA5E9]/20 object-contain"
         />
         <div className="text-left">
@@ -470,13 +470,14 @@ export const DesktopAuthApproval: React.FC = () => {
         )}
 
         <button
+          type="button"
           onClick={() => navigate('/')}
           className="text-[#8A93A4] hover:text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors"
         >
           Cancel
         </button>
       </div>
-    </div>
+    </main>
   );
 };
 

@@ -273,9 +273,11 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
 
             {/* Controls Container */}
             {!isThumbnail && (
-                <div className="absolute top-3 right-3 z-50 flex items-center gap-2 opacity-20 hover:opacity-100 transition-opacity p-2 rounded">
+                <div className="absolute top-3 right-3 z-50 flex items-center gap-2 opacity-20 hover:opacity-100 focus-within:opacity-100 transition-opacity p-2 rounded">
                     <button
+                        type="button"
                         onClick={cycleTheme}
+                        aria-label={`Cycle stage contrast theme (current: ${currentTheme})`}
                         className={`p-2 sm:p-2.5 rounded border transition-all text-xs font-mono uppercase font-bold flex items-center gap-1.5 ${
                             isThemeLight 
                                 ? 'bg-slate-100 border-slate-300 text-slate-700 hover:text-black' 
@@ -287,11 +289,13 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                         }`}
                         title={`Theme: ${currentTheme.toUpperCase()} (Click to cycle)`}
                     >
-                        {isThemeLight ? <Moon size={16} /> : <Sun size={16} />}
+                        {isThemeLight ? <Moon size={16} aria-hidden="true" /> : <Sun size={16} aria-hidden="true" />}
                         <span className="hidden sm:inline text-[10px]">{currentTheme === 'ambient-yellow' ? 'Amb-Yel' : currentTheme === 'ambient-white' ? 'Amb-Wht' : currentTheme}</span>
                     </button>
                     <button
+                        type="button"
                         onClick={toggleFullscreen}
+                        aria-label={isFullscreen ? "Exit fullscreen stage display" : "Enter fullscreen stage display"}
                         className={`p-2 sm:p-2.5 rounded border transition-all ${
                             isThemeLight 
                                 ? 'bg-slate-100 border-slate-300 text-slate-700 hover:text-black' 
@@ -299,7 +303,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                         }`}
                         title="Toggle Fullscreen"
                     >
-                        {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+                        {isFullscreen ? <Minimize size={16} aria-hidden="true" /> : <Maximize size={16} aria-hidden="true" />}
                     </button>
                 </div>
             )}
@@ -369,7 +373,9 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
 
             {/* Prompt Stage Message Overlay (Smooth Blooming Animation in Center Stage) */}
             {promptMessage && !promptMessage.isStrobe && (
-                <div 
+                <div
+                    role="status"
+                    aria-live="polite"
                     className="absolute inset-x-0 top-[52%] z-40 flex justify-center px-4 sm:px-8 pointer-events-none"
                     style={{
                         opacity: isVisible ? 1 : 0,
@@ -382,7 +388,7 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                             ? 'bg-white/98 border-[#10B981] shadow-2xl text-slate-950' 
                             : 'bg-[#121418]/95 border-[#10B981] shadow-[0_0_60px_rgba(16,185,129,0.35)] text-white'
                     } border-2 rounded-2xl px-6 sm:px-12 py-4 sm:py-7 max-w-4xl w-full mx-auto flex items-center justify-center gap-3 sm:gap-4 backdrop-blur-xl pointer-events-auto`}>
-                        <span className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-[#10B981] animate-ping shrink-0" />
+                        <span className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-[#10B981] animate-ping shrink-0" aria-hidden="true" />
                         <h2 className="text-xl sm:text-3xl md:text-5xl font-mono font-black uppercase text-[#10B981] tracking-tight text-center leading-tight drop-shadow-sm">
                             {promptMessage.text}
                         </h2>
@@ -390,22 +396,32 @@ const StageDisplay: React.FC<StageDisplayProps> = ({
                 </div>
             )}
 
-            {/* Strobe Emergency Message Overlay */}
+            {/* WCAG 2.3.1 Safe Emergency Alert Overlay (<= 0.85Hz gentle pulse, static under prefers-reduced-motion) */}
             {isVisible && promptMessage && promptMessage.isStrobe && (
                 <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center p-8"
+                    role="alert"
+                    aria-live="assertive"
+                    data-testid="stage-emergency-alert"
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-8 kairon-safe-emergency"
                     style={{
-                        animation: 'strobe 0.2s steps(2, start) infinite',
-                        backgroundColor: '#EF4444'
+                        animation: 'kaironSafeEmergencyPulse 1.4s ease-in-out infinite',
+                        backgroundColor: '#991B1B'
                     }}
                 >
                     <style>{`
-                        @keyframes strobe {
-                            0% { opacity: 1; background-color: #EF4444; }
-                            50% { opacity: 0.85; background-color: #991B1B; }
+                        @keyframes kaironSafeEmergencyPulse {
+                            0%, 100% { background-color: #991B1B; box-shadow: inset 0 0 0 12px #FCA5A5; }
+                            50% { background-color: #B91C1C; box-shadow: inset 0 0 0 12px #FFFFFF; }
+                        }
+                        @media (prefers-reduced-motion: reduce) {
+                            .kairon-safe-emergency {
+                                animation: none !important;
+                                background-color: #991B1B !important;
+                                box-shadow: inset 0 0 0 12px #FFFFFF !important;
+                            }
                         }
                     `}</style>
-                    <h2 className="text-[10vw] font-mono font-black uppercase text-center text-white tracking-tight drop-shadow-2xl">
+                    <h2 className="text-[9vw] font-mono font-black uppercase text-center text-white tracking-tight drop-shadow-2xl">
                         {promptMessage.text}
                     </h2>
                 </div>

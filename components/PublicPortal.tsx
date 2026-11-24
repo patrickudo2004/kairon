@@ -89,24 +89,18 @@ export const PublicPortal: React.FC = () => {
         };
     }, [toggleTheme, isDarkMode, isThumbnail]);
 
-    // Convex Reactive Query
+    // Convex Reactive Query (strictly via sanitized public slug projection)
     const programData = useQuery(
         api.programs.getProgramBySlug,
         targetId ? { slug: targetId } : "skip"
     );
 
-    // If slug is not found as a slug, it might be an ID
-    const programByIdData = useQuery(
-        api.programs.getProgramById,
-        targetId ? { id: targetId as any } : "skip"
-    );
-
     const liveProgramData = useQuery(
         api.programs.getLiveProgram,
-        {} // Always poll live channel as fallback
+        !targetId ? {} : "skip"
     );
 
-    const programRaw = programData || programByIdData || (!targetId || (programData === null && programByIdData === null) ? liveProgramData : undefined);
+    const programRaw = programData || (!targetId ? liveProgramData : undefined);
 
     const readLocalFallback = React.useCallback((): Program | null => {
         try {
@@ -283,7 +277,7 @@ export const PublicPortal: React.FC = () => {
         }
     }, [program?.id, program?.isTimerActive, program?.currentSlotIndex]);
 
-    const loading = !program && targetId && (programData === undefined && programByIdData === undefined && liveProgramData === undefined) && !localProgram;
+    const loading = !program && targetId && (programData === undefined && liveProgramData === undefined) && !localProgram;
     const networkError = false;
 
     if (loading) {

@@ -25,7 +25,11 @@ export const useWakeLock = (enabled: boolean = true) => {
                 });
             }
         } catch (err: any) {
-            console.error(`Failed to acquire Wake Lock: ${err.name}, ${err.message}`);
+            if (err?.name === 'NotAllowedError') {
+                console.debug(`Screen Wake Lock unavailable in current browsing context: ${err.message}`);
+            } else {
+                console.warn(`Screen Wake Lock unavailable: ${err?.name || 'Error'}, ${err?.message || ''}`);
+            }
         }
     }, []);
 
@@ -35,7 +39,7 @@ export const useWakeLock = (enabled: boolean = true) => {
                 await wakeLockRef.current.release();
                 wakeLockRef.current = null;
             } catch (err: any) {
-                console.error(`Failed to release Wake Lock: ${err.name}, ${err.message}`);
+                console.debug(`Screen Wake Lock release notice: ${err?.name || 'Error'}`);
             }
         }
     }, []);

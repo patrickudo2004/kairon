@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { Building, Rocket, ArrowRight, Star, ShieldCheck, Zap, X } from 'lucide-react';
 import { createOrganization } from '../services/orgService';
+import { clearLocalUserSessionData } from '../services/authService';
 import { Organization } from '../types';
 
 interface OnboardingOverlayProps {
@@ -16,6 +18,14 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ userId, on
     const [orgName, setOrgName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose?.();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [onClose]);
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,6 +46,9 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ userId, on
 
     return (
         <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="onboarding-dialog-title"
             className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4"
             onClick={() => onClose?.()}
         >
@@ -45,11 +58,13 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ userId, on
             >
                 {onClose && (
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="absolute top-6 right-6 z-20 p-2 rounded-full bg-slate-100/10 hover:bg-slate-100/20 text-white/50 hover:text-white transition-all backdrop-blur-md"
+                        aria-label="Close workspace setup dialog"
+                        className="absolute top-6 right-6 z-20 p-2 rounded-full bg-slate-100/10 hover:bg-slate-100/20 text-white/70 hover:text-white transition-all backdrop-blur-md"
                         title="Close"
                     >
-                        <X size={20} />
+                        <X size={20} aria-hidden="true" />
                     </button>
                 )}
 
@@ -60,9 +75,9 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ userId, on
 
                     <div className="relative z-10">
                         <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mb-8 backdrop-blur-sm">
-                            <Rocket size={32} className="text-white" />
+                            <Rocket size={32} className="text-white" aria-hidden="true" />
                         </div>
-                        <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-4 leading-tight">
+                        <h2 id="onboarding-dialog-title" className="text-3xl md:text-4xl font-black tracking-tight mb-4 leading-tight">
                             Welcome to the <span className="text-indigo-200">Kairon</span> Era.
                         </h2>
                         <p className="text-indigo-100 text-lg mb-8 leading-relaxed opacity-90">
@@ -98,7 +113,14 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ userId, on
                         </div>
                         <p className="text-sm font-medium text-white/50">{userEmail}</p>
                         <button
-                            onClick={() => signOut()}
+                            type="button"
+                            onClick={async () => {
+                                try {
+                                    await signOut();
+                                } finally {
+                                    clearLocalUserSessionData();
+                                }
+                            }}
                             className="mt-4 text-xs font-bold text-white/40 hover:text-white underline"
                         >
                             Not you? Sign out
@@ -120,17 +142,18 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ userId, on
 
                         <form onSubmit={handleCreate} className="space-y-6">
                             <div>
-                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">Organization Name</label>
+                                <label htmlFor="onboarding-org-name" className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest mb-2 px-1">Organization / Team Name</label>
                                 <input
+                                    id="onboarding-org-name"
                                     autoFocus
                                     required
                                     type="text"
-                                    placeholder="e.g. Acme Production Hub"
+                                    placeholder="e.g. Summit Production Team"
                                     value={orgName}
                                     onChange={(e) => setOrgName(e.target.value)}
                                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-6 py-4 text-lg text-slate-900 dark:text-white focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-inner"
                                 />
-                                {error && <p className="mt-2 text-sm text-rose-500 font-medium px-1">{error}</p>}
+                                {error && <p role="alert" className="mt-2 text-sm text-rose-600 dark:text-rose-400 font-medium px-1">{error}</p>}
                             </div>
 
                             <button
@@ -143,15 +166,18 @@ export const OnboardingOverlay: React.FC<OnboardingOverlayProps> = ({ userId, on
                                 ) : (
                                     <>
                                         Create Workspace
-                                        <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                                        <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" aria-hidden="true" />
                                     </>
                                 )}
                             </button>
                         </form>
 
-                        <p className="mt-8 text-center text-xs text-slate-400 leading-relaxed">
-                            By creating a workspace, you agree to our Terms of Service.<br />
-                            You can change this name and add branding later in Settings.
+                        <p className="mt-8 text-center text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                            By creating a workspace, you agree to our{' '}
+                            <Link to="/terms" className="underline hover:text-sky-600 dark:hover:text-sky-400 font-semibold">Terms of Service</Link>
+                            {' '}and{' '}
+                            <Link to="/privacy" className="underline hover:text-sky-600 dark:hover:text-sky-400 font-semibold">Privacy Policy</Link>.<br />
+                            Free during Open Beta — you can change this name and branding anytime.
                         </p>
                     </div>
                 </div>

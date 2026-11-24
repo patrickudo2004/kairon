@@ -88,6 +88,9 @@ export const BroadcastIntegrationsModal: React.FC<BroadcastIntegrationsModalProp
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="integrations-modal-title"
       className="fixed inset-0 z-[120] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 font-sans animate-in fade-in duration-150"
       onClick={onClose}
     >
@@ -98,23 +101,25 @@ export const BroadcastIntegrationsModal: React.FC<BroadcastIntegrationsModalProp
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-200 dark:border-[#22262E] bg-slate-50 dark:bg-[#090A0C] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-[#0EA5E9]/10 border border-[#0EA5E9]/30 flex items-center justify-center text-[#0EA5E9]">
+            <div className="w-9 h-9 rounded-lg bg-[#0EA5E9]/10 border border-[#0EA5E9]/30 flex items-center justify-center text-[#0EA5E9]" aria-hidden="true">
               <Layers size={18} />
             </div>
             <div>
-              <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-                Broadcast Hardware & Software Bridges
+              <h2 id="integrations-modal-title" className="text-sm font-mono font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                Broadcast Hardware &amp; Software Bridges
               </h2>
               <p className="text-xs text-slate-500 dark:text-[#8A93A4]">
-                Connect Kairon to OBS Studio, vMix, Blackmagic ATEM, ProPresenter 7, NDI & Elgato Stream Deck
+                Connect Kairon to OBS Studio, vMix, Blackmagic ATEM, ProPresenter 7, NDI &amp; Elgato Stream Deck
               </p>
             </div>
           </div>
           <button
+            type="button"
+            aria-label="Close broadcast integrations dialog"
             onClick={onClose}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#181B22] transition-colors"
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 

@@ -18,15 +18,15 @@ const isTestBypass = () => {
 export const getMyOrganizations = async (userId: string): Promise<Organization[]> => {
     if (isTestBypass()) {
         const cached = localStorage.getItem('test_org_branding');
-        const branding = cached ? JSON.parse(cached) : { logoUrl: "", brandColor: "#4f46e5" };
+        const branding = cached ? JSON.parse(cached) : { logoUrl: "", brandColor: "#0ea5e9", name: "Local Studio Workspace" };
         return [{
-            id: "test-org-id",
-            name: "Test Organization",
-            slug: "test-org",
+            id: "local-workspace",
+            name: branding.name || "Local Studio Workspace",
+            slug: "local-workspace",
             logoUrl: branding.logoUrl,
             brandColor: branding.brandColor,
             subscriptionStatus: "pro",
-            createdBy: "test-user-id",
+            createdBy: "local-guest-user",
             createdAt: new Date().toISOString()
         }];
     }
@@ -38,15 +38,15 @@ export const getMyOrganizations = async (userId: string): Promise<Organization[]
 export const getOrganizationById = async (id: string): Promise<Organization | null> => {
     if (isTestBypass()) {
         const cached = localStorage.getItem('test_org_branding');
-        const branding = cached ? JSON.parse(cached) : { logoUrl: "", brandColor: "#4f46e5" };
+        const branding = cached ? JSON.parse(cached) : { logoUrl: "", brandColor: "#0ea5e9", name: "Local Studio Workspace" };
         return {
-            id: "test-org-id",
-            name: "Test Organization",
-            slug: "test-org",
+            id: "local-workspace",
+            name: branding.name || "Local Studio Workspace",
+            slug: "local-workspace",
             logoUrl: branding.logoUrl,
             brandColor: branding.brandColor,
             subscriptionStatus: "pro",
-            createdBy: "test-user-id",
+            createdBy: "local-guest-user",
             createdAt: new Date().toISOString()
         };
     }
