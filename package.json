@@ -76,6 +76,7 @@
     },
     "files": [
       "dist/**/*",
+      "!dist/media/**",
       "electron/**/*",
       "package.json"
     ],

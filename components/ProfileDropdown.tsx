@@ -3,7 +3,7 @@ import { useAuthActions } from '@convex-dev/auth/react';
 import { User, LogOut, Settings, Check, UserCircle, Sun, Moon } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { Profile } from '../types';
-import { updateProfile } from '../services/authService';
+import { updateProfile, clearLocalUserSessionData } from '../services/authService';
 import { Link } from 'react-router-dom';
 
 interface ProfileDropdownProps {
@@ -47,24 +47,23 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
 
     const handleSignOut = async () => {
         try {
-            if (typeof window !== 'undefined') {
-                localStorage.removeItem('kairon_booth_mode');
-                localStorage.removeItem('testBypass');
-                window.dispatchEvent(new Event('kairon_booth_mode_changed'));
-            }
-        } catch {}
-
-        try {
             await signOut();
         } catch (err) {
             console.warn("Convex sign out notice:", err);
+        } finally {
+            clearLocalUserSessionData();
         }
 
-        if (onSignOutProp) onSignOutProp();
         if (onSignOut) onSignOut();
 
         if (typeof window !== 'undefined') {
-            window.location.href = '/';
+            const isElectronOrFile = Boolean((window as any).electron?.isElectron || window.location.protocol === 'file:');
+            if (isElectronOrFile) {
+                window.location.hash = '#/';
+                window.location.reload();
+            } else {
+                window.location.href = '/';
+            }
         }
     };
 
@@ -93,7 +92,11 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
     return (
         <div className="relative" ref={dropdownRef}>
             <button
+                type="button"
                 onClick={() => setIsOpen(!isOpen)}
+                aria-label={`Account menu for ${displayName}`}
+                aria-expanded={isOpen}
+                aria-haspopup="menu"
                 className={`flex items-center gap-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all group overflow-hidden ${isCollapsed ? 'w-12 h-12 justify-center p-0' : 'w-full p-2 pr-4 h-14'
                     }`}
             >
@@ -147,9 +150,10 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
                             </button>
                         ) : (
                             <form onSubmit={handleUpdateName} className="px-4 py-3 animate-in fade-in duration-300">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Display Name</label>
+                                <label htmlFor="profile-dropdown-name" className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-2">Display Name</label>
                                 <div className="flex gap-2">
                                     <input
+                                        id="profile-dropdown-name"
                                         autoFocus
                                         type="text"
                                         value={newName}
@@ -159,9 +163,10 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({
                                     <button
                                         disabled={isSaving}
                                         type="submit"
+                                        aria-label="Save display name"
                                         className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors disabled:opacity-50"
                                     >
-                                        {isSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check size={18} />}
+                                        {isSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check size={18} aria-hidden="true" />}
                                     </button>
                                 </div>
                             </form>

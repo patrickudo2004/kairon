@@ -593,23 +593,28 @@ export const CrewHUD: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">STANDBY</span>
-                        <button onClick={() => setCurrentTheme(t => t === 'dark' ? 'light' : 'dark')} className="p-1.5 border rounded text-xs">
-                            {isThemeLight ? <Moon size={13} /> : <Sun size={13} />}
+                        <button
+                            type="button"
+                            aria-label={isThemeLight ? "Switch Crew HUD to dark theme" : "Switch Crew HUD to light theme"}
+                            onClick={() => setCurrentTheme(t => t === 'dark' ? 'light' : 'dark')}
+                            className="p-1.5 border rounded text-xs"
+                        >
+                            {isThemeLight ? <Moon size={13} aria-hidden="true" /> : <Sun size={13} aria-hidden="true" />}
                         </button>
                     </div>
                 </header>
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                <main className="flex-1 flex flex-col items-center justify-center p-8 text-center">
                     <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl mb-4 text-amber-500">
-                        <Clock size={32} />
+                        <Clock size={32} aria-hidden="true" />
                     </div>
                     <h2 className="text-xl font-bold uppercase tracking-wide mb-2">Tactical Standby Mode</h2>
                     <p className="text-xs text-slate-400 max-w-md mb-6 leading-relaxed">
-                        Event <span className="text-[#0EA5E9] font-bold">"{program.title}"</span> is connected. Cues and timing will appear automatically once rundown items are loaded in Studio.
+                        Event <span className="text-[#0EA5E9] font-bold">&quot;{program.title}&quot;</span> is connected. Cues and timing will appear automatically once rundown items are loaded in Studio.
                     </p>
                     <span className="px-3 py-1 rounded bg-[#181B22] border border-[#22262E] text-[10px] text-[#10B981] font-bold uppercase tracking-widest">
                         ● Booth Sync Ready
                     </span>
-                </div>
+                </main>
             </div>
         );
     }
@@ -899,14 +904,14 @@ export const CrewHUD: React.FC = () => {
                                                         : 'bg-[#121418] text-[#8A93A4] hover:text-white'
                                             }`}
                                         >
-                                            {role === 'speaker' ? 'Pastor' : role === 'lighting' ? 'Lights' : role}
+                                            {role === 'speaker' ? 'Speaker' : role === 'lighting' ? 'Lights' : role}
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
                             {/* Messages stream */}
-                            <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono">
+                            <div role="log" aria-live="polite" aria-label="Production crew comms" className="flex-1 overflow-y-auto p-4 space-y-3 font-mono">
                                 {allMessages.length === 0 ? (
                                     <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 opacity-60">
                                         <MessageSquare size={32} className="mb-2" />

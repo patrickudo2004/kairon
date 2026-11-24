@@ -162,7 +162,7 @@ export async function saveKaironFileToDisk(
  */
 export async function autoArchiveToLocalWorkspace(
   program: Program,
-  organizationName: string = 'Winners Chapel Manchester'
+  organizationName: string = 'Kairon Workspace'
 ): Promise<string | null> {
   const electronApi = typeof window !== 'undefined' ? (window as any).electron : null;
   if (!electronApi?.isElectron || typeof electronApi.autoArchiveKaironFile !== 'function') {

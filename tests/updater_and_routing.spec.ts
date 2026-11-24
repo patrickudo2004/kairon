@@ -14,7 +14,7 @@ test.describe('Routing & In-App Auto-Update E2E Workflows', () => {
 
     // Verify Zone B center primary canvas is NOT blank
     await expect(page.getByRole('heading', { name: 'My Programs' })).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('text=Sunday Celebration Service').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create New' })).toBeVisible();
   });
 
   test('should redirect unknown or disk file paths to dashboard via catch-all wildcard route', async ({ page }) => {

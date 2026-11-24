@@ -100,7 +100,12 @@ const HomeWrapper: React.FC<HomeWrapperProps> = ({
                 programs={transformedPrograms}
                 activeProgramId={activeProgramId}
                 activeSessions={activeSessions}
-                onSelectProgram={(p, s) => { loadProgram(p); if (s !== undefined) onPlay(p, s); }}
+                onSelectProgram={(p, s) => {
+                    loadProgram(p);
+                    if (s !== undefined || p.status === 'live') {
+                        navigate(`/live?id=${p.id}`);
+                    }
+                }}
                 onViewAnalytics={(id) => navigate(`/analytics/${id}`)}
                 onStopLive={(id) => setConfirmStopId(id)}
                 onCreateNew={() => { createProgram(new Date().toISOString().split('T')[0]); }}

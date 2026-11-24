@@ -2,14 +2,15 @@
 import { convex } from './convexClient';
 import { api } from '../convex/_generated/api';
 import { Program, Slot } from '../types';
-import { getDefaultSeedPrograms } from '../utils/seedData';
 import { readLocalFolderPrograms, saveProgramToLocalFolder, deleteProgramFromLocalFolder, getActiveLocalFolder, isElectronAvailable } from './localFolderService';
 
 const isTestBypass = () => {
     try {
         return typeof window !== 'undefined' && (
-            window.location.search.includes('testBypass=true') || 
-            localStorage.getItem('testBypass') === 'true'
+            window.location.search.includes('testBypass=true') ||
+            sessionStorage.getItem('testBypass') === 'true' ||
+            localStorage.getItem('testBypass') === 'true' ||
+            localStorage.getItem('kairon_booth_mode') === 'true'
         );
     } catch {
         return false;
@@ -28,17 +29,7 @@ const safeParseList = (raw: string | null): Program[] => {
 
 const getLocalStoredPrograms = (): Program[] => {
     const local = typeof window !== 'undefined' ? (localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs')) : null;
-    const list = safeParseList(local);
-    if (list.length > 0) return list;
-    if (isTestBypass()) {
-        const seed = getDefaultSeedPrograms();
-        try {
-            localStorage.setItem('kairon_offline_programs', JSON.stringify(seed));
-            localStorage.setItem('test_programs', JSON.stringify(seed));
-        } catch {}
-        return seed;
-    }
-    return [];
+    return safeParseList(local);
 };
 
 const updateTestPrograms = (programs: Program[] | null) => {

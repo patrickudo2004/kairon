@@ -359,10 +359,10 @@ const ServiceReportPDF: React.FC<ServiceReportPDFProps> = ({ program, stats, log
             <Text style={styles.insightTitle}>Production Insight</Text>
             <Text style={styles.insightText}>
               {stats.totalVariance > 5
-                ? `Service ran ${stats.totalVariance}m past scheduled allocation. Pacing in earlier segments exceeded target windows. Autopilot rebalancing or buffer allocation can help protect hard-stop dismissals.`
+                ? `Event ran ${stats.totalVariance}m past scheduled allocation. Pacing in earlier segments exceeded target windows. Autopilot rebalancing or buffer allocation can help protect hard-stop endings.`
                 : stats.totalVariance < -5
-                  ? `Service concluded ${Math.abs(stats.totalVariance)}m ahead of budget. Pacing was brisk; review whether ministry flow, altar call response, or congregation interaction was given full allocated room.`
-                  : "Excellent pacing! This service was delivered almost exactly as planned (within ±5m). Your team and pulpit pacing are highly synchronized."
+                  ? `Event concluded ${Math.abs(stats.totalVariance)}m ahead of budget. Pacing was brisk; review whether keynote Q&A, transitions, or audience engagement was given full allocated room.`
+                  : "Excellent pacing! This event was delivered almost exactly as planned (within ±5m). Your production team and stage pacing are highly synchronized."
               }
             </Text>
           </View>

@@ -245,6 +245,8 @@ export const StudioRightDock: React.FC<StudioRightDockProps> = ({
               key={`${previewTab}-${previewProgram.id}`}
               src={activePreviewPath}
               title="Studio Live Output Preview"
+              tabIndex={-1}
+              aria-hidden="true"
               className="pointer-events-none absolute top-0 left-0"
               style={{
                 width: '1920px',

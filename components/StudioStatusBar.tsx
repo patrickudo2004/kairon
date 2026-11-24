@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Wifi, WifiOff, Monitor, Sparkles, HardDrive, ArrowUpCircle } from 'lucide-react';
 import { getOfflineLedger } from '../services/offlineSyncLedger';
 import { CURRENT_APP_VERSION } from '../services/updateService';
@@ -134,6 +135,17 @@ export const StudioStatusBar: React.FC<StudioStatusBarProps> = ({
         </div>
 
         <span className="text-slate-300 dark:text-[#22262E]">|</span>
+
+        {/* Legal & A11y Quick Links */}
+        <div className="hidden xl:flex items-center gap-2 text-slate-500 dark:text-[#8A93A4]">
+          <Link to="/privacy" className="hover:text-slate-900 dark:hover:text-white transition-colors">Privacy</Link>
+          <span aria-hidden="true">&middot;</span>
+          <Link to="/terms" className="hover:text-slate-900 dark:hover:text-white transition-colors">Terms</Link>
+          <span aria-hidden="true">&middot;</span>
+          <Link to="/accessibility" className="hover:text-slate-900 dark:hover:text-white transition-colors">A11y</Link>
+        </div>
+
+        <span className="hidden xl:inline text-slate-300 dark:text-[#22262E]">|</span>
 
         {/* Master Wall Clock */}
         <span className="font-bold text-slate-800 dark:text-[#E1E4EA] tabular-nums">{wallClock}</span>

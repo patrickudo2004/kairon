@@ -713,7 +713,7 @@ const ProgramEditor: React.FC<ProgramEditorProps> = ({
                 <textarea
                   value={aiInput}
                   onChange={(e) => setAiInput(e.target.value)}
-                  placeholder="Paste WhatsApp messages, order of service, or schedules. Examples:&#10;1. Opening Prayer - Pastor David (5 mins)&#10;2. Praise & Worship - Choir (20 mins)&#10;3. Bible Reading: Psalm 23 - Sister Grace (5m)&#10;4. Sermon: Word of Faith - Bishop David (45m)"
+                  placeholder="Paste WhatsApp messages, run-of-show notes, or agendas. Examples:&#10;1. Doors Open &amp; Welcome - Host / MC (10 mins)&#10;2. Opening Keynote - Elena Vance (30 mins)&#10;3. Live Music / Feature Session - Stage Team (20m)&#10;4. Panel Q&amp;A &amp; Closing - Production Lead (25m)"
                   className="w-full h-36 bg-slate-50 dark:bg-[#090A0C] border border-slate-200 dark:border-[#22262E] rounded-lg p-3 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#4B5563] focus:outline-none focus:border-[#0EA5E9] resize-none"
                 />
               </div>

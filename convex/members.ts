@@ -86,16 +86,12 @@ export const addMemberByEmail = mutation({
         const userId = await getAuthUserId(ctx);
         if (!userId) throw new Error("Unauthorized");
 
-        console.log("Inviting teammate:", args.email, "to org:", args.organizationId);
-
         // 1. Check if requester is an admin of this specific org
         const requester = await ctx.db
             .query("members")
             .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
             .filter((q) => q.eq(q.field("userId"), userId))
             .first();
-
-        console.log("Requester role:", requester?.role);
 
         if (requester?.role !== "admin" && requester?.role !== "manager") {
             throw new Error("You don't have permission to invite members.");
@@ -120,8 +116,6 @@ export const addMemberByEmail = mutation({
         }
 
         if (!user) {
-            console.warn("User not found for email:", args.email, "- Creating shadow invite");
-
             // Check if already invited
             const existingInvite = await ctx.db
                 .query("invites")
@@ -208,11 +202,13 @@ export const checkPendingInvites = mutation({
         }
 
         // 2. Check specific inviteId link (if user clicked /?inviteId=<id>)
-        if (args.inviteId && args.inviteId !== "generic") {
+        // SECURITY: Strictly verify the authenticated user's email matches the invite's recipient email (fail closed).
+        const authenticatedEmail = user?.email?.toLowerCase();
+        if (args.inviteId && args.inviteId !== "generic" && authenticatedEmail) {
             const normalizedInviteId = ctx.db.normalizeId("invites", args.inviteId);
             if (normalizedInviteId) {
                 const directInvite = await ctx.db.get(normalizedInviteId);
-                if (directInvite) {
+                if (directInvite && directInvite.email.toLowerCase() === authenticatedEmail) {
                     const existing = await ctx.db
                         .query("members")
                         .withIndex("by_org", (q) => q.eq("organizationId", directInvite.organizationId))
@@ -415,8 +411,7 @@ export const getInviteDetails = query({
         const org = await ctx.db.get(invite.organizationId);
         return {
             organizationName: org?.name || "Unknown Organization",
-            role: invite.role,
-            email: invite.email
+            role: invite.role
         };
     },
 });

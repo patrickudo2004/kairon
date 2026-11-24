@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X, AlertTriangle, AlertCircle, HelpCircle } from 'lucide-react';
 
 interface ConfirmationModalProps {
@@ -24,6 +24,15 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     type = 'warning',
     onAction
 }) => {
+    useEffect(() => {
+        if (!isOpen) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     const colors = {
@@ -45,7 +54,12 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirmation-modal-title"
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+        >
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200"
@@ -56,11 +70,11 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                 <div className="p-8">
                     {/* Icon Header */}
-                    <div className={`w-14 h-14 ${bgShadows[type]} rounded-2xl flex items-center justify-center mb-6`}>
+                    <div className={`w-14 h-14 ${bgShadows[type]} rounded-2xl flex items-center justify-center mb-6`} aria-hidden="true">
                         {icons[type]}
                     </div>
 
-                    <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 leading-tight">
+                    <h3 id="confirmation-modal-title" className="text-xl font-black text-slate-900 dark:text-white mb-2 leading-tight">
                         {title}
                     </h3>
                     <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-8">
@@ -93,10 +107,12 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
                 {/* Close Button */}
                 <button
+                    type="button"
+                    aria-label="Close confirmation dialog"
                     onClick={onClose}
-                    className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                    className="absolute top-6 right-6 p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
                 >
-                    <X size={20} />
+                    <X size={20} aria-hidden="true" />
                 </button>
             </div>
         </div>

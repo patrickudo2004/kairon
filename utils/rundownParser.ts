@@ -19,8 +19,8 @@ export interface RundownTemplate {
 export const PRODUCTION_TEMPLATES: RundownTemplate[] = [
   {
     id: 'church-sunday',
-    name: 'Sunday Church Service',
-    description: '10-part Sunday service rundown (Winners Chapel canonical order of service)',
+    name: 'Sunday Worship Service',
+    description: '10-part Sunday service rundown with worship, announcements, message, and closing',
     startTime: '09:00',
     slots: [
       {

@@ -490,8 +490,8 @@ test.describe('Live Rundown E2E Scenarios', () => {
     await page.locator('input[placeholder="Speaker Name"]:visible').first().fill('FOH Engineer');
     await page.locator('input[type="number"]:visible').first().fill('10');
 
-    // 3. Click Sunday Church Service in the Quick-Start Template Bar -> Verify Overwrite vs. Append Guard Modal!
-    await page.getByRole('button', { name: /Sunday Church Service \(10\)/i }).click();
+    // 3. Click Sunday Worship Service in the Quick-Start Template Bar -> Verify Overwrite vs. Append Guard Modal!
+    await page.getByRole('button', { name: /Sunday Worship Service \(10\)/i }).click();
 
     // Guard modal should appear because we already have 1 slot
     await expect(page.getByText(/Schedule Already Has \d+ Slots/i)).toBeVisible();

@@ -4,7 +4,6 @@ import { Organization } from '../types';
 import { getMyOrganizations, createOrganization, updateOrganizationBranding, deleteOrganization, generateUploadUrl } from '../services/orgService';
 import { migratePrograms, deleteAllProgramsInOrg, getPrograms } from '../services/programService';
 import { Plus, Settings, Building, ChevronRight, Loader, Check, Image as ImageIcon, Palette, Crown, X, AlertTriangle, ArrowRight, Trash2, Upload } from 'lucide-react';
-import { createCheckoutSession } from '../services/stripeService';
 
 interface OrganizationManagerProps {
     userId: string;
@@ -136,13 +135,28 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
         }
     });
 
-    const handleUpgrade = async (orgId: string) => {
-        try {
-            const { url } = await createCheckoutSession(orgId, 'price_pro_monthly');
-            window.location.href = url;
-        } catch (error) {
-            console.error("Upgrade failed:", error);
+    const startOrgDeleteHold = () => {
+        if (deletionSlug === organizations?.find(o => o.id === isDeleting)?.slug && !deleteOrgMutation.isPending && !isHolding) {
+            setIsHolding(true);
+            const start = Date.now();
+            const interval = setInterval(() => {
+                const elapsed = Date.now() - start;
+                const progress = Math.min(100, (elapsed / 3000) * 100);
+                setHoldProgress(progress);
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setIsHolding(false);
+                    if (isDeleting) deleteOrgMutation.mutate(isDeleting);
+                }
+            }, 20);
+            (window as any)._holdInterval = interval;
         }
+    };
+
+    const cancelOrgDeleteHold = () => {
+        setIsHolding(false);
+        clearInterval((window as any)._holdInterval);
+        if (holdProgress < 100) setHoldProgress(0);
     };
 
     if (isLoading) {
@@ -245,13 +259,15 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
                                     )}
                                 </div>
                                 <p className={`text-xs transition-colors ${activeOrgId === org.id ? 'text-indigo-100' : 'text-slate-500'}`}>
-                                    {org.subscriptionStatus === 'pro' ? 'Pro Plan' : 'Free Workspace'}
+                                    Open Beta • All Features Unlocked
                                 </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            {activeOrgId === org.id && <Check size={20} className="text-white" />}
+                            {activeOrgId === org.id && <Check size={20} className="text-white" aria-hidden="true" />}
                             <button
+                                type="button"
+                                aria-label={`Settings for ${org.name}`}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setIsSettingsOpen(org.id);
@@ -298,30 +314,16 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
                                 <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Workspace Settings</h3>
                                 <p className="text-slate-500 text-sm">Customize your organization identity</p>
                             </div>
-                            <button onClick={() => setIsSettingsOpen(null)} className="p-2 text-slate-400 hover:text-slate-600 transition-transform hover:scale-110">
-                                <X size={24} />
+                            <button type="button" aria-label="Close workspace settings" onClick={() => setIsSettingsOpen(null)} className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white transition-transform hover:scale-110">
+                                <X size={24} aria-hidden="true" />
                             </button>
                         </div>
 
-                        {organizations && organizations.find(o => o.id === isSettingsOpen)?.subscriptionStatus !== 'pro' ? (
-                            <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl p-6 mb-8">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <Crown className="text-indigo-600 dark:text-indigo-400" size={24} />
-                                    <h4 className="font-bold text-indigo-900 dark:text-indigo-100">Unlock Pro Features</h4>
-                                </div>
-                                <p className="text-sm text-indigo-700 dark:text-indigo-300 mb-4">
-                                    Custom branding, logos, and AI-powered scheduling are only available for Pro teams.
-                                </p>
-                                <button
-                                    onClick={() => handleUpgrade(isSettingsOpen!)}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-500/25 transition-all active:scale-95"
-                                >
-                                    Upgrade Workspace
-                                </button>
+                        <div className="space-y-6">
+                            <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl px-4 py-3 text-xs font-mono text-emerald-800 dark:text-emerald-300">
+                                <strong>Open Beta:</strong> Custom branding, logos, and multi-screen sync are unlocked free for all workspaces during beta.
                             </div>
-                        ) : (
-                             <div className="space-y-6">
-                                <div>
+                            <div>
                                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
                                         <Building className="text-slate-400" size={16} /> Workspace Name
                                     </label>
@@ -420,7 +422,6 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
                                     </button>
                                 </div>
                             </div>
-                        )}
                     </div>
                 </div>
             )}
@@ -509,35 +510,25 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({ userId
 
                             <div className="pt-4">
                                 <button
-                                    onMouseDown={() => {
-                                        if (deletionSlug === organizations?.find(o => o.id === isDeleting)?.slug && !deleteOrgMutation.isPending) {
-                                            setIsHolding(true);
-                                            const start = Date.now();
-                                            const interval = setInterval(() => {
-                                                const elapsed = Date.now() - start;
-                                                const progress = Math.min(100, (elapsed / 3000) * 100);
-                                                setHoldProgress(progress);
-                                                if (progress >= 100) {
-                                                    clearInterval(interval);
-                                                    setIsHolding(false);
-                                                    deleteOrgMutation.mutate(isDeleting);
-                                                }
-                                            }, 20);
-                                            (window as any)._holdInterval = interval;
+                                    type="button"
+                                    onPointerDown={startOrgDeleteHold}
+                                    onPointerUp={cancelOrgDeleteHold}
+                                    onPointerLeave={cancelOrgDeleteHold}
+                                    onPointerCancel={cancelOrgDeleteHold}
+                                    onKeyDown={(e) => {
+                                        if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) {
+                                            e.preventDefault();
+                                            startOrgDeleteHold();
                                         }
                                     }}
-                                    onMouseUp={() => {
-                                        setIsHolding(false);
-                                        clearInterval((window as any)._holdInterval);
-                                        if (holdProgress < 100) setHoldProgress(0);
+                                    onKeyUp={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            cancelOrgDeleteHold();
+                                        }
                                     }}
-                                    onMouseLeave={() => {
-                                        setIsHolding(false);
-                                        clearInterval((window as any)._holdInterval);
-                                        if (holdProgress < 100) setHoldProgress(0);
-                                    }}
+                                    aria-label="Hold 3 seconds to permanently delete workspace"
                                     disabled={deletionSlug !== organizations?.find(o => o.id === isDeleting)?.slug || deleteOrgMutation.isPending}
-                                    className={`relative w-full py-5 rounded-2xl font-black uppercase tracking-widest overflow-hidden transition-all active:scale-95 disabled:opacity-30 disabled:grayscale ${deletionSlug === organizations?.find(o => o.id === isDeleting)?.slug ? 'bg-rose-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'
+                                    className={`relative w-full py-5 rounded-2xl font-black uppercase tracking-widest overflow-hidden transition-all active:scale-95 disabled:opacity-30 disabled:grayscale ${deletionSlug === organizations?.find(o => o.id === isDeleting)?.slug ? 'bg-rose-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                                         }`}
                                 >
                                     <div

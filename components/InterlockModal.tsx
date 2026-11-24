@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AlertTriangle, Power, X } from 'lucide-react';
 
 interface InterlockModalProps {
@@ -16,21 +16,35 @@ export const InterlockModal: React.FC<InterlockModalProps> = ({
     currentLiveEventTitle,
     newTargetEventTitle
 }) => {
+    useEffect(() => {
+        if (!isOpen) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-300">
+        <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="interlock-modal-title"
+            className="fixed inset-0 z-[100] bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300"
+        >
+            <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-300">
 
-                {/* Header Header */}
-                <div className="bg-rose-500 p-6 flex items-center justify-center">
+                {/* Header */}
+                <div className="bg-rose-600 p-6 flex items-center justify-center" aria-hidden="true">
                     <div className="bg-white/20 p-3 rounded-2xl">
                         <AlertTriangle size={32} className="text-white" />
                     </div>
                 </div>
 
                 <div className="p-8">
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-4 leading-tight">
+                    <h2 id="interlock-modal-title" className="text-2xl font-black text-slate-900 dark:text-white mb-4 leading-tight">
                         Safety Interlock Active
                     </h2>
 
@@ -65,10 +79,12 @@ export const InterlockModal: React.FC<InterlockModalProps> = ({
                 </div>
 
                 <button
+                    type="button"
+                    aria-label="Close safety interlock dialog"
                     onClick={onClose}
-                    className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"
+                    className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
                 >
-                    <X size={20} />
+                    <X size={20} aria-hidden="true" />
                 </button>
             </div>
         </div>

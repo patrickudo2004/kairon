@@ -46,7 +46,10 @@ export const BroadcastHotkeysModal: React.FC<BroadcastHotkeysModalProps> = ({ is
   ];
 
   return (
-    <div 
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="hotkeys-modal-title"
       className="fixed inset-0 z-[250] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200 select-none font-sans"
       onClick={onClose}
     >
@@ -57,11 +60,11 @@ export const BroadcastHotkeysModal: React.FC<BroadcastHotkeysModalProps> = ({ is
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-[#22262E] mb-5">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-[#0EA5E9]/10 text-[#0EA5E9] rounded-lg border border-[#0EA5E9]/30">
+            <div className="p-2 bg-[#0EA5E9]/10 text-[#0EA5E9] rounded-lg border border-[#0EA5E9]/30" aria-hidden="true">
               <Keyboard size={18} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+              <h2 id="hotkeys-modal-title" className="text-lg font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                 <span>Broadcast Keyboard Hotkeys</span>
                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-[#1C2028] border border-slate-200 dark:border-[#2D333F] text-[#0EA5E9] uppercase">
                   Surface Reference
@@ -72,11 +75,13 @@ export const BroadcastHotkeysModal: React.FC<BroadcastHotkeysModalProps> = ({ is
               </p>
             </div>
           </div>
-          <button 
+          <button
+            type="button"
+            aria-label="Close keyboard hotkeys reference"
             onClick={onClose}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#181B22] transition-colors"
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 

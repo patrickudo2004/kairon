@@ -34,6 +34,31 @@ export async function checkPermissions(ctx: any, organizationId: Id<"organizatio
     return { userId, role: membership.role };
 }
 
+async function isOrgMember(ctx: any, organizationId: Id<"organizations">, userId: any): Promise<boolean> {
+    if (!userId) return false;
+    const userIdStr = String(userId);
+    const membership = await ctx.db
+        .query("members")
+        .withIndex("by_org", (q: any) => q.eq("organizationId", organizationId))
+        .filter((q: any) => q.eq(q.field("userId"), userIdStr))
+        .first();
+    if (membership) return true;
+    const org = await ctx.db.get(organizationId);
+    return !!(org && String(org.createdBy) === userIdStr);
+}
+
+function sanitizeProgramForUnauthenticatedDisplay(doc: Doc<"programs">) {
+    const { averageHourlyRate: _rate, estimatedAttendees: _attendees, ...safeDoc } = doc;
+    const sanitizedSlots = (doc.slots || []).map((slot: any) => {
+        const { prompterText: _prompter, productionNotes: _notes, ...publicSlot } = slot;
+        return publicSlot;
+    });
+    return {
+        ...safeDoc,
+        slots: sanitizedSlots,
+    };
+}
+
 export const getPrograms = query({
     args: { organizationId: v.optional(v.union(v.id("organizations"), v.string())) },
     handler: async (ctx, args) => {
@@ -42,6 +67,12 @@ export const getPrograms = query({
         if (orgIdStr.startsWith('local-') || orgIdStr.startsWith('test-')) return [];
         const normalizedId = ctx.db.normalizeId("organizations", orgIdStr);
         if (!normalizedId) return [];
+
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return [];
+        const authorized = await isOrgMember(ctx, normalizedId, userId);
+        if (!authorized) return [];
+
         return await ctx.db
             .query("programs")
             .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
@@ -55,46 +86,39 @@ export const getProgramById = query({
         if (!args.id) return null;
         try {
             const cleanId = args.id.replace(/^local-/, '');
+            let doc: Doc<"programs"> | null = null;
 
-            // 1. Try as standard Convex ID (safely normalized)
             const normalizedId = ctx.db.normalizeId("programs", cleanId);
             if (normalizedId) {
-                const doc = await ctx.db.get(normalizedId);
-                if (doc) return doc;
+                doc = await ctx.db.get(normalizedId);
             }
-
-            // 2. Try as UUID (for monitors/legacy links)
-            const byUuid = await ctx.db
-                .query("programs")
-                .withIndex("by_uuid", (q) => q.eq("uuid", cleanId))
-                .first();
-            if (byUuid) return byUuid;
-
-            // 3. Try as Slug (cleaned or raw)
-            const bySlug = await ctx.db
-                .query("programs")
-                .withIndex("by_slug", (q) => q.eq("slug", cleanId))
-                .first();
-            if (bySlug) return bySlug;
-
-            if (cleanId !== args.id) {
-                const byRawSlug = await ctx.db
+            if (!doc) {
+                doc = await ctx.db
+                    .query("programs")
+                    .withIndex("by_uuid", (q) => q.eq("uuid", cleanId))
+                    .first();
+            }
+            if (!doc) {
+                doc = await ctx.db
+                    .query("programs")
+                    .withIndex("by_slug", (q) => q.eq("slug", cleanId))
+                    .first();
+            }
+            if (!doc && cleanId !== args.id) {
+                doc = await ctx.db
                     .query("programs")
                     .withIndex("by_slug", (q) => q.eq("slug", args.id))
                     .first();
-                if (byRawSlug) return byRawSlug;
             }
 
-            // 4. Try fallback search in programs
-            const fallback = await ctx.db
-                .query("programs")
-                .filter((q) => q.or(
-                    q.eq(q.field("uuid"), cleanId),
-                    q.eq(q.field("slug"), cleanId),
-                    q.eq(q.field("title"), args.id)
-                ))
-                .first();
-            if (fallback) return fallback;
+            if (!doc) return null;
+
+            const userId = await getAuthUserId(ctx);
+            const authorized = userId ? await isOrgMember(ctx, doc.organizationId, userId) : false;
+            if (authorized) return doc;
+
+            if (doc.isPublic === false) return null;
+            return sanitizeProgramForUnauthenticatedDisplay(doc);
         } catch (e) {
             // Unexpected internal error fallback
         }
@@ -110,6 +134,12 @@ export const getActiveSessions = query({
         if (orgIdStr.startsWith('local-') || orgIdStr.startsWith('test-')) return [];
         const normalizedId = ctx.db.normalizeId("organizations", orgIdStr);
         if (!normalizedId) return [];
+
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return [];
+        const authorized = await isOrgMember(ctx, normalizedId, userId);
+        if (!authorized) return [];
+
         return await ctx.db
             .query("programs")
             .withIndex("by_org", (q) => q.eq("organizationId", normalizedId))
@@ -118,16 +148,22 @@ export const getActiveSessions = query({
     },
 });
 
-// Resilient live-fetch for monitors, external views, and public portals
+// Multi-tenant safe live-fetch (never leaks another tenant's live event to unauthenticated visitors)
 export const getLiveProgram = query({
     args: { organizationId: v.optional(v.union(v.id("organizations"), v.string())) },
     handler: async (ctx, args) => {
         try {
+            const userId = await getAuthUserId(ctx);
+            if (!userId) return null;
+
             if (args.organizationId) {
                 const orgIdStr = String(args.organizationId);
                 if (orgIdStr.startsWith('local-') || orgIdStr.startsWith('test-')) return null;
                 const normalizedId = ctx.db.normalizeId("organizations", orgIdStr);
                 if (!normalizedId) return null;
+
+                const authorized = await isOrgMember(ctx, normalizedId, userId);
+                if (!authorized) return null;
 
                 const liveInOrg = await ctx.db
                     .query("programs")
@@ -136,12 +172,19 @@ export const getLiveProgram = query({
                     .first();
                 return liveInOrg || null;
             } else {
-                const anyLive = await ctx.db
-                    .query("programs")
-                    .withIndex("by_status", (q) => q.eq("status", "live"))
-                    .order("desc")
-                    .first();
-                if (anyLive && anyLive.isPublic !== false) return anyLive;
+                const memberships = await ctx.db
+                    .query("members")
+                    .withIndex("by_user", (q) => q.eq("userId", String(userId)))
+                    .collect();
+
+                for (const m of memberships) {
+                    const liveInOrg = await ctx.db
+                        .query("programs")
+                        .withIndex("by_org", (q) => q.eq("organizationId", m.organizationId))
+                        .filter((q) => q.eq(q.field("status"), "live"))
+                        .first();
+                    if (liveInOrg) return liveInOrg;
+                }
                 return null;
             }
         } catch (e) {
@@ -215,26 +258,16 @@ export const getProgramBySlug = query({
                 if (byUuid) doc = byUuid;
             }
 
-            // 4. Try fallback search by title or UUID
-            if (!doc) {
-                const fallback = await ctx.db
-                    .query("programs")
-                    .filter((q) => q.or(
-                        q.eq(q.field("uuid"), cleanSlug),
-                        q.eq(q.field("slug"), cleanSlug),
-                        q.eq(q.field("title"), args.slug)
-                    ))
-                    .first();
-                if (fallback) doc = fallback;
-            }
-
             if (!doc) return null;
 
-            // Security: Enforce isPublic visibility restriction
-            if (doc.isPublic === false) return null;
+            const userId = await getAuthUserId(ctx);
+            const authorized = userId ? await isOrgMember(ctx, doc.organizationId, userId) : false;
 
-            // Security Projection: Never leak confidential sermon notes (prompterText),
-            // internal financial rates (averageHourlyRate), or sensitive metrics to attendees.
+            // Security: Enforce isPublic visibility restriction for non-members
+            if (!authorized && doc.isPublic === false) return null;
+
+            // Security Projection: Never leak confidential speaker scripts (prompterText),
+            // internal financial rates (averageHourlyRate), or booth cues to unauthenticated attendees.
             const sanitizedSlots = (doc.slots || []).map((slot: any) => ({
                 id: slot.id,
                 title: slot.title,
@@ -243,8 +276,8 @@ export const getProgramBySlug = query({
                 actualDuration: slot.actualDuration,
                 type: slot.type,
                 details: slot.details,
-                // Only disclose production cues to tactical crew if explicitly requested
-                ...(args.includeProductionNotes ? { productionNotes: slot.productionNotes } : {}),
+                // Only disclose booth cues to authenticated org members when explicitly requested
+                ...(authorized && args.includeProductionNotes ? { productionNotes: slot.productionNotes } : {}),
             }));
 
             return {
@@ -299,7 +332,10 @@ export const createProgram = mutation({
                 .withIndex("by_uuid", (q) => q.eq("uuid", cleanUuid))
                 .first();
             if (existing) {
-                const { uuid, ...patch } = args;
+                if (String(existing.organizationId) !== String(args.organizationId)) {
+                    throw new Error("Forbidden: A program with this identifier already belongs to another organization.");
+                }
+                const { uuid: _uuid, organizationId: _orgId, ...patch } = args;
                 await ctx.db.patch(existing._id, {
                     ...patch,
                     slug: existing.slug || cleanUuid,
@@ -357,7 +393,10 @@ export const migrateProgram = mutation({
                 .withIndex("by_uuid", (q) => q.eq("uuid", args.uuid))
                 .first();
             if (existing) {
-                const { uuid, ...patch } = args;
+                if (String(existing.organizationId) !== String(args.organizationId)) {
+                    throw new Error("Forbidden: Program UUID belongs to another organization.");
+                }
+                const { uuid: _uuid, organizationId: _orgId, ...patch } = args;
                 await ctx.db.patch(existing._id, patch);
                 return existing._id;
             }
@@ -403,15 +442,55 @@ export const updateProgram = mutation({
         const program = await resolveProgram(ctx, args.id);
         if (!program) throw new Error("Program not found");
 
-        // Verify permissions
+        // Verify baseline operator permissions
         await checkPermissions(ctx, program.organizationId, "operator");
 
         if (program.status === "archived") {
             throw new Error("Cannot modify an archived Service Report.");
         }
 
+        // Strict field allowlist — prevent mass assignment & cross-tenant organizationId mutation
+        const OPERATOR_FIELDS = new Set([
+            "status",
+            "isTimerActive",
+            "secondsElapsed",
+            "currentSlotIndex",
+            "timerStartTimestamp",
+            "isOnHold",
+            "holdMessage",
+            "isManualMode",
+        ]);
+        const STRUCTURAL_FIELDS = new Set([
+            "title",
+            "subtitle",
+            "date",
+            "startTime",
+            "endTime",
+            "slots",
+            "slug",
+            "isPublic",
+            "estimatedAttendees",
+            "averageHourlyRate",
+        ]);
+
+        const rawPatch = (args.patch && typeof args.patch === "object") ? args.patch : {};
+        const safePatch: Record<string, any> = {};
+        let touchesStructural = false;
+
+        for (const [key, value] of Object.entries(rawPatch)) {
+            if (OPERATOR_FIELDS.has(key)) {
+                safePatch[key] = value;
+            } else if (STRUCTURAL_FIELDS.has(key)) {
+                safePatch[key] = value;
+                touchesStructural = true;
+            }
+        }
+
+        if (touchesStructural) {
+            await checkPermissions(ctx, program.organizationId, "manager");
+        }
+
         // Never wipe out existing slug or isPublic with undefined during auto-save
-        const safePatch = { ...args.patch };
         if (!safePatch.slug) {
             safePatch.slug = program.slug || program.uuid || String(program._id);
         }
@@ -422,6 +501,31 @@ export const updateProgram = mutation({
         await ctx.db.patch(program._id, safePatch);
     },
 });
+
+async function cascadeDeleteProgramDependents(ctx: any, program: Doc<"programs">) {
+    const acks = await ctx.db
+        .query("acknowledgements")
+        .withIndex("by_slot", (q: any) => q.eq("programId", program._id))
+        .collect();
+    for (const ack of acks) await ctx.db.delete(ack._id);
+
+    const candidateKeys = Array.from(
+        new Set([String(program._id), program.uuid, program.slug].filter(Boolean) as string[])
+    );
+    for (const key of candidateKeys) {
+        const msgs = await ctx.db
+            .query("stageMessages")
+            .withIndex("by_program_latest", (q: any) => q.eq("programId", key))
+            .collect();
+        for (const msg of msgs) await ctx.db.delete(msg._id);
+
+        const chats = await ctx.db
+            .query("crewChat")
+            .withIndex("by_program", (q: any) => q.eq("programId", key))
+            .collect();
+        for (const chat of chats) await ctx.db.delete(chat._id);
+    }
+}
 
 export const deleteProgram = mutation({
     args: { id: v.string() },
@@ -436,6 +540,7 @@ export const deleteProgram = mutation({
             throw new Error("Cannot delete a finalized, archived Service Report.");
         }
 
+        await cascadeDeleteProgramDependents(ctx, program);
         await ctx.db.delete(program._id);
     },
 });
@@ -537,6 +642,7 @@ export const deleteAllProgramsInOrg = mutation({
             .collect();
 
         for (const prog of programs) {
+            await cascadeDeleteProgramDependents(ctx, prog);
             await ctx.db.delete(prog._id);
         }
     },
@@ -551,7 +657,11 @@ export const acknowledgeCue = mutation({
     handler: async (ctx, args) => {
         const program = await resolveProgram(ctx, args.programId);
         if (!program) throw new Error("Program not found");
-        // Volunteer crew access tactical HUDs via mobile phone links without requiring an operator login
+        if (program.isPublic === false) {
+            const userId = await getAuthUserId(ctx);
+            const authorized = userId ? await isOrgMember(ctx, program.organizationId, userId) : false;
+            if (!authorized) throw new Error("Forbidden: Private program requires workspace authentication.");
+        }
         const timestamp = Date.now();
 
         // Check if already acknowledged for this slot/role
@@ -579,6 +689,11 @@ export const getAcknowledgements = query({
     handler: async (ctx, args) => {
         const program = await resolveProgram(ctx, args.programId);
         if (!program) return [];
+        if (program.isPublic === false) {
+            const userId = await getAuthUserId(ctx);
+            const authorized = userId ? await isOrgMember(ctx, program.organizationId, userId) : false;
+            if (!authorized) return [];
+        }
 
         return await ctx.db
             .query("acknowledgements")
