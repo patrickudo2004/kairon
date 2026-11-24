@@ -1,31 +1,35 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { checkPermissions } from "./programs";
 
 export const getMyOrganizations = query({
     args: { userId: v.optional(v.string()) },
-    handler: async (ctx, args) => {
-        if (!args.userId) return [];
+    handler: async (ctx) => {
+        const authUserId = await getAuthUserId(ctx);
+        if (!authUserId) return [];
+        const userIdStr = String(authUserId);
         const memberships = await ctx.db
             .query("members")
-            .withIndex("by_user", (q) => q.eq("userId", args.userId!))
+            .withIndex("by_user", (q) => q.eq("userId", userIdStr))
             .collect();
 
         const orgs = await Promise.all(
             memberships.map(async (m) => {
                 const org = await ctx.db.get(m.organizationId);
-                if (org && org.logoUrl && !org.logoUrl.startsWith("http")) {
+                if (!org) return null;
+                if (org.logoUrl && !org.logoUrl.startsWith("http")) {
                     try {
                         const url = await ctx.storage.getUrl(org.logoUrl);
                         if (url) {
-                            return { ...org, logoUrl: url };
+                            return { ...org, logoUrl: url, role: m.role };
                         }
                     } catch (e) {
                         console.error("Failed to get storage URL for logo:", e);
                     }
                 }
-                return org ? { ...org, role: m.role } : null;
+                return { ...org, role: m.role };
             })
         );
         return orgs.filter((o) => o !== null);
@@ -35,8 +39,7 @@ export const getMyOrganizations = query({
 export const getOrganizationById = query({
     args: { id: v.string() },
     handler: async (ctx, args) => {
-        // Handle both raw ID strings and Convex IDs if needed
-        let orgId;
+        let orgId: Id<"organizations"> | null = null;
         try {
             orgId = ctx.db.normalizeId("organizations", args.id);
         } catch (e) {
@@ -45,17 +48,46 @@ export const getOrganizationById = query({
 
         if (!orgId) return null;
         const org = await ctx.db.get(orgId);
-        if (org && (org as any).logoUrl && !(org as any).logoUrl.startsWith("http")) {
+        if (!org) return null;
+
+        let resolvedLogoUrl = (org as any).logoUrl;
+        if (resolvedLogoUrl && !resolvedLogoUrl.startsWith("http")) {
             try {
-                const url = await ctx.storage.getUrl((org as any).logoUrl);
-                if (url) {
-                    return { ...org, logoUrl: url };
-                }
+                const url = await ctx.storage.getUrl(resolvedLogoUrl);
+                if (url) resolvedLogoUrl = url;
             } catch (e) {
                 console.error("Failed to get storage URL for logo:", e);
             }
         }
-        return org;
+
+        const authUserId = await getAuthUserId(ctx);
+        let isAuthorizedMember = false;
+        if (authUserId) {
+            if (String(org.createdBy) === String(authUserId)) {
+                isAuthorizedMember = true;
+            } else {
+                const membership = await ctx.db
+                    .query("members")
+                    .withIndex("by_org", (q) => q.eq("organizationId", org._id))
+                    .filter((q) => q.eq(q.field("userId"), String(authUserId)))
+                    .first();
+                isAuthorizedMember = !!membership;
+            }
+        }
+
+        if (isAuthorizedMember) {
+            return { ...org, logoUrl: resolvedLogoUrl };
+        }
+
+        // Public branding view only: strip billing IDs & owner identifiers
+        return {
+            _id: org._id,
+            _creationTime: org._creationTime,
+            name: org.name,
+            slug: org.slug,
+            logoUrl: resolvedLogoUrl,
+            brandColor: org.brandColor,
+        };
     },
 });
 
@@ -66,24 +98,23 @@ export const createOrganization = mutation({
         userId: v.string(),
     },
     handler: async (ctx, args) => {
-        // Find the user's profile to check for Pro status inheritance
-        const profile = await ctx.db
-            .query("profiles")
-            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-            .first();
-
+        const authUserId = await getAuthUserId(ctx);
+        if (!authUserId) {
+            throw new Error("Unauthorized: Please sign in to create a workspace.");
+        }
+        const ownerIdStr = String(authUserId);
         const initialStatus = "pro";
 
         const orgId = await ctx.db.insert("organizations", {
             name: args.name,
             slug: args.slug,
             subscriptionStatus: initialStatus,
-            createdBy: args.userId,
+            createdBy: ownerIdStr,
         });
 
         await ctx.db.insert("members", {
             organizationId: orgId,
-            userId: args.userId,
+            userId: ownerIdStr,
             role: "admin",
         });
 
@@ -140,6 +171,15 @@ export const deleteOrganization = mutation({
             .collect();
         for (const invite of invites) {
             await ctx.db.delete(invite._id);
+        }
+
+        // 2b. Delete all crew chat history for this workspace (UK GDPR hygiene)
+        const chats = await ctx.db
+            .query("crewChat")
+            .withIndex("by_org", (q) => q.eq("organizationId", args.id))
+            .collect();
+        for (const chat of chats) {
+            await ctx.db.delete(chat._id);
         }
 
         // 3. Delete the organization itself

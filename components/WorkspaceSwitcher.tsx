@@ -89,7 +89,7 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
                                                 ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
                                                 : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
                                 }`}>
-                                    {isCurrentLocal ? 'Admin' : (activeOrg?.role === 'speaker' ? 'Pastor' : activeOrg?.role || 'Admin')}
+                                    {isCurrentLocal ? 'Admin' : (activeOrg?.role === 'speaker' ? 'Speaker' : activeOrg?.role || 'Admin')}
                                 </span>
                             </div>
                             <p className="text-[9px] font-mono uppercase tracking-wider text-slate-400 dark:text-[#8A93A4] truncate">
@@ -159,7 +159,7 @@ export const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
                                                                         ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
                                                                         : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
                                                         }`}>
-                                                            {org.role === 'speaker' ? 'Pastor' : org.role || 'Admin'}
+                                                            {org.role === 'speaker' ? 'Speaker' : org.role || 'Admin'}
                                                         </span>
                                                     </div>
                                                     <p className="text-[9px] text-slate-400 font-mono uppercase tracking-wider truncate">

@@ -28,12 +28,13 @@ import {
     Sun,
     Moon,
     Sparkles,
-    Laptop
+    Laptop,
+    Download
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { deleteOrganization } from '../services/orgService';
 import { migratePrograms, deleteAllProgramsInOrg, getPrograms } from '../services/programService';
-import { updateProfile, signOut } from '../services/authService';
+import { updateProfile, clearLocalUserSessionData, exportMyAccountData, deleteMyAccount } from '../services/authService';
 import { getWorkspaceInviteUrl } from '../utils/url';
 
 interface AdminPanelProps {
@@ -50,6 +51,65 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
     const [userName, setUserName] = useState('');
     const [isSavingUser, setIsSavingUser] = useState(false);
     const [userSaveSuccess, setUserSaveSuccess] = useState(false);
+    const [isExportingData, setIsExportingData] = useState(false);
+    const [exportStatusMsg, setExportStatusMsg] = useState<string | null>(null);
+    const [isAccountDeleteConfirmOpen, setIsAccountDeleteConfirmOpen] = useState(false);
+    const [accountDeletePhrase, setAccountDeletePhrase] = useState('');
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+    const [accountDeleteError, setAccountDeleteError] = useState<string | null>(null);
+
+    const safeRedirectHome = () => {
+        if (typeof window === 'undefined') return;
+        const isElectronOrFile = Boolean((window as any).electron?.isElectron || window.location.protocol === 'file:');
+        if (isElectronOrFile) {
+            window.location.hash = '#/';
+            window.location.reload();
+        } else {
+            window.location.href = '/';
+        }
+    };
+
+    const handleDownloadMyData = async () => {
+        setIsExportingData(true);
+        setExportStatusMsg(null);
+        try {
+            const isLocal = Boolean(organization.isLocalFolder || localStorage.getItem('kairon_booth_mode') === 'true');
+            const payload = await exportMyAccountData(isLocal);
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `kairon-data-export-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            setExportStatusMsg('Your personal & workspace data archive has been downloaded.');
+        } catch (err: any) {
+            setExportStatusMsg(err?.message || 'Unable to export data right now. Please try again.');
+        } finally {
+            setIsExportingData(false);
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        if (accountDeletePhrase.trim().toUpperCase() !== 'DELETE') return;
+        setIsDeletingAccount(true);
+        setAccountDeleteError(null);
+        try {
+            const isLocal = localStorage.getItem('kairon_booth_mode') === 'true';
+            if (!isLocal) {
+                await deleteMyAccount();
+                try { await convexSignOut(); } catch {}
+            } else {
+                clearLocalUserSessionData();
+            }
+            safeRedirectHome();
+        } catch (err: any) {
+            setAccountDeleteError(err?.message || 'Failed to delete account. Please contact patrickudo2004@gmail.com for assistance.');
+            setIsDeletingAccount(false);
+        }
+    };
 
     // Branding State
     const [logoUrl, setLogoUrl] = useState(organization.logoUrl || '');
@@ -211,8 +271,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
             // Find another organization to redirect to
             const otherOrg = allOrgs.find(o => o.id !== organization.id);
             if (otherOrg) {
-                // Navigate to home and let the switcher pick the new active org
-                window.location.href = '/';
+                safeRedirectHome();
             } else {
                 navigate('/');
             }
@@ -240,10 +299,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                 <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-4">
                         <button
+                            type="button"
                             onClick={() => navigate(-1)}
-                            className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                            aria-label="Go back"
+                            className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
                         >
-                            <ArrowLeft size={20} />
+                            <ArrowLeft size={20} aria-hidden="true" />
                         </button>
                         <div>
                             <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
@@ -337,7 +398,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                                         : currentUserRole === 'manager'
                                                             ? 'Manager'
                                                             : currentUserRole === 'speaker'
-                                                                ? 'Pastor / Speaker'
+                                                                ? 'Speaker / Presenter'
                                                                 : currentUserRole === 'operator'
                                                                     ? 'Operator'
                                                                     : 'Administrator')}
@@ -392,31 +453,93 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                     {/* Sign Out Card */}
                                     <div className="pt-6 border-t border-slate-200 dark:border-[#22262E] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                         <div>
-                                            <h4 className="font-bold text-sm text-slate-900 dark:text-white">Sign Out of Kairon</h4>
-                                            <p className="text-xs text-slate-500 dark:text-[#8A93A4]">Securely end your current operator session on this device.</p>
+                                            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Sign Out of Kairon</h3>
+                                            <p className="text-xs text-slate-600 dark:text-[#8A93A4]">Securely end your session and clear cached rundowns on this device.</p>
                                         </div>
                                         <button
                                             type="button"
                                             onClick={async () => {
                                                 try {
-                                                    if (typeof window !== 'undefined') {
-                                                        localStorage.removeItem('kairon_booth_mode');
-                                                        localStorage.removeItem('testBypass');
-                                                        localStorage.removeItem('__convexAuthJWT');
-                                                        localStorage.removeItem('__convexAuthRefreshToken');
-                                                        window.dispatchEvent(new Event('kairon_booth_mode_changed'));
-                                                    }
                                                     await convexSignOut();
                                                 } catch (e) {
                                                     console.warn("Sign out notice:", e);
+                                                } finally {
+                                                    clearLocalUserSessionData();
                                                 }
-                                                window.location.href = '/';
+                                                safeRedirectHome();
                                             }}
-                                            className="px-5 py-2.5 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+                                            className="px-5 py-2.5 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2"
                                         >
-                                            <LogOut size={14} />
+                                            <LogOut size={14} aria-hidden="true" />
                                             <span>Sign Out</span>
                                         </button>
+                                    </div>
+
+                                    {/* UK GDPR Data Rights: Free Export & Self-Service Account Erasure */}
+                                    <div className="pt-6 border-t border-slate-200 dark:border-[#22262E] space-y-4">
+                                        <div>
+                                            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Privacy & Your Data Rights (UK GDPR)</h3>
+                                            <p className="text-xs text-slate-600 dark:text-[#8A93A4]">
+                                                Export a portable JSON copy of your account and workspace data at any time for free, or permanently delete your account.
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={handleDownloadMyData}
+                                                disabled={isExportingData}
+                                                className="px-4 py-2.5 bg-slate-900 dark:bg-[#181B22] hover:bg-slate-800 dark:hover:bg-[#22262E] text-white border border-slate-700 dark:border-[#2D333F] rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center gap-2 disabled:opacity-50"
+                                            >
+                                                {isExportingData ? <Loader size={14} className="animate-spin" aria-hidden="true" /> : <Download size={14} aria-hidden="true" />}
+                                                <span>{isExportingData ? 'Exporting...' : 'Download My Data (JSON)'}</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsAccountDeleteConfirmOpen((prev) => !prev);
+                                                    setAccountDeletePhrase('');
+                                                    setAccountDeleteError(null);
+                                                }}
+                                                className="px-4 py-2.5 bg-transparent hover:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-500/30 rounded-xl text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center gap-2"
+                                            >
+                                                <Trash2 size={14} aria-hidden="true" />
+                                                <span>Delete My Account</span>
+                                            </button>
+                                        </div>
+                                        {exportStatusMsg && (
+                                            <p role="status" className="text-xs font-mono text-emerald-700 dark:text-emerald-400">
+                                                {exportStatusMsg}
+                                            </p>
+                                        )}
+                                        {isAccountDeleteConfirmOpen && (
+                                            <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30 space-y-3">
+                                                <p className="text-xs text-rose-800 dark:text-rose-300 leading-relaxed">
+                                                    <strong>Permanent Action:</strong> Deleting your account erases your profile, auth credentials, memberships, and any solo-owned workspaces &amp; rundowns. Type <code className="font-mono font-bold">DELETE</code> below to confirm.
+                                                </p>
+                                                <div className="flex flex-col sm:flex-row gap-2">
+                                                    <label htmlFor="confirm-account-delete-input" className="sr-only">Type DELETE to confirm account deletion</label>
+                                                    <input
+                                                        id="confirm-account-delete-input"
+                                                        type="text"
+                                                        value={accountDeletePhrase}
+                                                        onChange={(e) => setAccountDeletePhrase(e.target.value)}
+                                                        placeholder="Type DELETE"
+                                                        className="flex-1 px-3 py-2 rounded-lg bg-white dark:bg-[#0D0F12] border border-rose-300 dark:border-rose-500/40 text-xs font-mono text-slate-900 dark:text-white"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        disabled={accountDeletePhrase.trim().toUpperCase() !== 'DELETE' || isDeletingAccount}
+                                                        onClick={handleDeleteAccount}
+                                                        className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-mono font-bold uppercase tracking-wider disabled:opacity-40"
+                                                    >
+                                                        {isDeletingAccount ? 'Deleting...' : 'Confirm Erasure'}
+                                                    </button>
+                                                </div>
+                                                {accountDeleteError && (
+                                                    <p role="alert" className="text-xs text-rose-700 dark:text-rose-400 font-mono">{accountDeleteError}</p>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -529,17 +652,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                     </div>
                                 </div>
 
-                                {!isPro && (
-                                    <div className="mt-8 p-6 bg-[#181B22] border border-[#22262E] rounded-2xl text-white">
-                                        <h4 className="font-bold text-lg mb-2 font-mono">Upgrade to Pro</h4>
-                                        <p className="text-[#8A93A4] text-sm mb-4">
-                                            Unlock custom branding, logos, and AI-powered scheduling for your entire organization.
-                                        </p>
-                                        <button className="bg-[#0EA5E9] text-white px-6 py-2 rounded-xl font-bold font-mono text-xs uppercase tracking-wider hover:bg-[#0284C7] transition-colors">
-                                            See Pro Plans
-                                        </button>
+                                <div className="mt-8 p-6 bg-[#181B22] border border-[#22262E] rounded-2xl text-white">
+                                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono font-bold uppercase tracking-wider mb-3">
+                                        Open Beta • Founding Partner Access
                                     </div>
-                                )}
+                                    <h3 className="font-bold text-lg mb-2 font-mono">All Studio Features Unlocked Free</h3>
+                                    <p className="text-[#8A93A4] text-sm leading-relaxed">
+                                        Kairon is currently completely free during our Open Beta. Custom branding, multi-screen displays, Autopilot, and real-time sync are unlocked with zero billing. When paid plans launch in the future, beta workspaces will receive advance notice and a complimentary Founding Partner reward.
+                                    </p>
+                                </div>
                             </div>
                         )}
 
@@ -571,8 +692,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="p-4 rounded-xl border border-dashed border-slate-300 dark:border-[#22262E] text-xs text-slate-500 dark:text-slate-400">
-                                        💡 <strong>Multi-User Teammates:</strong> To invite operators, show callers, or pastors across different computers with real-time cloud sync, switch to or create an <strong>Online Cloud Workspace</strong> via the Workspace Switcher.
+                                    <div className="p-4 rounded-xl border border-dashed border-slate-300 dark:border-[#22262E] text-xs text-slate-600 dark:text-slate-400">
+                                        <strong>Multi-User Teammates:</strong> To invite operators, show callers, or speakers across different computers with real-time cloud sync, switch to or create an <strong>Online Cloud Workspace</strong> via the Workspace Switcher.
                                     </div>
                                 </div>
                             ) : (
@@ -583,20 +704,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                         <p className="text-slate-500 dark:text-[#8A93A4] text-sm">Members below have access to manage or view this workspace.</p>
                                     </div>
                                     <div className="flex items-center gap-2 font-mono flex-wrap w-full sm:w-auto">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const url = getWorkspaceInviteUrl({ inviteId: 'generic', orgId: organization.id });
-                                                navigator.clipboard.writeText(url);
-                                                setCopiedId('generic');
-                                                setTimeout(() => setCopiedId(null), 2000);
-                                            }}
-                                            className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#22262E] bg-slate-50 dark:bg-[#181B22] text-slate-700 dark:text-[#E1E4EA] hover:border-[#0EA5E9] hover:text-[#0EA5E9] transition-colors text-xs font-bold uppercase tracking-wider active:scale-95 flex-1 sm:flex-initial"
-                                            title="Copy Generic Workspace Link"
-                                        >
-                                            {copiedId === 'generic' ? <Check size={15} className="text-emerald-500" /> : <LinkIcon size={15} />}
-                                            <span>{copiedId === 'generic' ? 'Link Copied' : 'Copy Invite Link'}</span>
-                                        </button>
                                         <button
                                             type="button"
                                             onClick={() => setIsInviteOpen(true)}
@@ -641,7 +748,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                                          </p>
                                                          <p className="text-[10px] text-slate-400 dark:text-[#8A93A4] uppercase tracking-widest flex items-center gap-1 mt-1 font-mono font-bold">
                                                              {member.role === 'admin' ? <Shield size={10} className="text-[#EF4444]" /> : member.role === 'manager' ? <Users size={10} className="text-[#0EA5E9]" /> : member.role === 'speaker' ? <Sparkles size={10} className="text-amber-400" /> : <Mail size={10} className="text-slate-400" />}
-                                                             {member.role === 'admin' ? 'Administrator' : member.role === 'manager' ? 'Manager' : member.role === 'speaker' ? 'Pastor / Speaker' : 'Operator'}
+                                                             {member.role === 'admin' ? 'Administrator' : member.role === 'manager' ? 'Manager' : member.role === 'speaker' ? 'Speaker / Presenter' : 'Operator'}
                                                          </p>
                                                      </div>
                                                  </div>
@@ -817,14 +924,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                         </button>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-50">
-                                        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                                            <h5 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-widest mb-1">Transfer Ownership</h5>
-                                            <p className="text-[10px] text-slate-500">Coming soon in Kairon Pro.</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 opacity-60">
+                                            <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-widest mb-1">Transfer Ownership</h3>
+                                            <p className="text-xs text-slate-600 dark:text-slate-400">Planned for a future release.</p>
                                         </div>
-                                        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                                            <h5 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-widest mb-1">Export Data</h5>
-                                            <p className="text-[10px] text-slate-500">Coming soon in Kairon Pro.</p>
+                                        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between gap-3">
+                                            <div>
+                                                <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-widest mb-1">Export Workspace Data (Free)</h3>
+                                                <p className="text-xs text-slate-600 dark:text-slate-400">Download a portable JSON archive of your account and rundowns (UK GDPR Art. 20).</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={handleDownloadMyData}
+                                                disabled={isExportingData}
+                                                className="self-start px-3.5 py-2 bg-slate-900 dark:bg-[#181B22] hover:bg-slate-800 text-white rounded-lg text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50"
+                                            >
+                                                <Download size={13} aria-hidden="true" />
+                                                <span>{isExportingData ? 'Exporting...' : 'Download JSON'}</span>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -919,8 +1037,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
 
                             <div className="pt-4">
                                 <button
-                                    onMouseDown={() => {
-                                        if (deletionSlug === organization.slug && !deleteOrgMutation.isPending) {
+                                    type="button"
+                                    onPointerDown={() => {
+                                        if (deletionSlug === organization.slug && !deleteOrgMutation.isPending && !isOnlyOrg && !isHolding) {
                                             setIsHolding(true);
                                             const start = Date.now();
                                             const interval = setInterval(() => {
@@ -936,18 +1055,49 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ organization, currentUse
                                             (window as any)._holdInterval = interval;
                                         }
                                     }}
-                                    onMouseUp={() => {
+                                    onPointerUp={() => {
                                         setIsHolding(false);
                                         clearInterval((window as any)._holdInterval);
                                         if (holdProgress < 100) setHoldProgress(0);
                                     }}
-                                    onMouseLeave={() => {
+                                    onPointerLeave={() => {
                                         setIsHolding(false);
                                         clearInterval((window as any)._holdInterval);
                                         if (holdProgress < 100) setHoldProgress(0);
                                     }}
+                                    onPointerCancel={() => {
+                                        setIsHolding(false);
+                                        clearInterval((window as any)._holdInterval);
+                                        if (holdProgress < 100) setHoldProgress(0);
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if ((e.key === 'Enter' || e.key === ' ') && !e.repeat && deletionSlug === organization.slug && !deleteOrgMutation.isPending && !isOnlyOrg && !isHolding) {
+                                            e.preventDefault();
+                                            setIsHolding(true);
+                                            const start = Date.now();
+                                            const interval = setInterval(() => {
+                                                const elapsed = Date.now() - start;
+                                                const progress = Math.min(100, (elapsed / 3000) * 100);
+                                                setHoldProgress(progress);
+                                                if (progress >= 100) {
+                                                    clearInterval(interval);
+                                                    setIsHolding(false);
+                                                    deleteOrgMutation.mutate();
+                                                }
+                                            }, 20);
+                                            (window as any)._holdInterval = interval;
+                                        }
+                                    }}
+                                    onKeyUp={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            setIsHolding(false);
+                                            clearInterval((window as any)._holdInterval);
+                                            if (holdProgress < 100) setHoldProgress(0);
+                                        }
+                                    }}
+                                    aria-label="Hold 3 seconds to permanently delete workspace"
                                     disabled={deletionSlug !== organization.slug || deleteOrgMutation.isPending || isOnlyOrg}
-                                    className={`relative w-full py-5 rounded-2xl font-black uppercase tracking-widest overflow-hidden transition-all active:scale-95 disabled:opacity-30 disabled:grayscale ${deletionSlug === organization.slug && !isOnlyOrg ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'
+                                    className={`relative w-full py-5 rounded-2xl font-black uppercase tracking-widest overflow-hidden transition-all active:scale-95 disabled:opacity-30 disabled:grayscale ${deletionSlug === organization.slug && !isOnlyOrg ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                                         }`}
                                 >
                                     <div

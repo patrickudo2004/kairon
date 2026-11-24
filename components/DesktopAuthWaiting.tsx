@@ -324,12 +324,12 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
 
   // ── Generating / Waiting state ──
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#090A0C] p-8 font-sans">
+    <main id="main-content" className="flex flex-col items-center justify-center min-h-screen bg-[#090A0C] p-8 font-sans">
       {/* Official Kairon Logo */}
       <div className="inline-flex items-center gap-3 mb-8">
         <img
-          src="/kairon-logo.png"
-          alt="Kairon Studio"
+          src="./kairon-logo.png"
+          alt="Kairon Studio logo"
           className="w-12 h-12 rounded-2xl border border-[#22262E] shadow-xl shadow-[#0EA5E9]/15 object-contain"
         />
         <div>
@@ -535,7 +535,7 @@ export const DesktopAuthWaiting: React.FC<DesktopAuthWaitingProps> = ({ onOfflin
           <QRPlaceholder url={approvalUrl} />
         </div>
       )}
-    </div>
+    </main>
   );
 };
 

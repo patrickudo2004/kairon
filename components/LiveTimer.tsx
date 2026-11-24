@@ -109,10 +109,10 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             <button
               onClick={() => onToggleTimer(program, true, 0)}
               className="flex items-center gap-2 px-5 py-2.5 bg-[#0EA5E9] hover:bg-[#0284C7] text-white rounded-md font-mono text-xs font-bold transition-all shadow-sm active:scale-95"
-              title="Restart service from Slot 0 (Opening Prayer)"
+              title="Restart event from Slot 1"
             >
-              <Play size={14} />
-              <span>Restart Service from Beginning</span>
+              <Play size={14} aria-hidden="true" />
+              <span>Restart Event from Beginning</span>
             </button>
             <button
               onClick={() => onPrev(program.id)}

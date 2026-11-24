@@ -1,29 +1,28 @@
 import React from 'react';
 import { Book, CheckCircle, Smartphone, Monitor, Layout, Play, Clock, Globe, Shield, Zap, Sparkles, Receipt, Wifi, Info, LayoutGrid, MonitorPlay, Laptop, Bell, Tv } from 'lucide-react';
 
-export const UserGuide: React.FC = () => {
+export const UserGuide: React.FC<{ embeddedPublic?: boolean }> = ({ embeddedPublic = false }) => {
     return (
-        <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-12 pb-32">
+        <div className={`max-w-5xl mx-auto ${embeddedPublic ? 'px-4 md:px-6 py-8' : 'p-4 md:p-8'} space-y-12 pb-24`}>
             {/* Header section */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-700 p-8 md:p-12 text-white shadow-2xl shadow-indigo-500/20">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0B1220] via-[#0F172A] to-[#0A192F] border border-white/[0.1] p-8 md:p-12 text-white shadow-2xl">
                 <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-white/20 backdrop-blur-md rounded-xl">
+                        <div className="p-2 bg-sky-500/15 border border-sky-400/30 backdrop-blur-md rounded-xl text-sky-400" aria-hidden="true">
                             <Book size={24} />
                         </div>
-                        <span className="text-sm font-bold uppercase tracking-widest text-indigo-100">Official Documentation</span>
+                        <span className="text-xs font-mono font-bold uppercase tracking-widest text-sky-300">Official Operations Manual</span>
                     </div>
-                    <h1 className="text-4xl md:text-5xl font-black mb-6 tracking-tight">Kairon User Guide</h1>
-                    <p className="text-lg md:text-xl text-indigo-100 max-w-2xl leading-relaxed">
-                        The complete operational guide for event producers, church media teams, broadcast engineers, and pastors running live services with Kairon.
+                    <h1 className="text-4xl md:text-5xl font-black mb-5 tracking-tight">Kairon User Guide</h1>
+                    <p className="text-base md:text-lg text-slate-300 max-w-2xl leading-relaxed">
+                        The complete operational guide for conference directors, event producers, wedding coordinators, broadcast engineers, and ministry media teams running live shows with Kairon.
                     </p>
                 </div>
-                {/* Decorative background circle */}
-                <div className="absolute -right-20 -top-20 w-80 h-80 bg-white/10 rounded-full blur-3xl"></div>
+                <div aria-hidden="true" className="absolute -right-20 -top-20 w-80 h-80 bg-sky-500/10 rounded-full blur-3xl"></div>
             </div>
 
             {/* Quick Links / Table of Contents */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <nav aria-label="User Guide Table of Contents" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {[
                     { title: 'Identity, Workspaces & Roles', icon: Layout, target: '#getting-started' },
                     { title: 'Program Editor', icon: Sparkles, target: '#editor' },
@@ -35,7 +34,7 @@ export const UserGuide: React.FC = () => {
                     { title: 'Command Center', icon: LayoutGrid, target: '#command-center' },
                     { title: 'Stage Teleprompter', icon: Book, target: '#teleprompter' },
                     { title: 'Autopilot Mode', icon: Zap, target: '#autopilot' },
-                    { title: 'Pulpit Contrast Themes', icon: Tv, target: '#pulpit-themes' },
+                    { title: 'Stage Contrast Themes', icon: Tv, target: '#pulpit-themes' },
                     { title: 'Desktop Application', icon: Laptop, target: '#desktop' },
                     { title: 'Studio v2.0 & .kairon Files', icon: Receipt, target: '#studio-v2' },
                     { title: 'Broadcast Integrations (OBS/PP7)', icon: Sparkles, target: '#broadcast-integrations' },
@@ -43,15 +42,15 @@ export const UserGuide: React.FC = () => {
                     <a
                         key={i}
                         href={item.target}
-                        className="flex items-center gap-3 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl hover:border-indigo-500 transition-all group hover:shadow-lg"
+                        className="flex items-center gap-3 p-4 bg-white dark:bg-[#121418] border border-slate-200 dark:border-white/[0.08] rounded-2xl hover:border-sky-500 transition-all group hover:shadow-lg"
                     >
-                        <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg group-hover:bg-indigo-50 dark:group-hover:bg-indigo-500/10 group-hover:text-indigo-600 transition-colors">
+                        <div className="p-2 bg-slate-50 dark:bg-white/[0.04] rounded-lg group-hover:bg-sky-500/10 group-hover:text-sky-400 transition-colors" aria-hidden="true">
                             <item.icon size={20} />
                         </div>
                         <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">{item.title}</span>
                     </a>
                 ))}
-            </div>
+            </nav>
 
             {/* Content Sections */}
             <div className="space-y-16">
@@ -86,7 +85,7 @@ export const UserGuide: React.FC = () => {
                                         <span>Cloud Workspaces (Convex)</span>
                                     </div>
                                     <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                                        Hosted on Convex for multi-user collaboration across devices, real-time stage sync, team member invites, and public attendee QR access for congregation phones.
+                                        Hosted on Convex for multi-user collaboration across devices, real-time stage sync, team member invites, and public attendee QR access for audience mobile devices.
                                     </p>
                                 </div>
                             </div>
@@ -102,7 +101,7 @@ export const UserGuide: React.FC = () => {
                             </div>
 
                             <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm mb-6">
-                                In live church broadcasts and event production, roles prevent on-air disasters. A user’s identity is global, but their role is <strong>strictly workspace-scoped</strong>. You can be an Administrator at your home church, an Operator at a conference, or a Guest Speaker at a sister parish.
+                                In live broadcasts and event production, roles prevent on-air mistakes. A user’s identity is global, but their role is <strong>strictly workspace-scoped</strong>. You can be an Administrator for your own production company or venue, an Operator at a summit, or a Guest Speaker at a partner event.
                             </p>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -116,7 +115,7 @@ export const UserGuide: React.FC = () => {
                                         <span className="text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20">Full Authority</span>
                                     </div>
                                     <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                                        Head of Media, Technical Directors, and Lead Pastors. Complete control over workspace branding, team member roles, billing, rundown creation, live timers, and hardware matrix outputs.
+                                        Head of Production, Technical Directors, and Event Leads. Complete control over workspace branding, team member roles, workspace governance, rundown creation, live timers, and hardware matrix outputs.
                                     </p>
                                     <div className="text-[11px] font-mono text-slate-500 space-y-1 pt-2 border-t border-rose-500/10">
                                         <div>✅ Workspace & Team Management (Invites & Roles)</div>
@@ -136,13 +135,13 @@ export const UserGuide: React.FC = () => {
                                         <span className="text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-sky-500/10 text-sky-500 border border-sky-500/20">Show Caller</span>
                                     </div>
                                     <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                                        Service Coordinators, Stage Managers, and Associate Directors. Full authority to construct rundowns and run the live broadcast, without access to organization billing or danger zone.
+                                        Event Coordinators, Stage Managers, and Associate Directors. Full authority to construct rundowns and run the live broadcast, without access to destructive workspace deletion or admin danger zone settings.
                                     </p>
                                     <div className="text-[11px] font-mono text-slate-500 space-y-1 pt-2 border-t border-sky-500/10">
                                         <div>✅ Create, Edit, Reorder & Duplicate Events</div>
                                         <div>✅ Master Live Timer Controls & Cue Dispatcher</div>
                                         <div>✅ Invite Operators & Speakers to Workspace</div>
-                                        <div>❌ Cannot alter Workspace Billing or Delete Org</div>
+                                        <div>❌ Cannot delete Workspace or alter Admin Danger Zone</div>
                                     </div>
                                 </div>
 
@@ -171,18 +170,18 @@ export const UserGuide: React.FC = () => {
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                                            <h4 className="font-bold text-slate-900 dark:text-white text-sm">Speaker / Pastor</h4>
+                                            <h4 className="font-bold text-slate-900 dark:text-white text-sm">Speaker / Presenter</h4>
                                         </div>
                                         <span className="text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">Stage Talent</span>
                                     </div>
                                     <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                                        Resident Pastors, Preachers, Guest Ministers, and Keynote Speakers. Distraction-free stage and prompter views. All technical controls and crew communications are hidden.
+                                        Keynote Speakers, Hosts, MCs, Panelists, and Ministers. Distraction-free stage and prompter views. All technical controls and crew communications are hidden.
                                     </p>
-                                    <div className="text-[11px] font-mono text-slate-500 space-y-1 pt-2 border-t border-amber-500/10">
-                                        <div>✅ Full-screen Pulpit Display (Yellow/White/Dark)</div>
-                                        <div>✅ Auto-scrolling Teleprompter & Personal Notes</div>
-                                        <div>✅ Receive Silent Booth Prompt Cues</div>
-                                        <div>❌ Technical Controls & Master Timer Hidden</div>
+                                    <div className="text-[11px] font-mono text-slate-600 dark:text-slate-400 space-y-1 pt-2 border-t border-amber-500/10">
+                                        <div>Full-screen Stage Display (Yellow / White / Dark)</div>
+                                        <div>Auto-scrolling Teleprompter &amp; Personal Notes</div>
+                                        <div>Receive Silent Booth Prompt Cues</div>
+                                        <div>Technical Controls &amp; Master Timer Hidden</div>
                                     </div>
                                 </div>
                             </div>
@@ -190,18 +189,19 @@ export const UserGuide: React.FC = () => {
 
                         {/* Permissions Summary Table */}
                         <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
-                            <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
+                            <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-3">
                                 Permissions Summary Matrix
-                            </h4>
+                            </h3>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left text-xs font-mono border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-                                    <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                    <caption className="sr-only">Kairon role-based permissions summary across Admin, Manager, Operator, and Speaker roles</caption>
+                                    <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
                                         <tr>
-                                            <th className="p-3">Feature / Capability</th>
-                                            <th className="p-3 text-rose-500">Admin</th>
-                                            <th className="p-3 text-sky-500">Manager</th>
-                                            <th className="p-3 text-emerald-500">Operator</th>
-                                            <th className="p-3 text-amber-500">Speaker</th>
+                                            <th scope="col" className="p-3">Feature / Capability</th>
+                                            <th scope="col" className="p-3 text-rose-500">Admin</th>
+                                            <th scope="col" className="p-3 text-sky-400">Manager</th>
+                                            <th scope="col" className="p-3 text-emerald-400">Operator</th>
+                                            <th scope="col" className="p-3 text-amber-400">Speaker</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-600 dark:text-slate-400">
@@ -248,7 +248,7 @@ export const UserGuide: React.FC = () => {
                                             <td className="p-3 text-rose-500">❌ No</td>
                                         </tr>
                                         <tr>
-                                            <td className="p-3 font-sans font-medium text-slate-900 dark:text-white">Workspace Branding & Billing</td>
+                                            <td className="p-3 font-sans font-medium text-slate-900 dark:text-white">Workspace Branding & Governance</td>
                                             <td className="p-3 text-emerald-500">✅ Yes</td>
                                             <td className="p-3 text-rose-500">❌ No</td>
                                             <td className="p-3 text-rose-500">❌ No</td>
@@ -272,7 +272,7 @@ export const UserGuide: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="md:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm">
                             <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
-                                The Editor is where you build your run-of-show. Add slots, set durations, and categorize items like **Talks**, **Breaks**, or **Music**.
+                                The Editor is where you build your run-of-show. Add slots, set durations, and categorize items like <strong className="text-slate-900 dark:text-white">Keynotes</strong>, <strong className="text-slate-900 dark:text-white">Breaks</strong>, <strong className="text-slate-900 dark:text-white">Music</strong>, or <strong className="text-slate-900 dark:text-white">Ceremonies</strong>.
                             </p>
                             <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 font-mono text-xs text-slate-500">
                                 09:00 - Welcome Talk (20m)<br />
@@ -280,14 +280,14 @@ export const UserGuide: React.FC = () => {
                                 10:05 - Coffee Break (15m)
                             </div>
                         </div>
-                        <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl p-6 text-white flex flex-col justify-between">
+                        <div className="bg-gradient-to-br from-[#0B2239] to-[#0F172A] border border-sky-500/20 rounded-3xl p-6 text-white flex flex-col justify-between">
                             <div>
-                                <Zap size={32} className="mb-4 text-amber-300" />
-                                <h4 className="text-xl font-bold mb-2">Smart Importer & Autopilot</h4>
-                                <p className="text-sm text-indigo-100 leading-tight">1-click import from plain text or choose from 7 industry presets (Sunday Church, Midweek, Summit, Wedding, Launch, Memorial, Gala). Plus zero-token local Autopilot that automatically protects hard service end-times.</p>
+                                <Zap size={32} className="mb-4 text-amber-300" aria-hidden="true" />
+                                <h3 className="text-xl font-bold mb-2">Smart Importer &amp; Autopilot</h3>
+                                <p className="text-sm text-slate-300 leading-relaxed">1-click import from plain text or choose optional templates (Conference Summit, Wedding, Product Launch, Awards Gala, Live Worship, or Blank). Plus zero-token local Autopilot that protects hard event end-times.</p>
                             </div>
-                            <div className="mt-6 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-indigo-200">
-                                <CheckCircle size={14} /> 100% Offline & Free
+                            <div className="mt-6 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-sky-300">
+                                <CheckCircle size={14} aria-hidden="true" /> 100% Offline &amp; Free in Beta
                             </div>
                         </div>
                     </div>
@@ -312,8 +312,8 @@ export const UserGuide: React.FC = () => {
                                     <div className="h-12 w-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-4 text-emerald-500">
                                         <view.icon size={24} />
                                     </div>
-                                    <h4 className="text-lg font-bold text-slate-800 dark:text-white mb-2">{view.title}</h4>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-4">{view.desc}</p>
+                                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">{view.title}</h3>
+                                    <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-4">{view.desc}</p>
                                     <code className="text-[10px] font-bold bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-600 dark:text-slate-400">{view.path}</code>
                                 </div>
                             ))}
@@ -322,23 +322,23 @@ export const UserGuide: React.FC = () => {
                         {/* Multi-Screen Matrix */}
                         <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 rounded-3xl p-8 space-y-4">
                             <div className="flex items-center gap-3">
-                                <MonitorPlay className="text-emerald-600 dark:text-emerald-400" size={24} />
-                                <h4 className="text-xl font-bold text-emerald-900 dark:text-emerald-200">Hardware Multi-Screen Matrix Routing</h4>
+                                <MonitorPlay className="text-emerald-600 dark:text-emerald-400" size={24} aria-hidden="true" />
+                                <h3 className="text-xl font-bold text-emerald-900 dark:text-emerald-200">Hardware Multi-Screen Matrix Routing</h3>
                             </div>
                             <p className="text-sm text-emerald-800 dark:text-emerald-300 leading-relaxed">
-                                Kairon automatically detects all connected physical monitors — whether connected via HDMI, DisplayPort, USB-C, USB tablets, or Wireless (AirPlay/Miracast). No HDMI assumption, no guesswork.
+                                Kairon automatically detects all connected physical monitors — whether connected via HDMI, DisplayPort, USB-C, USB tablets, or Wireless (AirPlay/Miracast/GlideX). No HDMI assumption, no guesswork.
                             </p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                                 <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-emerald-100 dark:border-emerald-900/40">
-                                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block mb-1">Target Screen 2 (Pulpit)</span>
+                                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block mb-1">Target Screen 2 (Stage / Podium)</span>
                                     <p className="text-xs text-slate-600 dark:text-slate-400">
-                                        Click <strong>Project to Screen 2</strong> on the Stage Display card to instantly project a fullscreen borderless timer directly onto the preacher's pulpit monitor — no window dragging required.
+                                        Click <strong>Project to Screen 2</strong> on the Stage Display card to instantly project a fullscreen borderless timer directly onto the speaker&apos;s stage or pulpit monitor — no window dragging required.
                                     </p>
                                 </div>
                                 <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-emerald-100 dark:border-emerald-900/40">
-                                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block mb-1">Target Screen 3 (Overflow TV)</span>
+                                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block mb-1">Target Screen 3 (Overflow TV)</span>
                                     <p className="text-xs text-slate-600 dark:text-slate-400">
-                                        Click <strong>Project to Screen 3</strong> on the TV card to simultaneously route the overflow rundown display to the foyer or second auditorium TV.
+                                        Click <strong>Project to Screen 3</strong> on the TV card to simultaneously route the overflow rundown display to a lobby, green room, or secondary venue screen.
                                     </p>
                                 </div>
                             </div>
@@ -351,28 +351,28 @@ export const UserGuide: React.FC = () => {
                     <div className="flex items-center gap-4 mb-8">
                         <div className="h-10 w-1 bg-rose-500 rounded-full"></div>
                         <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                            🎮 4. Running the Show
+                            4. Running the Show
                         </h2>
                     </div>
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-4">
-                                <h4 className="text-lg font-bold text-slate-800 dark:text-white">Workflow Modes</h4>
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-white">Workflow Modes</h3>
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                        <span className="text-sm text-slate-600 dark:text-slate-400">**Auto Mode**: Timer flows naturally between slots.</span>
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500" aria-hidden="true"></div>
+                                        <span className="text-sm text-slate-600 dark:text-slate-400"><strong className="text-slate-900 dark:text-white">Auto Mode:</strong> Timer flows naturally between slots.</span>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                                        <span className="text-sm text-slate-600 dark:text-slate-400">**Manual Mode**: You control every transition with "Next".</span>
+                                        <div className="w-2 h-2 rounded-full bg-sky-500" aria-hidden="true"></div>
+                                        <span className="text-sm text-slate-600 dark:text-slate-400"><strong className="text-slate-900 dark:text-white">Manual Mode:</strong> You control every transition with &quot;Next&quot;.</span>
                                     </div>
                                 </div>
                             </div>
                             <div className="space-y-4 border-l border-slate-100 dark:border-slate-800 pl-8">
-                                <h4 className="text-lg font-bold text-slate-800 dark:text-white">Handling Overtime</h4>
-                                <p className="text-sm text-slate-500 leading-relaxed">
-                                    If a speaker goes over their allotted time, the timer turns **Red** and starts counting up, showing exactly how many minutes the event is delayed.
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-white">Handling Overtime</h3>
+                                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                                    If a speaker goes over their allotted time, the timer turns <strong className="text-rose-500">Red</strong> and starts counting up, showing exactly how many minutes the event is delayed.
                                 </p>
                             </div>
                         </div>
@@ -384,37 +384,37 @@ export const UserGuide: React.FC = () => {
                     <div className="flex items-center gap-4 mb-8">
                         <div className="h-10 w-1 bg-amber-500 rounded-full"></div>
                         <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                            ⚡ 5. Stage Cue Dispatcher &amp; Emergency Strobe
+                            5. Stage Cue Dispatcher &amp; Emergency Alert
                         </h2>
                     </div>
                     <div className="space-y-4">
                         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-3xl p-8 space-y-6">
                             <p className="text-slate-700 dark:text-amber-200/90 leading-relaxed">
-                                The <strong>Stage Cue Console</strong> allows media booth operators to communicate silently and instantly with speakers on stage — without interrupting the service.
+                                The <strong>Stage Cue Console</strong> allows booth operators to communicate silently and instantly with speakers on stage — without interrupting the live program.
                             </p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-emerald-200 dark:border-slate-800 space-y-3">
                                     <div className="flex items-center gap-2 font-bold text-emerald-700 dark:text-emerald-400">
-                                        <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+                                        <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" aria-hidden="true"></span>
                                         Standard Banner Mode
                                     </div>
-                                    <p className="text-xs text-slate-500 leading-relaxed">
-                                        Displays a high-contrast prompt banner on the pulpit screen. Ideal for polite reminders such as <em>"WRAP UP IN 1 MINUTE"</em>, <em>"ADJUST MIC CLOSER"</em>, or <em>"SPEED UP TEMPO"</em>.
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                        Displays a high-contrast prompt banner on the stage screen. Ideal for polite reminders such as <em>&quot;WRAP UP IN 1 MINUTE&quot;</em>, <em>&quot;ADJUST MIC CLOSER&quot;</em>, or <em>&quot;NEXT SPEAKER READY&quot;</em>.
                                     </p>
                                 </div>
                                 <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-rose-200 dark:border-rose-900/30 space-y-3">
                                     <div className="flex items-center gap-2 font-bold text-rose-700 dark:text-rose-400">
-                                        <span className="w-3 h-3 rounded-full bg-rose-500 inline-block"></span>
-                                        Emergency Flashing Strobe
+                                        <span className="w-3 h-3 rounded-full bg-rose-500 inline-block" aria-hidden="true"></span>
+                                        Emergency Hard-Stop Alert (WCAG Safe)
                                     </div>
-                                    <p className="text-xs text-slate-500 leading-relaxed">
-                                        Flashes the entire pulpit screen in high-visibility red. Use this only for urgent hard stops: <em>"STOP IMMEDIATELY"</em> — when time has strictly expired.
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                        Displays a full-screen red alert with a slow, WCAG 2.3.1 photosensitivity-safe pulse (automatically static when <code>prefers-reduced-motion</code> is enabled). Use for urgent hard stops such as <em>&quot;TIME EXPIRED — WRAP UP NOW&quot;</em>.
                                     </p>
                                 </div>
                             </div>
                             <div className="p-4 bg-white/80 dark:bg-slate-900/80 rounded-2xl border border-amber-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-2">
-                                <p><strong>Operator Hold:</strong> Cues remain pinned on the pulpit display until the operator clicks <strong>Clear Stage Overlay</strong>, ensuring the speaker never misses the message.</p>
-                                <p><strong>Standby State:</strong> Click <strong>Hold for Cue</strong> to pause timers and show a clean <em>"Waiting For Cue"</em> standby screen — perfect for unexpected pauses or tech issues mid-service.</p>
+                                <p><strong>Operator Hold:</strong> Cues remain pinned on the stage display until the operator clicks <strong>Clear Stage Overlay</strong>, ensuring the speaker never misses the message.</p>
+                                <p><strong>Standby State:</strong> Click <strong>Hold for Cue</strong> to pause timers and show a clean <em>&quot;Waiting For Cue&quot;</em> standby screen — ideal for unexpected transitions or tech pauses mid-event.</p>
                             </div>
                         </div>
                     </div>
@@ -425,29 +425,29 @@ export const UserGuide: React.FC = () => {
                     <div className="flex items-center gap-4 mb-8">
                         <div className="h-10 w-1 bg-blue-500 rounded-full"></div>
                         <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                            🌐 6. Public Portal
+                            6. Public Portal
                         </h2>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm">
-                            <h4 className="font-bold mb-4">Sharing is Simple</h4>
-                            <p className="text-sm text-slate-500 leading-relaxed mb-6">
-                                Anyone with the public link can see your schedule on their mobile device or desktop without needing an account.
+                            <h3 className="font-bold mb-4 text-slate-900 dark:text-white">Sharing is Simple</h3>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
+                                Anyone with the public link or QR code can view your live schedule on their phone or laptop without creating an account.
                             </p>
-                            <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-500/10 rounded-xl border border-blue-100 dark:border-blue-900/20 text-blue-600 dark:text-blue-400">
-                                <Globe size={18} />
-                                <span className="text-xs font-mono font-bold">kairon.app/p/your-event</span>
+                            <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-500/10 rounded-xl border border-blue-100 dark:border-blue-900/20 text-blue-700 dark:text-blue-400">
+                                <Globe size={18} aria-hidden="true" />
+                                <span className="text-xs font-mono font-bold">kairon-murex.vercel.app/p/your-event</span>
                             </div>
                         </div>
-                        <div className="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden group">
+                        <div className="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden group border border-white/[0.08]">
                             <div className="relative z-10">
-                                <Shield size={32} className="text-blue-400 mb-4" />
-                                <h4 className="font-bold mb-2">iFrame Embedding</h4>
-                                <p className="text-sm text-slate-400 leading-relaxed">
-                                    Copy our snippet and embed the live schedule directly onto your church or conference website.
+                                <Shield size={32} className="text-sky-400 mb-4" aria-hidden="true" />
+                                <h3 className="font-bold mb-2">iFrame Embedding</h3>
+                                <p className="text-sm text-slate-300 leading-relaxed">
+                                    Copy our snippet and embed the live schedule directly onto your conference, wedding, or venue website.
                                 </p>
                             </div>
-                            <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-500/20 rounded-full blur-2xl group-hover:bg-blue-500/40 transition-all"></div>
+                            <div aria-hidden="true" className="absolute -bottom-10 -right-10 w-40 h-40 bg-blue-500/20 rounded-full blur-2xl group-hover:bg-blue-500/40 transition-all"></div>
                         </div>
                     </div>
                 </section>
@@ -457,34 +457,34 @@ export const UserGuide: React.FC = () => {
                     <div className="flex items-center gap-4 mb-8">
                         <div className="h-10 w-1 bg-indigo-600 rounded-full"></div>
                         <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                            📴 7. Offline & Local Sync Fallback
+                            7. Offline &amp; Local Sync Fallback
                         </h2>
                     </div>
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm relative">
                         <div className="space-y-6">
                             <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                                Kairon features a built-in, completely transparent **Local Sync Router** designed for high-stress event venues where internet access is spotty or missing entirely.
+                                Kairon features a built-in, completely transparent <strong className="text-slate-900 dark:text-white">Local Sync Router</strong> designed for live event venues where internet access is spotty or unavailable.
                             </p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/80">
-                                    <h4 className="font-bold mb-2 flex items-center gap-2 text-indigo-500">
-                                        <Wifi size={16} /> 1. Automatic Local Bridge
-                                    </h4>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                                        If the WAN connection cuts out mid-event, the operator tab automatically starts broadcasting state updates locally using browser-level `BroadcastChannel` technology.
+                                    <h3 className="font-bold mb-2 flex items-center gap-2 text-sky-600 dark:text-sky-400">
+                                        <Wifi size={16} aria-hidden="true" /> 1. Automatic Local Bridge
+                                    </h3>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                        If the internet connection cuts out mid-event, the operator console automatically broadcasts state updates locally using browser-level <code>BroadcastChannel</code> and desktop IPC.
                                     </p>
                                 </div>
                                 <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/80">
-                                    <h4 className="font-bold mb-2 flex items-center gap-2 text-emerald-500">
-                                        <CheckCircle size={16} /> 2. Seamless Screen Sync
-                                    </h4>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                                        Any local screens (Stage Displays, TV Views, Teleprompters) open in neighboring tabs or screens automatically detect the offline state and listen to local broadcasts to continue running in perfect sync.
+                                    <h3 className="font-bold mb-2 flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                                        <CheckCircle size={16} aria-hidden="true" /> 2. Seamless Screen Sync
+                                    </h3>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                        Any local screens (Stage Displays, TV Views, Teleprompters) open in neighboring windows or monitors automatically detect the offline state and stay in perfect sync.
                                     </p>
                                 </div>
                             </div>
-                            <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400/90 rounded-2xl text-xs leading-relaxed">
-                                💡 **No setup required:** Disconnect your device's Wi-Fi, control the live event from the `/live` page, and notice how all other local monitor tabs keep updating in real time.
+                            <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 rounded-2xl text-xs leading-relaxed">
+                                <strong>No setup required:</strong> Disconnect your device&apos;s Wi-Fi, control the live event from the <code>/live</code> page, and all local monitor screens keep updating in real time.
                             </div>
                         </div>
                     </div>
@@ -495,28 +495,28 @@ export const UserGuide: React.FC = () => {
                     <div className="flex items-center gap-4 mb-8">
                         <div className="h-10 w-1 bg-violet-600 rounded-full"></div>
                         <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                            🎛️ 8. Multi-Track Command Center
+                            8. Multi-Track Command Center
                         </h2>
                     </div>
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm relative space-y-6">
                         <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                            For large summits and multi-venue productions, the **Command Center** provides a single screen to monitor and manage multiple active live rundown tracks side-by-side.
+                            For large summits and multi-venue productions, the <strong className="text-slate-900 dark:text-white">Command Center</strong> provides a single screen to monitor and manage multiple active live rundown tracks side-by-side.
                         </p>
                         <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md">
-                            <img src="/command_center_mockup.png" alt="Multi-Track Command Center Mockup" className="w-full h-auto object-cover max-h-[300px]" />
+                            <img src="./command_center_mockup.png" alt="Kairon Multi-Track Command Center showing parallel conference rooms and live timers" className="w-full h-auto object-cover max-h-[300px]" />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
-                                <h4 className="font-bold text-xs uppercase tracking-wider text-indigo-500 mb-1">Grid Overview</h4>
-                                <p className="text-xs text-slate-500">Monitor titles, speakers, elapsed percentages, and status alerts for all rooms concurrently.</p>
+                                <h3 className="font-bold text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400 mb-1">Grid Overview</h3>
+                                <p className="text-xs text-slate-600 dark:text-slate-400">Monitor titles, speakers, elapsed percentages, and status alerts for all rooms concurrently.</p>
                             </div>
                             <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
-                                <h4 className="font-bold text-xs uppercase tracking-wider text-indigo-500 mb-1">Direct Telemetry</h4>
-                                <p className="text-xs text-slate-500">Start, pause, skip forward, or nudge countdown timers directly from the aggregate view.</p>
+                                <h3 className="font-bold text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400 mb-1">Direct Telemetry</h3>
+                                <p className="text-xs text-slate-600 dark:text-slate-400">Start, pause, skip forward, or nudge countdown timers directly from the aggregate view.</p>
                             </div>
                             <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
-                                <h4 className="font-bold text-xs uppercase tracking-wider text-indigo-500 mb-1">Active Launch</h4>
-                                <p className="text-xs text-slate-500">Click the action icon on any card to instantly open the full control cockpit for that specific track.</p>
+                                <h3 className="font-bold text-xs uppercase tracking-wider text-sky-600 dark:text-sky-400 mb-1">Active Launch</h3>
+                                <p className="text-xs text-slate-600 dark:text-slate-400">Click any track card to jump straight into the full control cockpit for that room.</p>
                             </div>
                         </div>
                     </div>
@@ -527,29 +527,29 @@ export const UserGuide: React.FC = () => {
                     <div className="flex items-center gap-4 mb-8">
                         <div className="h-10 w-1 bg-purple-600 rounded-full"></div>
                         <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                            📖 9. Stage Teleprompter Mode
+                            9. Stage Teleprompter Mode
                         </h2>
                     </div>
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-6">
                         <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                            The **Integrated Teleprompter** merges schedule countdowns with structured markdown reading outlines, providing a clean split-screen layout for speakers at the podium.
+                            The <strong className="text-slate-900 dark:text-white">Integrated Teleprompter</strong> merges schedule countdowns with structured Markdown scripts, providing a clean split-screen layout for speakers at the podium or lectern.
                         </p>
                         <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md">
-                            <img src="/teleprompter_mockup.png" alt="Stage Teleprompter Mockup" className="w-full h-auto object-cover max-h-[300px]" />
+                            <img src="./teleprompter_mockup.png" alt="Kairon Stage Teleprompter showing auto-scrolling script alongside live countdown" className="w-full h-auto object-cover max-h-[300px]" />
                         </div>
                         <div className="space-y-4">
-                            <h4 className="font-bold text-slate-800 dark:text-slate-200">How to Setup and Use Teleprompter Outlines:</h4>
+                            <h3 className="font-bold text-slate-800 dark:text-slate-200">How to Set Up Teleprompter Scripts</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-2xl">
-                                    <span className="font-bold text-xs text-indigo-500 uppercase tracking-widest block mb-1">1. Fill Outlines</span>
-                                    <p className="text-xs text-slate-500 leading-relaxed">
-                                        In the **Program Editor**, click the chevron dropdown on a slot. Type your sermon outline or speech notes into the **Public Details / Abstract** box. Supports `# Headings`, `- Bullets`, and `**bold**` markdown syntax.
+                                    <span className="font-bold text-xs text-sky-600 dark:text-sky-400 uppercase tracking-widest block mb-1">1. Add Speaker Scripts</span>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                        In the <strong>Program Editor</strong> or Right Studio Dock <strong>Inspector</strong>, enter your keynote notes or talking points into the <strong>Stage Teleprompter Script</strong> field. Supports <code># Headings</code>, <code>- Bullets</code>, and <code>**bold**</code> syntax.
                                     </p>
                                 </div>
                                 <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-2xl">
-                                    <span className="font-bold text-xs text-indigo-500 uppercase tracking-widest block mb-1">2. Preview Outlines</span>
-                                    <p className="text-xs text-slate-500 leading-relaxed">
-                                        Open `/prompter?id=...`. Select any slot from the dropdown to read and preview notes. Click **Sync to Live** to let it automatically snap back to the running countdown timer.
+                                    <span className="font-bold text-xs text-sky-600 dark:text-sky-400 uppercase tracking-widest block mb-1">2. Launch &amp; Sync</span>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                        Open <code>/prompter?id=...</code> from Monitors &amp; Displays. Select any slot to preview, or keep <strong>Sync to Live</strong> enabled so the script automatically tracks the running countdown.
                                     </p>
                                 </div>
                             </div>
@@ -562,26 +562,26 @@ export const UserGuide: React.FC = () => {
                     <div className="flex items-center gap-4 mb-8">
                         <div className="h-10 w-1 bg-amber-500 rounded-full"></div>
                         <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                            🤖 10. Autopilot Mode (Auto-Heal)
+                            10. Autopilot Mode (Auto-Heal)
                         </h2>
                     </div>
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-6">
                         <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                            When events run overtime, organizers face stress re-calculating the rest of the rundown. **Autopilot Mode** automates this process cleanly and deterministically.
+                            When events run overtime, organizers face stress recalculating the rest of the rundown. <strong className="text-slate-900 dark:text-white">Autopilot Mode</strong> automates this process cleanly and deterministically.
                         </p>
                         <ul className="space-y-4">
                             <li className="flex gap-4">
-                                <Zap className="text-amber-500 shrink-0" size={20} />
+                                <Zap className="text-amber-500 shrink-0" size={20} aria-hidden="true" />
                                 <div>
                                     <strong className="text-slate-800 dark:text-slate-100">Zero-Token Local Execution:</strong>
-                                    <p className="text-xs text-slate-500 mt-1">Unlike standard AI suggestions, Autopilot runs entirely on local math. It consumes no server credits or API tokens, remaining fully free and responsive offline.</p>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Autopilot runs entirely on local deterministic math. It requires zero cloud tokens and stays instant even when completely offline.</p>
                                 </div>
                             </li>
                             <li className="flex gap-4">
-                                <CheckCircle className="text-indigo-500 shrink-0" size={20} />
+                                <CheckCircle className="text-sky-500 shrink-0" size={20} aria-hidden="true" />
                                 <div>
                                     <strong className="text-slate-800 dark:text-slate-100">Smart Overrun Redistribution:</strong>
-                                    <p className="text-xs text-slate-500 mt-1">If a segment overruns, Autopilot automatically redistributes the overflow minutes by shaving time proportionally from subsequent flexible segments, ensuring you finish exactly at your hard end-time.</p>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">If a segment overruns, Autopilot proportionally trims subsequent flexible segments while protecting headline keynotes/messages so you finish exactly at your hard end-time.</p>
                                 </div>
                             </li>
                         </ul>
@@ -593,27 +593,27 @@ export const UserGuide: React.FC = () => {
                     <div className="flex items-center gap-4 mb-8">
                         <div className="h-10 w-1 bg-teal-500 rounded-full"></div>
                         <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                            🎨 11. Pulpit Contrast Themes
+                            11. Stage Contrast Themes
                         </h2>
                     </div>
                     <div className="bg-slate-950 text-white rounded-3xl p-8 shadow-xl border border-slate-800">
-                        <p className="text-slate-400 leading-relaxed mb-6">
-                            To combat screen glare from intense stage spotlights, Kairon provides specialized, high-visibility themes for Pulpit displays.
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            To combat screen glare from intense stage spotlights, Kairon provides specialized high-visibility themes for Stage and Podium confidence monitors.
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="p-4 bg-black border border-amber-500/30 rounded-2xl flex items-center justify-between">
                                 <div>
-                                    <h4 className="font-bold text-amber-400">Ambient Yellow</h4>
-                                    <p className="text-[10px] text-slate-500">Optimized for low-light stages with high spotlight contrast.</p>
+                                    <h3 className="font-bold text-amber-400">Ambient Yellow</h3>
+                                    <p className="text-xs text-slate-400">Optimized for low-light stages with intense spotlight wash.</p>
                                 </div>
-                                <span className="h-4 w-4 rounded-full bg-amber-400"></span>
+                                <span className="h-4 w-4 rounded-full bg-amber-400" aria-hidden="true"></span>
                             </div>
                             <div className="p-4 bg-black border border-slate-800 rounded-2xl flex items-center justify-between">
                                 <div>
-                                    <h4 className="font-bold text-white">Ambient White</h4>
-                                    <p className="text-[10px] text-slate-500">Ultra-high visibility matte white outlines on true black background.</p>
+                                    <h3 className="font-bold text-white">Ambient White</h3>
+                                    <p className="text-xs text-slate-400">Ultra-high visibility matte white typography on true black.</p>
                                 </div>
-                                <span className="h-4 w-4 rounded-full bg-white"></span>
+                                <span className="h-4 w-4 rounded-full bg-white" aria-hidden="true"></span>
                             </div>
                         </div>
                     </div>
@@ -624,32 +624,32 @@ export const UserGuide: React.FC = () => {
                     <div className="flex items-center gap-4 mb-8">
                         <div className="h-10 w-1 bg-blue-600 rounded-full"></div>
                         <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                            🖥️ 12. Native Desktop Application
+                            12. Native Desktop Application
                         </h2>
                     </div>
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-6">
                         <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                            Kairon is available as a dedicated standalone desktop app for <strong>Windows, macOS, and Linux</strong>, engineered specifically for permanent installation in church media booths.
+                            Kairon is available as a standalone desktop app for <strong>Windows, macOS, and Linux</strong>, engineered for reliable operation in live production booths and AV racks.
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
-                                <Laptop className="text-indigo-500" size={22} />
-                                <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">Multi-OS Support</h4>
-                                <p className="text-xs text-slate-500">Available as a Windows .exe installer, macOS .dmg, and Linux .AppImage — download once and install on any machine in the media booth.</p>
+                                <Laptop className="text-sky-500" size={22} aria-hidden="true" />
+                                <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">Multi-OS Support</h3>
+                                <p className="text-xs text-slate-600 dark:text-slate-400">Windows .exe installer, macOS .dmg, and Linux .AppImage — install once on any booth machine.</p>
                             </div>
                             <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
-                                <MonitorPlay className="text-emerald-500" size={22} />
-                                <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">Native Multi-Screen Routing</h4>
-                                <p className="text-xs text-slate-500">Detects all connected monitors at the OS level — no browser permissions needed. Push Stage or TV views to any screen with a single click.</p>
+                                <MonitorPlay className="text-emerald-500" size={22} aria-hidden="true" />
+                                <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">Native Multi-Screen Routing</h3>
+                                <p className="text-xs text-slate-600 dark:text-slate-400">Detects all connected monitors at the OS level — push Stage or TV views to any screen in one click.</p>
                             </div>
                             <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
-                                <Monitor className="text-amber-500" size={22} />
-                                <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">Display Sleep Lock</h4>
-                                <p className="text-xs text-slate-500">Automatically prevents the screen from sleeping during a live service. The booth computer stays awake for the entire event without any manual settings changes.</p>
+                                <Monitor className="text-amber-500" size={22} aria-hidden="true" />
+                                <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">Display Sleep Lock</h3>
+                                <p className="text-xs text-slate-600 dark:text-slate-400">Automatically prevents the display from sleeping during live events without changing OS power settings.</p>
                             </div>
                         </div>
-                        <div className="p-5 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-2xl text-sm text-blue-800 dark:text-blue-300">
-                            <strong>How to get it:</strong> Visit the <a href="https://github.com/patrickudo2004/kairon/releases" target="_blank" rel="noopener noreferrer" className="underline font-bold">GitHub Releases page</a> and download the installer for your platform. No separate installation of Node.js or any other software required.
+                        <div className="p-5 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-2xl text-sm text-blue-900 dark:text-blue-200">
+                            <strong>How to get it:</strong> Download the latest Windows, macOS, or Linux desktop build directly from the <a href="https://github.com/patrickudo2004/kairon/releases" target="_blank" rel="noopener noreferrer" className="underline font-bold">Kairon Desktop Releases page</a>.
                         </div>
                     </div>
                 </section>
@@ -659,24 +659,24 @@ export const UserGuide: React.FC = () => {
                     <div className="flex items-center gap-4 mb-8">
                         <div className="h-10 w-1 bg-sky-500 rounded-full"></div>
                         <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                            🎛️ 13. Studio v2.0 Shell &amp; Portable .kairon Files
+                            13. Studio v2.0 Shell &amp; Portable .kairon Files
                         </h2>
                     </div>
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-6">
                         <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                            Kairon Studio v2.0 introduces the <strong>Obsidian Broadcast 4-Row / 3-Zone Desktop Architecture</strong> — modeled after industry-standard control surfaces so operators never have to hunt across tabs during a live show.
+                            Kairon Studio introduces the <strong>Obsidian Broadcast 4-Row / 3-Zone Architecture</strong> — modeled after broadcast control surfaces so operators never have to hunt across tabs during a live show.
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
-                                <h4 className="font-bold text-sm text-sky-600 dark:text-sky-400">Right Studio Dock &amp; Live 16:9 Preview</h4>
-                                <p className="text-xs text-slate-500 leading-relaxed">
+                                <h3 className="font-bold text-sm text-sky-600 dark:text-sky-400">Right Studio Dock &amp; Live 16:9 Preview</h3>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                                     Keep a real-time 16:9 confidence preview of your Stage, TV, Teleprompter, or Broadcast Key output open alongside your rundown, paired with the context-aware <strong>Slot Inspector</strong> and instant <strong>Stage Cue Dispatcher</strong>.
                                 </p>
                             </div>
                             <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
-                                <h4 className="font-bold text-sm text-emerald-600 dark:text-emerald-400">Portable .kairon Show Files</h4>
-                                <p className="text-xs text-slate-500 leading-relaxed">
-                                    Use <strong>File &rarr; Save As .kairon File (Ctrl+S)</strong> or <strong>Open .kairon File (Ctrl+O)</strong> to save and transfer complete production schedules (including speaker teleprompter scripts, technical booth cues, and branding) via USB drive or AirDrop — 100% offline.
+                                <h3 className="font-bold text-sm text-emerald-600 dark:text-emerald-400">Portable .kairon Show Files</h3>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                    Use <strong>File &rarr; Save As .kairon File (Ctrl+S)</strong> or <strong>Open .kairon File (Ctrl+O)</strong> to save and transfer complete production schedules (including scripts, booth cues, and branding) via USB drive or AirDrop — 100% offline.
                                 </p>
                             </div>
                         </div>
@@ -688,24 +688,24 @@ export const UserGuide: React.FC = () => {
                     <div className="flex items-center gap-4 mb-8">
                         <div className="h-10 w-1 bg-purple-500 rounded-full"></div>
                         <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-                            📡 14. Broadcast Ecosystem (OBS, vMix, ATEM &amp; ProPresenter 7)
+                            14. Broadcast Ecosystem (OBS, vMix, ATEM &amp; ProPresenter 7)
                         </h2>
                     </div>
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-6">
                         <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-                            Kairon integrates natively with your existing broadcast video switcher and lyrics presentation rig:
+                            Kairon integrates natively with your existing broadcast video switcher and presentation rig:
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
-                                <h4 className="font-bold text-sm text-purple-600 dark:text-purple-400">/overlay Alpha &amp; Chroma Key Feed</h4>
-                                <p className="text-xs text-slate-500 leading-relaxed">
-                                    Add <code>/overlay?id=YOUR_ID&amp;bg=transparent&amp;layout=lower-third</code> as an <strong>OBS Browser Source</strong> or <strong>vMix Web Browser Input</strong> (1920&times;1080), or switch to <code>bg=green</code> / <code>bg=blue</code> for hardware Upstream Chroma Keying on a <strong>Blackmagic ATEM Mini Extreme</strong>.
+                                <h3 className="font-bold text-sm text-purple-600 dark:text-purple-400">/overlay Alpha &amp; Chroma Key Feed</h3>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                    Add <code>/overlay?id=YOUR_ID&amp;bg=transparent&amp;layout=lower-third</code> as an <strong>OBS Browser Source</strong> or <strong>vMix Web Browser Input</strong> (1920&times;1080), or switch to <code>bg=green</code> / <code>bg=magenta</code> for hardware Upstream Chroma Keying on a <strong>Blackmagic ATEM</strong>.
                                 </p>
                             </div>
                             <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
-                                <h4 className="font-bold text-sm text-sky-600 dark:text-sky-400">ProPresenter 7 Network API Bridge</h4>
-                                <p className="text-xs text-slate-500 leading-relaxed">
-                                    Open <strong>Integrations &rarr; ProPresenter 7 Network Bridge</strong> to link Kairon directly to ProPresenter 7 over your booth LAN. Stage Cues and Emergency Strobe alerts fired in Kairon automatically mirror onto ProPresenter&apos;s stage display.
+                                <h3 className="font-bold text-sm text-sky-600 dark:text-sky-400">ProPresenter 7 Network API Bridge</h3>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                    Open <strong>Integrations &rarr; ProPresenter 7 Network Bridge</strong> to link Kairon directly to ProPresenter 7 over your booth LAN. Stage Cues fired in Kairon automatically mirror onto ProPresenter&apos;s stage display.
                                 </p>
                             </div>
                         </div>
@@ -716,40 +716,43 @@ export const UserGuide: React.FC = () => {
                 <section className="bg-slate-100 dark:bg-slate-800/30 rounded-[40px] p-8 md:p-12 border border-white dark:border-slate-800 shadow-inner">
                     <div className="text-center mb-12">
                         <h2 className="text-4xl font-black text-slate-900 dark:text-white mb-4">Real World Scenarios</h2>
-                        <p className="text-slate-500 dark:text-slate-500">How to handle the chaos like a pro.</p>
+                        <p className="text-slate-600 dark:text-slate-400">How production teams handle live chaos smoothly.</p>
                     </div>
                     <div className="space-y-6">
                         {[
                             {
                                 title: 'The High-Stress Tech Conference',
                                 tag: 'Autopilot Focus',
-                                color: 'indigo',
-                                desc: 'Speaker goes 5 minutes over. AV Manager enables Autopilot. Kairon deterministically trims 1 minute from the next 5 flexible segments. Finish exactly on time.'
+                                badgeClass: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
+                                pillClass: 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
+                                desc: 'Keynote speaker goes 5 minutes over. AV Producer enables Autopilot. Kairon deterministically trims 1 minute from the next 5 flexible segments so the summit finishes right on time.'
                             },
                             {
-                                title: 'The Wedding Ceremony',
+                                title: 'The Wedding & Gala Reception',
                                 tag: 'Cue Focus',
-                                color: 'amber',
-                                desc: 'Flower Girl is missing. DJ toggles "Hold". The TV in the hall says "WAITING FOR CUE". Once found, DJ hits "Release" and everything continues perfectly.'
+                                badgeClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+                                pillClass: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
+                                desc: 'Bridal party is delayed before grand entrance. Coordinator toggles Hold for Cue. Stage and foyer screens show WAITING FOR CUE. Once ready, hit Resume and the evening flows seamlessly.'
                             },
                             {
-                                title: 'The Church Service',
+                                title: 'The Live Broadcast or Worship Service',
                                 tag: 'Offline Focus',
-                                color: 'emerald',
-                                desc: 'Internet cuts out mid-service. Kairon doesn\'t blink. The timer keeps ticking and the foyer screens continue to show the correct local schedule.'
+                                badgeClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+                                pillClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300',
+                                desc: 'Venue internet cuts out mid-program. Kairon never blinks. The wall-clock timer keeps ticking and wireless stage tablets stay synchronized locally until internet reconnects.'
                             }
                         ].map((s, i) => (
                             <div key={i} className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row gap-6 hover:shadow-xl transition-all border border-slate-100 dark:border-slate-800">
-                                <div className={`shrink-0 h-14 w-14 rounded-2xl bg-${s.color}-500/10 flex items-center justify-center text-${s.color}-500 font-black text-xl border border-${s.color}-500/20`}>
+                                <div className={`shrink-0 h-14 w-14 rounded-2xl flex items-center justify-center font-black text-xl border ${s.badgeClass}`}>
                                     {i + 1}
                                 </div>
                                 <div className="space-y-2">
-                                    <div className="flex items-center gap-3">
-                                        <h4 className="text-xl font-bold text-slate-800 dark:text-white uppercase tracking-tight">{s.title}</h4>
-                                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-${s.color}-100 text-${s.color}-600 dark:bg-${s.color}-500/10 dark:text-${s.color}-400`}>{s.tag}</span>
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <h3 className="text-xl font-bold text-slate-800 dark:text-white uppercase tracking-tight">{s.title}</h3>
+                                        <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${s.pillClass}`}>{s.tag}</span>
                                     </div>
-                                    <p className="text-sm text-slate-500 dark:text-slate-500 leading-relaxed italic pr-12">
-                                        "{s.desc}"
+                                    <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic pr-4 md:pr-12">
+                                        &quot;{s.desc}&quot;
                                     </p>
                                 </div>
                             </div>
@@ -759,14 +762,15 @@ export const UserGuide: React.FC = () => {
             </div>
 
             {/* Footer / CTA */}
-            <div className="pt-12 border-t border-slate-100 dark:border-slate-800 text-center space-y-4">
-                <div className="flex items-center justify-center gap-2 text-slate-400">
-                    <Info size={16} />
-                    <p className="text-sm text-slate-500">
-                        For help or support, reach out to your church media team admin or visit the GitHub Releases page for the latest desktop update.
+            <div className="pt-12 border-t border-slate-200 dark:border-slate-800 text-center space-y-4">
+                <div className="flex items-center justify-center gap-2 text-slate-600 dark:text-slate-400">
+                    <Info size={16} aria-hidden="true" />
+                    <p className="text-sm">
+                        Need help or want to share Open Beta feedback? Contact{' '}
+                        <a href="mailto:patrickudo2004@gmail.com" className="text-sky-600 dark:text-sky-400 font-semibold hover:underline">patrickudo2004@gmail.com</a>.
                     </p>
                 </div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300 dark:text-slate-700">Kairon Studio v2.0 &bull; Built for Live Event &amp; Church Broadcast Teams &bull; 2026</p>
+                <p className="text-xs font-mono font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">Kairon Studio &bull; Built for Live Event &amp; Broadcast Teams &bull; 2026</p>
             </div>
         </div>
     );

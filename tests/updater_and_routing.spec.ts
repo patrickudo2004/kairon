@@ -14,7 +14,7 @@ test.describe('Routing & In-App Auto-Update E2E Workflows', () => {
 
     // Verify Zone B center primary canvas is NOT blank
     await expect(page.getByRole('heading', { name: 'My Programs' })).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('text=Sunday Celebration Service').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create New' })).toBeVisible();
   });
 
   test('should redirect unknown or disk file paths to dashboard via catch-all wildcard route', async ({ page }) => {
@@ -53,21 +53,21 @@ test.describe('Routing & In-App Auto-Update E2E Workflows', () => {
 
     // Verify UpdateCheckerModal is open
     await expect(page.getByRole('heading', { name: 'Kairon Studio Updates' })).toBeVisible();
-    await expect(page.locator('text=Current build: v1.0.8')).toBeVisible();
+    await expect(page.locator('text=Current build: v1.1.0')).toBeVisible();
   });
 
   test('should display "Up to Date" when latest release matches current version', async ({ page }) => {
-    // Intercept GitHub Release API to mock current version v1.0.6
+    // Intercept GitHub Release API to mock current version v1.1.0
     await page.route('**/repos/patrickudo2004/kairon/releases/latest', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           id: 1,
-          tag_name: 'v1.0.8',
-          name: 'Kairon v1.0.8 Stable',
+          tag_name: 'v1.1.0',
+          name: 'Kairon v1.1.0 Stable',
           body: 'Current stable release.',
-          html_url: 'https://github.com/patrickudo2004/kairon/releases/tag/v1.0.8',
+          html_url: 'https://github.com/patrickudo2004/kairon/releases/tag/v1.1.0',
           published_at: new Date().toISOString(),
           assets: [],
         }),
@@ -93,23 +93,23 @@ test.describe('Routing & In-App Auto-Update E2E Workflows', () => {
   });
 
   test('should display "New Version Available" with download button when newer release exists', async ({ page }) => {
-    // Intercept GitHub Release API to mock newer version v1.0.7
+    // Intercept GitHub Release API to mock newer version v1.1.1
     await page.route('**/repos/patrickudo2004/kairon/releases/latest', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           id: 2,
-          tag_name: 'v1.0.9',
-          name: 'Kairon v1.0.9 - Upcoming Reliability Update',
+          tag_name: 'v1.1.1',
+          name: 'Kairon v1.1.1 - Upcoming Reliability Update',
           body: '- Added in-app update checker\n- Fixed blank desktop canvas\n- Enhanced stage cue dispatcher',
-          html_url: 'https://github.com/patrickudo2004/kairon/releases/tag/v1.0.9',
+          html_url: 'https://github.com/patrickudo2004/kairon/releases/tag/v1.1.1',
           published_at: new Date().toISOString(),
           assets: [
             {
               id: 101,
-              name: 'Kairon-Setup-1.0.9.exe',
-              browser_download_url: 'https://github.com/patrickudo2004/kairon/releases/download/v1.0.9/Kairon-Setup-1.0.9.exe',
+              name: 'Kairon-Setup-1.1.1.exe',
+              browser_download_url: 'https://github.com/patrickudo2004/kairon/releases/download/v1.1.1/Kairon-Setup-1.1.1.exe',
               size: 85000000,
               content_type: 'application/octet-stream',
             },
@@ -133,7 +133,7 @@ test.describe('Routing & In-App Auto-Update E2E Workflows', () => {
 
     // Verify new version available state
     await expect(page.locator('text=New Version Available')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('text=v1.0.9').first()).toBeVisible();
+    await expect(page.locator('text=v1.1.1').first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Download for/i })).toBeVisible();
     await expect(page.locator('text=Enhanced stage cue dispatcher')).toBeVisible();
   });

@@ -442,7 +442,7 @@ ipcMain.handle('close-target-screen', async (event, { windowId }) => {
 });
 
 // Helper: Resolve Documents/Kairon/Workspaces/<OrgName>/<Year>/<Month>
-function getWorkspaceArchiveDir(organizationName = 'Winners Chapel Manchester', dateStr = '') {
+function getWorkspaceArchiveDir(organizationName = 'Kairon Workspace', dateStr = '') {
   const safeOrg = (organizationName || 'Kairon Workspace').replace(/[<>:"/\\|?*]+/g, '').trim() || 'Workspace';
   const parsedDate = dateStr ? new Date(dateStr) : new Date();
   const year = !isNaN(parsedDate.getTime()) ? String(parsedDate.getFullYear()) : String(new Date().getFullYear());

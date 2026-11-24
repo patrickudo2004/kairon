@@ -40,3 +40,12 @@ playwright/.cache/
 release/
 Workspaces/
 
+
+# Database exports, production logs, and legacy SQL scripts (GDPR hygiene)
+*.csv
+prod_logs.txt
+remote.txt
+service report*.pdf
+supabase_*.sql
+report*.png
+

@@ -10,7 +10,8 @@ import { useConvexAuth, useQuery as useConvexQuery, useMutation as useConvexMuta
 import { api } from "./convex/_generated/api";
 import { convex } from "./services/convexClient";
 import { getPrograms, getProgramById, createProgram as createProgramService, updateProgram as updateProgramService, deleteProgram as deleteProgramService, updateTimerState as updateTimerStateService, transformProgram } from './services/programService';
-import { getProfile } from './services/authService';
+import { getProfile, clearLocalUserSessionData } from './services/authService';
+import { generateUUID } from './utils/uuid';
 import { getMyOrganizations, checkPendingInvites, getInviteDetails } from './services/orgService';
 import { rebalanceSchedule } from './services/geminiService';
 import { getOfflineLedger, enqueueOfflineChange, clearOfflineLedger, cacheWorkspaceEntitlement, getCachedWorkspaceEntitlement } from './services/offlineSyncLedger';
@@ -58,6 +59,9 @@ import StageWrapper from './components/wrappers/StageWrapper';
 import PrompterWrapper from './components/wrappers/PrompterWrapper';
 import { MonitorDashboard } from './components/MonitorDashboard';
 import { CommandCenter } from './components/CommandCenter';
+import { LandingPage } from './components/public/LandingPage';
+import { PublicGuidePage } from './components/public/PublicGuidePage';
+import { PrivacyPolicyPage, TermsOfServicePage, CookieNoticePage, AccessibilityStatementPage } from './components/public/LegalPages';
 import { ConfirmationModal } from './components/ConfirmationModal';
 import { CrewHUD } from './components/CrewHUD';
 import FlightBridgeStandaloneView from './components/FlightBridgeStandaloneView';
@@ -721,17 +725,19 @@ const AppContent: React.FC = () => {
   const isTestBypassMode = typeof window !== 'undefined' && (window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true');
 
   // Permissions Logic:
-  // In Local Folder Workspaces (This PC), the local user is ALWAYS an Administrator (Local Owner)
-  // In Cloud Workspaces, role is fetched from Convex membership, falling back to org creator ('admin') or activeOrg.role
-  const userRole = (isLocalFolderWorkspace || isBoothMode || isTestBypassMode || String(activeOrgId).startsWith('local-'))
-    ? 'admin'
-    : (myMembership?.role || (isOwner ? 'admin' : (activeOrg?.role || 'admin')));
+  // Unauthenticated visitors NEVER inherit admin or live-control privileges.
+  const hasSession = Boolean(user || isBoothMode || isTestBypassMode);
+  const userRole = !hasSession
+    ? null
+    : (isLocalFolderWorkspace || isBoothMode || isTestBypassMode || String(activeOrgId).startsWith('local-'))
+      ? 'admin'
+      : (myMembership?.role || (isOwner ? 'admin' : (activeOrg?.role || 'operator')));
 
-  const isAdmin = userRole === 'admin' || isOwner || isTestBypassMode || isBoothMode || isLocalFolderWorkspace;
-  const isSpeaker = userRole === 'speaker';
-  const isManager = userRole === 'manager';
-  const isOperator = userRole === 'operator';
-  const canManagePrograms = isAdmin || isManager || isBoothMode || isLocalFolderWorkspace;
+  const isAdmin = hasSession && (userRole === 'admin' || isOwner || isTestBypassMode || isBoothMode || isLocalFolderWorkspace);
+  const isSpeaker = hasSession && userRole === 'speaker';
+  const isManager = hasSession && userRole === 'manager';
+  const isOperator = hasSession && userRole === 'operator';
+  const canManagePrograms = hasSession && (isAdmin || isManager || isBoothMode || isLocalFolderWorkspace);
 
   // 1. URL-based overrides (purely aesthetic for Admins/Managers)
   const isUrlReadOnly = mode === 'viewer' || mode === 'ReadOnly';
@@ -739,27 +745,42 @@ const AppContent: React.FC = () => {
   // 2. Auth Resolution (Wait for Convex to settle)
   const isAuthResolved = isBoothMode || (!isConvexAuthLoading && (!isAuthenticated || (isAuthenticated && myMembership !== undefined)));
 
-  // 3. Permission Evaluation (POWER-BASED)
-  // Admins and Managers are NEVER restricted by mode, unless they choose to be viewers.
+  // 3. Route-specific Document Titles (WCAG 2.4.2)
   useEffect(() => {
     const rawHash = (location.hash || '').replace(/^#\/?/, '').split('?')[0].toLowerCase();
     const rawPath = (location.pathname || '').replace(/^\//, '').split('?')[0].toLowerCase();
     const token = rawHash || rawPath;
-    if (!['stage', 'tv', 'prompter', 'overlay', 'crew'].includes(token)) {
-      document.title = "Kairon - Production Timer";
-    }
-  }, [location.pathname, location.hash]);
+    if (['stage', 'tv', 'prompter', 'overlay', 'crew'].includes(token)) return;
+    const titleMap: Record<string, string> = {
+      '': hasSession ? 'Dashboard — Kairon Studio' : 'Kairon Studio — Live Event & Broadcast Timer',
+      'login': 'Sign In — Kairon Studio',
+      'editor': 'Program Editor — Kairon Studio',
+      'live': 'Live Control — Kairon Studio',
+      'monitors': 'Monitors & Displays — Kairon Studio',
+      'command': 'Command Center — Kairon Studio',
+      'calendar': 'Calendar — Kairon Studio',
+      'list': 'Rundown List — Kairon Studio',
+      'admin': 'Workspace Settings — Kairon Studio',
+      'org': 'Workspaces — Kairon Studio',
+      'guide': 'User Guide — Kairon Studio',
+      'privacy': 'Privacy Policy — Kairon Studio',
+      'terms': 'Terms of Service — Kairon Studio',
+      'cookies': 'Cookie & Storage Notice — Kairon Studio',
+      'accessibility': 'Accessibility Statement — Kairon Studio',
+    };
+    document.title = titleMap[token] || (token.startsWith('analytics') ? 'Event Analytics — Kairon Studio' : 'Kairon Studio — Live Event & Broadcast Timer');
+  }, [location.pathname, location.hash, hasSession]);
 
-  const isReadOnly = !isAuthResolved ? false : (
+  const isReadOnly = !hasSession ? true : (!isAuthResolved ? false : (
     program.status === 'archived' || (
       (isAdmin || isManager)
-        ? (mode === 'viewer') 
+        ? (mode === 'viewer')
         : true // Operators and Guests are read-only for structural edits
     )
-  );
+  ));
 
-  const canControlLive = (isAdmin || isManager || isOperator || isBoothMode || isLocalFolderWorkspace) && !isSpeaker;
-  const isCoEditor = (isAdmin || isManager || (mode === 'coeditor') || isBoothMode || isLocalFolderWorkspace) && !isOperator && !isSpeaker;
+  const canControlLive = hasSession && (isAdmin || isManager || isOperator || isBoothMode || isLocalFolderWorkspace) && !isSpeaker;
+  const isCoEditor = hasSession && (isAdmin || isManager || (mode === 'coeditor') || isBoothMode || isLocalFolderWorkspace) && !isOperator && !isSpeaker;
 
   const isReadOnlyRef = React.useRef(isReadOnly);
   useEffect(() => {
@@ -873,20 +894,7 @@ const AppContent: React.FC = () => {
     enabled: !!inviteId && inviteId !== 'generic' && !user
   });
 
-  // Handle generic invite details manually or via a separate query if needed
-  // For now, if it's 'generic', we might just show a "Join Workspace" message
-  // Or fetch org details if orgId is present
-  const { data: genericOrgDetails } = useQuery({
-    queryKey: ['orgDetails', urlOrgId || persistedOrgId],
-    queryFn: () => import('./services/orgService').then(s => s.getOrganizationById((urlOrgId || persistedOrgId)!)),
-    enabled: inviteId === 'generic' && !!(urlOrgId || persistedOrgId) && !user
-  });
-
-  const effectiveInviteDetails = inviteId === 'generic' ? {
-    organizationName: genericOrgDetails?.name || "Kairon Workspace",
-    role: 'operator',
-    isGeneric: true
-  } : inviteDetails;
+  const effectiveInviteDetails = inviteId && inviteId !== 'generic' ? inviteDetails : undefined;
 
   // Keep activeOrg in sync with activeOrgId
   useEffect(() => {
@@ -1029,14 +1037,16 @@ const AppContent: React.FC = () => {
 
   const handleSignOut = async () => {
     try {
-      localStorage.removeItem('kairon_booth_mode');
+      await signOut();
+    } catch (err) {
+      console.warn("Sign out notice:", err);
+    } finally {
+      clearLocalUserSessionData();
       setIsBoothMode(false);
-      window.dispatchEvent(new Event('kairon_booth_mode_changed'));
-    } catch {}
-    await signOut();
-    setProfile(null);
-    setActiveOrgId(null);
-    setActiveOrg(null);
+      setProfile(null);
+      setActiveOrgId(null);
+      setActiveOrg(null);
+    }
   };
 
   const [isAdminOnline, setIsAdminOnline] = useState(true);
@@ -1135,6 +1145,14 @@ const AppContent: React.FC = () => {
       );
       if (existingIdx >= 0) {
         localList[existingIdx] = program;
+        return localList;
+      }
+      // Do not display an unsaved default blank "New Event" (0 slots) as a phantom card on a fresh empty dashboard
+      const isUnsavedBlankPlaceholder =
+        program.title === 'New Event' &&
+        (!program.slots || program.slots.length === 0) &&
+        program.status !== 'live';
+      if (isUnsavedBlankPlaceholder) {
         return localList;
       }
       return [program, ...localList.filter((p: any) => 
@@ -1302,18 +1320,6 @@ const AppContent: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
 
   const handleAiRebalance = async (currentProgram: Program) => {
-    if (!isPro) {
-      setConfirmDialog({
-        isOpen: true,
-        title: '👑 Pro Feature',
-        message: 'AI Rebalancing is a premium feature. Upgrade your workspace to unlock intelligent schedule optimization.',
-        type: 'info',
-        onConfirm: () => {
-          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-        }
-      });
-      return;
-    }
     setIsAiLoading(true);
     try {
       // Calculate how far off we are
@@ -2193,7 +2199,7 @@ const AppContent: React.FC = () => {
         const original = await getProgramById(id);
         if (!original) return;
 
-        const newUuid = crypto.randomUUID();
+        const newUuid = generateUUID();
         const newProgram: Program = {
           ...original,
           id: `local-${newUuid}`,
@@ -2209,7 +2215,7 @@ const AppContent: React.FC = () => {
           holdMessage: '',
           slots: original.slots.map(s => ({
             ...s,
-            id: crypto.randomUUID()
+            id: generateUUID()
           }))
         };
 
@@ -2262,7 +2268,7 @@ const AppContent: React.FC = () => {
           return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
         };
 
-        const newUuid = crypto.randomUUID();
+        const newUuid = generateUUID();
         const newProgram: Program = {
           ...original,
           id: `local-${newUuid}`,
@@ -2279,7 +2285,7 @@ const AppContent: React.FC = () => {
           holdMessage: '',
           slots: original.slots.map(s => ({
             ...s,
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             actualDuration: undefined
           }))
         };
@@ -2551,11 +2557,21 @@ const AppContent: React.FC = () => {
           secondsElapsed: secondsToUse
         }));
         
-        // REDIRECT FIX: Only navigate to Editor if starting from a non-production view
-        const currentPath = window.location.pathname;
-        const isProductionView = currentPath.includes('/live') || currentPath.includes('/editor') || currentPath.includes('/monitors');
-        if (!isProductionView) {
-          navigate(`/editor?id=${target.id}&mode=live`);
+        // REDIRECT FIX (Web + Electron HashRouter):
+        // Never hijack navigation to /editor when already in any live/studio/Zen view.
+        // Use React Router location.pathname (works identically under BrowserRouter and Electron HashRouter).
+        const activeRoutePath = (location.pathname || '/').toLowerCase();
+        const isStayInPlaceView =
+          isZenMode ||
+          activeRoutePath.startsWith('/live') ||
+          activeRoutePath.startsWith('/editor') ||
+          activeRoutePath.startsWith('/monitors') ||
+          activeRoutePath.startsWith('/command') ||
+          activeRoutePath.startsWith('/list') ||
+          activeRoutePath.startsWith('/calendar') ||
+          activeRoutePath.startsWith('/analytics');
+        if (!isStayInPlaceView) {
+          navigate(`/live?id=${target.id}`);
         }
       }
     } else {
@@ -2900,8 +2916,9 @@ const AppContent: React.FC = () => {
     reader.readAsText(file);
   };
 
-  // Global Tactical Broadcast & Studio Hotkeys
+  // Global Tactical Broadcast & Studio Hotkeys (Strictly gated behind active authenticated/booth session)
   useEffect(() => {
+    if (!hasSession) return;
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const isMod = e.ctrlKey || e.metaKey;
 
@@ -3028,6 +3045,7 @@ const AppContent: React.FC = () => {
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [
+    hasSession,
     isHotkeysOpen,
     isCommandPaletteOpen,
     isIntegrationsOpen,
@@ -3228,8 +3246,8 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Zen / Focus Mode: Fullscreen distraction-free operator console
-  if (isZenMode) {
+  // Zen / Focus Mode: Fullscreen distraction-free operator console (Strictly gated behind active session)
+  if (isZenMode && hasSession) {
     return (
       <ZenFocusConsole
         program={displayProgram}
@@ -3249,8 +3267,37 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // Unauthenticated Public Shell (Zero Studio chrome, zero hotkeys, zero hidden studio headings)
+  if (!hasSession) {
+    if (effectiveAuthLoading) {
+      return (
+        <div className="min-h-screen bg-[#060709] flex items-center justify-center" role="status" aria-label="Loading Kairon Studio">
+          <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      );
+    }
+
+    if (isElectronRuntime || Boolean(inviteId || effectiveInviteDetails)) {
+      return <Auth inviteDetails={effectiveInviteDetails} />;
+    }
+
+    return (
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Auth inviteDetails={effectiveInviteDetails} />} />
+        <Route path="/signin" element={<Auth inviteDetails={effectiveInviteDetails} />} />
+        <Route path="/signup" element={<Auth inviteDetails={effectiveInviteDetails} />} />
+        <Route path="/guide" element={<PublicGuidePage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col bg-slate-50 dark:bg-[#0B0C0E] text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-hidden">
+      <a href="#main-content" className="skip-to-content">
+        Skip to main content
+      </a>
       {/* =========================================================
           ROW 1: DESKTOP STUDIO MENU BAR (28px, lg:flex)
          ========================================================= */}
@@ -3313,8 +3360,9 @@ const AppContent: React.FC = () => {
       )}
 
       {/* =========================================================
-          ROW 2: COMPACT STUDIO HEADER & TRANSPORT BAR (56px)
+          ROW 2: COMPACT STUDIO HEADER & TRANSPORT BAR (56px — Strictly Authenticated Studio Only)
          ========================================================= */}
+      {hasSession && (
       <header className="h-14 shrink-0 border-b border-slate-200 dark:border-[#22262E] bg-white/95 dark:bg-[#090A0C]/95 backdrop-blur-md transition-colors z-40 flex items-center no-print font-sans">
         <div className="w-full px-4 md:px-5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -3613,6 +3661,7 @@ const AppContent: React.FC = () => {
           </div>
         </div>
       </header>
+      )}
 
       {/* =========================================================
           ROW 3: 3-ZONE STUDIO WORKSPACE (LEFT RAIL | CENTER CANVAS | RIGHT DOCK)
@@ -3666,20 +3715,16 @@ const AppContent: React.FC = () => {
         )}
 
         {/* ZONE B: Center Primary Canvas */}
-        <main className="flex-1 min-w-0 overflow-y-auto pb-36 lg:pb-8 relative custom-scrollbar">
+        <main id="main-content" tabIndex={-1} className="flex-1 min-w-0 overflow-y-auto pb-36 lg:pb-8 relative custom-scrollbar">
           {/* Venue Dock (Pill Switcher) */}
-          <VenueDock 
-            activeSessions={activeSessions}
-            selectedLiveId={selectedLiveId}
-            onSelect={setSelectedLiveId}
-          />
-          <div className="max-w-7xl mx-auto px-4 pb-4 pt-1 md:p-6 h-full">
-            {effectiveAuthLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : null}
-
+          {hasSession && (
+            <VenueDock 
+              activeSessions={activeSessions}
+              selectedLiveId={selectedLiveId}
+              onSelect={setSelectedLiveId}
+            />
+          )}
+          <div className={hasSession ? "max-w-7xl mx-auto px-4 pb-4 pt-1 md:p-6 h-full" : "w-full h-full"}>
             <ConfirmationModal
               isOpen={isInterlockOpen}
               title="Concurrent Event Detected"
@@ -3692,7 +3737,11 @@ const AppContent: React.FC = () => {
               type="warning"
             />
 
-            {!user && !isBoothMode ? (
+            {effectiveAuthLoading ? (
+              <div className="flex items-center justify-center h-full bg-[#060709]" role="status" aria-label="Loading Kairon Studio">
+                <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : !user && !isBoothMode ? (
               <Auth inviteDetails={effectiveInviteDetails} />
             ) : (
               <Routes>
@@ -3705,6 +3754,9 @@ const AppContent: React.FC = () => {
                 } />
 
                 <Route path="/guide" element={<UserGuide />} />
+                <Route path="/login" element={<Navigate to="/" replace />} />
+                <Route path="/signin" element={<Navigate to="/" replace />} />
+                <Route path="/signup" element={<Navigate to="/" replace />} />
 
                 {/* Main Views */}
                 <Route path="/" element={
@@ -3960,7 +4012,7 @@ const AppContent: React.FC = () => {
         activeOrg={activeOrg}
       />
 
-      {!location.pathname.startsWith('/analytics') && (
+      {hasSession && !location.pathname.startsWith('/analytics') && (
         <PrintableSchedule
           program={exportTargetProgram}
           includeDetails={exportOptions.includeDetails}
@@ -4228,9 +4280,14 @@ class AppErrorBoundary extends Component<{ children: React.ReactNode }, ErrorBou
             <button
               onClick={() => {
                 try {
-                  localStorage.removeItem('kairon_booth_mode');
+                  clearLocalUserSessionData();
                   sessionStorage.clear();
-                  window.location.href = '/';
+                  if (Boolean((window as any).electron?.isElectron || window.location.protocol === 'file:')) {
+                    window.location.hash = '#/';
+                    window.location.reload();
+                  } else {
+                    window.location.href = '/';
+                  }
                 } catch {}
               }}
               className="px-5 py-2.5 rounded-xl bg-transparent hover:bg-red-500/10 text-red-400 text-xs font-mono font-bold uppercase tracking-wider transition-all"
@@ -4266,6 +4323,11 @@ const StandaloneDispatcher: React.FC = () => {
   const isBridgeRoute = currentRouteToken === 'bridge' || pathLower === '/bridge' || /[\/#]bridge(\b|\?|\/)/i.test(hrefLower);
   const isPortalRoute = currentRouteToken === 'public' || currentRouteToken === 'portal' || pathLower === '/public' || pathLower === '/portal' || /[\/#](public|portal)(\b|\?|\/)/i.test(hrefLower);
   const isDesktopAuthRoute = location.pathname === '/desktop-auth' || currentRouteToken === 'desktop-auth' || searchParams.has('desktopCode');
+  const isPrivacyRoute = currentRouteToken === 'privacy' || pathLower === '/privacy';
+  const isTermsRoute = currentRouteToken === 'terms' || pathLower === '/terms';
+  const isCookiesRoute = currentRouteToken === 'cookies' || pathLower === '/cookies';
+  const isAccessibilityRoute = currentRouteToken === 'accessibility' || pathLower === '/accessibility';
+  const isWelcomeRoute = currentRouteToken === 'welcome' || pathLower === '/welcome';
 
   if (isTvRoute) return <TVWrapper />;
   if (isStageRoute) return <StageWrapper />;
@@ -4275,6 +4337,11 @@ const StandaloneDispatcher: React.FC = () => {
   if (isPortalRoute) return <PublicPortal />;
   if (isBridgeRoute) return <FlightBridgeStandaloneView />;
   if (isDesktopAuthRoute) return <DesktopAuthApproval />;
+  if (isPrivacyRoute) return <PrivacyPolicyPage />;
+  if (isTermsRoute) return <TermsOfServicePage />;
+  if (isCookiesRoute) return <CookieNoticePage />;
+  if (isAccessibilityRoute) return <AccessibilityStatementPage />;
+  if (isWelcomeRoute) return <LandingPage />;
 
   return <AppContent />;
 };

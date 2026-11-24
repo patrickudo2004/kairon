@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Booth Mode & Desktop Auth Integration Tests', () => {
 
-  test('should boot smoothly into Booth Mode with seeded Winners Chapel church services', async ({ page }) => {
+  test('should boot smoothly into Booth Mode with a clean zero-hardcoded workspace', async ({ page }) => {
     // Navigate with booth mode enabled in localStorage
     await page.addInitScript(() => {
       localStorage.setItem('kairon_booth_mode', 'true');
@@ -13,15 +13,13 @@ test.describe('Booth Mode & Desktop Auth Integration Tests', () => {
 
     // Verify app shell loads without blank screen
     await expect(page.getByRole('heading', { name: 'My Programs' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create New' })).toBeVisible();
 
-    // Verify canonical seeded programs are present on the dashboard
-    await expect(page.locator('text=Sunday Celebration Service').first()).toBeVisible();
-    await expect(page.locator('text=Midweek Communion Service').first()).toBeVisible();
-
-    // Verify that the upcoming count is at least 2
-    const upcomingHeading = page.locator('h2', { hasText: 'Upcoming & Active' });
-    await expect(upcomingHeading).toBeVisible();
-    await expect(upcomingHeading).not.toContainText('(0)');
+    // Verify ZERO hardcoded church or sample seed data exists on fresh start
+    const bodyText = await page.locator('body').innerText();
+    expect(bodyText).not.toMatch(/winners chapel/i);
+    await expect(page.locator('text=Sunday Celebration Service')).toHaveCount(0);
+    await expect(page.locator('text=Midweek Communion Service')).toHaveCount(0);
   });
 
   test('should render Desktop Auth Approval view when navigating to ?desktopCode=KRN-TEST', async ({ page }) => {

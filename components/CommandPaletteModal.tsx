@@ -183,6 +183,9 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Studio Command Palette"
       className="fixed inset-0 z-[150] bg-black/75 backdrop-blur-sm flex items-start justify-center pt-20 p-4 font-sans animate-in fade-in duration-100"
       onClick={onClose}
     >
@@ -191,9 +194,10 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-3.5 border-b border-slate-200 dark:border-[#22262E] flex items-center gap-3 bg-slate-50 dark:bg-[#090A0C]">
-          <Search size={16} className="text-[#0EA5E9] shrink-0" />
+          <Search size={16} aria-hidden="true" className="text-[#0EA5E9] shrink-0" />
           <input
             type="text"
+            aria-label="Search studio commands, templates, or views"
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -201,10 +205,12 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
             className="flex-1 bg-transparent text-sm font-mono text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none"
           />
           <button
+            type="button"
+            aria-label="Close command palette"
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1"
           >
-            <X size={15} />
+            <X size={15} aria-hidden="true" />
           </button>
         </div>
 

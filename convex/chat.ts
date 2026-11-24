@@ -1,12 +1,29 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { resolveProgram } from "./programs";
+import { resolveProgram, checkPermissions } from "./programs";
 
 export const getMessages = query({
     args: { programId: v.string() },
     handler: async (ctx, args) => {
         if (!args.programId) return [];
+
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return [];
+
+        const program = await resolveProgram(ctx, args.programId);
+        if (!program) return [];
+
+        const membership = await ctx.db
+            .query("members")
+            .withIndex("by_org", (q) => q.eq("organizationId", program.organizationId))
+            .filter((q) => q.eq(q.field("userId"), userId))
+            .first();
+
+        const org = await ctx.db.get(program.organizationId as any);
+        const isOwner = (org as any)?.createdBy === userId;
+
+        if (!membership && !isOwner) return [];
 
         const messages = await ctx.db
             .query("crewChat")
@@ -71,29 +88,20 @@ export const clearMessages = mutation({
         const program = await resolveProgram(ctx, args.programId);
         if (!program) throw new Error("Program not found");
 
-        const userId = await getAuthUserId(ctx);
-        if (!userId) throw new Error("Unauthorized");
+        await checkPermissions(ctx, program.organizationId, "manager");
 
-        const membership = await ctx.db
-            .query("members")
-            .withIndex("by_org", (q) => q.eq("organizationId", program.organizationId))
-            .filter((q) => q.eq(q.field("userId"), userId))
-            .first();
+        const candidateKeys = Array.from(
+            new Set([args.programId, String(program._id), program.uuid, program.slug].filter(Boolean) as string[])
+        );
+        for (const key of candidateKeys) {
+            const messages = await ctx.db
+                .query("crewChat")
+                .withIndex("by_program", (q) => q.eq("programId", key))
+                .collect();
 
-        const org = await ctx.db.get(program.organizationId as any);
-        const isOwner = (org as any)?.createdBy === userId;
-
-        if (!membership && !isOwner) {
-            throw new Error("Forbidden");
-        }
-
-        const messages = await ctx.db
-            .query("crewChat")
-            .withIndex("by_program", (q) => q.eq("programId", args.programId))
-            .collect();
-
-        for (const msg of messages) {
-            await ctx.db.delete(msg._id);
+            for (const msg of messages) {
+                await ctx.db.delete(msg._id);
+            }
         }
     },
 });

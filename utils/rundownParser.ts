@@ -1,4 +1,5 @@
 import { Slot, SlotType } from '../types';
+import { generateUUID } from './uuid';
 
 export interface ParsedRundownResult {
   title?: string;
@@ -19,8 +20,8 @@ export interface RundownTemplate {
 export const PRODUCTION_TEMPLATES: RundownTemplate[] = [
   {
     id: 'church-sunday',
-    name: 'Sunday Church Service',
-    description: '10-part Sunday service rundown (Winners Chapel canonical order of service)',
+    name: 'Sunday Worship Service',
+    description: '10-part Sunday service rundown with worship, announcements, message, and closing',
     startTime: '09:00',
     slots: [
       {
@@ -734,7 +735,7 @@ function parseLineToSlot(line: string): Slot | null {
   }
 
   return {
-    id: crypto.randomUUID ? crypto.randomUUID() : `slot-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    id: generateUUID(),
     title,
     speaker,
     durationMinutes,

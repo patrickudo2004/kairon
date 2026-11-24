@@ -149,7 +149,7 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
         ) : null}
       </div>
 
-      <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-500 mt-3 mb-6">
+      <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-500 mt-3 mb-14">
         <div className="flex items-center gap-1.5">
           <Calendar size={14} className={isPast ? "text-slate-400 dark:text-slate-600" : "text-indigo-500 dark:text-indigo-400"} />
           <span>{new Date(program.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
@@ -201,18 +201,18 @@ const ProgramCard: React.FC<ProgramCardProps> = ({ program, isPast = false, isAc
         {isLive ? (
           <button
             onClick={(e) => { e.stopPropagation(); onSelect(program, localSeconds); }}
-            className="flex-[2] min-w-[120px] px-6 bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)] animate-pulse"
+            className="flex-[1.6] min-w-[104px] px-3 bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-1.5 transition-all shadow-[0_0_20px_rgba(79,70,229,0.3)] animate-pulse"
           >
-            <LayoutDashboard size={16} fill="currentColor" />
-            <span className="text-[10px] font-black uppercase tracking-tight">Manage Live</span>
+            <LayoutDashboard size={15} fill="currentColor" />
+            <span className="text-[10px] font-black uppercase tracking-tight whitespace-nowrap">Manage Live</span>
           </button>
         ) : (
           <button
             onClick={handlePlay}
-            className="flex-[2] min-w-[120px] px-6 bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+            className="flex-[1.6] min-w-[104px] px-3 bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-1.5 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)]"
           >
-            <Play size={16} fill="currentColor" />
-            <span className="text-[10px] font-black uppercase tracking-tight">Start Live</span>
+            <Play size={15} fill="currentColor" />
+            <span className="text-[10px] font-black uppercase tracking-tight whitespace-nowrap">Start Live</span>
           </button>
         )}
         
@@ -536,7 +536,7 @@ const HomeDashboard: React.FC<HomeDashboardProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by title, speaker, scripture, or date..."
+              placeholder="Search by title, speaker, notes, or date..."
               className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-xl pl-9 pr-8 py-2 text-xs font-mono text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
             />
             {searchQuery && (
