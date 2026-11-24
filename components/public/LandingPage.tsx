@@ -114,12 +114,12 @@ const EVENT_DEMOS: EventScenarioDemo[] = [
 ];
 
 const SHOWCASE_TRANSCRIPT = [
-  { time: '00:00 – 00:10', caption: 'Kairon Studio opens in dark broadcast mode: Precision timekeeping for every live stage — conferences, weddings, broadcasts, ceremonies, and worship gatherings.' },
-  { time: '00:10 – 00:21', caption: 'Run-of-show tracks rotate cleanly across event formats. Build custom rundowns or start from optional templates in seconds.' },
-  { time: '00:21 – 00:33', caption: 'Project a high-contrast Stage Confidence Monitor to a wired display or any wireless tablet. Fire silent stage cues like "2 MINUTES REMAINING — PREPARE FOR Q&A" without stepping onto the stage.' },
-  { time: '00:33 – 00:45', caption: 'Flip to mobile devices: Crew Tactical HUD synchronizes Sound, Lighting, and Video readiness checks, while Mobile Zen Focus Console gives directors distraction-free pocket control.' },
-  { time: '00:45 – 00:56', caption: 'When a segment runs overtime, zero-token Autopilot deterministically rebalances flexible remaining slots to protect your hard end-time — even 100% offline, with OBS & ATEM chroma key feeds.' },
-  { time: '00:56 – 01:05', caption: 'Kairon Studio runs on Web, Windows, macOS, and Linux. Free during Open Beta with Founding Partner access.' },
+  { time: '00:00 – 00:08', caption: 'Kairon Studio Live Control opens in obsidian dark mode with a live ticking countdown and mirrored Right Output Monitor Dock.' },
+  { time: '00:08 – 00:17', caption: '3D screens flip across Conferences & Summits, Weddings & Galas (Ballroom TV Display), and Worship & Broadcast Stages—every clock counting down live in real time.' },
+  { time: '00:17 – 00:25', caption: 'On an anti-glare Ambient Yellow Stage Confidence Tablet, the clock hits 02:00 and a silent stage cue slides in cleanly: "2 MINUTES REMAINING — PREPARE FOR Q&A".' },
+  { time: '00:25 – 00:34', caption: 'On mobile, Crew Tactical HUD readiness badges confirm Sound, Lights, and Video in green before flipping in 3D to the Mobile Zen Focus Console ticking on the exact same second.' },
+  { time: '00:34 – 00:41', caption: 'When a speaker runs past 00:00 into red Overtime, deterministic zero-token Autopilot engages locally to rebalance remaining slots and protect your hard end-time—even 100% offline with OBS & ATEM overlays.' },
+  { time: '00:41 – 00:48', caption: 'Laptop, Stage Tablet, and Mobile Zen fan out together—all three counting down in exact millisecond lockstep. Kairon Studio: Free Open Beta on Web, Windows, macOS & Linux.' },
 ];
 
 export const LandingPage: React.FC = () => {
@@ -128,9 +128,27 @@ export const LandingPage: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
+  const [videoTime, setVideoTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(48);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const scenario = EVENT_DEMOS.find((d) => d.id === activeScenario) || EVENT_DEMOS[0];
+
+  const formatVideoTime = (sec: number) => {
+    const safe = Math.max(0, Math.floor(sec || 0));
+    const m = Math.floor(safe / 60);
+    const s = safe % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = videoRef.current;
+    const next = parseFloat(e.target.value);
+    if (v && !Number.isNaN(next)) {
+      v.currentTime = next;
+      setVideoTime(next);
+    }
+  };
 
   const handleTogglePlay = () => {
     const v = videoRef.current;
@@ -255,19 +273,28 @@ export const LandingPage: React.FC = () => {
                 <span className="hidden sm:inline text-sky-300 uppercase tracking-widest">1080P HD &bull; CAPTIONS INCLUDED</span>
               </div>
 
-              {/* Video Frame */}
-              <div className="relative aspect-video bg-[#050608] rounded-b-[20px] overflow-hidden group">
+              {/* Video Frame — 100% Unobstructed (Controls docked cleanly below frame so subtitles are never hidden!) */}
+              <div className="relative aspect-video bg-[#050608] overflow-hidden group">
                 <video
                   ref={videoRef}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover cursor-pointer"
                   playsInline
                   muted={isMuted}
                   loop
                   preload="metadata"
                   poster="./media/kairon-showcase-poster.png"
+                  onClick={handleTogglePlay}
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
-                  aria-label="Kairon Studio product walkthrough video showing multi-device stage timer, silent cues, Autopilot rebalancing, and mobile controls"
+                  onLoadedMetadata={(e) => {
+                    const v = e.currentTarget;
+                    if (v.duration && Number.isFinite(v.duration)) setVideoDuration(v.duration);
+                    if (v.textTracks && v.textTracks.length > 0) {
+                      v.textTracks[0].mode = captionsEnabled ? 'showing' : 'hidden';
+                    }
+                  }}
+                  onTimeUpdate={(e) => setVideoTime(e.currentTarget.currentTime)}
+                  aria-label="Kairon Studio product walkthrough video showing live-ticking multi-device stage timers, silent cues, Autopilot rebalancing, and mobile controls"
                 >
                   <source src="./media/kairon-showcase-draft.mp4" type="video/mp4" />
                   <track
@@ -291,31 +318,55 @@ export const LandingPage: React.FC = () => {
                     <div className="w-20 h-20 rounded-full bg-[#0369A1]/90 hover:bg-[#0284C7] border border-sky-300/50 backdrop-blur-xl flex items-center justify-center shadow-[0_0_50px_rgba(14,165,233,0.45)] transition-transform hover:scale-105">
                       <Play size={30} className="text-white ml-1" fill="currentColor" aria-hidden="true" />
                     </div>
-                    <span className="mt-4 px-4 py-1.5 rounded-full bg-black/70 border border-white/15 text-xs font-mono font-bold uppercase tracking-widest text-white backdrop-blur-md">
-                      Watch 65-Second Showcase
+                    <span className="mt-4 px-4 py-1.5 rounded-full bg-black/75 border border-white/15 text-xs font-mono font-bold uppercase tracking-widest text-white backdrop-blur-md">
+                      Watch 48-Second Live Showcase
                     </span>
                   </button>
                 )}
+              </div>
 
-                {/* Accessible Control Dock */}
-                <div className="absolute bottom-3 inset-x-3 flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-black/75 backdrop-blur-xl border border-white/[0.12]">
+              {/* Dedicated Non-Overlapping Hardware Control Dock (Below Video Frame) */}
+              <div className="flex flex-col gap-2.5 px-4 py-3 bg-[#090B0F]/95 border-t border-white/[0.08] rounded-b-[20px]">
+                {/* Scrubbable Progress Bar */}
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] font-mono text-slate-300 tabular-nums w-9 shrink-0">
+                    {formatVideoTime(videoTime)}
+                  </span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={videoDuration || 48}
+                    step={0.1}
+                    value={Math.min(videoTime, videoDuration || 48)}
+                    onChange={handleSeek}
+                    aria-label="Seek showcase video timeline"
+                    className="flex-1 h-1.5 accent-sky-400 bg-white/[0.12] rounded-full cursor-pointer"
+                  />
+                  <span className="text-[11px] font-mono text-slate-400 tabular-nums w-9 text-right shrink-0">
+                    {formatVideoTime(videoDuration)}
+                  </span>
+                </div>
+
+                {/* Transport & Accessibility Controls */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={handleTogglePlay}
                       aria-label={isPlaying ? 'Pause showcase video' : 'Play showcase video'}
-                      className="p-2 rounded-lg bg-white/[0.08] hover:bg-white/[0.16] text-white transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-mono font-bold transition-colors"
                     >
-                      {isPlaying ? <Pause size={15} aria-hidden="true" /> : <Play size={15} aria-hidden="true" />}
+                      {isPlaying ? <Pause size={14} aria-hidden="true" /> : <Play size={14} aria-hidden="true" />}
+                      <span>{isPlaying ? 'Pause' : 'Play'}</span>
                     </button>
                     <button
                       type="button"
                       onClick={handleToggleMute}
-                      aria-label={isMuted ? 'Unmute ambient music' : 'Mute ambient music'}
+                      aria-label={isMuted ? 'Unmute ambient music and sound effects' : 'Mute audio'}
                       className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.14] text-slate-200 text-xs font-mono transition-colors"
                     >
                       {isMuted ? <VolumeX size={14} aria-hidden="true" /> : <Volume2 size={14} aria-hidden="true" />}
-                      <span className="hidden sm:inline">{isMuted ? 'Unmute Music' : 'Audio On'}</span>
+                      <span>{isMuted ? 'Unmute Audio' : 'Audio On'}</span>
                     </button>
                   </div>
 

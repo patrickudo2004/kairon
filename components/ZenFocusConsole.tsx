@@ -274,19 +274,20 @@ export const ZenFocusConsole: React.FC<ZenFocusConsoleProps> = ({
           {(isTimerActive || program.status === 'live') && hasSlots && !isConcluded && (
             <div className="inline-block">
               <HoldToConfirmButton
-                durationMs={2000}
+                durationMs={1200}
                 onConfirm={() => {
-                  if (onRequestEndEvent) {
-                    onRequestEndEvent();
-                  } else if (onEndEvent) {
+                  if (onEndEvent) {
                     onEndEvent();
+                  } else if (onRequestEndEvent) {
+                    onRequestEndEvent();
                   }
                 }}
                 label="END EVENT"
-                holdingLabel="HOLD 2S"
+                holdingLabel="ENDING"
+                tapHintLabel="HOLD 1.2s"
                 className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-mono text-xs font-bold"
                 variant="danger"
-                title="Press and hold 2 seconds to conclude live event"
+                title="Press and hold 1.2 seconds to conclude live event"
               />
             </div>
           )}

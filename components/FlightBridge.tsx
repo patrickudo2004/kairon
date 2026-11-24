@@ -473,12 +473,13 @@ export const FlightBridge: React.FC<FlightBridgeProps> = ({
                         <span>HOLD</span>
                     </button>
                     <HoldToConfirmButton
-                        durationMs={2000}
-                        onConfirm={() => onRequestEndEvent ? onRequestEndEvent(program.id) : onEndEvent(program.id)}
+                        durationMs={1200}
+                        onConfirm={() => onEndEvent(program.id)}
                         label="End"
-                        holdingLabel="Hold"
+                        holdingLabel="Ending"
+                        tapHintLabel="Hold 1.2s"
                         className="py-1.5 text-[11px] font-bold font-mono"
-                        title="Press and hold 2 seconds to end this live session"
+                        title="Press and hold 1.2 seconds to end this live session"
                     />
                 </div>
 

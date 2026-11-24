@@ -127,8 +127,8 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
     );
   }
 
-  // Safety fallback
-  if (program.status === 'live' && !currentSlot) {
+  // Safety fallback for empty or out-of-range slots
+  if (!currentSlot) {
     return (
       <div className="flex flex-col items-center justify-center h-full max-w-xl mx-auto p-8 text-center font-sans">
         <div className="p-4 bg-white dark:bg-[#121418] border border-slate-200 dark:border-[#22262E] rounded-md mb-4 shadow-sm">
@@ -136,9 +136,9 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
         </div>
         <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No Items in Rundown</h2>
         <p className="text-xs font-mono text-slate-500 dark:text-[#8A93A4] mb-6">This program has no schedule items.</p>
-        {!readOnly && (
+        {!readOnly && program.status === 'live' && (
           <button
-            onClick={() => onToggleTimer(program, false, elapsed)}
+            onClick={() => (onEndEvent ? onEndEvent(program.id) : onToggleTimer(program, false, elapsed))}
             className="px-4 py-2 bg-[#EF4444]/10 border border-[#EF4444]/30 text-[#EF4444] rounded text-xs font-mono font-bold"
           >
             Stop Session
@@ -310,7 +310,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
             {/* Master Play / Pause */}
             <button
               onClick={() => onToggleTimer(program, false, elapsed)}
-              className={`w-24 h-24 md:px-8 md:py-3.5 rounded-2xl md:rounded-md font-mono text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-md active:scale-95 touch-manipulation ${
+              className={`w-24 h-24 md:w-auto md:h-auto md:px-8 md:py-3.5 rounded-2xl md:rounded-md font-mono text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-md active:scale-95 touch-manipulation ${
                 isTimerActive
                   ? 'bg-slate-100 dark:bg-[#1C2028] hover:bg-slate-200 dark:hover:bg-[#252B37] text-slate-900 dark:text-white border border-slate-300 dark:border-[#2D333F]'
                   : 'bg-[#10B981] hover:bg-[#059669] text-white shadow-[#10B981]/20'
@@ -391,14 +391,15 @@ const LiveTimer: React.FC<LiveTimerProps> = ({
               <span>AUTOPILOT</span>
             </button>
 
-            {/* End Event Hold-to-Confirm with Confirmation Modal */}
+            {/* End Event 1.2s Hold-to-Confirm (direct end, zero second modal) */}
             {(onEndEvent || onRequestEndEvent) && (
               <HoldToConfirmButton
-                onConfirm={() => (onRequestEndEvent || onEndEvent)!(program.id)}
-                durationMs={2000}
+                onConfirm={() => (onEndEvent || onRequestEndEvent)!(program.id)}
+                durationMs={1200}
                 label="END EVENT"
-                holdingLabel="HOLD TO END"
-                title="Press and hold 2 seconds to end this live session"
+                holdingLabel="ENDING"
+                tapHintLabel="HOLD 1.2s TO END"
+                title="Press and hold 1.2 seconds to end this live session"
               />
             )}
 

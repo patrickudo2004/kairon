@@ -43,7 +43,7 @@ test.describe('Public Website, Legal/GDPR Shield, Incognito Isolation & WCAG 2.1
     const transcriptBtn = page.getByRole('button', { name: /Transcript/i }).first();
     await expect(transcriptBtn).toBeVisible();
     await transcriptBtn.click();
-    await expect(page.getByText(/00:00 [–—-] 00:10/i).first()).toBeVisible();
+    await expect(page.getByText(/00:00 [–—-] 00:(08|10)/i).first()).toBeVisible();
 
     // Interactive 4-Format Universal Event Simulator switches cleanly
     const weddingsTab = page.getByRole('tab', { name: /Weddings & Galas/i }).or(page.getByRole('button', { name: /Weddings & Galas/i })).first();
@@ -308,5 +308,50 @@ test.describe('Public Website, Legal/GDPR Shield, Incognito Isolation & WCAG 2.1
     await expect(page.locator('input[placeholder="Session Title"]:visible').first()).toBeVisible();
 
     expect(errors).toHaveLength(0);
+  });
+
+  test('Live Control 1.2s Hold-to-End: quick tap shows hint without ending, 1.2s hold concludes directly with no second modal, and top-bar End remains visible when paused', async ({ page }) => {
+    const liveProg = {
+      ...TEST_SUNDAY_PROGRAM,
+      id: 'local-hold-end-test',
+      status: 'live',
+      isTimerActive: true,
+      currentSlotIndex: 0,
+      secondsElapsed: 20,
+      timerStartTimestamp: Date.now() - 20000,
+    };
+    await seedTestWorkspace(page, [liveProg]);
+    await page.addInitScript((prog) => {
+      localStorage.setItem('kairon_offline_cache_live', JSON.stringify(prog));
+    }, liveProg);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`/live?id=${liveProg.id}&testBypass=true`);
+    await page.waitForLoadState('domcontentloaded');
+
+    // 1. Pause timer and verify top-bar End button stays visible for a paused live session
+    const pauseBtn = page.locator('main button', { hasText: /Pause/i }).first();
+    await expect(pauseBtn).toBeVisible({ timeout: 10000 });
+    await pauseBtn.click();
+    await page.waitForTimeout(250);
+    await expect(page.locator('header button', { hasText: /^End$/i }).first()).toBeVisible();
+
+    // 2. Quick click on LiveTimer END EVENT button shows tap hint and does NOT conclude event
+    const endEventBtn = page.locator('main').getByRole('button', { name: /END EVENT/i }).first();
+    await expect(endEventBtn).toBeVisible();
+    await endEventBtn.click();
+    await expect(endEventBtn).toContainText(/HOLD 1\.2s/i);
+    await expect(page.getByText('Session Concluded')).toHaveCount(0);
+
+    // 3. Continuous 1.35s hold concludes directly to Session Concluded with ZERO second modal
+    const box = await endEventBtn.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(1400);
+    await page.mouse.up();
+
+    await expect(page.getByText('Session Concluded')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('[role="dialog"]')).toHaveCount(0);
   });
 });

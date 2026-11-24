@@ -1866,7 +1866,21 @@ const AppContent: React.FC = () => {
       console.warn("Failed to update offline cache on end event:", e);
     }
 
-    // PUSH TO CLOUD
+    // Immediately lock refs so background debounced auto-save cannot revert 'concluded' back to 'live'
+    if (targetId === program.id || targetId === displayProgram.id) {
+      programRef.current = updatedProgram;
+      lastSavedProgramRef.current = updatedProgram;
+    }
+
+    // Keep local folder workspace list in sync
+    if (isLocalFolderWorkspace) {
+      setLocalFolderPrograms(prev => prev.map(p => (p.id === targetId ? updatedProgram : p)));
+      void saveProgramToLocalFolder(updatedProgram, activeOrg?.folderPath).then(() => {
+        setLocalFolderTick(t => t + 1);
+      });
+    }
+
+    // PUSH TO CLOUD (operator-safe timer state mutation)
     timerSaveMutation.mutate({
       id: targetId,
       currentSlotIndex: targetIdx,
@@ -1911,9 +1925,13 @@ const AppContent: React.FC = () => {
     } catch (e) {
       console.warn("Failed to broadcast end event:", e);
     }
-    
-    // Final save to DB - Explicitly clear timer state for this venue
-    updateProgramService(updatedProgram);
+
+    // Persist final slot actualDuration only for roles allowed to patch structural slots (avoids operator RBAC error & offline races)
+    if (canManagePrograms && !isBoothMode && !isTestBypassMode && !isLocalFolderWorkspace) {
+      void updateProgramService(updatedProgram).catch((err) => {
+        console.warn("Non-fatal slot duration sync notice on end event:", err);
+      });
+    }
   };
 
   const requestEndEventConfirmation = (targetProgramId?: string) => {
@@ -2632,7 +2650,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleToggleHold = (nextHoldState?: boolean, targetProgramId?: string) => {
-    if (isReadOnly) return;
+    if (!canControlLive) return;
     const targetId = targetProgramId || displayProgram.id;
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     
@@ -3550,15 +3568,16 @@ const AppContent: React.FC = () => {
               </button>
             )}
 
-            {/* End Event / Stop Button (Protected Hold Confirmation) */}
-            {displayIsTimerActive && (
+            {/* End Event / Stop Button (1.2s Protected Hold Confirmation — stays visible even when paused) */}
+            {(displayIsTimerActive || displayProgram.status === 'live') && canControlLive && (
               <HoldToConfirmButton
-                durationMs={2000}
-                onConfirm={() => requestEndEventConfirmation(displayProgram.id)}
+                durationMs={1200}
+                onConfirm={() => handleEndEvent(displayProgram.id)}
                 label="End"
-                holdingLabel="Hold"
-                className="px-2 py-1 text-xs font-mono font-semibold"
-                title="Press and hold 2 seconds to end this live session"
+                holdingLabel="Ending"
+                tapHintLabel="Hold 1.2s"
+                className="px-2.5 py-1 text-xs font-mono font-semibold"
+                title="Press and hold 1.2 seconds to end this live session"
               />
             )}
 

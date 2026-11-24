@@ -166,18 +166,19 @@ export const updateProgram = async (program: Program): Promise<void> => {
                 p.id?.replace(/^local-/, '') === cleanId ||
                 (cleanSlug && (p.slug === cleanSlug || p.slug === cleanId));
             if (matches) {
-                // Preserve timer-managed fields from localStorage (same reason as createProgram above)
+                // Preserve live timer-managed fields unless explicitly concluding/archiving
+                const isExplicitConclude = program.status === 'concluded' || program.status === 'archived';
                 return {
                     ...p,
                     ...program,
                     id: p.id,
                     slug: cleanSlug || p.slug,
                     isPublic: program.isPublic ?? p.isPublic ?? true,
-                    currentSlotIndex: p.currentSlotIndex,
-                    isTimerActive: p.isTimerActive,
-                    timerStartTimestamp: p.timerStartTimestamp,
-                    secondsElapsed: p.secondsElapsed,
-                    status: p.status,
+                    currentSlotIndex: isExplicitConclude ? (program.currentSlotIndex ?? p.currentSlotIndex) : p.currentSlotIndex,
+                    isTimerActive: isExplicitConclude ? false : p.isTimerActive,
+                    timerStartTimestamp: isExplicitConclude ? null : p.timerStartTimestamp,
+                    secondsElapsed: isExplicitConclude ? 0 : p.secondsElapsed,
+                    status: isExplicitConclude ? program.status : p.status,
                 };
             }
             return p;
