@@ -159,7 +159,8 @@ export const PublicPortal: React.FC = () => {
     }, [targetId]);
 
     // Local Program Fallback for offline or draft IDs
-    const [localProgram, setLocalProgram] = useState<Program | null>(() => readLocalFallback());
+    const [localProgram, setLocalProgram] = useState<(Program & { _syncTimestamp?: number }) | null>(() => readLocalFallback());
+    const [localUpdatedAt, setLocalUpdatedAt] = useState<number>(0);
 
     useEffect(() => {
         const refreshed = readLocalFallback();
@@ -168,23 +169,32 @@ export const PublicPortal: React.FC = () => {
         }
     }, [readLocalFallback]);
 
-    // Offline BroadcastChannel & Storage Sync
+    // Offline BroadcastChannel, postMessage, Electron IPC & Storage Sync
     useEffect(() => {
         const channel = new BroadcastChannel('kairon_offline_sync');
-        const handleSync = (event: MessageEvent) => {
-            if (!event.data) return;
-            const data = event.data;
+        const applyIncoming = (data: any) => {
+            if (!data) return;
             setLocalProgram(prev => {
                 const incomingId = String(data.id || data.program?.id || '').replace(/^local-/, '');
                 const incomingSlug = String(data.program?.slug || '').replace(/^local-/, '');
                 if (targetId && incomingId && incomingId !== targetId && incomingSlug !== targetId) {
                     if (prev) return prev;
                 }
+                const syncTs = data.syncTimestamp || Date.now();
+                setLocalUpdatedAt(syncTs);
+                const incomingStatus = data.status || data.program?.status;
+                const isConcluded = incomingStatus === 'concluded';
                 if (data.program) {
                     return {
                         ...data.program,
-                        id: data.id || data.program.id
-                    } as Program;
+                        id: data.id || data.program.id,
+                        status: isConcluded ? 'concluded' : (incomingStatus || data.program.status),
+                        isTimerActive: isConcluded ? false : (data.isTimerActive !== undefined ? data.isTimerActive : data.program.isTimerActive),
+                        timerStartTimestamp: isConcluded ? null : (data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : data.program.timerStartTimestamp),
+                        secondsElapsed: isConcluded ? 0 : (data.secondsElapsed !== undefined ? data.secondsElapsed : data.program.secondsElapsed),
+                        isOnHold: isConcluded ? false : (data.isOnHold !== undefined ? data.isOnHold : data.program.isOnHold),
+                        _syncTimestamp: syncTs,
+                    } as Program & { _syncTimestamp?: number };
                 }
                 const base: Program = prev || readLocalFallback() || {
                     id: data.id || 'live',
@@ -202,26 +212,52 @@ export const PublicPortal: React.FC = () => {
                 return {
                     ...base,
                     currentSlotIndex: data.currentSlotIndex ?? base.currentSlotIndex,
-                    isTimerActive: data.isTimerActive !== undefined ? data.isTimerActive : base.isTimerActive,
-                    secondsElapsed: data.secondsElapsed ?? base.secondsElapsed,
-                    timerStartTimestamp: data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : base.timerStartTimestamp,
-                    isOnHold: data.isOnHold !== undefined ? data.isOnHold : base.isOnHold,
-                    holdMessage: data.holdMessage !== undefined ? data.holdMessage : base.holdMessage,
+                    isTimerActive: isConcluded ? false : (data.isTimerActive !== undefined ? data.isTimerActive : base.isTimerActive),
+                    secondsElapsed: isConcluded ? 0 : (data.secondsElapsed ?? base.secondsElapsed),
+                    timerStartTimestamp: isConcluded ? null : (data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : base.timerStartTimestamp),
+                    isOnHold: isConcluded ? false : (data.isOnHold !== undefined ? data.isOnHold : base.isOnHold),
+                    holdMessage: isConcluded ? '' : (data.holdMessage !== undefined ? data.holdMessage : base.holdMessage),
                     isManualMode: data.isManualMode !== undefined ? data.isManualMode : base.isManualMode,
-                    status: data.status ?? base.status
-                } as Program;
+                    status: isConcluded ? 'concluded' : (data.status ?? base.status),
+                    _syncTimestamp: syncTs,
+                } as Program & { _syncTimestamp?: number };
             });
+        };
+        const handleSync = (event: MessageEvent) => applyIncoming(event.data);
+        const handleWindowMessage = (event: MessageEvent) => {
+            if (event.data && event.data.type === 'KAIRON_TIMER_SYNC' && event.data.payload) {
+                applyIncoming(event.data.payload);
+            }
         };
         const handleStorage = () => {
             const refreshed = readLocalFallback();
-            if (refreshed) setLocalProgram(refreshed);
+            if (refreshed) {
+                setLocalProgram(refreshed);
+                setLocalUpdatedAt((refreshed as any)._syncTimestamp || Date.now());
+            }
         };
         channel.addEventListener('message', handleSync);
         window.addEventListener('storage', handleStorage);
+        window.addEventListener('message', handleWindowMessage);
+
+        const electronApi = (window as any).electron || (window as any).electronAPI;
+        let unsubIpc: (() => void) | undefined;
+        if (electronApi) {
+            if (typeof electronApi.getLastTimerState === 'function') {
+                electronApi.getLastTimerState().then((cached: any) => {
+                    if (cached) applyIncoming(cached);
+                }).catch(() => {});
+            }
+            if (electronApi.onTimerState) {
+                unsubIpc = electronApi.onTimerState((payload: any) => applyIncoming(payload));
+            }
+        }
         return () => {
             channel.removeEventListener('message', handleSync);
             window.removeEventListener('storage', handleStorage);
+            window.removeEventListener('message', handleWindowMessage);
             channel.close();
+            if (unsubIpc) unsubIpc();
         };
     }, [targetId, readLocalFallback]);
 
@@ -236,13 +272,56 @@ export const PublicPortal: React.FC = () => {
         return () => clearInterval(interval);
     }, [convex]);
 
-    const effectiveProgramRaw = (localProgram && (localProgram.isTimerActive || localProgram.status === 'live'))
-        ? { ...(programRaw || {}), ...localProgram }
-        : (programRaw || localProgram);
-    const program = effectiveProgramRaw ? {
-        ...(effectiveProgramRaw as any),
-        id: (effectiveProgramRaw as any)._id || (effectiveProgramRaw as any).id
+    const convexNormalized: Program | null = programRaw ? {
+        ...(programRaw as any),
+        id: (programRaw as any)._id || (programRaw as any).id
     } as Program : null;
+
+    const localSyncAt = Math.max(localUpdatedAt, localProgram?._syncTimestamp || 0);
+    const preferLocalPortal = Boolean(
+        (typeof window !== 'undefined' && (
+            localStorage.getItem('kairon_booth_mode') === 'true' ||
+            window.location.search.includes('testBypass=true') ||
+            window.self !== window.top
+        )) ||
+        (localSyncAt > 0 && Date.now() - localSyncAt < 15000) ||
+        (localProgram?.status === 'concluded' && convexNormalized?.status === 'live')
+    );
+    const program: Program | null = (() => {
+        if (!convexNormalized) return localProgram;
+        if (!localProgram) return convexNormalized;
+        if (localProgram.status === 'concluded' && convexNormalized.status === 'live') {
+            const convexRestarted = Boolean(
+                convexNormalized.isTimerActive &&
+                convexNormalized.timerStartTimestamp &&
+                localSyncAt > 0 &&
+                convexNormalized.timerStartTimestamp > localSyncAt + 1500
+            );
+            if (!convexRestarted) {
+                return {
+                    ...convexNormalized,
+                    ...localProgram,
+                    status: 'concluded',
+                    isTimerActive: false,
+                    timerStartTimestamp: null,
+                    secondsElapsed: 0,
+                    isOnHold: false,
+                };
+            }
+        }
+        if (convexNormalized.status === 'concluded' && localProgram.status === 'live' && !preferLocalPortal) {
+            return {
+                ...localProgram,
+                ...convexNormalized,
+                status: 'concluded',
+                isTimerActive: false,
+                timerStartTimestamp: null,
+                secondsElapsed: 0,
+                isOnHold: false,
+            };
+        }
+        return preferLocalPortal ? { ...convexNormalized, ...localProgram } : { ...localProgram, ...convexNormalized };
+    })();
 
     // Tick every second to keep countdown live between Convex subscription updates
     const [, setTick] = useState(0);

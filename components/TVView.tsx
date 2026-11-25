@@ -156,6 +156,60 @@ const TVView: React.FC<TVViewProps> = ({
 
     const isThemeLight = currentTheme === 'light';
 
+    if (program.status === 'concluded' && !isTimerActive) {
+        return (
+            <div
+                onDoubleClick={toggleFullscreen}
+                className={`w-screen h-screen ${
+                    isThemeLight ? 'bg-slate-50 text-slate-900' : 'bg-[#090A0C] text-[#E1E4EA]'
+                } flex flex-col justify-between overflow-hidden p-8 md:p-12 select-none font-sans relative transition-colors duration-300`}
+            >
+                <header className={`flex justify-between items-center border-b ${
+                    isThemeLight ? 'border-slate-200' : 'border-[#22262E]'
+                } pb-4`}>
+                    <div className="flex items-center gap-3">
+                        {activeOrg?.logoUrl ? (
+                            <img src={activeOrg.logoUrl} alt={activeOrg.name} className="h-8 object-contain" />
+                        ) : (
+                            <span className={`text-sm font-mono font-bold tracking-widest ${
+                                isThemeLight ? 'text-slate-700' : 'text-[#8A93A4]'
+                            } uppercase`}>
+                                {program.title}
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded bg-[#10B981]/10 border border-[#10B981]/30 text-[#10B981] text-xs font-mono font-bold">
+                        <CheckCircle2 size={14} />
+                        <span>SESSION CONCLUDED</span>
+                    </div>
+                </header>
+
+                <main className="flex-1 flex flex-col items-center justify-center text-center px-6">
+                    <div className="w-20 h-20 rounded-2xl bg-[#10B981]/10 border border-[#10B981]/30 flex items-center justify-center text-[#10B981] mb-8">
+                        <CheckCircle2 size={42} />
+                    </div>
+                    <h1 className={`text-5xl md:text-7xl font-black uppercase tracking-tight mb-4 ${
+                        isThemeLight ? 'text-slate-900' : 'text-white'
+                    }`}>
+                        Session Concluded
+                    </h1>
+                    <p className={`text-xl md:text-2xl font-medium max-w-2xl ${
+                        isThemeLight ? 'text-slate-500' : 'text-[#8A93A4]'
+                    }`}>
+                        {program.title} has ended. Thank you for joining us.
+                    </p>
+                </main>
+
+                <footer className={`flex justify-between items-center border-t ${
+                    isThemeLight ? 'border-slate-200 text-slate-400' : 'border-[#22262E] text-[#6A7382]'
+                } pt-4 font-mono text-xs uppercase tracking-widest`}>
+                    <span>{program.subtitle || 'Broadcast Display'}</span>
+                    <span>{new Date().toLocaleTimeString()}</span>
+                </footer>
+            </div>
+        );
+    }
+
     return (
         <div 
             onDoubleClick={toggleFullscreen}

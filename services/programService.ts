@@ -29,8 +29,12 @@ const safeParseList = (raw: string | null): Program[] => {
 };
 
 const getLocalStoredPrograms = (): Program[] => {
-    const local = typeof window !== 'undefined' ? (localStorage.getItem('test_programs') || localStorage.getItem('kairon_offline_programs')) : null;
-    return safeParseList(local);
+    if (typeof window === 'undefined') return [];
+    const testList = safeParseList(localStorage.getItem('test_programs'));
+    if (testList.length > 0) return testList;
+    const offlineList = safeParseList(localStorage.getItem('kairon_offline_programs'));
+    if (offlineList.length > 0) return offlineList;
+    return testList;
 };
 
 const updateTestPrograms = (programs: Program[] | null) => {
@@ -94,7 +98,7 @@ export const createProgram = async (program: Program): Promise<Program> => {
     }
     if (isTestBypass()) {
         const id = program.id?.startsWith('local-') ? program.id : `local-${generateUUID()}`;
-        const list: Program[] = safeParseList(localStorage.getItem('test_programs'));
+        const list: Program[] = getLocalStoredPrograms();
         const cleanId = id.replace(/^local-/, '');
         const existing = list.find((p: any) => p.id === id || p.id?.replace(/^local-/, '') === cleanId || (p.slug && p.slug === cleanId));
         // CRITICAL: If an existing record is found, preserve timer-managed fields.
@@ -300,22 +304,66 @@ export const updateTimerState = async (programId: string, state: {
 }): Promise<void> => {
     if (isTestBypass()) {
         console.log(`[TEST BYPASS] updateTimerState for programId=${programId}`, state);
-        let list: Program[] = safeParseList(localStorage.getItem('test_programs'));
+        let list: Program[] = getLocalStoredPrograms();
         const cleanId = programId.replace(/^local-/, '');
+        const matchesId = (p: any) =>
+            p.id === programId ||
+            p.id?.replace(/^local-/, '') === cleanId ||
+            p._id === programId ||
+            (p.slug && String(p.slug).replace(/^local-/, '') === cleanId);
+
+        const normalizedState = state.status === 'concluded'
+            ? { ...state, isTimerActive: false, timerStartTimestamp: null, secondsElapsed: 0, isOnHold: false }
+            : state;
+
+        let found = false;
         list = list.map((p) => {
-            if (p.id === programId || p.id?.replace(/^local-/, '') === cleanId || (p as any)._id === programId) {
-                return { ...p, ...state };
+            if (matchesId(p)) {
+                found = true;
+                return { ...p, ...normalizedState };
             }
             return p;
         });
-        updateTestPrograms(list);
-        const updatedProg = list.find((p) => p.id === programId || p.id?.replace(/^local-/, '') === cleanId || (p as any)._id === programId);
+
+        if (!found) {
+            try {
+                const fallbackRaw =
+                    localStorage.getItem(`kairon_offline_cache_${programId}`) ||
+                    (cleanId ? localStorage.getItem(`kairon_offline_cache_${cleanId}`) : null) ||
+                    localStorage.getItem('kairon_offline_cache_live') ||
+                    localStorage.getItem('kairon_program');
+                if (fallbackRaw) {
+                    const cached = JSON.parse(fallbackRaw);
+                    if (cached && matchesId(cached)) {
+                        list = [{ ...cached, ...normalizedState, id: cached.id || programId }, ...list];
+                        found = true;
+                    }
+                }
+            } catch {}
+        }
+
+        if (list.length > 0 || found) {
+            updateTestPrograms(list);
+        }
+
+        const updatedProg = list.find(matchesId);
         if (updatedProg) {
             try {
-                const serialized = JSON.stringify(updatedProg);
+                const payloadWithTs = { ...updatedProg, _syncTimestamp: Date.now() };
+                const serialized = JSON.stringify(payloadWithTs);
                 localStorage.setItem(`kairon_offline_cache_${programId}`, serialized);
-                if (cleanId) localStorage.setItem(`kairon_offline_cache_${cleanId}`, serialized);
+                localStorage.setItem(`kairon_offline_cache_${programId}_prompter`, serialized);
+                if (cleanId) {
+                    localStorage.setItem(`kairon_offline_cache_${cleanId}`, serialized);
+                    localStorage.setItem(`kairon_offline_cache_${cleanId}_prompter`, serialized);
+                }
+                if (updatedProg.slug) {
+                    const cleanSlug = String(updatedProg.slug).replace(/^local-/, '');
+                    localStorage.setItem(`kairon_offline_cache_${cleanSlug}`, serialized);
+                    localStorage.setItem(`kairon_offline_cache_${cleanSlug}_prompter`, serialized);
+                }
                 localStorage.setItem('kairon_offline_cache_live', serialized);
+                localStorage.setItem('kairon_offline_cache_live_prompter', serialized);
                 localStorage.setItem('kairon_program', serialized);
                 window.dispatchEvent(new Event('storage'));
             } catch (err) {

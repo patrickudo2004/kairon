@@ -8,6 +8,14 @@ import { Program, Organization } from '../../types';
 import { Bell, Wifi, WifiOff, AlertCircle, RefreshCw } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
 import TVView from '../TVView';
+import {
+    KAIRON_IFRAME_SYNC_TYPE,
+    TimestampedProgram,
+    normalizeProgramId,
+    matchesDisplayTarget,
+    applyIncomingDisplaySync,
+    reconcileDisplayProgram,
+} from '../../utils/displaySync';
 
 const TVWrapper: React.FC = () => {
     const [routerSearchParams] = useSearchParams();
@@ -29,14 +37,14 @@ const TVWrapper: React.FC = () => {
         {} // Always poll live channel as fallback
     );
 
-    const [localOfflineProgram, setLocalOfflineProgram] = useState<Program | null>(() => {
+    const [localOfflineProgram, setLocalOfflineProgram] = useState<TimestampedProgram | null>(() => {
         try {
             const cleanId = programId ? programId.replace(/^local-/, '') : null;
             if (programId) {
                 const candidates = [
-                    'kairon_offline_cache_live',
                     `kairon_offline_cache_${programId}`,
                     cleanId ? `kairon_offline_cache_${cleanId}` : null,
+                    'kairon_offline_cache_live',
                 ].filter(Boolean) as string[];
 
                 for (const key of candidates) {
@@ -60,12 +68,12 @@ const TVWrapper: React.FC = () => {
                 return null;
             }
 
-            // If NO programId specified, ONLY show if an event is actively broadcasting live and not stale
+            // If NO programId specified, ONLY show if an event is actively broadcasting live or concluded recently
             const liveCache = localStorage.getItem('kairon_offline_cache_live');
             if (liveCache) {
                 const parsed = JSON.parse(liveCache);
                 const isStale = parsed?.timerStartTimestamp && (Date.now() - parsed.timerStartTimestamp > 2 * 60 * 60 * 1000);
-                if (parsed && parsed.status === 'live' && parsed.slots && parsed.slots.length > 0 && !isStale) {
+                if (parsed && (parsed.status === 'live' || parsed.status === 'concluded') && parsed.slots && parsed.slots.length > 0 && !isStale) {
                     return parsed;
                 }
             }
@@ -74,13 +82,24 @@ const TVWrapper: React.FC = () => {
             return null;
         }
     });
+    const [localUpdatedAt, setLocalUpdatedAt] = useState<number>(0);
 
-    // References so IPC & BroadcastChannel callbacks always see latest values without re-subscribing
+    // References so IPC, postMessage & BroadcastChannel callbacks always see latest values without re-subscribing
     const programIdRef = useRef(programId);
     programIdRef.current = programId;
 
-    // Multi-level fallback: Specific ID -> Global Live -> Standby
-    const activeData = (programId && specificProgram) ? specificProgram : liveProgram;
+    const cleanRequestedId = normalizeProgramId(programId);
+    const liveMatchesRequested = Boolean(
+        liveProgram && cleanRequestedId && [
+            (liveProgram as any)._id,
+            (liveProgram as any).id,
+            (liveProgram as any).uuid,
+            (liveProgram as any).slug,
+        ].some((v) => normalizeProgramId(v) === cleanRequestedId)
+    );
+    const activeData = programId
+        ? (specificProgram || (liveMatchesRequested ? liveProgram : null))
+        : liveProgram;
 
     // Derive the program object with explicit ID mapping
     const programFromConvex = activeData ? {
@@ -92,117 +111,46 @@ const TVWrapper: React.FC = () => {
     programFromConvexRef.current = programFromConvex;
 
     const mergeIncomingData = (data: any) => {
+        if (!data) return;
         const pid = programIdRef.current;
-        const cleanPid = pid?.replace(/^local-/, '');
-        const cleanDataId = data.id?.replace(/^local-/, '');
-        const isMatch = (cleanPid && cleanDataId === cleanPid) || data.id === pid;
-
-        if (isMatch || (!pid && (data.program?.status === 'live' || data.status === 'live' || data.isTimerActive))) {
-            setLocalOfflineProgram(prev => {
-                let base = prev || programFromConvexRef.current;
-                if (!base) {
-                    try {
-                        const candidates = [
-                            pid ? `kairon_offline_cache_${pid}` : null,
-                            cleanPid ? `kairon_offline_cache_${cleanPid}` : null,
-                            'kairon_offline_cache_live',
-                            'kairon_program'
-                        ].filter(Boolean) as string[];
-                        for (const key of candidates) {
-                            const cached = localStorage.getItem(key);
-                            if (cached) {
-                                base = JSON.parse(cached);
-                                break;
-                            }
-                        }
-                    } catch {}
-                }
-                let updated: Program | null = null;
-
-                if (data.program) {
-                    const inc = data.program;
-                    const incomingTimerActive = inc.isTimerActive !== undefined ? inc.isTimerActive : data.isTimerActive;
-                    const isIncomingTimerSet = incomingTimerActive !== undefined;
-                    const incomingStatus = data.status || inc.status;
-                    const isConcluded = incomingStatus === 'concluded' || inc.status === 'concluded';
-
-                    const preservedIsActive = isConcluded
-                        ? false
-                        : (isIncomingTimerSet ? Boolean(incomingTimerActive) : (base?.isTimerActive ?? false));
-                    const preservedTimestamp = isConcluded
-                        ? null
-                        : ((data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : inc.timerStartTimestamp) !== undefined
-                            ? (data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : inc.timerStartTimestamp)
-                            : (base?.timerStartTimestamp ?? null));
-                    const preservedSlotIdx = (data.currentSlotIndex !== undefined ? data.currentSlotIndex : inc.currentSlotIndex) !== undefined
-                        ? (data.currentSlotIndex !== undefined ? data.currentSlotIndex : inc.currentSlotIndex)
-                        : (base?.currentSlotIndex ?? 0);
-                    const preservedSeconds = (data.secondsElapsed !== undefined ? data.secondsElapsed : inc.secondsElapsed) !== undefined
-                        ? (data.secondsElapsed !== undefined ? data.secondsElapsed : inc.secondsElapsed)
-                        : (base?.secondsElapsed ?? 0);
-                    const isNowLive = !isConcluded && (preservedIsActive || incomingStatus === 'live' || (base?.status === 'live' && incomingStatus !== 'draft'));
-
-                    const effectiveStatus = isConcluded ? 'concluded' : (isNowLive ? 'live' : (incomingStatus || base?.status || 'draft'));
-
-                    if (base &&
-                        base.isTimerActive === preservedIsActive &&
-                        base.timerStartTimestamp === preservedTimestamp &&
-                        base.currentSlotIndex === preservedSlotIdx &&
-                        base.secondsElapsed === preservedSeconds &&
-                        base.status === effectiveStatus &&
-                        base.isOnHold === (inc.isOnHold ?? data.isOnHold ?? base.isOnHold)
-                    ) {
-                        return base;
-                    }
-
-                    updated = {
-                        ...(base || {}),
-                        ...inc,
-                        id: data.id || inc.id || base?.id,
-                        isTimerActive: preservedIsActive,
-                        timerStartTimestamp: preservedTimestamp,
-                        currentSlotIndex: preservedSlotIdx,
-                        secondsElapsed: preservedSeconds,
-                        status: effectiveStatus,
-                        isOnHold: inc.isOnHold ?? data.isOnHold ?? false
-                    };
-                } else if (base) {
-                    const incomingStatus = data.status;
-                    const isConcluded = incomingStatus === 'concluded';
-                    const isIncomingTimerSet = data.isTimerActive !== undefined;
-                    const effectiveIsActive = isConcluded ? false : (isIncomingTimerSet ? Boolean(data.isTimerActive) : (base.isTimerActive ?? false));
-                    const effectiveStatus = isConcluded ? 'concluded' : (data.status || (effectiveIsActive ? 'live' : base.status));
-
-                    if (
-                        (incomingStatus === undefined || incomingStatus === base.status) &&
-                        (data.isTimerActive === undefined || data.isTimerActive === base.isTimerActive) &&
-                        (data.currentSlotIndex === undefined || data.currentSlotIndex === base.currentSlotIndex) &&
-                        (data.isOnHold === undefined || data.isOnHold === base.isOnHold) &&
-                        (data.secondsElapsed === undefined || data.secondsElapsed === base.secondsElapsed) &&
-                        (data.timerStartTimestamp === undefined || data.timerStartTimestamp === base.timerStartTimestamp)
-                    ) {
-                        return base;
-                    }
-                    updated = {
-                        ...base,
-                        ...data,
-                        isTimerActive: effectiveIsActive,
-                        status: effectiveStatus
-                    } as Program;
-                }
-
-                if (updated) {
-                    try { localStorage.setItem(`kairon_offline_cache_${pid || 'live'}`, JSON.stringify(updated)); } catch {}
-                }
-                return updated || prev;
-            });
-        }
+        setLocalOfflineProgram((prev) => {
+            if (!matchesDisplayTarget(pid, data, prev || programFromConvexRef.current)) {
+                return prev;
+            }
+            const updated = applyIncomingDisplaySync(prev, programFromConvexRef.current, data, pid);
+            if (updated) {
+                setLocalUpdatedAt(data.syncTimestamp || Date.now());
+                try {
+                    localStorage.setItem(`kairon_offline_cache_${pid || 'live'}`, JSON.stringify(updated));
+                } catch {}
+            }
+            return updated;
+        });
     };
+
+    // Reconcile stale local cache if Convex authoritatively concludes the session remotely
+    useEffect(() => {
+        if (programFromConvex?.status === 'concluded' && localOfflineProgram?.status === 'live') {
+            const syncAt = Math.max(localUpdatedAt, localOfflineProgram._syncTimestamp || 0);
+            const startedFreshly = syncAt > 0 && Date.now() - syncAt < 8000 && Boolean(localOfflineProgram.isTimerActive);
+            if (!startedFreshly) {
+                setLocalOfflineProgram({
+                    ...localOfflineProgram,
+                    ...programFromConvex,
+                    status: 'concluded',
+                    isTimerActive: false,
+                    timerStartTimestamp: null,
+                    secondsElapsed: 0,
+                    isOnHold: false,
+                });
+            }
+        }
+    }, [programFromConvex?.status]);
 
     useEffect(() => {
         const handleStorage = () => {
             const pid = programIdRef.current;
-            const cleanPid = pid?.replace(/^local-/, '');
+            const cleanPid = normalizeProgramId(pid);
             const candidates = [
                 pid ? `kairon_offline_cache_${pid}` : null,
                 cleanPid ? `kairon_offline_cache_${cleanPid}` : null,
@@ -214,8 +162,9 @@ const TVWrapper: React.FC = () => {
                 if (raw) {
                     try {
                         const parsed = JSON.parse(raw);
-                        if (parsed && (!pid || parsed.id === pid || parsed.id?.replace(/^local-/, '') === cleanPid || parsed.slug === cleanPid)) {
+                        if (parsed && (!pid || parsed.id === pid || normalizeProgramId(parsed.id) === cleanPid || normalizeProgramId(parsed.slug) === cleanPid)) {
                             setLocalOfflineProgram(parsed);
+                            setLocalUpdatedAt(parsed._syncTimestamp || Date.now());
                             break;
                         }
                     } catch {}
@@ -226,7 +175,18 @@ const TVWrapper: React.FC = () => {
         return () => window.removeEventListener('storage', handleStorage);
     }, [programId]);
 
-        // BroadcastChannel sync effect (same-origin tabs / same renderer process)
+    // Direct parent->iframe postMessage sync (guaranteed 0ms delivery on Web & Electron file://)
+    useEffect(() => {
+        const handleWindowMessage = (event: MessageEvent) => {
+            if (event.data && event.data.type === KAIRON_IFRAME_SYNC_TYPE && event.data.payload) {
+                mergeIncomingData(event.data.payload);
+            }
+        };
+        window.addEventListener('message', handleWindowMessage);
+        return () => window.removeEventListener('message', handleWindowMessage);
+    }, []);
+
+    // BroadcastChannel sync effect (same-origin tabs / same renderer process)
     useEffect(() => {
         const offlineChannel = new BroadcastChannel('kairon_offline_sync');
         const handleOfflineMsg = (event: MessageEvent) => {
@@ -255,150 +215,19 @@ const TVWrapper: React.FC = () => {
         return () => { if (remove) remove(); };
     }, []);
 
-    // Booth mode / test bypass always uses local BroadcastChannel/IPC data — never stale Convex queries
-    const isBoothMode = typeof window !== 'undefined' && (
+    const isBoothOrLocalMode = typeof window !== 'undefined' && (
         localStorage.getItem('kairon_booth_mode') === 'true' ||
         window.location.search.includes('testBypass=true') ||
         localStorage.getItem('testBypass') === 'true' ||
-        Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron)
+        Boolean(programId?.startsWith('local-')) ||
+        window.self !== window.top
     );
-    const candidateProg = programFromConvex || localOfflineProgram;
-    const program = (() => {
-        if (!candidateProg) return null;
-
-        // Determine if there is an active live timer anywhere
-        const isActivelyLive = Boolean(
-            localOfflineProgram?.isTimerActive ||
-            programFromConvex?.isTimerActive ||
-            localOfflineProgram?.status === 'live' ||
-            programFromConvex?.status === 'live'
-        );
-
-        // High-precision live timer telemetry resolution:
-        // Always prioritize the active running timer timestamp from whichever source is actively ticking
-        const resolveLiveTiming = (isActive: boolean) => {
-            if (!isActive) {
-                return {
-                    timestamp: null,
-                    seconds: localOfflineProgram?.secondsElapsed ?? programFromConvex?.secondsElapsed ?? 0
-                };
-            }
-            const activeSource = (localOfflineProgram?.isTimerActive && localOfflineProgram?.timerStartTimestamp)
-                ? localOfflineProgram
-                : (programFromConvex?.isTimerActive && programFromConvex?.timerStartTimestamp
-                    ? programFromConvex
-                    : (localOfflineProgram?.timerStartTimestamp ? localOfflineProgram : (programFromConvex || localOfflineProgram)));
-            return {
-                timestamp: activeSource?.timerStartTimestamp ?? null,
-                seconds: activeSource?.secondsElapsed ?? 0
-            };
-        };
-
-        // If in booth / offline / test bypass mode, local offline program takes precedence for runtime state
-        if (isBoothMode) {
-            const effectiveStatus = isActivelyLive
-                ? 'live'
-                : ((localOfflineProgram?.status === 'concluded' || programFromConvex?.status === 'concluded')
-                    ? 'concluded'
-                    : (programFromConvex?.status || localOfflineProgram?.status || 'draft'));
-
-            const effectiveIsTimerActive = effectiveStatus === 'concluded'
-                ? false
-                : Boolean(localOfflineProgram?.isTimerActive ?? programFromConvex?.isTimerActive ?? false);
-
-            const timing = resolveLiveTiming(effectiveIsTimerActive);
-
-            return {
-                ...(programFromConvex || {}),
-                ...(localOfflineProgram || candidateProg),
-                slots: (localOfflineProgram?.slots && localOfflineProgram.slots.length > 0)
-                    ? localOfflineProgram.slots
-                    : (programFromConvex?.slots || candidateProg?.slots || []),
-                isTimerActive: effectiveIsTimerActive,
-                status: effectiveStatus,
-                currentSlotIndex: localOfflineProgram?.currentSlotIndex ?? candidateProg?.currentSlotIndex ?? 0,
-                timerStartTimestamp: timing.timestamp,
-                secondsElapsed: timing.seconds,
-            };
-        }
-
-        const isLocalLiveOrConcluded = localOfflineProgram?.status === 'live' || localOfflineProgram?.status === 'concluded' || Boolean(localOfflineProgram?.isTimerActive);
-        const isConvexLiveOrConcluded = programFromConvex?.status === 'live' || programFromConvex?.status === 'concluded' || Boolean(programFromConvex?.isTimerActive);
-
-        if (isLocalLiveOrConcluded && !isConvexLiveOrConcluded) {
-            const effectiveStatus = isActivelyLive ? 'live' : (localOfflineProgram?.status || (localOfflineProgram?.isTimerActive ? 'live' : 'draft'));
-            const effectiveIsTimerActive = effectiveStatus === 'concluded' ? false : Boolean(localOfflineProgram?.isTimerActive);
-            const timing = resolveLiveTiming(effectiveIsTimerActive);
-            return {
-                ...(programFromConvex || {}),
-                ...(localOfflineProgram || candidateProg),
-                slots: (localOfflineProgram?.slots && localOfflineProgram.slots.length > 0)
-                    ? localOfflineProgram.slots
-                    : (programFromConvex?.slots || candidateProg?.slots || []),
-                isTimerActive: effectiveIsTimerActive,
-                status: effectiveStatus,
-                currentSlotIndex: localOfflineProgram?.currentSlotIndex ?? candidateProg?.currentSlotIndex ?? 0,
-                timerStartTimestamp: timing.timestamp,
-                secondsElapsed: timing.seconds,
-            };
-        }
-
-        if (isConvexLiveOrConcluded && !isLocalLiveOrConcluded) {
-            const effectiveStatus = isActivelyLive ? 'live' : (programFromConvex?.status || 'live');
-            const effectiveIsTimerActive = effectiveStatus === 'concluded' ? false : Boolean(programFromConvex?.isTimerActive);
-            const timing = resolveLiveTiming(effectiveIsTimerActive);
-            return {
-                ...(localOfflineProgram || {}),
-                ...(programFromConvex || candidateProg),
-                slots: (programFromConvex?.slots && programFromConvex.slots.length > 0)
-                    ? programFromConvex.slots
-                    : (localOfflineProgram?.slots || candidateProg?.slots || []),
-                isTimerActive: effectiveIsTimerActive,
-                status: effectiveStatus,
-                currentSlotIndex: programFromConvex?.currentSlotIndex ?? candidateProg?.currentSlotIndex ?? 0,
-                timerStartTimestamp: timing.timestamp,
-                secondsElapsed: timing.seconds,
-            };
-        }
-
-        const convexSlot = programFromConvex?.currentSlotIndex ?? 0;
-        const localSlot = localOfflineProgram?.currentSlotIndex ?? 0;
-
-        // Slot Resolution:
-        // If an active session has restarted at Slot 0, honor the live restarted slot rather than forcing Math.max
-        const isRewound = isActivelyLive && (convexSlot === 0 || localSlot === 0) && Math.max(convexSlot, localSlot) > 0;
-        const effectiveSlot = isRewound
-            ? (localOfflineProgram?.isTimerActive ? localSlot : (programFromConvex?.isTimerActive ? convexSlot : 0))
-            : (convexSlot >= localSlot ? convexSlot : localSlot);
-
-        const preferred = convexSlot >= localSlot ? (programFromConvex || localOfflineProgram || candidateProg) : (localOfflineProgram || programFromConvex || candidateProg);
-        const fallback = convexSlot >= localSlot ? (localOfflineProgram || programFromConvex || candidateProg) : (programFromConvex || localOfflineProgram || candidateProg);
-
-        const effectiveStatus = isActivelyLive
-            ? 'live'
-            : ((programFromConvex?.status === 'concluded' || localOfflineProgram?.status === 'concluded')
-                ? 'concluded'
-                : (preferred?.status || 'draft'));
-
-        const effectiveIsTimerActive = effectiveStatus === 'concluded'
-            ? false
-            : Boolean(programFromConvex?.isTimerActive || localOfflineProgram?.isTimerActive);
-
-        const timing = resolveLiveTiming(effectiveIsTimerActive);
-
-        return {
-            ...(fallback || {}),
-            ...(preferred || {}),
-            slots: (preferred?.slots && preferred.slots.length > 0)
-                ? preferred.slots
-                : (fallback?.slots || []),
-            isTimerActive: effectiveIsTimerActive,
-            currentSlotIndex: effectiveSlot,
-            timerStartTimestamp: timing.timestamp,
-            secondsElapsed: timing.seconds,
-            status: effectiveStatus as any,
-        };
-    })() as Program | null;
+    const program = reconcileDisplayProgram({
+        localProgram: localOfflineProgram,
+        convexProgram: programFromConvex,
+        localUpdatedAt,
+        preferLocal: isBoothOrLocalMode,
+    });
 
 
     // Organization Branding Query

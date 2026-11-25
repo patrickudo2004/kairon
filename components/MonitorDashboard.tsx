@@ -4,15 +4,18 @@ import { Monitor, Tv, Smartphone, MessageSquare, Send, ExternalLink, AlertCircle
 import { useStageMessages } from '../hooks/useStageMessages';
 import { useScreenManagement } from '../hooks/useScreenManagement';
 import { getPublicPortalPath, getShareableDisplayUrl, resolveInternalAppUrl, primeProgramPreviewCache } from '../utils/url';
+import { postSyncToIframe } from '../utils/displaySync';
 import QRCode from 'react-qr-code';
 
 const LiveThumbnail: React.FC<{
     path: string;
     title: string;
     theme: string;
+    program: Program;
     isLocked?: boolean;
-}> = ({ path, title, theme, isLocked }) => {
+}> = ({ path, title, theme, program, isLocked }) => {
     const containerRef = useRef<HTMLDivElement>(null);
+    const iframeRef = useRef<HTMLIFrameElement>(null);
     const [scale, setScale] = useState(0.18);
 
     useEffect(() => {
@@ -31,6 +34,21 @@ const LiveThumbnail: React.FC<{
         return () => observer.disconnect();
     }, []);
 
+    // Push live/concluded timer state directly into iframe (guaranteed 0ms sync on Web & Electron file://)
+    useEffect(() => {
+        postSyncToIframe(iframeRef.current, program);
+    }, [
+        program.id,
+        program.status,
+        program.isTimerActive,
+        program.timerStartTimestamp,
+        program.currentSlotIndex,
+        program.secondsElapsed,
+        program.isOnHold,
+        program.holdMessage,
+        program.slots.length,
+    ]);
+
     const resolvedSrc = (() => {
         const querySep = path.includes('?') ? '&' : '?';
         const query = `${querySep}mode=thumbnail&theme=${theme}`;
@@ -40,7 +58,9 @@ const LiveThumbnail: React.FC<{
     return (
         <div ref={containerRef} className="w-full h-full relative overflow-hidden">
             <iframe
+                ref={iframeRef}
                 src={resolvedSrc}
+                onLoad={() => postSyncToIframe(iframeRef.current, program)}
                 className="pointer-events-none opacity-85 absolute top-0 left-0"
                 title={title}
                 style={{
@@ -79,7 +99,19 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
     const [isStrobe, setIsStrobe] = useState(false);
     const [copiedPath, setCopiedPath] = useState<string | null>(null);
     const [openQrCodes, setOpenQrCodes] = useState<Record<string, boolean>>({});
-    primeProgramPreviewCache(program);
+
+    useEffect(() => {
+        primeProgramPreviewCache(program);
+    }, [
+        program.id,
+        program.status,
+        program.isTimerActive,
+        program.timerStartTimestamp,
+        program.currentSlotIndex,
+        program.secondsElapsed,
+        program.isOnHold,
+        program.slots.length,
+    ]);
 
     const [localThemes, setLocalThemes] = useState<Record<string, 'dark' | 'light' | 'ambient-yellow' | 'ambient-white'>>({
         stage: 'dark',
@@ -453,6 +485,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                                 path={opt.path}
                                                 title={opt.title}
                                                 theme={currentTheme}
+                                                program={program}
                                                 isLocked={isLocked}
                                             />
                                         </div>
@@ -502,7 +535,7 @@ export const MonitorDashboard: React.FC<MonitorDashboardProps> = ({
                                         >
                                             <Cast size={13} className="text-[#0EA5E9] shrink-0" />
                                             <span className="truncate">
-                                                <span className="hidden xl:inline">Project to </span>Display 2
+                                                <span className="hidden 2xl:inline">Project to </span>Display 2
                                             </span>
                                         </button>
                                     )}

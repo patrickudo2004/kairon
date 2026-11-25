@@ -5,6 +5,7 @@ import { Program, Slot, SLOT_PRESETS } from '../types';
 import { useStageMessages } from '../hooks/useStageMessages';
 import { useScreenManagement } from '../hooks/useScreenManagement';
 import { getPublicPortalUrl, resolveInternalAppUrl, primeProgramPreviewCache } from '../utils/url';
+import { postSyncToIframe } from '../utils/displaySync';
 import { timeToMinutes, minutesToTime } from '../utils/time';
 import StageDisplay from './StageDisplay';
 import TVView from './TVView';
@@ -105,9 +106,42 @@ export const StudioRightDock: React.FC<StudioRightDockProps> = ({
   const [isStrobe, setIsStrobe] = useState(false);
   const [copiedQr, setCopiedQr] = useState(false);
 
-  // Mini Preview Iframe Scaling
+  // Mini Preview Iframe Scaling & Direct postMessage Sync
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const previewIframeRef = useRef<HTMLIFrameElement>(null);
   const [previewScale, setPreviewScale] = useState(0.15);
+
+  const previewProgram =
+    isEditorRoute
+      ? (editorProgram?.slots?.length > 0 ? editorProgram : program)
+      : (program?.slots?.length > 0 ? program : editorProgram);
+
+  const isPreviewConcluded = previewProgram.status === 'concluded' && !isTimerActive;
+  const syncedPreviewProgram: Program = {
+    ...previewProgram,
+    currentSlotIndex: isEditorRoute ? (previewProgram.currentSlotIndex ?? 0) : currentSlotIndex,
+    isTimerActive: isPreviewConcluded ? false : (isEditorRoute ? Boolean(previewProgram.isTimerActive) : isTimerActive),
+    timerStartTimestamp: isPreviewConcluded ? null : (isEditorRoute ? (previewProgram.timerStartTimestamp ?? null) : (timerStartTimestamp ?? null)),
+    secondsElapsed: isPreviewConcluded ? 0 : (previewProgram.secondsElapsed ?? 0),
+    isOnHold: isPreviewConcluded ? false : Boolean(previewProgram.isOnHold),
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    primeProgramPreviewCache(syncedPreviewProgram);
+    postSyncToIframe(previewIframeRef.current, syncedPreviewProgram);
+  }, [
+    isOpen,
+    previewTab,
+    syncedPreviewProgram.id,
+    syncedPreviewProgram.status,
+    syncedPreviewProgram.isTimerActive,
+    syncedPreviewProgram.timerStartTimestamp,
+    syncedPreviewProgram.currentSlotIndex,
+    syncedPreviewProgram.secondsElapsed,
+    syncedPreviewProgram.isOnHold,
+    syncedPreviewProgram.slots.length,
+  ]);
 
   useEffect(() => {
     if (!previewContainerRef.current) return;
@@ -130,13 +164,6 @@ export const StudioRightDock: React.FC<StudioRightDockProps> = ({
     localStorage.getItem('kairon_booth_mode') === 'true'
   );
   const previewSuffix = hasTestBypass ? '&testBypass=true' : '';
-
-  const previewProgram =
-    isEditorRoute
-      ? (editorProgram?.slots?.length > 0 ? editorProgram : program)
-      : (program?.slots?.length > 0 ? program : editorProgram);
-
-  primeProgramPreviewCache(previewProgram);
 
   const rawPreviewPath =
     previewTab === 'stage'
@@ -242,8 +269,10 @@ export const StudioRightDock: React.FC<StudioRightDockProps> = ({
             </div>
           ) : (
             <iframe
+              ref={previewIframeRef}
               key={`${previewTab}-${previewProgram.id}`}
               src={activePreviewPath}
+              onLoad={() => postSyncToIframe(previewIframeRef.current, syncedPreviewProgram)}
               title="Studio Live Output Preview"
               tabIndex={-1}
               aria-hidden="true"

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getUniversalSearchParams } from '../utils/url';
 import { useQuery as useConvexQuery } from '../hooks/useConvexMock';
@@ -8,6 +8,14 @@ import { useTimerSync } from '../hooks/useTimerSync';
 import { useStageMessages } from '../hooks/useStageMessages';
 import { formatDuration } from '../utils/time';
 import { Radio, Clock, User, ChevronRight, AlertTriangle } from 'lucide-react';
+import {
+  KAIRON_IFRAME_SYNC_TYPE,
+  TimestampedProgram,
+  normalizeProgramId,
+  matchesDisplayTarget,
+  applyIncomingDisplaySync,
+  reconcileDisplayProgram,
+} from '../utils/displaySync';
 
 export const BroadcastOverlayView: React.FC = () => {
   const [routerSearchParams] = useSearchParams();
@@ -22,9 +30,20 @@ export const BroadcastOverlayView: React.FC = () => {
     programIdParam && !programIdParam.startsWith('local-') ? { id: programIdParam } : 'skip'
   );
 
-  const [localFallback, setLocalFallback] = useState<Program | null>(() => {
+  const convexProgram = useMemo<Program | null>(() => {
+    if (!rawProgram) return null;
+    return {
+      ...(rawProgram as any),
+      id: String((rawProgram as any)._id || (rawProgram as any).id),
+    };
+  }, [rawProgram]);
+
+  const convexProgramRef = useRef(convexProgram);
+  convexProgramRef.current = convexProgram;
+
+  const [localFallback, setLocalFallback] = useState<TimestampedProgram | null>(() => {
     try {
-      const cleanParam = programIdParam?.replace(/^local-/, '');
+      const cleanParam = normalizeProgramId(programIdParam);
       const cached =
         (programIdParam && localStorage.getItem(`kairon_offline_cache_${programIdParam}`)) ||
         (cleanParam && localStorage.getItem(`kairon_offline_cache_${cleanParam}`)) ||
@@ -33,7 +52,7 @@ export const BroadcastOverlayView: React.FC = () => {
           if (live) {
             try {
               const parsed = JSON.parse(live);
-              if (parsed && parsed.status === 'live' && parsed.slots && parsed.slots.length > 0) return live;
+              if (parsed && (parsed.status === 'live' || parsed.status === 'concluded') && parsed.slots && parsed.slots.length > 0) return live;
             } catch {}
           }
           return null;
@@ -44,54 +63,120 @@ export const BroadcastOverlayView: React.FC = () => {
       return null;
     }
   });
+  const [localUpdatedAt, setLocalUpdatedAt] = useState<number>(0);
 
   useEffect(() => {
     document.title = 'Kairon Output [OVERLAY]';
+    const cleanParam = normalizeProgramId(programIdParam);
+
+    const applyPayload = (data: any) => {
+      if (!data) return;
+      setLocalFallback((prev) => {
+        if (!matchesDisplayTarget(programIdParam, data, prev || convexProgramRef.current)) {
+          return prev;
+        }
+        const updated = applyIncomingDisplaySync(prev, convexProgramRef.current, data, programIdParam);
+        if (updated) {
+          setLocalUpdatedAt(data.syncTimestamp || Date.now());
+        }
+        return updated;
+      });
+    };
+
     const syncLocal = () => {
       try {
         const cached =
           (programIdParam && localStorage.getItem(`kairon_offline_cache_${programIdParam}`)) ||
+          (cleanParam && localStorage.getItem(`kairon_offline_cache_${cleanParam}`)) ||
           localStorage.getItem('kairon_offline_cache_live') ||
           localStorage.getItem('kairon_program');
-        if (cached) setLocalFallback(JSON.parse(cached));
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          setLocalFallback(parsed);
+          setLocalUpdatedAt(parsed._syncTimestamp || Date.now());
+        }
       } catch {
         // Ignore
       }
     };
 
+    const handleBroadcast = (event: MessageEvent) => {
+      if (event.data) applyPayload(event.data);
+      else syncLocal();
+    };
+
+    const handleWindowMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === KAIRON_IFRAME_SYNC_TYPE && event.data.payload) {
+        applyPayload(event.data.payload);
+      }
+    };
+
     const channel = new BroadcastChannel('kairon_offline_sync');
-    channel.addEventListener('message', syncLocal);
+    channel.addEventListener('message', handleBroadcast);
     window.addEventListener('storage', syncLocal);
+    window.addEventListener('message', handleWindowMessage);
 
     const electronApi = (window as any).electron || (window as any).electronAPI;
     let unsubIpc: (() => void) | undefined;
-    if (electronApi?.onTimerState) {
-      unsubIpc = electronApi.onTimerState((payload: any) => {
-        if (payload?.program) {
-          setLocalFallback(payload.program);
-        } else if (payload) {
-          syncLocal();
-        }
-      });
+    if (electronApi) {
+      if (typeof electronApi.getLastTimerState === 'function') {
+        electronApi.getLastTimerState().then((cached: any) => {
+          if (cached) applyPayload(cached);
+        }).catch(() => {});
+      }
+      if (electronApi.onTimerState) {
+        unsubIpc = electronApi.onTimerState((payload: any) => {
+          if (payload) applyPayload(payload);
+        });
+      }
     }
 
     return () => {
-      channel.removeEventListener('message', syncLocal);
+      channel.removeEventListener('message', handleBroadcast);
       channel.close();
       window.removeEventListener('storage', syncLocal);
+      window.removeEventListener('message', handleWindowMessage);
       if (unsubIpc) unsubIpc();
     };
   }, [programIdParam]);
 
-  const program: Program | null = useMemo(() => {
-    if (rawProgram) {
-      return {
-        ...(rawProgram as any),
-        id: String((rawProgram as any)._id || (rawProgram as any).id),
-      };
+  // Reconcile stale local fallback if Convex concludes remotely
+  useEffect(() => {
+    if (convexProgram?.status === 'concluded' && localFallback?.status === 'live') {
+      const syncAt = Math.max(localUpdatedAt, localFallback._syncTimestamp || 0);
+      const startedFreshly = syncAt > 0 && Date.now() - syncAt < 8000 && Boolean(localFallback.isTimerActive);
+      if (!startedFreshly) {
+        setLocalFallback({
+          ...localFallback,
+          ...convexProgram,
+          status: 'concluded',
+          isTimerActive: false,
+          timerStartTimestamp: null,
+          secondsElapsed: 0,
+          isOnHold: false,
+        });
+      }
     }
-    return localFallback;
-  }, [rawProgram, localFallback]);
+  }, [convexProgram?.status]);
+
+  const isBoothOrLocalMode = typeof window !== 'undefined' && (
+    localStorage.getItem('kairon_booth_mode') === 'true' ||
+    window.location.search.includes('testBypass=true') ||
+    localStorage.getItem('testBypass') === 'true' ||
+    Boolean(programIdParam?.startsWith('local-')) ||
+    window.self !== window.top
+  );
+
+  const program: Program | null = useMemo(
+    () =>
+      reconcileDisplayProgram({
+        localProgram: localFallback,
+        convexProgram,
+        localUpdatedAt,
+        preferLocal: isBoothOrLocalMode,
+      }),
+    [localFallback, convexProgram, localUpdatedAt, isBoothOrLocalMode]
+  );
 
   const currentSlotIndex = program?.currentSlotIndex ?? 0;
   const isTimerActive = program?.isTimerActive ?? false;
@@ -149,6 +234,17 @@ export const BroadcastOverlayView: React.FC = () => {
         <div className={`bg-[#090A0C] border border-[#22262E] rounded-lg px-5 py-3 text-white font-mono text-xs flex items-center gap-3 ${shadowClass}`}>
           <span className="w-2 h-2 rounded-full bg-[#F59E0B]" />
           <span>KAIRON BROADCAST OVERLAY — STANDBY</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (program.status === 'concluded' && !isTimerActive) {
+    return (
+      <div className={`w-screen h-screen overflow-hidden ${bgClass} flex items-end p-12 select-none font-sans`}>
+        <div className={`${panelBgClass} border border-[#22262E] rounded-lg px-5 py-3 text-white font-mono text-xs flex items-center gap-3 ${shadowClass}`}>
+          <span className="w-2 h-2 rounded-full bg-slate-400" />
+          <span>{program.title} — SESSION CONCLUDED</span>
         </div>
       </div>
     );
@@ -274,9 +370,15 @@ export const BroadcastOverlayView: React.FC = () => {
       {layoutMode === 'full-bug' && (
         <div className={`fixed bottom-0 left-0 right-0 h-16 ${panelBgClass} border-t-2 border-[#0EA5E9] px-8 flex items-center justify-between ${shadowClass}`}>
           <div className="flex items-center gap-4 min-w-0">
-            <span className={`px-2.5 py-1 rounded ${bgMode === 'green' ? 'bg-[#0EA5E9]/15 border-[#0EA5E9]/40 text-[#0EA5E9]' : 'bg-[#10B981]/15 border-[#10B981]/40 text-[#10B981]'} border font-mono text-xs font-bold uppercase flex items-center gap-1.5 shrink-0`}>
+            <span className={`px-2.5 py-1 rounded ${
+              !isTimerActive
+                ? 'bg-[#F59E0B]/15 border-[#F59E0B]/40 text-[#F59E0B]'
+                : bgMode === 'green'
+                ? 'bg-[#0EA5E9]/15 border-[#0EA5E9]/40 text-[#0EA5E9]'
+                : 'bg-[#10B981]/15 border-[#10B981]/40 text-[#10B981]'
+            } border font-mono text-xs font-bold uppercase flex items-center gap-1.5 shrink-0`}>
               <Radio size={13} />
-              LIVE
+              {isTimerActive ? 'LIVE' : 'STANDBY'}
             </span>
             <div className="min-w-0">
               <div className="text-lg font-bold text-white truncate">{currentSlot.title}</div>

@@ -1091,28 +1091,48 @@ const AppContent: React.FC = () => {
     (isConvexOrgId || isTestMode) ? { organizationId: (activeOrgId || 'test-org-id') as any } : "skip"
   );
 
+  // Track explicitly concluded program IDs so lagging Convex snapshots cannot resurrect 'live' during sync window
+  const recentlyConcludedRef = useRef<{ id: string; at: number } | null>(null);
+
   const activeSessions = useMemo(() => {
+    const isRecentlyConcludedId = (id?: string) => {
+      const rc = recentlyConcludedRef.current;
+      if (!rc || !id || Date.now() - rc.at >= 15000) return false;
+      const cleanRc = rc.id.replace(/^local-/, '');
+      const cleanId = String(id).replace(/^local-/, '');
+      return id === rc.id || cleanId === cleanRc;
+    };
     if (isLocalFolderWorkspace) {
-      return program.status === 'live' ? [program] : [];
+      return (program.status === 'live' && !isRecentlyConcludedId(program.id)) ? [program] : [];
     }
     if (isBoothMode || isTestMode) {
       const localList = getLocalPrograms();
-      const currentLive = program.status === 'live' ? [program] : [];
+      const currentLive = (program.status === 'live' && !isRecentlyConcludedId(program.id)) ? [program] : [];
       const cleanProgramId = (program.id || '').replace(/^local-/, '');
       const otherLive = localList.filter((p: any) => 
         p.status === 'live' && 
+        !isRecentlyConcludedId(p.id) &&
         p.id !== program.id && 
         p.id?.replace(/^local-/, '') !== cleanProgramId
       );
       return [...currentLive, ...otherLive];
     }
     if (!activeSessionsRaw) return [];
-    return activeSessionsRaw.map(s => ({
-      ...s,
-      id: String(s._id || s.id),
-      slug: String((s as any).slug || (s as any).uuid || s._id || s.id).replace(/^local-/, ''),
-      isPublic: (s as any).isPublic ?? true,
-    })) as Program[];
+    const cleanProgramId = (program.id || '').replace(/^local-/, '');
+    return activeSessionsRaw
+      .map(s => ({
+        ...s,
+        id: String(s._id || s.id),
+        slug: String((s as any).slug || (s as any).uuid || s._id || s.id).replace(/^local-/, ''),
+        isPublic: (s as any).isPublic ?? true,
+      }))
+      .filter(s => {
+        if (isRecentlyConcludedId(s.id)) return false;
+        if (program.status === 'concluded' && (s.id === program.id || s.id.replace(/^local-/, '') === cleanProgramId)) {
+          return false;
+        }
+        return true;
+      }) as Program[];
   }, [activeSessionsRaw, isBoothMode, program, isLocalFolderWorkspace]);
 
   const allProgramsRaw = useConvexQuery(
@@ -1240,80 +1260,120 @@ const AppContent: React.FC = () => {
     ? (isTargetSameAsLocal ? Boolean(program.isManualMode ?? globalLiveProgram?.isManualMode) : Boolean(globalLiveProgram?.isManualMode))
     : Boolean(program.isManualMode);
 
-  const displayProgram = useMemo(() => {
-    const base = isLiveEventActive 
-      ? (isTargetSameAsLocal ? { ...globalLiveProgram!, ...program, slots: program.slots } : globalLiveProgram!) 
-      : (fallbackWorkspaceProgram || program);
-    return {
-      ...base,
-      isManualMode: isTargetSameAsLocal ? (program.isManualMode ?? base.isManualMode ?? false) : (base.isManualMode ?? false),
-    };
-  }, [isLiveEventActive, isTargetSameAsLocal, globalLiveProgram, program, fallbackWorkspaceProgram]);
   const displayCurrentSlotIndex = isLiveEventActive 
     ? (isTargetSameAsLocal ? currentSlotIndex : (globalLiveProgram?.currentSlotIndex ?? 0)) 
     : currentSlotIndex;
   
   const displayIsTimerActive = isLiveEventActive 
     ? (isTargetSameAsLocal ? isTimerActive : (globalLiveProgram?.isTimerActive ?? false)) 
-    : (program.slots.length > 0 ? isTimerActive : false);
+    : (program.slots.length > 0 && program.status !== 'concluded' ? isTimerActive : false);
 
   const displayTimerStartTimestamp = isLiveEventActive 
     ? (isTargetSameAsLocal ? timerStartTimestamp : (globalLiveProgram?.timerStartTimestamp ?? null)) 
-    : (program.slots.length > 0 ? timerStartTimestamp : null);
+    : (program.slots.length > 0 && program.status !== 'concluded' ? timerStartTimestamp : null);
 
   const displaySecondsElapsed = isLiveEventActive 
     ? (displayIsTimerActive 
         ? Math.floor((Date.now() - (displayTimerStartTimestamp ?? Date.now())) / 1000) 
         // OPTIMISTIC FIX: Prioritize local 'secondsElapsed' if it's the same program to avoid "Pause Resets"
         : (isTargetSameAsLocal ? secondsElapsed : (globalLiveProgram?.secondsElapsed ?? 0)))
-    : (program.slots.length > 0 && isTimerActive && timerStartTimestamp 
+    : (program.slots.length > 0 && program.status !== 'concluded' && isTimerActive && timerStartTimestamp 
         ? Math.floor((Date.now() - timerStartTimestamp) / 1000) 
-        : (program.slots.length > 0 ? secondsElapsed : 0));
+        : (program.slots.length > 0 && program.status !== 'concluded' ? secondsElapsed : 0));
+
+  const displayProgram = useMemo(() => {
+    const base = isLiveEventActive 
+      ? (isTargetSameAsLocal ? { ...globalLiveProgram!, ...program, slots: program.slots } : globalLiveProgram!) 
+      : (fallbackWorkspaceProgram || program);
+    const isConcluded = base.status === 'concluded' && !displayIsTimerActive;
+    return {
+      ...base,
+      currentSlotIndex: displayCurrentSlotIndex,
+      isTimerActive: isConcluded ? false : displayIsTimerActive,
+      timerStartTimestamp: isConcluded ? null : displayTimerStartTimestamp,
+      secondsElapsed: isConcluded ? 0 : (isTargetSameAsLocal || !isLiveEventActive ? secondsElapsed : (base.secondsElapsed ?? 0)),
+      isOnHold: isConcluded ? false : Boolean(base.isOnHold),
+      status: isConcluded ? 'concluded' : (displayIsTimerActive ? 'live' : base.status),
+      isManualMode: isTargetSameAsLocal ? (program.isManualMode ?? base.isManualMode ?? false) : (base.isManualMode ?? false),
+    } as Program;
+  }, [
+    isLiveEventActive,
+    isTargetSameAsLocal,
+    globalLiveProgram,
+    program,
+    fallbackWorkspaceProgram,
+    displayCurrentSlotIndex,
+    displayIsTimerActive,
+    displayTimerStartTimestamp,
+    secondsElapsed,
+  ]);
 
   // Keep localStorage caches synchronized for instant preview, iframe thumbnails, and offline fallback
   useEffect(() => {
     try {
+      const syncTs = Date.now();
       if (program) {
-        const serializedProg = JSON.stringify(program);
+        const isConcluded = program.status === 'concluded' && !isTimerActive;
+        const normalizedProg = {
+          ...program,
+          isTimerActive: isConcluded ? false : (program.isTimerActive ?? isTimerActive),
+          timerStartTimestamp: isConcluded ? null : (program.timerStartTimestamp ?? timerStartTimestamp),
+          secondsElapsed: isConcluded ? 0 : (program.secondsElapsed ?? secondsElapsed),
+          isOnHold: isConcluded ? false : Boolean(program.isOnHold),
+          _syncTimestamp: syncTs,
+        };
+        const serializedProg = JSON.stringify(normalizedProg);
         localStorage.setItem('kairon_program', serializedProg);
         if (program.id) {
           localStorage.setItem(`kairon_offline_cache_${program.id}`, serializedProg);
           localStorage.setItem(`kairon_offline_cache_${program.id.replace(/^local-/, '')}`, serializedProg);
+          localStorage.setItem(`kairon_offline_cache_${program.id}_prompter`, serializedProg);
+          localStorage.setItem(`kairon_offline_cache_${program.id.replace(/^local-/, '')}_prompter`, serializedProg);
         }
         if (program.slug) {
-          localStorage.setItem(`kairon_offline_cache_${program.slug.replace(/^local-/, '')}`, serializedProg);
+          const cleanSlug = program.slug.replace(/^local-/, '');
+          localStorage.setItem(`kairon_offline_cache_${cleanSlug}`, serializedProg);
+          localStorage.setItem(`kairon_offline_cache_${cleanSlug}_prompter`, serializedProg);
         }
       }
       if (displayProgram) {
-        const isLiveNow = (displayIsTimerActive || displayProgram.status === 'live');
+        const isConcluded = displayProgram.status === 'concluded' && !displayIsTimerActive;
+        const isLiveNow = !isConcluded && (displayIsTimerActive || displayProgram.status === 'live');
         // Safety: Do not overwrite kairon_offline_cache_live with an empty draft if there is a running master live session in another workspace!
         const rawMaster = localStorage.getItem('kairon_master_live_session');
-        const hasExternalMasterLive = rawMaster && !isLiveNow;
+        const hasExternalMasterLive = rawMaster && !isLiveNow && !isConcluded;
         if (!hasExternalMasterLive) {
           const liveDisplay = {
             ...displayProgram,
             currentSlotIndex: displayCurrentSlotIndex,
-            isTimerActive: displayIsTimerActive,
-            timerStartTimestamp: displayTimerStartTimestamp,
-            secondsElapsed: displaySecondsElapsed,
-            status: isLiveNow ? 'live' : displayProgram.status,
+            isTimerActive: isConcluded ? false : displayIsTimerActive,
+            timerStartTimestamp: isConcluded ? null : displayTimerStartTimestamp,
+            secondsElapsed: isConcluded ? 0 : displaySecondsElapsed,
+            isOnHold: isConcluded ? false : Boolean(displayProgram.isOnHold),
+            status: isConcluded ? 'concluded' : (isLiveNow ? 'live' : displayProgram.status),
+            _syncTimestamp: syncTs,
           };
           const serializedDisplay = JSON.stringify(liveDisplay);
           localStorage.setItem('kairon_offline_cache_live', serializedDisplay);
+          localStorage.setItem('kairon_offline_cache_live_prompter', serializedDisplay);
           if (displayProgram.id) {
+            const cleanId = displayProgram.id.replace(/^local-/, '');
             localStorage.setItem(`kairon_offline_cache_${displayProgram.id}`, serializedDisplay);
-            localStorage.setItem(`kairon_offline_cache_${displayProgram.id.replace(/^local-/, '')}`, serializedDisplay);
+            localStorage.setItem(`kairon_offline_cache_${cleanId}`, serializedDisplay);
             localStorage.setItem(`kairon_offline_cache_${displayProgram.id}_prompter`, serializedDisplay);
+            localStorage.setItem(`kairon_offline_cache_${cleanId}_prompter`, serializedDisplay);
           }
           if (displayProgram.slug) {
-            localStorage.setItem(`kairon_offline_cache_${displayProgram.slug.replace(/^local-/, '')}`, serializedDisplay);
+            const cleanSlug = displayProgram.slug.replace(/^local-/, '');
+            localStorage.setItem(`kairon_offline_cache_${cleanSlug}`, serializedDisplay);
+            localStorage.setItem(`kairon_offline_cache_${cleanSlug}_prompter`, serializedDisplay);
           }
         }
       }
     } catch (err) {
       console.warn('Could not sync offline cache in localStorage:', err);
     }
-  }, [program, displayProgram, displayCurrentSlotIndex, displayIsTimerActive, displayTimerStartTimestamp, displaySecondsElapsed]);
+  }, [program, displayProgram, displayCurrentSlotIndex, displayIsTimerActive, displayTimerStartTimestamp, displaySecondsElapsed, isTimerActive, timerStartTimestamp, secondsElapsed]);
 
 
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
@@ -1434,6 +1494,23 @@ const AppContent: React.FC = () => {
 
         const isNewProgram = !isSameProgram;
         const isTransitioning = Date.now() - lastAdvanceTimeRef.current < 10000;
+        const rc = recentlyConcludedRef.current;
+        const isRecentlyConcluded = Boolean(
+          rc &&
+          Date.now() - rc.at < 15000 &&
+          (fetchedProgram.id === rc.id ||
+            fetchedIdClean === rc.id.replace(/^local-/, '') ||
+            (fetchedUuidClean && fetchedUuidClean === rc.id.replace(/^local-/, '')) ||
+            (fetchedSlugClean && fetchedSlugClean === rc.id.replace(/^local-/, '')))
+        );
+
+        // Guard against 2-render cloud lag resurrection: never let a lagging 'live' Convex snapshot overwrite an explicit local End Event
+        if (isRecentlyConcluded && fetchedProgram.status === 'live') {
+          return;
+        }
+        if (isRecentlyConcluded && fetchedProgram.status === 'concluded') {
+          recentlyConcludedRef.current = null;
+        }
 
         if (isNewProgram) {
           console.log("Hydrating program from ID:", fetchedProgram.title);
@@ -1459,7 +1536,7 @@ const AppContent: React.FC = () => {
             prev.set('id', fetchedProgram.id);
             return prev;
           }, { replace: true });
-        } else if (saveStatus === 'saved' && !isProgramContentEqual(currentProg, fetchedProgram)) {
+        } else if (saveStatus === 'saved' && !isTransitioning && !isProgramContentEqual(currentProg, fetchedProgram)) {
           console.log("Syncing program content updates from database:", fetchedProgram.title);
           lastSavedProgramRef.current = fetchedProgram;
           setProgram(fetchedProgram);
@@ -1613,17 +1690,28 @@ const AppContent: React.FC = () => {
       // Broadcast local offline state sync across tabs immediately
       try {
         const channel = new BroadcastChannel('kairon_offline_sync');
-        const isLiveNow = (p.id === displayProgram.id && displayIsTimerActive) || (p.id === program.id && isTimerActive) || p.status === 'live';
+        const isConcluded = p.status === 'concluded' || programRef.current?.status === 'concluded';
+        const isLiveNow = !isConcluded && ((p.id === displayProgram.id && displayIsTimerActive) || (p.id === program.id && isTimerActive) || p.status === 'live');
         const liveSnapshot: Program = {
           ...p,
-          isTimerActive: isLiveNow ? (p.id === displayProgram.id ? displayIsTimerActive : isTimerActive) : p.isTimerActive,
-          timerStartTimestamp: isLiveNow ? (p.id === displayProgram.id ? displayTimerStartTimestamp : timerStartTimestamp) : p.timerStartTimestamp,
+          isTimerActive: isConcluded ? false : (isLiveNow ? (p.id === displayProgram.id ? displayIsTimerActive : isTimerActive) : p.isTimerActive),
+          timerStartTimestamp: isConcluded ? null : (isLiveNow ? (p.id === displayProgram.id ? displayTimerStartTimestamp : timerStartTimestamp) : p.timerStartTimestamp),
+          secondsElapsed: isConcluded ? 0 : (p.secondsElapsed ?? 0),
+          isOnHold: isConcluded ? false : Boolean(p.isOnHold),
           currentSlotIndex: p.id === displayProgram.id ? displayCurrentSlotIndex : (p.currentSlotIndex ?? currentSlotIndex),
-          status: isLiveNow ? 'live' : p.status,
+          status: isConcluded ? 'concluded' : (isLiveNow ? 'live' : p.status),
         };
+        const syncTs = Date.now();
         channel.postMessage({
           id: p.id,
-          program: liveSnapshot
+          program: liveSnapshot,
+          isTimerActive: liveSnapshot.isTimerActive,
+          timerStartTimestamp: liveSnapshot.timerStartTimestamp,
+          currentSlotIndex: liveSnapshot.currentSlotIndex,
+          secondsElapsed: liveSnapshot.secondsElapsed,
+          isOnHold: liveSnapshot.isOnHold,
+          status: liveSnapshot.status,
+          syncTimestamp: syncTs,
         });
         channel.close();
 
@@ -1636,18 +1724,26 @@ const AppContent: React.FC = () => {
             isTimerActive: liveSnapshot.isTimerActive,
             timerStartTimestamp: liveSnapshot.timerStartTimestamp,
             currentSlotIndex: liveSnapshot.currentSlotIndex,
+            secondsElapsed: liveSnapshot.secondsElapsed,
+            isOnHold: liveSnapshot.isOnHold,
             status: liveSnapshot.status,
+            syncTimestamp: syncTs,
           });
         }
 
         // Persist local offline recovery snapshot
         try {
-          localStorage.setItem(`kairon_offline_cache_${p.id}`, JSON.stringify(liveSnapshot));
+          const serializedSnap = JSON.stringify({ ...liveSnapshot, _syncTimestamp: syncTs });
+          localStorage.setItem(`kairon_offline_cache_${p.id}`, serializedSnap);
+          localStorage.setItem(`kairon_offline_cache_${p.id}_prompter`, serializedSnap);
           if (p.id?.startsWith('local-')) {
-            localStorage.setItem(`kairon_offline_cache_${p.id.replace('local-', '')}`, JSON.stringify(liveSnapshot));
+            const cleanPid = p.id.replace(/^local-/, '');
+            localStorage.setItem(`kairon_offline_cache_${cleanPid}`, serializedSnap);
+            localStorage.setItem(`kairon_offline_cache_${cleanPid}_prompter`, serializedSnap);
           }
-          if (isLiveNow) {
-            localStorage.setItem('kairon_offline_cache_live', JSON.stringify(liveSnapshot));
+          if (isLiveNow || isConcluded) {
+            localStorage.setItem('kairon_offline_cache_live', serializedSnap);
+            localStorage.setItem('kairon_offline_cache_live_prompter', serializedSnap);
           }
         } catch (storageErr) {
           console.warn("Failed to update local offline cache snapshot:", storageErr);
@@ -1714,6 +1810,7 @@ const AppContent: React.FC = () => {
       status?: 'draft' | 'live' | 'concluded' | 'archived';
     }) => {
       const { id, ...timerState } = state;
+      const syncTs = Date.now();
 
       // Keep offline cache synchronized with timer mutations
       let updatedProgram: any = null;
@@ -1726,11 +1823,20 @@ const AppContent: React.FC = () => {
         if (cachedRaw) {
           try {
             const cached = JSON.parse(cachedRaw);
-            updatedProgram = { ...cached, ...timerState, id };
+            updatedProgram = { ...cached, ...timerState, id, _syncTimestamp: syncTs };
             const serialized = JSON.stringify(updatedProgram);
             localStorage.setItem(`kairon_offline_cache_${id}`, serialized);
+            localStorage.setItem(`kairon_offline_cache_${id}_prompter`, serialized);
             localStorage.setItem(`kairon_offline_cache_${cleanId}`, serialized);
+            localStorage.setItem(`kairon_offline_cache_${cleanId}_prompter`, serialized);
+            if (updatedProgram.slug) {
+              const cleanSlug = String(updatedProgram.slug).replace(/^local-/, '');
+              localStorage.setItem(`kairon_offline_cache_${cleanSlug}`, serialized);
+              localStorage.setItem(`kairon_offline_cache_${cleanSlug}_prompter`, serialized);
+            }
             localStorage.setItem('kairon_offline_cache_live', serialized);
+            localStorage.setItem('kairon_offline_cache_live_prompter', serialized);
+            localStorage.setItem('kairon_program', serialized);
           } catch (parseErr) {}
         }
       } catch (err) {
@@ -1740,7 +1846,8 @@ const AppContent: React.FC = () => {
       const fullPayload = {
         id,
         program: updatedProgram,
-        ...timerState
+        ...timerState,
+        syncTimestamp: syncTs,
       };
 
       // Broadcast local offline state sync across tabs immediately
@@ -1771,19 +1878,23 @@ const AppContent: React.FC = () => {
   const stopAllConvexSessions = useConvexMutation(api.programs.stopAllActiveSessions);
 
   const handleStopAllSessions = async () => {
-    if (!activeOrgId) return;
-
     setConfirmDialog({
       isOpen: true,
       title: 'Stop All Sessions?',
       message: 'This will instantly stop all active programs in this workspace and reset all monitors to standby.',
       type: 'danger',
       onConfirm: async () => {
-        try {
-          await stopAllConvexSessions({ organizationId: activeOrgId as any });
-          queryClient.invalidateQueries({ queryKey: ['programs', activeOrgId] });
-        } catch (err) {
-          console.error("Failed to stop sessions:", err);
+        const toEnd = activeSessions.length > 0 ? activeSessions : (displayProgram.status === 'live' ? [displayProgram] : []);
+        for (const sess of toEnd) {
+          handleEndEvent(sess.id);
+        }
+        if (activeOrgId && !isBoothMode && !isLocalFolderWorkspace && !isTestBypassMode) {
+          try {
+            await stopAllConvexSessions({ organizationId: activeOrgId as any });
+            queryClient.invalidateQueries({ queryKey: ['programs', activeOrgId] });
+          } catch (err) {
+            console.error("Failed to stop sessions:", err);
+          }
         }
       }
     });
@@ -1831,6 +1942,11 @@ const AppContent: React.FC = () => {
     const targetId = targetProgramId || displayProgram.id;
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     const targetIdx = targetId === displayProgram.id ? displayCurrentSlotIndex : (targetProg.currentSlotIndex || 0);
+    const syncTs = Date.now();
+
+    // Activate optimistic transition lock immediately so hydrate() cannot resurrect 'live' before Convex confirms
+    lastAdvanceTimeRef.current = syncTs;
+    recentlyConcludedRef.current = { id: targetId, at: syncTs };
     
     // Capture final slot duration
     const finalSlot = targetProg.slots[targetIdx];
@@ -1848,16 +1964,28 @@ const AppContent: React.FC = () => {
       slots: slotsWithFinalDuration,
       status: 'concluded' as const, 
       isTimerActive: false,
-      timerStartTimestamp: null
+      timerStartTimestamp: null,
+      secondsElapsed: 0,
+      isOnHold: false,
+      holdMessage: '',
+      currentSlotIndex: targetIdx,
     };
 
-    // Update offline cache immediately so all display screens cleanly transition to concluded state
+    // Update ALL offline caches immediately so every display & monitor feed cleanly transitions to concluded state
     try {
-      const serialized = JSON.stringify(updatedProgram);
+      const serialized = JSON.stringify({ ...updatedProgram, _syncTimestamp: syncTs });
       const cleanId = targetId.replace(/^local-/, '');
       localStorage.setItem(`kairon_offline_cache_${targetId}`, serialized);
+      localStorage.setItem(`kairon_offline_cache_${targetId}_prompter`, serialized);
       localStorage.setItem(`kairon_offline_cache_${cleanId}`, serialized);
+      localStorage.setItem(`kairon_offline_cache_${cleanId}_prompter`, serialized);
+      if (updatedProgram.slug) {
+        const cleanSlug = String(updatedProgram.slug).replace(/^local-/, '');
+        localStorage.setItem(`kairon_offline_cache_${cleanSlug}`, serialized);
+        localStorage.setItem(`kairon_offline_cache_${cleanSlug}_prompter`, serialized);
+      }
       localStorage.setItem('kairon_offline_cache_live', serialized);
+      localStorage.setItem('kairon_offline_cache_live_prompter', serialized);
       localStorage.setItem('kairon_program', serialized);
       localStorage.removeItem('kairon_master_live_session');
       setMasterLiveSession(null);
@@ -1887,6 +2015,8 @@ const AppContent: React.FC = () => {
       isTimerActive: false,
       secondsElapsed: 0,
       timerStartTimestamp: null,
+      isOnHold: false,
+      holdMessage: '',
       status: 'concluded'
     });
 
@@ -1902,25 +2032,25 @@ const AppContent: React.FC = () => {
 
     // Broadcast concluded state across all local tabs and Electron secondary windows
     try {
-      const channel = new BroadcastChannel('kairon_offline_sync');
-      channel.postMessage({
+      const endPayload = {
         id: targetId,
         program: updatedProgram,
+        currentSlotIndex: targetIdx,
         isTimerActive: false,
         timerStartTimestamp: null,
-        status: 'concluded'
-      });
+        secondsElapsed: 0,
+        isOnHold: false,
+        holdMessage: '',
+        status: 'concluded' as const,
+        syncTimestamp: syncTs,
+      };
+      const channel = new BroadcastChannel('kairon_offline_sync');
+      channel.postMessage(endPayload);
       channel.close();
 
       const electronApi = (window as any).electron || (window as any).electronAPI;
       if (electronApi?.sendTimerState) {
-        electronApi.sendTimerState({
-          id: targetId,
-          program: updatedProgram,
-          isTimerActive: false,
-          timerStartTimestamp: null,
-          status: 'concluded'
-        });
+        electronApi.sendTimerState(endPayload);
       }
     } catch (e) {
       console.warn("Failed to broadcast end event:", e);
@@ -2511,6 +2641,9 @@ const AppContent: React.FC = () => {
 
     const newState = !targetIsActive;
     lastAdvanceTimeRef.current = Date.now();
+    if (newState) {
+      recentlyConcludedRef.current = null;
+    }
     
     // Set suppression window
     recentlyToggledRef.current = true;
@@ -2651,6 +2784,7 @@ const AppContent: React.FC = () => {
 
   const handleToggleHold = (nextHoldState?: boolean, targetProgramId?: string) => {
     if (!canControlLive) return;
+    lastAdvanceTimeRef.current = Date.now();
     const targetId = targetProgramId || displayProgram.id;
     const targetProg = targetProgramId ? (activeSessions.find(s => String(s.id) === String(targetProgramId)) || displayProgram) : displayProgram;
     
@@ -3401,6 +3535,10 @@ const AppContent: React.FC = () => {
                     <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#10B981]/10 border border-[#10B981]/30 text-[10px] font-mono font-bold text-[#10B981] shrink-0">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-tally" />
                       LIVE
+                    </span>
+                  ) : displayProgram.status === 'concluded' ? (
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-500/10 border border-slate-500/30 text-[10px] font-mono font-bold text-slate-400 shrink-0">
+                      CONCLUDED
                     </span>
                   ) : (
                     <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[10px] font-mono font-bold text-[#F59E0B] shrink-0">
@@ -4338,9 +4476,21 @@ const StandaloneDispatcher: React.FC = () => {
   const isStageRoute = currentRouteToken === 'stage' || pathLower === '/stage' || /[\/#]stage(\b|\?|\/)/i.test(hrefLower);
   const isPrompterRoute = currentRouteToken === 'prompter' || pathLower === '/prompter' || /[\/#]prompter(\b|\?|\/)/i.test(hrefLower);
   const isOverlayRoute = currentRouteToken === 'overlay' || pathLower === '/overlay' || /[\/#]overlay(\b|\?|\/)/i.test(hrefLower);
-  const isCrewRoute = currentRouteToken === 'crew' || pathLower === '/crew' || /[\/#]crew(\b|\?|\/)/i.test(hrefLower);
+  const isCrewRoute =
+    currentRouteToken === 'crew' ||
+    pathLower === '/crew' ||
+    /^p\/[^/?#]+\/crew$/i.test(currentRouteToken) ||
+    /^\/p\/[^/?#]+\/crew$/i.test(pathLower) ||
+    /[\/#]crew(\b|\?|\/)/i.test(hrefLower);
   const isBridgeRoute = currentRouteToken === 'bridge' || pathLower === '/bridge' || /[\/#]bridge(\b|\?|\/)/i.test(hrefLower);
-  const isPortalRoute = currentRouteToken === 'public' || currentRouteToken === 'portal' || pathLower === '/public' || pathLower === '/portal' || /[\/#](public|portal)(\b|\?|\/)/i.test(hrefLower);
+  const isPortalRoute =
+    currentRouteToken === 'public' ||
+    currentRouteToken === 'portal' ||
+    pathLower === '/public' ||
+    pathLower === '/portal' ||
+    /^p\/[^/?#]+$/i.test(currentRouteToken) ||
+    /^\/p\/[^/?#]+$/i.test(pathLower) ||
+    /[\/#](public|portal)(\b|\?|\/)/i.test(hrefLower);
   const isDesktopAuthRoute = location.pathname === '/desktop-auth' || currentRouteToken === 'desktop-auth' || searchParams.has('desktopCode');
   const isPrivacyRoute = currentRouteToken === 'privacy' || pathLower === '/privacy';
   const isTermsRoute = currentRouteToken === 'terms' || pathLower === '/terms';
