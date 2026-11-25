@@ -8,6 +8,14 @@ import { getUniversalSearchParams, extractPathSlug } from '../utils/url';
 import { Mic, Clock, User, Calendar, ExternalLink, ChevronRight, Share2, Timer, Sun, Moon, RefreshCw, Volume2, Lightbulb, Video, CheckCircle2, Activity, Maximize, Minimize, MessageSquare, Send, Radio, Sparkles } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useTimerSync } from '../hooks/useTimerSync';
+import {
+    KAIRON_IFRAME_SYNC_TYPE,
+    TimestampedProgram,
+    normalizeProgramId,
+    matchesDisplayTarget,
+    applyIncomingDisplaySync,
+    reconcileDisplayProgram,
+} from '../utils/displaySync';
 
 export const CrewHUD: React.FC = () => {
     const routeParams = useParams<{ slug: string }>();
@@ -153,7 +161,17 @@ export const CrewHUD: React.FC = () => {
         {} // Always poll live channel as fallback
     );
 
-    const programRaw = programData || programByIdData || liveProgramData;
+    const liveMatchesTarget = Boolean(
+        liveProgramData && cleanTargetId && [
+            (liveProgramData as any)._id,
+            (liveProgramData as any).id,
+            (liveProgramData as any).uuid,
+            (liveProgramData as any).slug,
+        ].some((v) => normalizeProgramId(v) === cleanTargetId)
+    );
+    const programRaw = targetId
+        ? (programData || programByIdData || (liveMatchesTarget ? liveProgramData : null))
+        : liveProgramData;
     const programFromConvex = programRaw ? {
         ...(programRaw as any),
         id: (programRaw as any)._id || (programRaw as any).id
@@ -215,7 +233,8 @@ export const CrewHUD: React.FC = () => {
     }, [targetId]);
 
     // Local Program Fallback for offline, electron, or draft IDs
-    const [localProgram, setLocalProgram] = useState<Program | null>(() => readLocalProgram());
+    const [localProgram, setLocalProgram] = useState<TimestampedProgram | null>(() => readLocalProgram());
+    const [localUpdatedAt, setLocalUpdatedAt] = useState<number>(0);
 
     useEffect(() => {
         const found = readLocalProgram();
@@ -225,7 +244,10 @@ export const CrewHUD: React.FC = () => {
     useEffect(() => {
         const handleStorage = () => {
             const found = readLocalProgram();
-            if (found) setLocalProgram(found);
+            if (found) {
+                setLocalProgram(found);
+                setLocalUpdatedAt((found as TimestampedProgram)._syncTimestamp || Date.now());
+            }
         };
         window.addEventListener('storage', handleStorage);
         return () => window.removeEventListener('storage', handleStorage);
@@ -234,103 +256,50 @@ export const CrewHUD: React.FC = () => {
     const mergeIncomingData = useCallback((data: any) => {
         if (!data) return;
         const currentTarget = targetIdRef.current;
-        const cleanCurrentTarget = currentTarget ? currentTarget.replace(/^local-/, '') : '';
-        const cleanDataId = data.id ? data.id.replace(/^local-/, '') : '';
-        const isMatch = (cleanCurrentTarget && cleanDataId === cleanCurrentTarget) || data.id === currentTarget;
-
-        if (isMatch || (!currentTarget && (data.program?.status === 'live' || data.status === 'live' || data.isTimerActive))) {
-            setLocalProgram(prev => {
-                let base = prev || programFromConvexRef.current;
-                if (!base) {
-                    try {
-                        const candidates = [
-                            currentTarget ? `kairon_offline_cache_${currentTarget}` : null,
-                            cleanCurrentTarget ? `kairon_offline_cache_${cleanCurrentTarget}` : null,
-                            'kairon_offline_cache_live',
-                            'kairon_program'
-                        ].filter(Boolean) as string[];
-                        for (const key of candidates) {
-                            const cached = localStorage.getItem(key);
-                            if (cached) {
-                                base = JSON.parse(cached);
-                                break;
-                            }
-                        }
-                    } catch {}
-                }
-
-                let updated: Program | null = null;
-                if (data.program) {
-                    const inc = data.program;
-                    const incomingTimerActive = inc.isTimerActive !== undefined ? inc.isTimerActive : data.isTimerActive;
-                    const incomingStatus = data.status || inc.status;
-                    const isConcluded = incomingStatus === 'concluded' || inc.status === 'concluded';
-                    const preservedIsActive = isConcluded ? false : (incomingTimerActive !== undefined ? Boolean(incomingTimerActive) : (base?.isTimerActive ?? false));
-                    const preservedTimestamp = isConcluded ? null : ((data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : inc.timerStartTimestamp) !== undefined
-                        ? (data.timerStartTimestamp !== undefined ? data.timerStartTimestamp : inc.timerStartTimestamp)
-                        : (base?.timerStartTimestamp ?? null));
-                    const preservedSlotIdx = (data.currentSlotIndex !== undefined ? data.currentSlotIndex : inc.currentSlotIndex) !== undefined
-                        ? (data.currentSlotIndex !== undefined ? data.currentSlotIndex : inc.currentSlotIndex)
-                        : (base?.currentSlotIndex ?? 0);
-                    const preservedSeconds = (data.secondsElapsed !== undefined ? data.secondsElapsed : inc.secondsElapsed) !== undefined
-                        ? (data.secondsElapsed !== undefined ? data.secondsElapsed : inc.secondsElapsed)
-                        : (base?.secondsElapsed ?? 0);
-                    const isNowLive = !isConcluded && (preservedIsActive || incomingStatus === 'live' || (base?.status === 'live' && incomingStatus !== 'draft'));
-                    const effectiveStatus = isConcluded ? 'concluded' : (isNowLive ? 'live' : (incomingStatus || base?.status || 'draft'));
-
-                    updated = {
-                        ...(base || {}),
-                        ...inc,
-                        id: data.id || inc.id || base?.id,
-                        slots: (inc.slots && inc.slots.length > 0) ? inc.slots : (base?.slots || []),
-                        isTimerActive: preservedIsActive,
-                        timerStartTimestamp: preservedTimestamp,
-                        currentSlotIndex: preservedSlotIdx,
-                        secondsElapsed: preservedSeconds,
-                        status: effectiveStatus,
-                        isOnHold: inc.isOnHold ?? data.isOnHold ?? false,
-                        holdMessage: inc.holdMessage ?? data.holdMessage ?? base?.holdMessage ?? ''
-                    } as Program;
-                } else if (base) {
-                    const incomingStatus = data.status;
-                    const isConcluded = incomingStatus === 'concluded';
-                    const effectiveIsActive = isConcluded ? false : (data.isTimerActive !== undefined ? Boolean(data.isTimerActive) : (base.isTimerActive ?? false));
-                    const effectiveStatus = isConcluded ? 'concluded' : (data.status || (effectiveIsActive ? 'live' : base.status));
-
-                    updated = {
-                        ...base,
-                        ...data,
-                        slots: (data.slots && data.slots.length > 0) ? data.slots : (base.slots || []),
-                        isTimerActive: effectiveIsActive,
-                        status: effectiveStatus,
-                        isOnHold: data.isOnHold !== undefined ? data.isOnHold : base.isOnHold,
-                        holdMessage: data.holdMessage !== undefined ? data.holdMessage : base.holdMessage
-                    } as Program;
-                } else {
-                    updated = {
-                        id: data.id || 'live',
-                        title: 'Live Service',
-                        date: new Date().toISOString().split('T')[0],
-                        startTime: '09:00',
-                        slots: data.slots || [],
-                        status: data.status || 'live',
-                        isTimerActive: Boolean(data.isTimerActive),
-                        secondsElapsed: data.secondsElapsed || 0,
-                        timerStartTimestamp: data.timerStartTimestamp ?? null,
-                        currentSlotIndex: data.currentSlotIndex || 0,
-                        isManualMode: Boolean(data.isManualMode),
-                        isOnHold: Boolean(data.isOnHold),
-                        holdMessage: data.holdMessage || ''
-                    } as Program;
-                }
-
-                if (updated) {
-                    try { localStorage.setItem(`kairon_offline_cache_${currentTarget || 'live'}`, JSON.stringify(updated)); } catch {}
-                }
-                return updated || prev;
-            });
-        }
+        setLocalProgram((prev) => {
+            if (!matchesDisplayTarget(currentTarget, data, prev || programFromConvexRef.current)) {
+                return prev;
+            }
+            const updated = applyIncomingDisplaySync(prev, programFromConvexRef.current, data, currentTarget);
+            if (updated) {
+                setLocalUpdatedAt(data.syncTimestamp || Date.now());
+                try {
+                    localStorage.setItem(`kairon_offline_cache_${currentTarget || 'live'}`, JSON.stringify(updated));
+                } catch {}
+            }
+            return updated;
+        });
     }, []);
+
+    // Reconcile stale local cache if Convex authoritatively concludes the session remotely
+    useEffect(() => {
+        if (programFromConvex?.status === 'concluded' && localProgram?.status === 'live') {
+            const syncAt = Math.max(localUpdatedAt, localProgram._syncTimestamp || 0);
+            const startedFreshly = syncAt > 0 && Date.now() - syncAt < 8000 && Boolean(localProgram.isTimerActive);
+            if (!startedFreshly) {
+                setLocalProgram({
+                    ...localProgram,
+                    ...programFromConvex,
+                    status: 'concluded',
+                    isTimerActive: false,
+                    timerStartTimestamp: null,
+                    secondsElapsed: 0,
+                    isOnHold: false,
+                });
+            }
+        }
+    }, [programFromConvex?.status]);
+
+    // Direct parent->iframe postMessage sync (Web & Electron file://)
+    useEffect(() => {
+        const handleWindowMessage = (event: MessageEvent) => {
+            if (event.data && event.data.type === KAIRON_IFRAME_SYNC_TYPE && event.data.payload) {
+                mergeIncomingData(event.data.payload);
+            }
+        };
+        window.addEventListener('message', handleWindowMessage);
+        return () => window.removeEventListener('message', handleWindowMessage);
+    }, [mergeIncomingData]);
 
     // BroadcastChannel sync effect (same-origin tabs / controller)
     useEffect(() => {
@@ -348,26 +317,33 @@ export const CrewHUD: React.FC = () => {
     // Electron IPC timer relay effect (cross-BrowserWindow secondary projection / HUD)
     useEffect(() => {
         const electronApi = (window as any).electron || (window as any).electronAPI;
-        if (!electronApi?.onTimerState) return;
+        if (!electronApi) return;
+        if (typeof electronApi.getLastTimerState === 'function') {
+            electronApi.getLastTimerState().then((cached: any) => {
+                if (cached) mergeIncomingData(cached);
+            }).catch(() => {});
+        }
+        if (!electronApi.onTimerState) return;
         const remove = electronApi.onTimerState((payload: any) => {
             if (payload) mergeIncomingData(payload);
         });
         return () => { if (remove) remove(); };
     }, [mergeIncomingData]);
 
-    // In Booth Mode / Electron Desktop, prioritize local IPC state over empty or stale cloud queries
-    const isBoothMode = typeof window !== 'undefined' && (
+    const isBoothOrLocalMode = typeof window !== 'undefined' && (
         localStorage.getItem('kairon_booth_mode') === 'true' ||
         window.location.search.includes('testBypass=true') ||
         localStorage.getItem('testBypass') === 'true' ||
-        Boolean((window as any).electron?.isElectron || (window as any).electronAPI?.isElectron)
+        Boolean(targetId?.startsWith('local-')) ||
+        window.self !== window.top
     );
 
-    const candidateProg = isBoothMode ? (localProgram || programFromConvex) : (programFromConvex || localProgram);
-    const program = candidateProg ? {
-        ...(candidateProg as any),
-        id: (candidateProg as any)._id || (candidateProg as any).id
-    } as Program : null;
+    const program = reconcileDisplayProgram({
+        localProgram,
+        convexProgram: programFromConvex,
+        localUpdatedAt,
+        preferLocal: isBoothOrLocalMode,
+    });
 
     // Drift-proof timer sync driven by true system wall-clock
     const derivedSecondsElapsed = useTimerSync(
@@ -653,11 +629,11 @@ export const CrewHUD: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                     <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${program.isTimerActive ? 'bg-[#10B981] animate-tally' : 'bg-[#6A7382]'}`} />
+                        <span className={`w-2 h-2 rounded-full ${program.isTimerActive ? 'bg-[#10B981] animate-tally' : program.status === 'concluded' ? 'bg-slate-400' : 'bg-[#6A7382]'}`} />
                         <span className={`text-[10px] font-bold ${
                             isThemeLight ? 'text-slate-500' : 'text-[#8A93A4]'
                         } uppercase tracking-widest font-mono`}>
-                            {program.isTimerActive ? 'ON AIR' : 'STANDBY'}
+                            {program.isTimerActive ? 'ON AIR' : program.status === 'concluded' ? 'CONCLUDED' : 'STANDBY'}
                         </span>
                     </div>
                     <div className={`hidden sm:block text-[10px] font-mono font-bold ${
@@ -701,46 +677,69 @@ export const CrewHUD: React.FC = () => {
                 <div className={`col-span-12 lg:col-span-8 ${
                     isThemeLight ? 'bg-white border-slate-200' : 'bg-[#090A0C] border-[#22262E]'
                 } p-6 lg:p-10 flex flex-col justify-between border-r`}>
-                    <div className="space-y-2">
-                        <div className="text-[10px] font-mono font-bold text-[#10B981] uppercase tracking-[0.25em] flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-tally" />
-                            Current Slot • {currentSlotIndex + 1} of {program.slots.length}
-                        </div>
-                        <h2 className={`text-3xl lg:text-5xl font-bold tracking-tight ${
-                            isThemeLight ? 'text-slate-900' : 'text-white'
-                        } uppercase font-mono leading-tight`}>
-                            {currentSlot?.title || 'No Active Slot'}
-                        </h2>
-                        {currentSlot?.speaker && (
-                            <div className="text-lg lg:text-xl text-[#0EA5E9] flex items-center gap-2 font-mono font-medium mt-1">
-                                <User size={16} /> {currentSlot.speaker}
+                    {program.status === 'concluded' && !program.isTimerActive ? (
+                        <div className="flex-1 flex flex-col items-center justify-center text-center py-12">
+                            <div className="w-16 h-16 rounded-2xl bg-[#10B981]/10 border border-[#10B981]/30 flex items-center justify-center text-[#10B981] mb-6">
+                                <CheckCircle2 size={34} />
                             </div>
-                        )}
-                    </div>
-
-                    <div className="flex items-baseline gap-4 py-6 lg:py-10">
-                        <div className={`text-[16vw] lg:text-[140px] font-mono font-bold leading-none tabular-nums tracking-tight ${
-                            remainingSeconds < 0 
-                                ? 'text-[#EF4444] animate-pulse' 
-                                : (remainingSeconds <= 60 ? 'text-[#F59E0B] animate-pulse' : (isThemeLight ? 'text-slate-950' : 'text-white'))
-                        }`}>
-                            {formatCountdown(remainingSeconds)}
+                            <span className="text-[11px] font-mono font-bold text-[#10B981] uppercase tracking-[0.25em] mb-2">
+                                Broadcast Complete
+                            </span>
+                            <h2 className={`text-3xl lg:text-5xl font-bold uppercase tracking-tight mb-3 ${
+                                isThemeLight ? 'text-slate-900' : 'text-white'
+                            }`}>
+                                Session Concluded
+                            </h2>
+                            <p className={`text-sm font-mono max-w-md ${
+                                isThemeLight ? 'text-slate-500' : 'text-[#8A93A4]'
+                            }`}>
+                                {program.title} has ended. Standby for next session cues.
+                            </p>
                         </div>
-                        <div className={`text-xl lg:text-2xl font-mono font-bold ${
-                            isThemeLight ? 'text-slate-400' : 'text-[#6A7382]'
-                        } uppercase tracking-widest`}>
-                            {remainingSeconds < 0 ? 'Overtime' : 'Remaining'}
-                        </div>
-                    </div>
+                    ) : (
+                        <>
+                            <div className="space-y-2">
+                                <div className="text-[10px] font-mono font-bold text-[#10B981] uppercase tracking-[0.25em] flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-tally" />
+                                    Current Slot • {currentSlotIndex + 1} of {program.slots.length}
+                                </div>
+                                <h2 className={`text-3xl lg:text-5xl font-bold tracking-tight ${
+                                    isThemeLight ? 'text-slate-900' : 'text-white'
+                                } uppercase font-mono leading-tight`}>
+                                    {currentSlot?.title || 'No Active Slot'}
+                                </h2>
+                                {currentSlot?.speaker && (
+                                    <div className="text-lg lg:text-xl text-[#0EA5E9] flex items-center gap-2 font-mono font-medium mt-1">
+                                        <User size={16} /> {currentSlot.speaker}
+                                    </div>
+                                )}
+                            </div>
 
-                    <div className={`h-3 ${
-                        isThemeLight ? 'bg-slate-100 border-slate-200' : 'bg-[#121418] border-[#22262E]'
-                    } rounded-full overflow-hidden border p-0.5`}>
-                        <div
-                            className="h-full bg-[#0EA5E9] rounded-full transition-all duration-1000 ease-linear"
-                            style={{ width: `${Math.min(100, (derivedSecondsElapsed / ((currentSlot?.durationMinutes || 1) * 60)) * 100)}%` }}
-                        />
-                    </div>
+                            <div className="flex items-baseline gap-4 py-6 lg:py-10">
+                                <div className={`text-[16vw] lg:text-[140px] font-mono font-bold leading-none tabular-nums tracking-tight ${
+                                    remainingSeconds < 0 
+                                        ? 'text-[#EF4444] animate-pulse' 
+                                        : (remainingSeconds <= 60 ? 'text-[#F59E0B] animate-pulse' : (isThemeLight ? 'text-slate-950' : 'text-white'))
+                                }`}>
+                                    {formatCountdown(remainingSeconds)}
+                                </div>
+                                <div className={`text-xl lg:text-2xl font-mono font-bold ${
+                                    isThemeLight ? 'text-slate-400' : 'text-[#6A7382]'
+                                } uppercase tracking-widest`}>
+                                    {remainingSeconds < 0 ? 'Overtime' : 'Remaining'}
+                                </div>
+                            </div>
+
+                            <div className={`h-3 ${
+                                isThemeLight ? 'bg-slate-100 border-slate-200' : 'bg-[#121418] border-[#22262E]'
+                            } rounded-full overflow-hidden border p-0.5`}>
+                                <div
+                                    className="h-full bg-[#0EA5E9] rounded-full transition-all duration-1000 ease-linear"
+                                    style={{ width: `${Math.min(100, (derivedSecondsElapsed / ((currentSlot?.durationMinutes || 1) * 60)) * 100)}%` }}
+                                />
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* Right: Technical Cues & ACKs + Tactical Comms */}
