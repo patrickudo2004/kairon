@@ -12,6 +12,7 @@ import type * as auth from "../auth.js";
 import type * as authQueries from "../authQueries.js";
 import type * as chat from "../chat.js";
 import type * as desktopAuth from "../desktopAuth.js";
+import type * as feedback from "../feedback.js";
 import type * as http from "../http.js";
 import type * as members from "../members.js";
 import type * as orgs from "../orgs.js";
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   authQueries: typeof authQueries;
   chat: typeof chat;
   desktopAuth: typeof desktopAuth;
+  feedback: typeof feedback;
   http: typeof http;
   members: typeof members;
   orgs: typeof orgs;

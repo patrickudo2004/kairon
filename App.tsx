@@ -75,6 +75,8 @@ import { CommandPaletteModal } from './components/CommandPaletteModal';
 import { BroadcastIntegrationsModal } from './components/BroadcastIntegrationsModal';
 import { BroadcastOverlayView } from './components/BroadcastOverlayView';
 import { UpdateCheckerModal } from './components/UpdateCheckerModal';
+import { BetaFeedbackModal, isOwnerFeedbackEmail } from './components/BetaFeedbackModal';
+import { BetaFeedbackInbox } from './components/BetaFeedbackInbox';
 import { checkForUpdates, UpdateCheckResult } from './services/updateService';
 
 import { DesktopAuthApproval } from './components/DesktopAuthApproval';
@@ -527,6 +529,13 @@ const AppContent: React.FC = () => {
     : isBoothMode
     ? { id: 'local-guest-user', email: 'guest@kairon.app' }
     : null;
+
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState<boolean>(false);
+  const isFeedbackOwner = isOwnerFeedbackEmail(user?.email);
+  const unreadFeedbackCount = (useConvexQuery(
+    api.feedback.getUnreadCount,
+    isAuthenticated && isFeedbackOwner ? {} : "skip"
+  ) as number | null | undefined) || 0;
 
   const [profile, setProfile] = useState<Profile | null>(() => {
     if (typeof window !== 'undefined' && (localStorage.getItem('kairon_booth_mode') === 'true' || window.location.search.includes('testBypass=true') || localStorage.getItem('testBypass') === 'true')) {
@@ -3447,7 +3456,18 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 dark:bg-[#0B0C0E] text-slate-900 dark:text-slate-100 transition-colors duration-300 overflow-hidden">
-      <a href="#main-content" className="skip-to-content">
+      <a
+        href="#main-content"
+        onClick={(e) => {
+          e.preventDefault();
+          const mainEl = document.getElementById('main-content');
+          if (mainEl) {
+            mainEl.focus();
+            mainEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }}
+        className="skip-to-content"
+      >
         Skip to main content
       </a>
       {/* =========================================================
@@ -3508,6 +3528,9 @@ const AppContent: React.FC = () => {
           onOpenUpdateChecker={() => setIsUpdateCheckerOpen(true)}
           hasUpdateAvailable={Boolean(latestUpdateResult?.isUpdateAvailable)}
           latestVersionAvailable={latestUpdateResult?.latestVersion}
+          onOpenFeedback={() => setIsFeedbackModalOpen(true)}
+          isFeedbackOwner={isFeedbackOwner}
+          unreadFeedbackCount={unreadFeedbackCount}
         />
       )}
 
@@ -3845,6 +3868,7 @@ const AppContent: React.FC = () => {
             onToggle={setIsSidebarCollapsed}
             onCreateOrg={() => setIsOnboardingManual(true)}
             onStopAllSessions={handleStopAllSessions}
+            unreadFeedbackCount={unreadFeedbackCount}
           />
         )}
 
@@ -3910,7 +3934,17 @@ const AppContent: React.FC = () => {
                   />
                 } />
 
-                <Route path="/guide" element={<UserGuide />} />
+                <Route path="/guide" element={<UserGuide onOpenFeedback={() => setIsFeedbackModalOpen(true)} />} />
+                <Route
+                  path="/beta-inbox"
+                  element={
+                    isFeedbackOwner ? (
+                      <BetaFeedbackInbox userEmail={user?.email} />
+                    ) : (
+                      <Navigate to="/" replace />
+                    )
+                  }
+                />
                 <Route path="/login" element={<Navigate to="/" replace />} />
                 <Route path="/signin" element={<Navigate to="/" replace />} />
                 <Route path="/signup" element={<Navigate to="/" replace />} />
@@ -4157,6 +4191,7 @@ const AppContent: React.FC = () => {
           onOpenUpdateChecker={() => setIsUpdateCheckerOpen(true)}
           isUpdateAvailable={Boolean(latestUpdateResult?.isUpdateAvailable)}
           latestVersion={latestUpdateResult?.latestVersion}
+          onOpenFeedback={() => setIsFeedbackModalOpen(true)}
         />
       )}
 
@@ -4193,6 +4228,14 @@ const AppContent: React.FC = () => {
         onClose={() => setIsUpdateCheckerOpen(false)}
         cachedResult={latestUpdateResult}
         onResultUpdated={setLatestUpdateResult}
+      />
+      <BetaFeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+        source={isElectronRuntime ? 'desktop_app' : 'web_app'}
+        defaultEmail={user?.email && user.email !== 'guest@kairon.app' ? user.email : ''}
+        defaultName={profile?.fullName && profile.fullName !== 'Guest' ? profile.fullName : ''}
+        workspaceName={activeOrg?.name || ''}
       />
       <BroadcastHotkeysModal
         isOpen={isHotkeysOpen}
@@ -4370,6 +4413,8 @@ const AppContent: React.FC = () => {
           onSelectOrg={setActiveOrgId}
           editorProgramId={program.id}
           liveProgramId={displayProgram.id}
+          onOpenFeedback={() => setIsFeedbackModalOpen(true)}
+          unreadFeedbackCount={unreadFeedbackCount}
         />
       )}
 
@@ -4468,21 +4513,22 @@ const StandaloneDispatcher: React.FC = () => {
   const hrefLower = (typeof window !== 'undefined' ? window.location.href : '').toLowerCase();
   const pathLower = (location.pathname || '').toLowerCase();
   const hashLower = (location.hash || '').toLowerCase();
-  const rawHash = hashLower.replace(/^#\/?/, '').split('?')[0];
+  // Only treat hash as a route token when it uses HashRouter syntax ("#/...") so in-page anchors like "#public" never hijack routes
+  const rawHash = hashLower.startsWith('#/') ? hashLower.replace(/^#\//, '').split('?')[0] : '';
   const rawPath = pathLower.replace(/^\//, '').split('?')[0];
   const currentRouteToken = rawHash || rawPath;
 
-  const isTvRoute = currentRouteToken === 'tv' || pathLower === '/tv' || /[\/#]tv(\b|\?|\/)/i.test(hrefLower);
-  const isStageRoute = currentRouteToken === 'stage' || pathLower === '/stage' || /[\/#]stage(\b|\?|\/)/i.test(hrefLower);
-  const isPrompterRoute = currentRouteToken === 'prompter' || pathLower === '/prompter' || /[\/#]prompter(\b|\?|\/)/i.test(hrefLower);
-  const isOverlayRoute = currentRouteToken === 'overlay' || pathLower === '/overlay' || /[\/#]overlay(\b|\?|\/)/i.test(hrefLower);
+  const isTvRoute = currentRouteToken === 'tv' || pathLower === '/tv' || /(?:\/|#\/)tv(\b|\?|\/)/i.test(hrefLower);
+  const isStageRoute = currentRouteToken === 'stage' || pathLower === '/stage' || /(?:\/|#\/)stage(\b|\?|\/)/i.test(hrefLower);
+  const isPrompterRoute = currentRouteToken === 'prompter' || pathLower === '/prompter' || /(?:\/|#\/)prompter(\b|\?|\/)/i.test(hrefLower);
+  const isOverlayRoute = currentRouteToken === 'overlay' || pathLower === '/overlay' || /(?:\/|#\/)overlay(\b|\?|\/)/i.test(hrefLower);
   const isCrewRoute =
     currentRouteToken === 'crew' ||
     pathLower === '/crew' ||
     /^p\/[^/?#]+\/crew$/i.test(currentRouteToken) ||
     /^\/p\/[^/?#]+\/crew$/i.test(pathLower) ||
-    /[\/#]crew(\b|\?|\/)/i.test(hrefLower);
-  const isBridgeRoute = currentRouteToken === 'bridge' || pathLower === '/bridge' || /[\/#]bridge(\b|\?|\/)/i.test(hrefLower);
+    /(?:\/|#\/)crew(\b|\?|\/)/i.test(hrefLower);
+  const isBridgeRoute = currentRouteToken === 'bridge' || pathLower === '/bridge' || /(?:\/|#\/)bridge(\b|\?|\/)/i.test(hrefLower);
   const isPortalRoute =
     currentRouteToken === 'public' ||
     currentRouteToken === 'portal' ||
@@ -4490,7 +4536,7 @@ const StandaloneDispatcher: React.FC = () => {
     pathLower === '/portal' ||
     /^p\/[^/?#]+$/i.test(currentRouteToken) ||
     /^\/p\/[^/?#]+$/i.test(pathLower) ||
-    /[\/#](public|portal)(\b|\?|\/)/i.test(hrefLower);
+    /(?:\/|#\/)(public|portal)(\b|\?|\/)/i.test(hrefLower);
   const isDesktopAuthRoute = location.pathname === '/desktop-auth' || currentRouteToken === 'desktop-auth' || searchParams.has('desktopCode');
   const isPrivacyRoute = currentRouteToken === 'privacy' || pathLower === '/privacy';
   const isTermsRoute = currentRouteToken === 'terms' || pathLower === '/terms';

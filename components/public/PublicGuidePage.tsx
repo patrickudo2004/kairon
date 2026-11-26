@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, PlayCircle, Play, Pause, Volume2, VolumeX, Subtitles } from 'lucide-react';
 import { PublicLayout } from './PublicLayout';
 import { UserGuide } from '../UserGuide';
+import { BetaFeedbackModal } from '../BetaFeedbackModal';
 
 export const PublicGuidePage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const togglePlay = () => {
     const v = videoRef.current;
@@ -64,6 +66,10 @@ export const PublicGuidePage: React.FC = () => {
               </Link>
               <a
                 href="#getting-started"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('getting-started')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] text-slate-200 font-mono text-xs font-bold uppercase tracking-wider transition-all"
               >
                 <span>Jump to Section 1</span>
@@ -156,7 +162,13 @@ export const PublicGuidePage: React.FC = () => {
       </section>
 
       {/* Full Interactive 14-Section Operations Manual */}
-      <UserGuide embeddedPublic />
+      <UserGuide embeddedPublic onOpenFeedback={() => setFeedbackOpen(true)} />
+
+      <BetaFeedbackModal
+        isOpen={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        source="website"
+      />
     </PublicLayout>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Wifi, WifiOff, Monitor, Sparkles, HardDrive, ArrowUpCircle } from 'lucide-react';
+import { Wifi, WifiOff, Monitor, Sparkles, HardDrive, ArrowUpCircle, MessageSquarePlus } from 'lucide-react';
 import { getOfflineLedger } from '../services/offlineSyncLedger';
 import { CURRENT_APP_VERSION } from '../services/updateService';
 
@@ -17,6 +17,7 @@ interface StudioStatusBarProps {
   onOpenUpdateChecker?: () => void;
   isUpdateAvailable?: boolean;
   latestVersion?: string;
+  onOpenFeedback?: () => void;
 }
 
 export const StudioStatusBar: React.FC<StudioStatusBarProps> = ({
@@ -32,6 +33,7 @@ export const StudioStatusBar: React.FC<StudioStatusBarProps> = ({
   onOpenUpdateChecker,
   isUpdateAvailable,
   latestVersion,
+  onOpenFeedback,
 }) => {
   const [wallClock, setWallClock] = useState<string>(() =>
     new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -144,6 +146,21 @@ export const StudioStatusBar: React.FC<StudioStatusBarProps> = ({
           <span aria-hidden="true">&middot;</span>
           <Link to="/accessibility" className="hover:text-slate-900 dark:hover:text-white transition-colors">A11y</Link>
         </div>
+
+        {onOpenFeedback && (
+          <>
+            <span className="text-slate-300 dark:text-[#22262E]">|</span>
+            <button
+              type="button"
+              onClick={onOpenFeedback}
+              className="flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:text-sky-500 dark:hover:text-sky-300 font-bold transition-colors cursor-pointer"
+              title="Send Open Beta Feedback"
+            >
+              <MessageSquarePlus size={10} />
+              <span>Beta Feedback</span>
+            </button>
+          </>
+        )}
 
         <span className="hidden xl:inline text-slate-300 dark:text-[#22262E]">|</span>
 

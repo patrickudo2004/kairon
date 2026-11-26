@@ -18,13 +18,15 @@ import {
     Edit3,
     Monitor,
     Radio,
-    Sparkles
+    Sparkles,
+    Inbox
 } from 'lucide-react';
 import { Organization, Profile, Program } from '../types';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import { ProfileDropdown } from './ProfileDropdown';
 import { useTimerSync } from '../hooks/useTimerSync';
 import { formatDuration } from '../utils/time';
+import { isOwnerFeedbackEmail } from './BetaFeedbackModal';
 
 interface SidebarProps {
     activeOrg: Organization | null;
@@ -46,6 +48,7 @@ interface SidebarProps {
     onToggle: (collapsed: boolean) => void;
     onCreateOrg: () => void;
     onStopAllSessions?: () => void;
+    unreadFeedbackCount?: number;
 }
 
 const LiveSessionItem: React.FC<{ 
@@ -182,9 +185,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onCreateOrg,
     onStopAllSessions,
     programId,
-    editorProgramId
+    editorProgramId,
+    unreadFeedbackCount = 0
 }) => {
     const location = useLocation();
+    const isFeedbackOwner = isOwnerFeedbackEmail(user?.email);
 
     const getLinkPath = (base: string) => {
         const idToUse = base === '/editor' ? (editorProgramId || programId) : (selectedLiveId || programId);
@@ -213,8 +218,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {
             title: 'SYSTEM',
             items: [
-                { icon: FileText, label: 'User Guide', path: '/guide' },
-                { icon: Settings, label: 'Workspace', path: '/admin' },
+                { icon: FileText, label: 'User Guide', path: '/guide', badge: 0 },
+                { icon: Settings, label: 'Workspace', path: '/admin', badge: 0 },
+                ...(isFeedbackOwner
+                    ? [{ icon: Inbox, label: 'Beta Inbox', path: '/beta-inbox', badge: unreadFeedbackCount }]
+                    : []),
             ],
         },
     ];
@@ -321,7 +329,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             : 'text-slate-400 dark:text-[#6A7382] group-hover:text-slate-800 dark:group-hover:text-white'
                                     }`}
                                 />
-                                {!isCollapsed && <span className="truncate">{item.label}</span>}
+                                {!isCollapsed && (
+                                    <span className="truncate flex-1">{item.label}</span>
+                                )}
+                                {!isCollapsed && (item as any).badge > 0 && (
+                                    <span className="px-1.5 py-0.5 rounded-full bg-sky-500 text-white text-[9px] font-mono font-extrabold leading-none">
+                                        {(item as any).badge}
+                                    </span>
+                                )}
                             </NavLink>
                         ))}
                     </div>

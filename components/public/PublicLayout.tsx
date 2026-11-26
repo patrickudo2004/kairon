@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, ArrowRight, ShieldCheck, BookOpen, Download, Mail, Radio } from 'lucide-react';
+import { Menu, X, ArrowRight, ShieldCheck, BookOpen, Download, Mail, Radio, MessageSquarePlus } from 'lucide-react';
 import { CURRENT_APP_VERSION } from '../../services/updateService';
+import { BetaFeedbackModal } from '../BetaFeedbackModal';
 
 interface PublicLayoutProps {
   children: React.ReactNode;
@@ -9,6 +10,7 @@ interface PublicLayoutProps {
 
 export const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -16,23 +18,43 @@ export const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
 
   const navigateToSection = (sectionId: string) => {
     setMobileOpen(false);
-    if (location.pathname === '/' || location.pathname === '/welcome') {
+    const scrollTarget = () => {
       const el = document.getElementById(sectionId);
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth' });
-        return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return true;
       }
+      return false;
+    };
+    if (location.pathname === '/' || location.pathname === '/welcome') {
+      if (scrollTarget()) return;
     }
     navigate('/');
-    setTimeout(() => {
-      document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
-    }, 120);
+    // Retry gently until layout settles after route switch
+    let attempts = 0;
+    const tryScroll = () => {
+      attempts += 1;
+      if (scrollTarget() && attempts >= 2) return;
+      if (attempts < 8) setTimeout(tryScroll, 80);
+    };
+    setTimeout(tryScroll, 80);
   };
 
   return (
     <div className="dark min-h-screen bg-[#060709] text-[#E6E9F0] font-sans selection:bg-sky-500/30 selection:text-white flex flex-col relative overflow-x-hidden">
       {/* WCAG 2.4.1 Skip to main content */}
-      <a href="#main-content" className="skip-to-content">
+      <a
+        href="#main-content"
+        onClick={(e) => {
+          e.preventDefault();
+          const mainEl = document.getElementById('main-content');
+          if (mainEl) {
+            mainEl.focus();
+            mainEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }}
+        className="skip-to-content"
+      >
         Skip to main content
       </a>
 
@@ -274,15 +296,25 @@ export const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
             <div>
               <h2 className="text-xs font-mono font-bold uppercase tracking-widest text-white mb-4">Open Beta &amp; Support</h2>
               <p className="text-xs text-[#94A3B8] leading-relaxed mb-4">
-                Testing Kairon at your venue or event? Send feedback, feature requests, or data/accessibility inquiries directly:
+                Testing Kairon at your venue or event? Share feedback, bug reports, or feature requests directly:
               </p>
-              <a
-                href="mailto:patrickudo2004@gmail.com"
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.09] text-xs font-mono text-sky-300 transition-colors"
-              >
-                <Mail size={14} aria-hidden="true" />
-                <span>patrickudo2004@gmail.com</span>
-              </a>
+              <div className="flex flex-col items-start gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setFeedbackOpen(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0369A1] hover:bg-[#0284C7] border border-sky-400/30 text-xs font-mono font-bold text-white shadow-md shadow-sky-950/40 transition-colors cursor-pointer"
+                >
+                  <MessageSquarePlus size={14} aria-hidden="true" />
+                  <span>Send Beta Feedback</span>
+                </button>
+                <a
+                  href="mailto:patrickudo2004@gmail.com"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.09] text-xs font-mono text-sky-300 transition-colors"
+                >
+                  <Mail size={14} aria-hidden="true" />
+                  <span>patrickudo2004@gmail.com</span>
+                </a>
+              </div>
             </div>
           </div>
 
@@ -294,6 +326,12 @@ export const PublicLayout: React.FC<PublicLayoutProps> = ({ children }) => {
           </div>
         </div>
       </footer>
+
+      <BetaFeedbackModal
+        isOpen={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        source="website"
+      />
     </div>
   );
 };

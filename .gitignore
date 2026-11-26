@@ -49,3 +49,7 @@ service report*.pdf
 supabase_*.sql
 report*.png
 
+# Local shareable walkthrough video exports (kept out of git/Vercel bundle)
+walkthrough-videos/
+
+

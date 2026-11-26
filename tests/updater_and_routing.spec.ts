@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { CURRENT_APP_VERSION } from '../services/updateService';
 
 test.describe('Routing & In-App Auto-Update E2E Workflows', () => {
 
@@ -53,21 +54,21 @@ test.describe('Routing & In-App Auto-Update E2E Workflows', () => {
 
     // Verify UpdateCheckerModal is open
     await expect(page.getByRole('heading', { name: 'Kairon Studio Updates' })).toBeVisible();
-    await expect(page.locator('text=Current build: v1.1.3')).toBeVisible();
+    await expect(page.locator(`text=Current build: v${CURRENT_APP_VERSION}`)).toBeVisible();
   });
 
   test('should display "Up to Date" when latest release matches current version', async ({ page }) => {
-    // Intercept GitHub Release API to mock current version v1.1.3
+    // Intercept GitHub Release API to mock current version
     await page.route('**/repos/patrickudo2004/kairon/releases/latest', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           id: 1,
-          tag_name: 'v1.1.3',
-          name: 'Kairon v1.1.3 Stable',
+          tag_name: `v${CURRENT_APP_VERSION}`,
+          name: `Kairon v${CURRENT_APP_VERSION} Stable`,
           body: 'Current stable release.',
-          html_url: 'https://github.com/patrickudo2004/kairon/releases/tag/v1.1.3',
+          html_url: `https://github.com/patrickudo2004/kairon/releases/tag/v${CURRENT_APP_VERSION}`,
           published_at: new Date().toISOString(),
           assets: [],
         }),
@@ -93,23 +94,23 @@ test.describe('Routing & In-App Auto-Update E2E Workflows', () => {
   });
 
   test('should display "New Version Available" with download button when newer release exists', async ({ page }) => {
-    // Intercept GitHub Release API to mock newer version v1.1.4
+    // Intercept GitHub Release API to mock newer version v9.9.9
     await page.route('**/repos/patrickudo2004/kairon/releases/latest', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           id: 2,
-          tag_name: 'v1.1.4',
-          name: 'Kairon v1.1.4 - Upcoming Reliability Update',
+          tag_name: 'v9.9.9',
+          name: 'Kairon v9.9.9 - Upcoming Reliability Update',
           body: '- Added in-app update checker\n- Fixed blank desktop canvas\n- Enhanced stage cue dispatcher',
-          html_url: 'https://github.com/patrickudo2004/kairon/releases/tag/v1.1.4',
+          html_url: 'https://github.com/patrickudo2004/kairon/releases/tag/v9.9.9',
           published_at: new Date().toISOString(),
           assets: [
             {
               id: 101,
-              name: 'Kairon-Setup-1.1.4.exe',
-              browser_download_url: 'https://github.com/patrickudo2004/kairon/releases/download/v1.1.4/Kairon-Setup-1.1.4.exe',
+              name: 'Kairon-Setup-9.9.9.exe',
+              browser_download_url: 'https://github.com/patrickudo2004/kairon/releases/download/v9.9.9/Kairon-Setup-9.9.9.exe',
               size: 85000000,
               content_type: 'application/octet-stream',
             },
@@ -133,7 +134,7 @@ test.describe('Routing & In-App Auto-Update E2E Workflows', () => {
 
     // Verify new version available state
     await expect(page.locator('text=New Version Available')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('text=v1.1.4').first()).toBeVisible();
+    await expect(page.locator('text=v9.9.9').first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Download for/i })).toBeVisible();
     await expect(page.locator('text=Enhanced stage cue dispatcher')).toBeVisible();
   });

@@ -181,7 +181,7 @@ function createMainWindow() {
       url.includes('/bridge') ||
       url.includes('/p/');
 
-    if (!isLocalRoute && (url.startsWith('https://') || url.startsWith('http://'))) {
+    if (!isLocalRoute && (url.startsWith('https://') || url.startsWith('http://') || url.startsWith('mailto:'))) {
       shell.openExternal(url);
       return { action: 'deny' };
     }
@@ -637,9 +637,9 @@ ipcMain.handle('delete-workspace-program', async (event, { filePath }) => {
   }
 });
 
-// IPC: Open external URL in user's default browser
+// IPC: Open external URL in user's default browser or mail client
 ipcMain.handle('open-external-url', async (event, url) => {
-  if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
+  if (url && (url.startsWith('https://') || url.startsWith('http://') || url.startsWith('mailto:'))) {
     shell.openExternal(url);
     return { success: true };
   }

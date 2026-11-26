@@ -16,9 +16,12 @@ import {
     Moon,
     Building2,
     ChevronRight,
-    LogOut
+    LogOut,
+    MessageSquarePlus,
+    Inbox
 } from 'lucide-react';
 import { Organization, Profile } from '../types';
+import { isOwnerFeedbackEmail } from './BetaFeedbackModal';
 
 interface MobileNavProps {
     activeOrg: Organization | null;
@@ -31,6 +34,8 @@ interface MobileNavProps {
     onSelectOrg: (id: string | null) => void;
     editorProgramId?: string | null;
     liveProgramId?: string | null;
+    onOpenFeedback?: () => void;
+    unreadFeedbackCount?: number;
 }
 
 export const MobileNav: React.FC<MobileNavProps> = ({
@@ -43,9 +48,12 @@ export const MobileNav: React.FC<MobileNavProps> = ({
     organizations,
     onSelectOrg,
     editorProgramId,
-    liveProgramId
+    liveProgramId,
+    onOpenFeedback,
+    unreadFeedbackCount = 0
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const isFeedbackOwner = isOwnerFeedbackEmail(user?.email);
     const displayName = (profile as any)?.fullName?.trim() || (profile as any)?.name?.trim() || (user?.email ? user.email.split('@')[0] : 'Kairon User');
     const initial = displayName.charAt(0).toUpperCase();
 
@@ -67,6 +75,9 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         { icon: Calendar, label: 'Calendar', path: '/calendar' },
         { icon: FileText, label: 'User Guide', path: '/guide' },
         { icon: Settings, label: 'Workspace', path: '/admin' },
+        ...(isFeedbackOwner
+            ? [{ icon: Inbox, label: unreadFeedbackCount > 0 ? `Beta Inbox (${unreadFeedbackCount})` : 'Beta Inbox', path: '/beta-inbox' }]
+            : []),
     ];
 
     return (
@@ -205,6 +216,19 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                             </div>
 
                             {/* Footer Utility */}
+                            {onOpenFeedback && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsMenuOpen(false);
+                                        onOpenFeedback();
+                                    }}
+                                    className="w-full p-4 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-[2rem] font-bold text-xs uppercase tracking-widest border border-sky-200 dark:border-sky-500/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                                >
+                                    <MessageSquarePlus size={16} />
+                                    Send Beta Feedback
+                                </button>
+                            )}
                             <button
                                 onClick={() => {
                                     setIsMenuOpen(false);

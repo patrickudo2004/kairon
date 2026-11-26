@@ -32,6 +32,8 @@ import {
   Radio,
   AppWindow,
   ArrowUpCircle,
+  MessageSquarePlus,
+  Inbox,
 } from 'lucide-react';
 
 interface StudioMenuBarProps {
@@ -67,6 +69,9 @@ interface StudioMenuBarProps {
   onOpenUpdateChecker?: () => void;
   hasUpdateAvailable?: boolean;
   latestVersionAvailable?: string;
+  onOpenFeedback?: () => void;
+  isFeedbackOwner?: boolean;
+  unreadFeedbackCount?: number;
 }
 
 type MenuKey = 'file' | 'edit' | 'rundown' | 'live' | 'displays' | 'integrations' | 'window' | 'help' | null;
@@ -104,6 +109,9 @@ export const StudioMenuBar: React.FC<StudioMenuBarProps> = ({
   onOpenUpdateChecker,
   hasUpdateAvailable,
   latestVersionAvailable,
+  onOpenFeedback,
+  isFeedbackOwner,
+  unreadFeedbackCount = 0,
 }) => {
   const [openMenu, setOpenMenu] = useState<MenuKey>(null);
   const menuBarRef = useRef<HTMLDivElement>(null);
@@ -385,6 +393,19 @@ export const StudioMenuBar: React.FC<StudioMenuBarProps> = ({
                     )}
                     <MenuItem icon={HelpCircle} label="Interactive Studio User Guide" onClick={() => navigate('/guide')} />
                     <MenuItem icon={Keyboard} label="Broadcast Hotkeys Cheat Sheet" shortcut="?" onClick={onOpenHotkeys} />
+                    {onOpenFeedback && (
+                      <>
+                        <MenuDivider />
+                        <MenuItem icon={MessageSquarePlus} label="Send Open Beta Feedback..." onClick={onOpenFeedback} />
+                      </>
+                    )}
+                    {isFeedbackOwner && (
+                      <MenuItem
+                        icon={Inbox}
+                        label={unreadFeedbackCount > 0 ? `Private Beta Inbox (${unreadFeedbackCount} new)` : 'Private Beta Inbox'}
+                        onClick={() => navigate('/beta-inbox')}
+                      />
+                    )}
                   </>
                 )}
               </div>

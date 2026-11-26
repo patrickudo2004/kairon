@@ -112,5 +112,39 @@ export default defineSchema({
         createdAt: v.number(),
         expiresAt: v.number(),
     }).index("by_code", ["code"]),
+
+    betaFeedback: defineTable({
+        category: v.union(
+            v.literal("bug"),
+            v.literal("feature"),
+            v.literal("ux"),
+            v.literal("praise"),
+            v.literal("other")
+        ),
+        rating: v.optional(v.number()),
+        message: v.string(),
+        contactEmail: v.optional(v.string()),
+        contactName: v.optional(v.string()),
+        source: v.union(
+            v.literal("website"),
+            v.literal("web_app"),
+            v.literal("desktop_app")
+        ),
+        appVersion: v.string(),
+        pageRoute: v.optional(v.string()),
+        platformInfo: v.optional(v.string()),
+        workspaceName: v.optional(v.string()),
+        userId: v.optional(v.string()),
+        status: v.union(
+            v.literal("new"),
+            v.literal("reviewed"),
+            v.literal("planned"),
+            v.literal("resolved")
+        ),
+        ownerNotes: v.optional(v.string()),
+        createdAt: v.number(),
+    })
+        .index("by_created", ["createdAt"])
+        .index("by_status", ["status", "createdAt"]),
 });
 

@@ -173,6 +173,13 @@ export const useQuery = (query: any, args: any) => {
         }
         return list;
     }
+    if (path.includes('listFeedback')) {
+        return safeJsonParse(localStorage.getItem('kairon_mock_feedback'), []);
+    }
+    if (path.includes('getUnreadCount')) {
+        const list = safeJsonParse<any[]>(localStorage.getItem('kairon_mock_feedback'), []);
+        return list.filter((i) => i.status === 'new').length;
+    }
     return null;
 };
 
@@ -230,6 +237,28 @@ export const useMutation = (mutation: any) => {
             localStorage.setItem('test_acknowledgements', JSON.stringify(list));
             window.dispatchEvent(new Event('storage'));
             window.dispatchEvent(new Event('program_update'));
+            return { success: true };
+        }
+        if (path.includes('updateFeedback')) {
+            const list = safeJsonParse<any[]>(localStorage.getItem('kairon_mock_feedback'), []);
+            const next = list.map((item) =>
+                String(item._id) === String(args.id)
+                    ? {
+                        ...item,
+                        ...(args.status !== undefined ? { status: args.status } : {}),
+                        ...(args.ownerNotes !== undefined ? { ownerNotes: args.ownerNotes } : {}),
+                    }
+                    : item
+            );
+            localStorage.setItem('kairon_mock_feedback', JSON.stringify(next));
+            window.dispatchEvent(new Event('storage'));
+            return { success: true };
+        }
+        if (path.includes('deleteFeedback')) {
+            const list = safeJsonParse<any[]>(localStorage.getItem('kairon_mock_feedback'), []);
+            const next = list.filter((item) => String(item._id) !== String(args.id));
+            localStorage.setItem('kairon_mock_feedback', JSON.stringify(next));
+            window.dispatchEvent(new Event('storage'));
             return { success: true };
         }
         return {};

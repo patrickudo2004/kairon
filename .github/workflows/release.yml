@@ -10,11 +10,70 @@ permissions:
   contents: write
 
 jobs:
+  preflight-verify:
+    name: Pre-Flight Verify (TypeScript, Web & Electron Builds)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: TypeScript Type Check
+        run: npx tsc --noEmit
+
+      - name: Verify Electron Main & Preload Syntax
+        run: |
+          node --check electron/main.cjs
+          node --check electron/preload.cjs
+
+      - name: Verify Web Production Build
+        run: npm run build
+        env:
+          VITE_CONVEX_URL: "https://majestic-gecko-369.convex.cloud"
+
+      - name: Verify Electron Production Build
+        run: npm run build
+        env:
+          ELECTRON_BUILD: "true"
+          VITE_CONVEX_URL: "https://majestic-gecko-369.convex.cloud"
+
+      - name: Prepare Atomic Draft Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          node -e '
+            const { execSync } = require("child_process");
+            const tag = process.env.TAG;
+            const repo = process.env.REPO;
+            const listRaw = execSync(`gh api "repos/${repo}/releases?per_page=30"`, { encoding: "utf8" });
+            const releases = JSON.parse(listRaw);
+            const existing = releases.find((r) => r.tag_name === tag);
+            if (existing) {
+              console.log(`Existing release #${existing.id} found for ${tag} (draft=${existing.draft}). Reusing.`);
+            } else {
+              execSync(`gh release create "${tag}" --draft --title "Kairon Studio ${tag}" --generate-notes`, { stdio: "inherit" });
+              console.log(`Created atomic draft release for ${tag}.`);
+            }
+          '
+
   build-and-release:
-    name: Build & Publish (${{ matrix.os }})
+    name: Build & Upload (${{ matrix.os }})
+    needs: preflight-verify
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
 
@@ -37,16 +96,59 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Build Web Distribution
+      - name: Build Electron Distribution
         run: npm run build
         env:
           ELECTRON_BUILD: "true"
           VITE_CONVEX_URL: "https://majestic-gecko-369.convex.cloud"
 
-      - name: Package & Publish Electron Release
+      - name: Package & Upload Desktop Installers
         run: npx electron-builder --publish always
         env:
           VITE_CONVEX_URL: "https://majestic-gecko-369.convex.cloud"
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+  publish-release:
+    name: Verify Assets & Publish Official Latest Release
+    needs: build-and-release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verify All 3 OS Bundles & Flip Draft to Published Latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          node -e '
+            const { execSync } = require("child_process");
+            const tag = process.env.TAG;
+            const repo = process.env.REPO;
+            const listRaw = execSync(`gh api "repos/${repo}/releases?per_page=30"`, { encoding: "utf8" });
+            const releases = JSON.parse(listRaw);
+            const rel = releases.find((r) => r.tag_name === tag);
+            if (!rel) {
+              console.error(`ERROR: Release for ${tag} not found!`);
+              process.exit(1);
+            }
+            const names = (rel.assets || []).map((a) => a.name);
+            console.log(`Found ${names.length} uploaded assets for ${tag}:`);
+            names.forEach((n) => console.log("  -", n));
+
+            const hasExe = names.some((n) => n.toLowerCase().endsWith(".exe"));
+            const hasDmg = names.some((n) => n.toLowerCase().endsWith(".dmg"));
+            const hasAppImage = names.some((n) => n.toLowerCase().endsWith(".appimage"));
+            if (!hasExe || !hasDmg || !hasAppImage) {
+              console.error(`ERROR: Missing platform bundle! exe=${hasExe}, dmg=${hasDmg}, appImage=${hasAppImage}`);
+              process.exit(1);
+            }
+
+            execSync(
+              `gh api -X PATCH "repos/${repo}/releases/${rel.id}" -F draft=false -f make_latest=true`,
+              { stdio: "inherit" }
+            );
+            console.log(`SUCCESS: Published Kairon Studio ${tag} as Latest -> https://github.com/${repo}/releases/tag/${tag}`);
+          '
